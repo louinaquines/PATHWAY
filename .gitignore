@@ -1,0 +1,52 @@
+# Local credentials and environment configuration
+.env*
+**/.env*
+*serviceAccount*.json
+**/*serviceAccount*.json
+firebase-adminsdk*.json
+**/firebase-adminsdk*.json
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# Dependencies, generated builds, caches, and local emulator artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+web-build/
+**/web-build/
+coverage/
+**/coverage/
+.expo/
+**/.expo/
+.expo-*/
+**/.expo-*/
+.firebase/
+**/.firebase/
+.firebase-cache/
+**/.firebase-cache/
+.paddlex/
+**/.paddlex/
+# Python bytecode and local tooling output
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+**/.mypy_cache/
+*.log
+**/.claude/settings.json
+**/.claude/settings.local.json
+
+# Keep the project manuscript and its extracted private working files out
+/PATHWAY-OJT-Management-System-with-AI-Analytics-1.docx
+/.docx_extracted/

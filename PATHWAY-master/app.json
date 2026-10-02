@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "PATHWAY",
+    "slug": "pathway-app3",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/pathway-app-icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/pathway-splash-image.png",
+      "imageWidth": 188,
+      "resizeMode": "contain",
+      "backgroundColor": "#041832"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/pathway-adaptive-foreground.png",
+        "backgroundColor": "#F5F8FF"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/pathway-favicon.png"
+    }
+  }
+}

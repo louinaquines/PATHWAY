@@ -1,0 +1,241 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userRecord() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && userRecord().data.role == 'admin';
+    }
+
+    function isCoordinator() {
+      return signedIn() && userRecord().data.role == 'coordinator';
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isCoordinatorForDepartment(department) {
+      return isCoordinator() && userRecord().data.department == department;
+    }
+
+    function isCoordinatorForSection(sectionId) {
+      return isCoordinator()
+        && sectionId is string
+        && get(/databases/$(database)/documents/sections/$(sectionId)).data.coordinatorId == request.auth.uid
+        && get(/databases/$(database)/documents/sections/$(sectionId)).data.department == userRecord().data.department;
+    }
+
+    function studentInCoordinatorSection(student) {
+      return isCoordinatorForSection(student.sectionId);
+    }
+
+    function coordinatorMayReview(resourceData) {
+      return isCoordinatorForSection(resourceData.sectionId)
+        && resourceData.department == userRecord().data.department;
+    }
+
+    match /users/{userId} {
+      // Users need to read their own profile for role-based routing.
+      // Coordinators need to read student profiles for their dashboard queries.
+      allow read: if isOwner(userId) || isAdmin()
+        || (resource.data.role == 'student'
+          && resource.data.sectionId is string
+          && resource.data.sectionId != ''
+          && studentInCoordinatorSection(resource.data))
+        || (resource.data.role == 'student'
+          && resource.data.sectionId == ''
+          && isCoordinatorForDepartment(resource.data.department));
+
+      // Student profiles are created by the authenticated registration endpoint,
+      // which claims the authorized roster row atomically.
+      allow create: if false;
+
+      // Students may update only their own editable profile/submission fields.
+      allow update: if (isAdmin()
+          && isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'firstName', 'lastName', 'department', 'phone', 'updatedAt'
+          ]))
+        || (isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'firstName', 'lastName', 'phone', 'updatedAt'
+          ])
+          && request.resource.data.email == resource.data.email)
+        || (coordinatorMayReview(resource.data)
+          && resource.data.role == 'student'
+          && request.resource.data.role == 'student'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'company', 'companyId', 'companyAddress',
+            'companyIndustry', 'companyEmail', 'companyPhone', 'supervisorName', 'supervisorPosition',
+            'supervisorEmail', 'supervisorPhone', 'internshipRole', 'startDate', 'endDate',
+            'workArrangement', 'placementStatus', 'placementProposalId'
+          ]));
+
+      // Account deletion must go through a dedicated deprovisioning workflow so
+      // Firebase Auth and the user's related records cannot be left orphaned.
+      allow delete: if false;
+
+      match /attendance/{attendanceId} {
+        allow read: if isOwner(userId) || isAdmin()
+          || (get(/databases/$(database)/documents/users/$(userId)).data.sectionId is string
+            && isCoordinatorForSection(get(/databases/$(database)/documents/users/$(userId)).data.sectionId));
+        // Attendance and hours are written atomically by the authenticated backend.
+        allow create, update, delete: if false;
+      }
+
+      match /logbook/{entryId} {
+        allow read: if isOwner(userId) || isAdmin()
+          || (get(/databases/$(database)/documents/users/$(userId)).data.sectionId is string
+            && isCoordinatorForSection(get(/databases/$(database)/documents/users/$(userId)).data.sectionId));
+        allow create: if isOwner(userId)
+          && request.resource.data.status in ['draft', 'pending']
+          && request.resource.data.rawNotes is string
+          && request.resource.data.rawNotes.size() <= 8000
+          && request.resource.data.refined is string
+          && request.resource.data.refined.size() <= 8000
+          && request.resource.data.hours is number
+          && request.resource.data.hours > 0
+          && request.resource.data.hours <= 168
+          && request.resource.data.keys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'weekNum', 'weekRange', 'hours', 'status', 'createdAt', 'updatedAt']);
+        allow update: if isAdmin()
+          || (isOwner(userId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'rawNotes', 'refined', 'weekNum', 'weekRange', 'hours', 'status',
+              'createdAt'
+            ])
+            && resource.data.status == 'draft'
+            && request.resource.data.status in ['draft', 'pending']);
+        allow delete: if isAdmin() || (isOwner(userId) && resource.data.status == 'draft');
+      }
+    }
+
+    match /studentRoster/{studentId} {
+      allow get: if isAdmin() || (isCoordinator() && resource.data.department == userRecord().data.department);
+      allow list: if isAdmin() || (isCoordinator() && resource.data.department == userRecord().data.department);
+      allow create: if isAdmin()
+        && request.resource.data.idNumber == studentId;
+      allow update: if isAdmin()
+        && request.resource.data.idNumber == resource.data.idNumber;
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && resource.data.recipientId == request.auth.uid;
+      allow update: if signedIn() && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+        && request.resource.data.recipientId == resource.data.recipientId;
+      // Notifications are emitted with their source operation by authenticated
+      // backend transactions; clients may only read and acknowledge their own.
+      allow create: if false;
+      allow delete: if isAdmin() || (signedIn() && resource.data.recipientId == request.auth.uid);
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid in resource.data.participantIds);
+
+      // New messages and their recipient notifications are created atomically
+      // through the authenticated backend endpoint.
+      allow create: if false;
+
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participantIds
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+
+      allow delete: if isAdmin();
+    }
+
+    match /companies/{companyId} {
+      allow read: if signedIn();
+      // Company directory changes must pass through admin backend endpoints so
+      // capacity counters and audit records stay in sync.
+      allow write: if false;
+    }
+
+    match /companyProposals/{proposalId} {
+      allow read: if signedIn()
+        && (isAdmin()
+          || coordinatorMayReview(resource.data)
+          || resource.data.studentId == request.auth.uid);
+      // Student submissions, coordinator decisions, notifications, and audit
+      // rows are committed together through authenticated backend endpoints.
+      allow create, update, delete: if false;
+    }
+
+    match /placementHistory/{historyId} {
+      allow read: if signedIn()
+        && (isAdmin()
+          || coordinatorMayReview(resource.data)
+          || resource.data.studentId == request.auth.uid);
+      // History snapshots are immutable and created with coordinator approval.
+      allow create, update, delete: if false;
+    }
+
+    match /endorsements/{endorsementId} {
+      allow read: if signedIn()
+        && (isAdmin()
+          || coordinatorMayReview(resource.data)
+          || resource.data.studentId == request.auth.uid);
+      // This is a server-authored preparation record, not a signed or delivered
+      // letter. Clients cannot mark it issued or alter the placement snapshot.
+      allow create, update, delete: if false;
+    }
+
+    match /finalReviewRequests/{requestId} {
+      allow read: if signedIn()
+        && (isAdmin()
+          || coordinatorMayReview(resource.data)
+          || resource.data.studentId == request.auth.uid);
+      // Keep ownership, section assignment, snapshots, and review state
+      // server-controlled. The backend also prevents duplicate pending requests.
+      allow create, update, delete: if false;
+    }
+
+    // These collections are managed through authenticated backend endpoints.
+    // Coordinators may read schedule settings for analytics, but only Admin SDK
+    // operations may write them or create/read audit records.
+    match /systemSettings/{settingId} {
+      allow read: if isAdmin() || isCoordinator();
+      allow write: if false;
+    }
+
+    match /academicTerms/{termId} {
+      allow read: if isAdmin() || isCoordinator();
+      allow write: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Cloudinary upload authorizations are created and consumed only by the
+    // authenticated backend; client access would permit intent theft/replay.
+    match /cloudinaryUploadIntents/{intentId} {
+      allow read, write: if false;
+    }
+
+    match /sections/{sectionId} {
+      allow read: if isAdmin() || (isCoordinator() && resource.data.coordinatorId == request.auth.uid)
+        || (signedIn() && userRecord().data.role == 'student' && userRecord().data.sectionId == sectionId);
+      // Mutations go through backend operations that create audit records atomically.
+      allow create, update, delete: if false;
+
+      match /requirements/{requirementId} {
+        allow read: if isAdmin()
+          || (isCoordinator() && get(/databases/$(database)/documents/sections/$(sectionId)).data.coordinatorId == request.auth.uid)
+          || (isOwner(request.auth.uid)
+            && userRecord().data.sectionId == sectionId);
+        allow write: if false;
+      }
+    }
+  }
+}

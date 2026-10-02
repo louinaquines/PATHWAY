@@ -1,0 +1,32 @@
+{
+  "name": "pathway-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "npm run test:security",
+    "test:security": "node security-tests/run-emulator-tests.js",
+    "dev:emulator": "node security-tests/start-emulator-workflow.js",
+    "emulator:seed": "node security-tests/seed-workflow-emulator.js",
+    "emulator:decision": "node security-tests/emulator-coordinator-action.js",
+    "emulator:workflow-smoke": "node security-tests/emulator-workflow-smoke.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "firebase-admin": "^14.0.0",
+    "nodemailer": "^10.0.13"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.31.0",
+    "smtp-server": "^3.19.16"
+  }
+}

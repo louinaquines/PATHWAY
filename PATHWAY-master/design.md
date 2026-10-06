@@ -6,8 +6,8 @@ PATHWAY should feel dependable, calm, and quick to understand. Students use it t
 
 ## Brand and color
 
-- PATHWAY navy anchors navigation and high-emphasis surfaces.
-- Blue is the primary interactive color for actions, links, and selected states.
+- Light, low-chroma neutrals anchor the workspace; avoid large navy surfaces.
+- Use the logo's clear cobalt blue for actions, links, and selected states, with gold as a restrained accent.
 - Gold is a restrained brand accent for progress and emphasis; do not use it for small text on white.
 - White and cool, low-chroma neutrals form the everyday workspace.
 - Semantic success, warning, and danger colors communicate state independently of brand color.
@@ -18,7 +18,7 @@ PATHWAY should feel dependable, calm, and quick to understand. Students use it t
 - Use the locally bundled **Newsreader** for editorial screen titles and the primary OJT-hours figure; use **IBM Plex Sans** for body copy, labels, controls, forms, and dense data. The local font files are loaded once through Expo Font; do not fetch fonts remotely.
 - Prefer regular and medium weights for reading. Use semibold/bold faces for hierarchy, not heavy weights or wide tracking on ordinary copy. On Android, select the matching bundled face per weight; if font loading fails, retain the platform's native family and declared weights.
 - Apply the shared student `AppText` and `AppTextInput` wrappers so headings, screen copy, placeholders, and entered text use consistent type rules.
-- Use the approved 2026 cutout at `assets/pathway-logo-2026-cutout.png` through the shared `PathwayMark` component. Do not redraw or approximate the PATHWAY mark with SVG. The transparent asset is also used for subtle, clipped watermarks; on dark surfaces, give the mark a light backing so its navy shapes remain visible. Platform icons and the native launch image are generated from this same approved artwork with suitable light backgrounds.
+- Use the approved 2026 cutout at `assets/pathway-logo-2026-cutout.png` through the shared `PathwayMark` component. Do not redraw or approximate the PATHWAY mark with SVG. Keep the artwork transparent on app screens and watermarks—do not place it on an opaque rounded tile. Maintain contrast by choosing a suitable surrounding surface; platform icons may use an intentional background required by their format.
 
 ### Student Home pilot
 

@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
-  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -14,19 +12,21 @@ import {
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
-import { signOut } from 'firebase/auth';
+import { studentAlert as Alert } from '../services/studentAlert';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
-import PathwayWatermark from '../components/PathwayWatermark';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
-import PathwayMark from '../components/PathwayMark';
+import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import useStudentLogout from '../hooks/useStudentLogout';
+import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
+import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
+import PreDeploymentStepper from '../components/PreDeploymentStepper';
+import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
 import {
   AlertCircleIcon,
-  BellIcon,
   CheckCircleIcon,
   FileIcon,
-  MenuIcon,
   SearchIcon,
   BuildingIcon,
   ArrowRightIcon,
@@ -52,10 +52,10 @@ const EMPTY_FORM = {
 
 const statusLabel = {
   draft: 'Draft',
-  pending_review: 'Pending coordinator review',
+  pending_review: 'In review',
   approved: 'Approved',
-  needs_revision: 'Needs revision',
-  rejected: 'Rejected — edit and resubmit',
+  needs_revision: 'Needs update',
+  rejected: 'Resubmit',
 };
 
 export default function CompanyScreen({ navigation }) {
@@ -72,6 +72,7 @@ export default function CompanyScreen({ navigation }) {
   const [requirementsComplete, setRequirementsComplete] = useState(false);
   const [search, setSearch] = useState('');
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
+  const { loggingOut, logout } = useStudentLogout(navigation);
   const [showNotifications, setShowNotifications] = useState(false);
   const [placementChangeMode, setPlacementChangeMode] = useState(false);
 
@@ -79,7 +80,8 @@ export default function CompanyScreen({ navigation }) {
 
   useEffect(() => {
     loadCompanyData();
-  }, []);
+    return navigation.addListener('focus', loadCompanyData);
+  }, [navigation, uid]);
 
   useEffect(() => {
     const handleBack = () => {
@@ -138,6 +140,7 @@ export default function CompanyScreen({ navigation }) {
       !term || [company.name, company.address, company.industry].some(value => String(value || '').toLowerCase().includes(term))
     ));
   }, [companies, search]);
+  const activeCompanyCount = companies.filter(company => company.status !== 'inactive').length;
 
   const updateField = (field, value) => setForm(previous => ({ ...previous, [field]: value }));
 
@@ -197,10 +200,7 @@ export default function CompanyScreen({ navigation }) {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
+  const handleLogout = logout;
 
   const startPlacementChange = () => {
     const { id, status, createdAt, updatedAt, reviewReason: previousReason, studentId, studentName, department, sectionId, ...draft } = form;
@@ -213,6 +213,21 @@ export default function CompanyScreen({ navigation }) {
 
   const canEdit = ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
   const showEditor = canEdit || placementChangeMode;
+  const placementApproved = proposalStatus === 'approved';
+  const placementNeedsAttention = ['needs_revision', 'rejected'].includes(proposalStatus);
+  const placementUnderReview = proposalStatus === 'pending_review';
+  const placementStatusMessage = {
+    not_started: 'Choose a company or propose a new placement to get started.',
+    draft: 'Your placement details are saved. Finish them and submit when ready.',
+    pending_review: 'Your request is with your coordinator. You can review it here while you wait.',
+    approved: 'Your company placement has been confirmed.',
+    needs_revision: 'Review the coordinator note, update your details, then resubmit.',
+    rejected: 'Update your placement details and submit them again for review.',
+  }[proposalStatus] || 'Your placement status will appear here.';
+
+  if (loggingOut) {
+    return <StudentLogoutScreen />;
+  }
 
   if (loading) {
     return <StudentScreenSkeleton variant="placement" />;
@@ -221,53 +236,90 @@ export default function CompanyScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      <View style={[styles.topBar, isNarrow && styles.topBarNarrow]}>
-        <PathwayWatermark size={152} opacity={0.045} style={{ right: -47, top: -56 }} />
-        <TouchableOpacity style={styles.iconButton} onPress={() => setShowMenuDrawer(true)} accessibilityLabel="Open menu">
-          <MenuIcon size={20} color={COLORS.primaryDark} />
-        </TouchableOpacity>
-        <PathwayMark size={42} />
-        <TouchableOpacity style={styles.iconButton} onPress={() => setShowNotifications(true)} accessibilityLabel="Open notifications">
-          <BellIcon size={21} color={COLORS.primaryDark} hasUnread={false} />
-        </TouchableOpacity>
-      </View>
+      <PreDeploymentTopBar
+        onMenuPress={() => setShowMenuDrawer(true)}
+        onNotificationsPress={() => setShowNotifications(true)}
+      />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: isNarrow ? 14 : 20 }]} showsVerticalScrollIndicator={false}>
-        <Text style={styles.subheading}>Pre-deployment Pipeline</Text>
-        <Text variant="heading" style={styles.heading}>Company Placement</Text>
-
-        <View style={styles.stepper}>
-          <View style={styles.stepTrackLine} />
-          {requirementsComplete && <View style={styles.stepTrackProgress} />}
-          {['Doc Submission', 'Company', 'Review', 'Approval'].map((label, index) => (
-            <TouchableOpacity key={label} style={styles.stepItem} activeOpacity={0.75} onPress={() => {
-              if (index === 0) navigation.replace('Requirements');
-              if (index === 2) navigation.replace('Review');
-              if (index === 3) navigation.replace('Approval');
-            }} accessibilityRole="button" accessibilityLabel={`Open ${label} step`}>
-              <View style={[styles.stepCircle, index === 1 ? styles.stepActive : styles.stepInactive, index === 0 && requirementsComplete && styles.stepComplete]}><Text style={[styles.stepNumber, index === 1 && styles.stepNumberActive, index === 0 && requirementsComplete && styles.stepNumberComplete]}>{index + 1}</Text></View>
-              <Text style={[styles.stepLabel, index === 1 && styles.stepLabelActive]}>{label}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.pageHeading}>
+          <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 2</Text>
+          <Text variant="heading" style={styles.heading}>Company Placement</Text>
+          <Text style={styles.pageDescription}>Choose where you’ll complete your OJT and submit the placement details for coordinator review.</Text>
         </View>
+
+        <PreDeploymentStepper
+          activeStep={2}
+          completedSteps={requirementsComplete ? [1] : []}
+          onStepPress={step => {
+            if (step === 1) navigation.replace('Requirements');
+            if (step === 3) navigation.replace('Review');
+            if (step === 4) navigation.replace('Approval');
+          }}
+        />
 
         <View style={styles.statusCard}>
           <View style={styles.statusHeadingRow}>
-            <View style={styles.statusIcon}><FileIcon size={20} color={COLORS.primary} /></View>
-            <View style={styles.flex}><Text style={styles.cardTitle}>Placement status</Text><Text style={styles.cardSubtitle}>{statusLabel[proposalStatus] || 'Not started'}</Text></View>
-            {proposalStatus === 'approved' && <CheckCircleIcon size={22} color={COLORS.successDark} />}
-            {proposalStatus === 'needs_revision' && <AlertCircleIcon size={22} color={COLORS.danger} />}
+            <View style={[
+              styles.statusIcon,
+              placementApproved && styles.statusIconSuccess,
+              placementNeedsAttention && styles.statusIconIssue,
+              placementUnderReview && styles.statusIconReview,
+            ]}>
+              {placementApproved
+                ? <CheckCircleIcon size={20} color={COLORS.successDark} />
+                : placementNeedsAttention
+                  ? <AlertCircleIcon size={20} color={COLORS.dangerDark} />
+                  : placementUnderReview
+                    ? <FileIcon size={20} color={COLORS.warningDark} />
+                    : <BuildingIcon size={20} color={COLORS.primary} />}
+            </View>
+            <View style={styles.flex}>
+              <Text style={styles.cardTitle}>Placement status</Text>
+              <Text style={styles.cardSubtitle}>{placementStatusMessage}</Text>
+            </View>
+            <View style={[
+              styles.statusPill,
+              placementApproved && styles.statusPillSuccess,
+              placementNeedsAttention && styles.statusPillIssue,
+              placementUnderReview && styles.statusPillReview,
+            ]}>
+              <Text style={[
+                styles.statusPillText,
+                placementApproved && styles.statusPillTextSuccess,
+                placementNeedsAttention && styles.statusPillTextIssue,
+                placementUnderReview && styles.statusPillTextReview,
+              ]}>{statusLabel[proposalStatus] || 'Not started'}</Text>
+            </View>
           </View>
-          {!!reviewReason && <Text style={styles.reviewReason}>Coordinator note: {reviewReason}</Text>}
+          {!!reviewReason && (
+            <View style={styles.reviewReasonCard}>
+              <Text style={styles.reviewReasonLabel}>COORDINATOR FEEDBACK</Text>
+              <Text style={styles.reviewReason}>{reviewReason}</Text>
+            </View>
+          )}
         </View>
 
-        {proposalStatus === 'pending_review' && <View style={styles.pendingCard}><Text style={styles.sectionTitle}>Waiting for coordinator review</Text><Text style={styles.helpText}>Your placement request has been submitted. You cannot submit it again until your coordinator responds.</Text></View>}
+        {proposalStatus === 'pending_review' && (
+          <View style={styles.pendingCard}>
+            <View style={styles.pendingIcon}><FileIcon size={18} color={COLORS.warningDark} /></View>
+            <View style={styles.pendingCopy}>
+              <Text style={styles.sectionTitle}>What happens next</Text>
+              <Text style={styles.pendingText}>Your coordinator will review the company and placement details. You can’t resubmit until they respond.</Text>
+            </View>
+          </View>
+        )}
 
         {showEditor && (
           <>
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Choose an existing company</Text>
-              <Text style={styles.helpText}>Search the active company directory or propose a new company below.</Text>
+              <View style={styles.cardSectionHeading}>
+                <View style={styles.sectionIcon}><SearchIcon size={18} color={COLORS.primary} /></View>
+                <View style={styles.flex}>
+                  <Text style={styles.sectionTitle}>Find a company</Text>
+                  <Text style={styles.sectionDescription}>Search the directory, or enter a new company below.</Text>
+                </View>
+              </View>
               <View style={styles.searchBarContainer}>
                 <SearchIcon size={18} color={COLORS.textMuted} />
                 <TextInput
@@ -278,34 +330,47 @@ export default function CompanyScreen({ navigation }) {
                   placeholderTextColor={COLORS.textPlaceholder}
                 />
               </View>
+              {!search.trim() && (
+                <View style={styles.directoryHint}>
+                  <BuildingIcon size={15} color={COLORS.secondary} />
+                  <Text style={styles.directoryHintText}>{activeCompanyCount} active {activeCompanyCount === 1 ? 'company' : 'companies'} in the directory</Text>
+                </View>
+              )}
               {search.trim() !== '' && filteredCompanies.map(company => (
                 <TouchableOpacity key={company.id} style={styles.companyResult} onPress={() => selectCompany(company)} activeOpacity={0.8}>
                   <View style={styles.companyResultIcon}><BuildingIcon size={18} color={COLORS.secondary} /></View>
-                  <View style={styles.flex}><Text style={styles.companyResultName}>{company.name}</Text><Text style={styles.companyResultMeta}>{company.industry || 'Industry not listed'} · {company.address || 'Address not listed'}</Text><Text style={styles.companyResultSlots}>{company.availableSlots ?? '—'} internship slots</Text></View>
+                  <View style={styles.flex}><Text style={styles.companyResultName}>{company.name}</Text><Text style={styles.companyResultMeta} numberOfLines={1}>{company.industry || 'Industry not listed'} · {company.address || 'Address not listed'}</Text><Text style={styles.companyResultSlots}>{company.availableSlots ?? '—'} internship slots</Text></View>
+                  <ArrowRightIcon size={16} color={COLORS.primary} />
                 </TouchableOpacity>
               ))}
               {search.trim() !== '' && filteredCompanies.length === 0 && <Text style={styles.emptyText}>No active company found. You can propose a new company below.</Text>}
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{form.companyId ? 'Selected company details' : 'Propose a new company'}</Text>
-              <Text style={styles.helpText}>Complete the placement details for coordinator review.</Text>
+              <View style={styles.cardSectionHeading}>
+                <View style={styles.sectionIcon}><BuildingIcon size={18} color={COLORS.primary} /></View>
+                <View style={styles.flex}>
+                  <Text style={styles.sectionTitle}>{form.companyId ? 'Selected company' : 'Company details'}</Text>
+                  <Text style={styles.sectionDescription}>{form.companyId ? 'Confirm the directory details and add your placement information.' : 'Propose a company and provide the details for coordinator review.'}</Text>
+                </View>
+              </View>
+              <Text style={styles.formGroupTitle}>COMPANY</Text>
               <Field label="Company name" value={form.companyName} onChangeText={value => updateField('companyName', value)} editable={showEditor} />
               <Field label="Company address" value={form.companyAddress} onChangeText={value => updateField('companyAddress', value)} editable={showEditor} />
               <Field label="Industry or type" value={form.companyIndustry} onChangeText={value => updateField('companyIndustry', value)} editable={showEditor} />
-              <View style={styles.row}><Field label="Company email" value={form.companyEmail} onChangeText={value => updateField('companyEmail', value)} editable={showEditor} half /><Field label="Company phone" value={form.companyPhone} onChangeText={value => updateField('companyPhone', value)} editable={showEditor} half /></View>
+              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Company email" value={form.companyEmail} onChangeText={value => updateField('companyEmail', value)} editable={showEditor} half={!isNarrow} /><Field label="Company phone" value={form.companyPhone} onChangeText={value => updateField('companyPhone', value)} editable={showEditor} half={!isNarrow} /></View>
               <Text style={styles.formGroupTitle}>Supervisor</Text>
               <Field label="Supervisor name" value={form.supervisorName} onChangeText={value => updateField('supervisorName', value)} editable={showEditor} />
               <Field label="Position" value={form.supervisorPosition} onChangeText={value => updateField('supervisorPosition', value)} editable={showEditor} />
-              <View style={styles.row}><Field label="Supervisor email" value={form.supervisorEmail} onChangeText={value => updateField('supervisorEmail', value)} editable={showEditor} half /><Field label="Supervisor phone" value={form.supervisorPhone} onChangeText={value => updateField('supervisorPhone', value)} editable={showEditor} half /></View>
-              <Text style={styles.formGroupTitle}>Internship details</Text>
+              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Supervisor email" value={form.supervisorEmail} onChangeText={value => updateField('supervisorEmail', value)} editable={showEditor} half={!isNarrow} /><Field label="Supervisor phone" value={form.supervisorPhone} onChangeText={value => updateField('supervisorPhone', value)} editable={showEditor} half={!isNarrow} /></View>
+              <Text style={styles.formGroupTitle}>INTERNSHIP DETAILS</Text>
               <Field label="Internship role or department" value={form.internshipRole} onChangeText={value => updateField('internshipRole', value)} editable={showEditor} />
-              <View style={styles.row}><Field label="Start date" value={form.startDate} onChangeText={value => updateField('startDate', value)} editable={showEditor} half placeholder="YYYY-MM-DD" /><Field label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half placeholder="YYYY-MM-DD" /></View>
+              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Start date" value={form.startDate} onChangeText={value => updateField('startDate', value)} editable={showEditor} half={!isNarrow} placeholder="YYYY-MM-DD" /><Field label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half={!isNarrow} placeholder="YYYY-MM-DD" /></View>
               <Field label="Work arrangement or location" value={form.workArrangement} onChangeText={value => updateField('workArrangement', value)} editable={showEditor} />
               <Field label="Additional notes" value={form.notes} onChangeText={value => updateField('notes', value)} editable={showEditor} multiline />
-              <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => saveProposal('draft')} disabled={saving}><Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save draft'}</Text></TouchableOpacity>
-                <MotionTouchableOpacity style={styles.primaryButton} onPress={() => saveProposal('pending_review')} disabled={saving}><Text style={styles.primaryButtonText}>{saving ? 'Submitting...' : 'Submit for review'}</Text></MotionTouchableOpacity>
+              <View style={[styles.actionRow, isNarrow && styles.actionColumn]}>
+                <TouchableOpacity accessibilityRole="button" style={[styles.secondaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('draft')} disabled={saving}><Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save draft'}</Text></TouchableOpacity>
+                <MotionTouchableOpacity accessibilityRole="button" style={[styles.primaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('pending_review')} disabled={saving}><Text style={styles.primaryButtonText}>{saving ? 'Submitting...' : 'Submit for review'}</Text></MotionTouchableOpacity>
               </View>
             </View>
           </>
@@ -313,115 +378,141 @@ export default function CompanyScreen({ navigation }) {
 
         {proposalStatus === 'approved' && (
           <View style={styles.approvedCard}>
-            <CheckCircleIcon size={24} color={COLORS.successDark} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.approvedTitle}>Placement Approved</Text>
-              <Text style={styles.approvedText}>Your company placement is approved. You can now proceed to Step 3 (Final Review).</Text>
+            <View style={styles.approvedHeadingRow}>
+              <View style={styles.approvedIcon}><CheckCircleIcon size={22} color={COLORS.successDark} /></View>
+              <View style={styles.flex}>
+                <Text style={styles.approvedTitle}>Placement approved</Text>
+                <Text style={styles.approvedText}>You’re ready to continue to the final review step.</Text>
+              </View>
             </View>
             <TouchableOpacity
               style={styles.reviewStepBtn}
               onPress={() => navigation.navigate('Review')}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Continue to final review"
             >
-              <Text style={styles.reviewStepBtnText}>Review Step →</Text>
+              <Text style={styles.reviewStepBtnText}>Continue to final review</Text>
+              <ArrowRightIcon size={17} color={COLORS.textOnPrimary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={startPlacementChange} activeOpacity={0.85}>
+            <TouchableOpacity accessibilityRole="button" style={styles.changeRequestBtn} onPress={startPlacementChange} activeOpacity={0.85}>
               <Text style={styles.secondaryButtonText}>Request placement change</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
 
-      <Modal visible={showNotifications} transparent animationType="slide" onRequestClose={() => setShowNotifications(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowNotifications(false)}>
-          <View style={styles.modalCard}><Text style={styles.modalTitle}>Notifications</Text><Text style={styles.cardSubtitle}>Placement updates from your coordinator will appear here.</Text></View>
-        </TouchableOpacity>
-      </Modal>
+      <PreDeploymentNotificationsSheet visible={showNotifications} onClose={() => setShowNotifications(false)} />
 
-      <Modal visible={showMenuDrawer} transparent animationType="fade" onRequestClose={() => setShowMenuDrawer(false)}>
-        <View style={styles.drawerOverlay}>
-          <TouchableOpacity style={styles.drawerBackdrop} onPress={() => setShowMenuDrawer(false)} activeOpacity={1} />
-          <View style={styles.drawerCard}><Text style={styles.drawerTitle}>PATHWAY</Text><Text style={styles.drawerSubtitle}>OJT Management System</Text><TouchableOpacity style={styles.logoutButton} onPress={handleLogout}><Text style={styles.logoutText}>Log out</Text></TouchableOpacity></View>
-        </View>
-      </Modal>
+      <PreDeploymentDrawer
+        visible={showMenuDrawer}
+        activeRoute="Company"
+        onClose={() => setShowMenuDrawer(false)}
+        onNavigate={route => navigation.replace(route)}
+        onSignOut={handleLogout}
+      />
     </View>
   );
 }
 
 function Field({ label, value, onChangeText, editable, half, multiline, placeholder }) {
-  return <View style={[styles.fieldWrap, half && styles.halfField]}><Text style={styles.label}>{label}</Text><TextInput style={[styles.input, multiline && styles.multiline]} value={value} onChangeText={onChangeText} editable={editable} placeholder={placeholder || label} placeholderTextColor="#94A3B8" multiline={multiline} /></View>;
+  return <View style={[styles.fieldWrap, half && styles.halfField]}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} style={[styles.input, multiline && styles.multiline]} value={value} onChangeText={onChangeText} editable={editable} placeholder={placeholder || label} placeholderTextColor="#94A3B8" multiline={multiline} /></View>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
   gateTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12 },
   gateText: { color: COLORS.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 20, marginTop: 8, marginHorizontal: 28, marginBottom: 18 },
   loadingText: { marginTop: 12, color: COLORS.textSecondary },
-  topBar: { height: Platform.OS === 'ios' ? 94 : 64, paddingTop: Platform.OS === 'ios' ? 44 : 12, paddingHorizontal: 20, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E2E8F0', ...SHADOWS.soft },
+  topBar: { height: Platform.OS === 'ios' ? 94 : 64, paddingTop: Platform.OS === 'ios' ? 44 : 12, paddingHorizontal: 20, backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: COLORS.borderLight, ...SHADOWS.soft },
   topBarNarrow: { paddingHorizontal: 14 },
   iconButton: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' },
+  brandLockup: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brandTitle: { color: COLORS.primary, fontSize: 18, fontWeight: '800', letterSpacing: 2.5 },
-  content: { paddingTop: 20, paddingBottom: 70, width: '100%', maxWidth: 680, alignSelf: 'center' },
-  subheading: { color: COLORS.secondary, fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  heading: { color: COLORS.textPrimary, fontSize: 24, fontWeight: '800', marginBottom: 20 },
-  stepper: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, position: 'relative' },
-  stepTrackLine: { position: 'absolute', left: '12%', right: '12%', top: 16, height: 2, borderRadius: 2, backgroundColor: '#E2E8F0' },
-  stepTrackProgress: { position: 'absolute', left: '12%', width: '29%', top: 16, height: 2, borderRadius: 2, backgroundColor: COLORS.primary },
-  stepComplete: { borderWidth: 2, borderColor: COLORS.primary, backgroundColor: '#EFF6FF' },
+  brandTitleNarrow: { fontSize: 16, letterSpacing: 1.8 },
+  content: { paddingTop: 22, paddingBottom: 48, width: '100%', maxWidth: 680, alignSelf: 'center' },
+  pageHeading: { marginBottom: 17 },
+  subheading: { color: COLORS.secondary, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 5 },
+  heading: { color: COLORS.textPrimary, fontSize: 25, fontWeight: '800' },
+  pageDescription: { color: COLORS.textMuted, fontSize: 13, lineHeight: 19, marginTop: 5 },
+  stepper: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, position: 'relative' },
+  stepTrackLine: { position: 'absolute', left: '12%', right: '12%', top: 17, height: 2, borderRadius: 2, backgroundColor: COLORS.border },
+  stepTrackProgress: { position: 'absolute', left: '12%', width: '29%', top: 17, height: 2, borderRadius: 2, backgroundColor: COLORS.primary },
+  stepComplete: { borderWidth: 2, borderColor: COLORS.primary, backgroundColor: COLORS.primarySubtle },
   stepNumberComplete: { color: COLORS.primary },
   stepItem: { alignItems: 'center', width: '24%' },
-  stepCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 5 },
-  stepActive: { borderWidth: 2, borderColor: COLORS.primary, backgroundColor: '#FFF' },
-  stepInactive: { borderWidth: 1.5, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+  stepCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginBottom: 5, backgroundColor: COLORS.surface },
+  stepActive: { borderWidth: 2, borderColor: COLORS.primary },
+  stepInactive: { borderWidth: 1.5, borderColor: '#CBD5E1', backgroundColor: COLORS.background },
   stepNumber: { color: '#94A3B8', fontWeight: '700' },
-  stepNumberActive: { color: COLORS.primary },
-  stepLabel: { color: '#94A3B8', fontSize: 10, textAlign: 'center' },
-  stepLabelActive: { color: COLORS.primary, fontWeight: '700' },
-  statusCard: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', padding: 16, marginBottom: 14, ...SHADOWS.card },
-  pendingCard: { backgroundColor: '#FFF7ED', borderRadius: 16, borderWidth: 1, borderColor: '#FED7AA', padding: 16, marginBottom: 14 },
+  stepNumberActive: { color: COLORS.primary, fontWeight: '800' },
+  stepLabel: { color: COLORS.textMuted, fontSize: 10, textAlign: 'center' },
+  stepLabelActive: { color: COLORS.primary, fontWeight: '800' },
+  statusCard: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.borderLight, padding: 15, marginBottom: 12, ...SHADOWS.soft },
   statusHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#E0F2FE', alignItems: 'center', justifyContent: 'center' },
-  flex: { flex: 1 },
-  cardTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800' },
-  cardSubtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: 3 },
-  reviewReason: { color: COLORS.danger, backgroundColor: '#FEF2F2', padding: 10, borderRadius: 8, marginTop: 12, fontSize: 12 },
-  card: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', padding: 16, marginBottom: 14, ...SHADOWS.card },
-  sectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800' },
+  statusIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  statusIconSuccess: { backgroundColor: COLORS.successSubtle },
+  statusIconIssue: { backgroundColor: COLORS.dangerSubtle },
+  statusIconReview: { backgroundColor: COLORS.warningSubtle },
+  flex: { flex: 1, minWidth: 0 },
+  cardTitle: { color: COLORS.textPrimary, fontSize: 14, fontWeight: '800' },
+  cardSubtitle: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  statusPill: { maxWidth: 112, backgroundColor: COLORS.surfaceMuted, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 5, flexShrink: 0 },
+  statusPillSuccess: { backgroundColor: COLORS.successSubtle },
+  statusPillIssue: { backgroundColor: COLORS.dangerSubtle },
+  statusPillReview: { backgroundColor: COLORS.warningSubtle },
+  statusPillText: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '800', textAlign: 'center' },
+  statusPillTextSuccess: { color: COLORS.successDark },
+  statusPillTextIssue: { color: COLORS.dangerDark },
+  statusPillTextReview: { color: COLORS.warningDark },
+  reviewReasonCard: { backgroundColor: COLORS.dangerSubtle, borderRadius: 11, padding: 11, marginTop: 13 },
+  reviewReasonLabel: { color: COLORS.dangerDark, fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 4 },
+  reviewReason: { color: COLORS.dangerDark, fontSize: 12, lineHeight: 18 },
+  pendingCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: COLORS.warningSubtle, borderRadius: 15, borderWidth: 1, borderColor: COLORS.warningLight, padding: 14, marginBottom: 14 },
+  pendingIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  pendingCopy: { flex: 1, minWidth: 0 },
+  pendingText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  card: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.borderLight, padding: 16, marginBottom: 14, ...SHADOWS.soft },
+  cardSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 15 },
+  sectionIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800' },
+  sectionDescription: { color: COLORS.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   helpText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 4, marginBottom: 12 },
-  input: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, color: COLORS.textPrimary, backgroundColor: '#FFF', fontSize: 13 },
-  fieldWrap: { marginBottom: 10 },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 11, color: COLORS.textPrimary, backgroundColor: '#FFF', fontSize: 13 },
+  fieldWrap: { marginBottom: 11 },
   halfField: { flex: 1 },
   row: { flexDirection: 'row', gap: 10 },
+  formColumn: { flexDirection: 'column', gap: 0 },
   label: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700', marginBottom: 5 },
-  formGroupTitle: { color: COLORS.primary, fontSize: 13, fontWeight: '800', marginTop: 8, marginBottom: 10 },
-  multiline: { minHeight: 76, textAlignVertical: 'top' },
-  companyResult: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#BAE6FD', borderRadius: 10, padding: 10, marginTop: 8, backgroundColor: '#F0F9FF', gap: 10 },
-  companyResultIcon: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  formGroupTitle: { color: COLORS.primary, fontSize: 10, fontWeight: '800', letterSpacing: 0.9, textTransform: 'uppercase', marginTop: 4, marginBottom: 10 },
+  multiline: { minHeight: 84, textAlignVertical: 'top' },
+  companyResult: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#C8DDFB', borderRadius: 12, padding: 11, marginTop: 8, backgroundColor: COLORS.primarySubtle, gap: 10 },
+  companyResultIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surface },
   companyResultName: { color: COLORS.textPrimary, fontWeight: '800', fontSize: 13 },
   companyResultMeta: { color: COLORS.textSecondary, fontSize: 11, marginTop: 2 },
   companyResultSlots: { color: COLORS.secondary, fontSize: 11, marginTop: 3, fontWeight: '700' },
-  emptyText: { color: COLORS.textMuted, fontSize: 12, paddingVertical: 12 },
+  directoryHint: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 10 },
+  directoryHintText: { color: COLORS.textMuted, fontSize: 11 },
+  emptyText: { color: COLORS.textMuted, fontSize: 12, lineHeight: 18, paddingVertical: 12 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  primaryButton: { flex: 1, backgroundColor: COLORS.primary, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 13 },
-  primaryButtonText: { color: '#FFF', fontWeight: '800', fontSize: 12 },
-  secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingVertical: 13 },
-  secondaryButtonText: { color: COLORS.primary, fontWeight: '800', fontSize: 12 },
-  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: RADIUS.md, paddingHorizontal: 12, marginBottom: 4 },
-  searchInput: { flex: 1, paddingVertical: 10, paddingLeft: 8, fontSize: 13, color: COLORS.textPrimary },
-  approvedCard: { flexDirection: 'row', gap: 12, backgroundColor: '#ECFDF5', borderRadius: 14, borderWidth: 1, borderColor: '#A7F3D0', padding: 16, alignItems: 'center', ...SHADOWS.soft },
-  approvedTitle: { fontSize: 15, fontWeight: '800', color: COLORS.successDark, marginBottom: 2 },
-  approvedText: { color: COLORS.successDark, fontSize: 12.5, lineHeight: 18, fontWeight: '500' },
-  reviewStepBtn: { backgroundColor: COLORS.successDark, paddingHorizontal: 14, paddingVertical: 10, borderRadius: RADIUS.sm },
-  reviewStepBtnText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  actionColumn: { flexDirection: 'column-reverse', gap: 9 },
+  stackedButton: { flex: 0 },
+  primaryButton: { flex: 1, backgroundColor: COLORS.primary, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, ...SHADOWS.soft },
+  primaryButtonText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
+  secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  secondaryButtonText: { color: COLORS.primary, fontWeight: '800', fontSize: 12, textAlign: 'center' },
+  searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: 12, marginBottom: 4 },
+  searchInput: { flex: 1, paddingVertical: 10, paddingLeft: 8, fontSize: 13, color: COLORS.textPrimary, minWidth: 0 },
+  approvedCard: { backgroundColor: COLORS.successSubtle, borderRadius: 16, borderWidth: 1, borderColor: '#A7F3D0', padding: 16, gap: 12, ...SHADOWS.soft },
+  approvedHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  approvedIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
+  approvedTitle: { fontSize: 16, fontWeight: '800', color: COLORS.successDark, marginBottom: 2 },
+  approvedText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18 },
+  reviewStepBtn: { flexDirection: 'row', backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  reviewStepBtnText: { color: COLORS.textOnPrimary, fontSize: 13, fontWeight: '800' },
+  changeRequestBtn: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: '#A7F3D0', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15,23,42,.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: '#FFF', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 22, minHeight: 160 },
   modalTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800', marginBottom: 8 },
-  drawerOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(15,23,42,.45)' },
-  drawerBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
-  drawerCard: { width: '78%', maxWidth: 360, height: '100%', backgroundColor: '#FFF', padding: 24, paddingTop: Platform.OS === 'ios' ? 60 : 30 },
-  drawerTitle: { color: COLORS.textPrimary, fontSize: 22, fontWeight: '800', letterSpacing: 1 },
-  drawerSubtitle: { color: COLORS.textMuted, fontSize: 12, marginTop: 3, marginBottom: 28 },
-  logoutButton: { backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 'auto' },
-  logoutText: { color: '#FFF', fontSize: 14, fontWeight: '800' },
 });

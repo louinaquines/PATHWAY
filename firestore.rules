@@ -3,7 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null && studentAccessReady();
+    }
+
+    function studentAccessReady() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return profile.role != 'student' || (
+        profile.get('passwordChangeRequired', false) == false
+        && (profile.get('passwordEpoch', '') == ''
+          || request.auth.token.get('passwordEpoch', '') == profile.passwordEpoch));
     }
 
     function userRecord() {

@@ -8,6 +8,13 @@ const backendDir = path.resolve(__dirname, '..');
 const mobileDir = path.resolve(backendDir, '..', 'PATHWAY-master');
 const firebaseCli = path.join(path.dirname(require.resolve('firebase-tools/package.json')), 'lib', 'bin', 'firebase.js');
 const ports = [8080, 9099, 3100, 8083, 3001];
+const portServices = new Map([
+  [8080, 'Firestore emulator'],
+  [9099, 'Auth emulator'],
+  [3100, 'local backend'],
+  [8083, 'student app'],
+  [3001, 'staff portal'],
+]);
 let child;
 let stopping = false;
 
@@ -43,7 +50,13 @@ async function main() {
   if (!fs.existsSync(expoCli)) throw new Error('Expo CLI was not found. Install PATHWAY-master dependencies first.');
   for (const port of ports) {
     if (await canConnect(port)) {
-      throw new Error(`Port ${port} is already in use. Stop that local service, then retry; this launcher will not terminate existing processes.`);
+      throw new Error([
+        `Port ${port} (${portServices.get(port)}) is already in use. This launcher will not terminate an existing process.`,
+        'If another PATHWAY workflow terminal is still running, keep using it; the student UI now refreshes when you save code.',
+        'To stop that workflow, press Ctrl+C in its active terminal. Ctrl+C at a PowerShell prompt cannot stop a background service.',
+        `If no workflow terminal is running, inspect the current owner with: netstat -ano | findstr ":${port}"`,
+        'Only stop the listener after verifying it belongs to this PATHWAY local demo workflow.',
+      ].join('\n'));
     }
   }
 

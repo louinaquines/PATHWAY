@@ -76,13 +76,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const review = async (item, status) => {
     const note = reason.trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this proposal.'); return; }
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this proposal.'); return false; }
     setBusy(item.id);
     try {
       const companyId = companySelections[item.id] || item.companyId || '';
       if (status === 'approved' && !companyId) {
         window.alert('Assign this proposal to an active company in the directory before approving it.');
-        return;
+        return false;
       }
       await adminRequest(`/coordinator/company-placements/${encodeURIComponent(item.id)}/decision`, {
         method: 'POST', body: JSON.stringify({ status, reason: note, ...(status === 'approved' ? { companyId } : {}) }),
@@ -90,12 +90,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setReason('');
       if (status === 'approved') setEndorsementDraft(null);
       await load();
-    } catch (error) { window.alert(error.message || 'Unable to review placement.'); } finally { setBusy(''); }
+      return true;
+    } catch (error) { window.alert(error.message || 'Unable to review placement.'); return false; } finally { setBusy(''); }
   };
 
   const reviewFinal = async (item, status) => {
     const note = reason.trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this review.'); return; }
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this review.'); return false; }
     setBusy(item.id);
     try {
       await adminRequest(`/coordinator/final-reviews/${encodeURIComponent(item.id)}/decision`, {
@@ -103,7 +104,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         body: JSON.stringify({ status, reason: note }),
       });
       setReason(''); await load();
-    } catch (error) { window.alert(error.message || 'Unable to review final request.'); } finally { setBusy(''); }
+      return true;
+    } catch (error) { window.alert(error.message || 'Unable to review final request.'); return false; } finally { setBusy(''); }
   };
 
   const prepareEndorsementDraft = async item => {
@@ -282,9 +284,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       onCancel={() => setReviewConfirm(null)}
       onConfirm={async () => {
         if (!reviewConfirm) return;
-        if (reviewConfirm.finalReview) await reviewFinal(reviewConfirm.item, reviewConfirm.status);
-        else await review(reviewConfirm.item, reviewConfirm.status);
-        setReviewConfirm(null);
+        const saved = reviewConfirm.finalReview
+          ? await reviewFinal(reviewConfirm.item, reviewConfirm.status)
+          : await review(reviewConfirm.item, reviewConfirm.status);
+        if (saved) setReviewConfirm(null);
       }}
     />
     <AlertDialog

@@ -24,7 +24,7 @@ export default function MessagesTab({ selectedSection }) {
       const messageSnap = await getDocs(query(collection(db, 'messages'), where('participantIds', 'array-contains', coordinatorId)));
       setItems(messageSnap.docs.map(item => ({ id: item.id, ...item.data(), body: item.data().body || item.data().message || '' })).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
       if (selectedSection?.id) {
-        const studentSnap = await getDocs(query(collection(db, 'users'), where('sectionId', '==', selectedSection.id)));
+        const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', selectedSection.id)));
         setStudents(studentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
       } else setStudents([]);
     } catch (loadError) {
@@ -37,6 +37,13 @@ export default function MessagesTab({ selectedSection }) {
   }, [coordinatorId, selectedSection]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    setSelected(null);
+    setDraft('');
+  }, [selectedSection?.id, coordinatorId]);
+
+  useEffect(() => { setDraft(''); }, [selected?.id]);
 
   const allowedStudentIds = useMemo(() => new Set(students.map(student => student.id)), [students]);
   const conversations = useMemo(() => {
@@ -70,8 +77,8 @@ export default function MessagesTab({ selectedSection }) {
       const payload = { conversationId: result.conversationId, participantIds: [coordinatorId, selected.studentId], studentId: selected.studentId, coordinatorId, senderId: coordinatorId, senderRole: 'coordinator', senderName: 'OJT Coordinator', recipientId: selected.studentId, recipientRole: 'student', recipientName: selected.name, body, message: body, read: false, createdAt: result.createdAt, type: 'direct_message' };
       const created = { id: result.messageId, ...payload };
       setItems(previous => [...previous, created]);
-      setSelected(previous => previous ? { ...previous, messages: [...previous.messages, created] } : previous);
-      setDraft('');
+      setSelected(previous => previous?.id === selected.id ? { ...previous, messages: [...previous.messages, created] } : previous);
+      setDraft(previous => previous === draft ? '' : previous);
     } catch (error) { window.alert(error.message || 'Unable to send message.'); }
     finally { setSending(false); }
   };

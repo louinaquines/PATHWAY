@@ -47,7 +47,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     ])
       .then(async ([sectionSnap]) => {
         const studentSnaps = await Promise.all(sectionSnap.docs.map(section =>
-          getDocs(query(collection(db, 'users'), where('sectionId', '==', section.id)))
+          getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)))
         ));
         const assigned = studentSnaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
           .filter(student => !selectedSection || student.sectionId === selectedSection.id);
@@ -86,11 +86,16 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     }
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     if (!link) return;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (error) {
+      setCopied(false);
+      setStatus('Could not copy the link. Select and copy it manually.');
+    }
   };
 
   const refreshEvaluations = async () => {

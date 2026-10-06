@@ -3,7 +3,6 @@ import { Animated, Easing, StatusBar, StyleSheet, View, useWindowDimensions } fr
 import { COLORS } from '../theme';
 import { useMotionPreferenceReady, useReducedMotion } from './Motion';
 import { AppText as Text } from './AppText';
-import PathwayWatermark from './PathwayWatermark';
 import PathwayMark from './PathwayMark';
 
 export default function AnimatedSplash({
@@ -147,10 +146,8 @@ export default function AnimatedSplash({
       accessibilityLabel="PATHWAY starting"
       style={styles.root}
     >
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDeep} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.primaryDeep} />
       <Animated.View pointerEvents="none" style={[styles.backdrop, { opacity: backdropOpacity }]} />
-      <PathwayWatermark size={340} opacity={0.028} style={{ right: -150, top: -135 }} />
-
       <Animated.View
         pointerEvents="none"
         style={[styles.sweepGlow, { top: logoCenterY - 6, opacity: sweepOpacity, transform: [{ translateX: sweepX }] }]}
@@ -191,8 +188,7 @@ export function StartupMarkHold() {
   const size = Math.min(224, Math.max(176, width * 0.56));
   return (
       <View style={styles.holdRoot}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDeep} />
-      <PathwayWatermark size={340} opacity={0.028} style={{ right: -150, top: -135 }} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.primaryDeep} />
       <PathwayMark size={size} decorative style={styles.holdLogoTile} />
       <Text style={styles.wordmark}>PATHWAY</Text>
       <Text style={styles.tagline}>STUDENT OJT PORTAL</Text>
@@ -237,14 +233,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wordmark: {
-    color: COLORS.surface,
+    color: COLORS.primaryDark,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 6,
     textAlign: 'center',
   },
   tagline: {
-    color: '#BFDFFF',
+    color: COLORS.textSecondary,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 2.2,

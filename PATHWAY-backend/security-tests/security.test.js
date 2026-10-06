@@ -1045,7 +1045,7 @@ test('coordinator announcements are section-scoped, bounded, and audited in the 
   });
 });
 
-test('student registration endpoint claims only an active matching roster entry', async () => {
+test('student self-registration is disabled', async () => {
   const registration = await createIdentity('newRegistration', 'student', 'Department A');
   await testEnv.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'studentRoster', '87654321'), {
@@ -1056,24 +1056,12 @@ test('student registration endpoint claims only an active matching roster entry'
     idNumber: '87654321', department: 'Department A',
     firstName: 'New', lastName: 'Student', email: registration.profile.email,
   });
-  assert.equal(created.response.status, 201, JSON.stringify(created.data));
-  let state;
-  await testEnv.withSecurityRulesDisabled(async context => {
-    const store = context.firestore();
-    const [profile, roster] = await Promise.all([
-      getDoc(doc(store, 'users', registration.uid)),
-      getDoc(doc(store, 'studentRoster', '87654321')),
-    ]);
-    state = { profile: profile.data(), roster: roster.data() };
-  });
-  assert.equal(state.profile.role, 'student');
-  assert.equal(state.profile.accountApproved, false);
-  assert.equal(state.roster.claimedBy, registration.uid);
+  assert.equal(created.response.status, 410, JSON.stringify(created.data));
   const repeat = await api('/register-student', registration, {
     idNumber: '87654321', department: 'Department A',
     firstName: 'New', lastName: 'Student', email: registration.profile.email,
   });
-  assert.equal(repeat.response.status, 201);
+  assert.equal(repeat.response.status, 410);
 
   const hyphenatedRegistration = await createIdentity('hyphenatedRegistration', 'student', 'Department A');
   await testEnv.withSecurityRulesDisabled(async context => {
@@ -1085,7 +1073,60 @@ test('student registration endpoint claims only an active matching roster entry'
     idNumber: '21-00999', department: 'Department A',
     firstName: 'Hyphenated', lastName: 'Student', email: hyphenatedRegistration.profile.email,
   });
-  assert.equal(hyphenated.response.status, 201, JSON.stringify(hyphenated.data));
+  assert.equal(hyphenated.response.status, 410, JSON.stringify(hyphenated.data));
+});
+
+test('provisioned accounts require password replacement, preserve reimports, and support scoped recovery', async () => {
+  const payload = { sectionId: 'section-a', students: [{ idNumber: '24228132', firstName: 'Account', lastName: 'QA' }] };
+  assert.equal((await api('/coordinator/provision-students', null, payload)).response.status, 401);
+  assert.equal((await api('/coordinator/provision-students', identities.studentA, payload)).response.status, 403);
+  assert.equal((await api('/coordinator/provision-students', identities.coordinatorB, payload)).response.status, 403);
+  const imported = await api('/coordinator/provision-students', identities.coordinatorA, payload);
+  assert.equal(imported.response.status, 200, JSON.stringify(imported.data));
+  assert.equal(imported.data.outcomes[0].status, 'created', JSON.stringify(imported.data));
+  const login = async password => {
+    const response = await fetch(`http://127.0.0.1:${authEmulatorPort}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=emulator-test-api-key`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'uclm-24228132@students.pathway.invalid', password, returnSecureToken: true }),
+    });
+    return { response, data: await response.json() };
+  };
+  const first = await login('UC@24228132');
+  assert.equal(first.response.status, 200);
+  const student = { uid: first.data.localId, token: first.data.idToken };
+  const bootstrap = await api('/auth/profile', student, {});
+  assert.equal(bootstrap.data.profile.passwordChangeRequired, true);
+  assert.equal(bootstrap.data.profile.hoursRendered, undefined);
+  assert.equal((await api('/attendance/time-in', student, {})).response.status, 403);
+  const deniedStore = testEnv.authenticatedContext(student.uid).firestore();
+  await assertFails(getDoc(doc(deniedStore, 'users', student.uid)));
+  await assertFails(getDocs(collection(deniedStore, 'companies')));
+  assert.equal((await api('/student/change-password', student, { currentPassword: 'wrong', newPassword: 'MyNewSecurePass123!', apiKey: 'emulator-test-api-key' })).response.status, 403);
+  const changed = await api('/student/change-password', student, { currentPassword: 'UC@24228132', newPassword: 'MyNewSecurePass123!', apiKey: 'emulator-test-api-key' });
+  assert.equal(changed.response.status, 200, JSON.stringify(changed.data));
+  assert.notEqual((await login('UC@24228132')).response.status, 200);
+  const second = await login('MyNewSecurePass123!');
+  assert.equal(second.response.status, 200);
+  student.token = second.data.idToken;
+  assert.equal((await api('/auth/profile', student, {})).data.profile.passwordChangeRequired, false);
+  let epoch;
+  await testEnv.withSecurityRulesDisabled(async context => { epoch = (await getDoc(doc(context.firestore(), 'users', student.uid))).data().passwordEpoch; });
+  const readyStore = testEnv.authenticatedContext(student.uid, { passwordEpoch: epoch }).firestore();
+  await assertSucceeds(getDoc(doc(readyStore, 'users', student.uid)));
+  const repeat = await api('/coordinator/provision-students', identities.coordinatorA, payload);
+  assert.equal(repeat.data.outcomes[0].status, 'unchanged');
+  assert.equal((await login('MyNewSecurePass123!')).response.status, 200);
+  const resetPath = `/coordinator/students/${student.uid}/reset-password`;
+  assert.equal((await api(resetPath, identities.coordinatorB, { identityVerified: true })).response.status, 403);
+  assert.equal((await api(resetPath, identities.coordinatorA, {})).response.status, 400);
+  const reset = await api(resetPath, identities.coordinatorA, { identityVerified: true });
+  assert.equal(reset.response.status, 200, JSON.stringify(reset.data));
+  assert.notEqual(reset.data.temporaryPassword, 'UC@24228132');
+  await assertFails(getDoc(doc(readyStore, 'users', student.uid)));
+  assert.notEqual((await login('MyNewSecurePass123!')).response.status, 200);
+  const recovery = await login(reset.data.temporaryPassword);
+  assert.equal(recovery.response.status, 200);
+  student.token = recovery.data.idToken;
+  assert.equal((await api('/auth/profile', student, {})).data.profile.passwordChangeRequired, true);
 });
 
 test('authorized registration, assignment, and requirement review use server-owned writes', async () => {

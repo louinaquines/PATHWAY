@@ -94,7 +94,7 @@ export default function OnboardingScreen({ navigation }) {
         <View style={styles.header}>
           <PathwayWatermark size={160} opacity={0.035} style={{ right: -54, top: -61 }} />
           <View style={styles.wordmark}>
-            <PathwayMark size={32} decorative />
+            <PathwayMark size={38} decorative />
             <Text style={styles.brandName}>PATHWAY</Text>
           </View>
           <MotionTouchableOpacity

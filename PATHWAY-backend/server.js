@@ -57,60 +57,25 @@ async function requireUser(req, res, next) {
   try {
     const header = req.headers.authorization || '';
     if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required' });
-    const decoded = await adminAuth.verifyIdToken(header.slice(7));
+    const decoded = await adminAuth.verifyIdToken(header.slice(7), true);
     const snap = await adminDb.collection('users').doc(decoded.uid).get();
     if (!snap.exists) return res.status(403).json({ error: 'User profile not found' });
+    if (snap.data().role === 'student' && (snap.data().passwordChangeRequired === true
+      || (snap.data().passwordEpoch && decoded.passwordEpoch !== snap.data().passwordEpoch))) {
+      return res.status(403).json({ error: 'Change your password and sign in again before accessing student records.' });
+    }
     req.user = { uid: decoded.uid, role: snap.data().role, data: snap.data() };
     return next();
   } catch (e) { return res.status(401).json({ error: 'Invalid authentication token' }); }
 }
 
 app.post('/register-student', async (req, res) => {
-  if (!allowRate(req, res, { limit: 8, windowMs: 60 * 60_000, key: request => `register:${request.ip}` })) return;
-  try {
-    const authorization = req.headers.authorization || '';
-    if (!authorization.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required' });
-    const identity = await adminAuth.verifyIdToken(authorization.slice(7));
-    const { idNumber, department, firstName, lastName } = req.body || {};
-    if (typeof idNumber !== 'string' || !/^[A-Za-z0-9-]{4,20}$/.test(idNumber)
-      || typeof department !== 'string' || typeof firstName !== 'string' || typeof lastName !== 'string'
-      || !firstName.trim() || !lastName.trim() || firstName.length > 100 || lastName.length > 100) {
-      return res.status(400).json({ error: 'Enter a valid name, student ID, and department.' });
-    }
-    if (!identity.email || typeof req.body.email !== 'string'
-      || identity.email.toLowerCase() !== req.body.email.trim().toLowerCase()) return res.status(403).json({ error: 'Sign in using the email address on this account.' });
-    const rosterRef = adminDb.collection('studentRoster').doc(idNumber);
-    const userRef = adminDb.collection('users').doc(identity.uid);
-    const existingStudent = await adminDb.collection('users').where('idNumber', '==', idNumber).limit(1).get();
-    if (existingStudent.docs.some(item => item.id !== identity.uid)) return res.status(409).json({ error: 'This student ID has already been registered.' });
-    await adminDb.runTransaction(async transaction => {
-      const [roster, profile] = await Promise.all([transaction.get(rosterRef), transaction.get(userRef)]);
-      if (profile.exists) {
-        if (profile.data().role === 'student' && profile.data().idNumber === idNumber) return;
-        throw Object.assign(new Error('A user profile already exists for this account.'), { status: 409 });
-      }
-      if (!roster.exists || roster.data().active !== true || roster.data().department !== department) {
-        throw Object.assign(new Error('That ID number is not authorized for the selected department.'), { status: 403 });
-      }
-      if (roster.data().claimedBy && roster.data().claimedBy !== identity.uid) {
-        throw Object.assign(new Error('This student ID has already been registered.'), { status: 409 });
-      }
-      const now = new Date().toISOString();
-      const profileData = {
-        uid: identity.uid, firstName: firstName.trim(), lastName: lastName.trim(), idNumber,
-        email: identity.email, department, role: 'student', requirementsStatus: 'not_submitted',
-        status: 'pending_registration', accountApproved: false, hoursRendered: 0,
-        hoursRequired: 486, company: '', sectionId: '', createdAt: now,
-      };
-      transaction.create(userRef, profileData);
-      transaction.update(rosterRef, { claimedBy: identity.uid, claimedAt: now });
-    });
-    return res.status(201).json({ success: true });
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error(error);
-    return res.status(500).json({ error: 'Registration could not be completed. Please try again.' });
-  }
+  return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
+});
+
+require('./studentAccounts').installStudentAccounts({
+  app, auth: adminAuth, db: adminDb, requireStaff, coordinatorSection,
+  coordinatorOwnsStudent, allowRate, audit: writeAuditInTransaction,
 });
 
 const defaultRequirementIds = new Set(['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa']);
@@ -1844,6 +1809,7 @@ async function requireAdmin(req, res, next) {
 
 const AUDIT_ACTIONS = new Set([
   'account.activation_changed', 'coordinator.created',
+  'student.provisioned', 'student.password_changed', 'student.password_reset',
   'company.created', 'company.updated',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',

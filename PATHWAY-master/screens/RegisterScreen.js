@@ -1,5 +1,5 @@
 // screens/RegisterScreen.js
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -58,6 +58,18 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState(null);
+  const lastNameRef = useRef(null);
+  const idNumberRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+
+  const focusProps = (field) => ({
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField(null),
+  });
+  const isFocused = (field) => focusedField === field;
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -164,37 +176,46 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
           <View style={styles.nameRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>First Name</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, isFocused('firstName') && styles.inputContainerFocused]}>
                 <TextInput
                   style={styles.textInput}
                   placeholder="First name"
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={form.firstName}
                   onChangeText={v => set('firstName', v)}
+                  accessibilityLabel="First name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => lastNameRef.current?.focus()}
                   editable={!loading}
+                  {...focusProps('firstName')}
                 />
               </View>
             </View>
 
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Last Name</Text>
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, isFocused('lastName') && styles.inputContainerFocused]}>
                 <TextInput
                   style={styles.textInput}
                   placeholder="Last name"
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={form.lastName}
                   onChangeText={v => set('lastName', v)}
+                  ref={lastNameRef}
+                  accessibilityLabel="Last name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => idNumberRef.current?.focus()}
                   editable={!loading}
+                  {...focusProps('lastName')}
                 />
               </View>
             </View>
           </View>
 
           <Text style={styles.label}>Student ID Number</Text>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, isFocused('idNumber') && styles.inputContainerFocused]}>
             <View style={styles.inputIcon}>
-              <UserIcon size={18} color={COLORS.secondary} />
+              <UserIcon size={18} color={isFocused('idNumber') ? COLORS.secondary : COLORS.textMuted} />
             </View>
             <TextInput
               style={styles.textInput}
@@ -202,8 +223,13 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
               placeholderTextColor={COLORS.textPlaceholder}
               value={form.idNumber}
               onChangeText={v => set('idNumber', v)}
+              ref={idNumberRef}
+              accessibilityLabel="Student ID number"
               keyboardType="number-pad"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
               editable={!loading}
+              {...focusProps('idNumber')}
             />
           </View>
 
@@ -214,6 +240,8 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
             onPress={() => setShowDepts(true)}
             activeOpacity={0.8}
             disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Select your college department"
           >
             <View style={styles.inputIcon}>
               <BuildingIcon size={18} color={form.department ? COLORS.primary : COLORS.textMuted} />
@@ -236,9 +264,9 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
           <Text style={styles.cardSectionTitle}>Account Credentials</Text>
 
           <Text style={styles.label}>Institutional Email</Text>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, isFocused('email') && styles.inputContainerFocused]}>
             <View style={styles.inputIcon}>
-              <MailIcon size={18} color={COLORS.secondary} />
+              <MailIcon size={18} color={isFocused('email') ? COLORS.secondary : COLORS.textMuted} />
             </View>
             <TextInput
               style={styles.textInput}
@@ -246,17 +274,24 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
               placeholderTextColor={COLORS.textPlaceholder}
               value={form.email}
               onChangeText={v => set('email', v)}
+              ref={emailRef}
+              accessibilityLabel="Institutional email address"
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
               editable={!loading}
+              {...focusProps('email')}
             />
           </View>
 
-          <Text style={styles.label}>Password (min 6 characters)</Text>
-          <View style={styles.inputContainer}>
+          <Text style={styles.label}>Password
+            <Text style={styles.labelHint}> · at least 6 characters</Text>
+          </Text>
+          <View style={[styles.inputContainer, isFocused('password') && styles.inputContainerFocused]}>
             <View style={styles.inputIcon}>
-              <LockIcon size={18} color={COLORS.secondary} />
+              <LockIcon size={18} color={isFocused('password') ? COLORS.secondary : COLORS.textMuted} />
             </View>
             <TextInput
               style={styles.textInput}
@@ -264,10 +299,19 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
               placeholderTextColor={COLORS.textPlaceholder}
               value={form.password}
               onChangeText={v => set('password', v)}
+              ref={passwordRef}
+              accessibilityLabel="Password"
               secureTextEntry={!showPass}
+              returnKeyType="next"
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
               editable={!loading}
+              {...focusProps('password')}
             />
-            <TouchableOpacity onPress={() => setShowPass(v => !v)} style={styles.eyeBtn}>
+            <TouchableOpacity
+              onPress={() => setShowPass(v => !v)}
+              style={styles.eyeBtn}
+              accessibilityLabel={showPass ? 'Hide password' : 'Show password'}
+            >
               {showPass ? (
                 <EyeOffIcon size={18} color={COLORS.textSecondary} />
               ) : (
@@ -277,9 +321,9 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
           </View>
 
           <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, isFocused('confirmPassword') && styles.inputContainerFocused]}>
             <View style={styles.inputIcon}>
-              <LockIcon size={18} color={COLORS.secondary} />
+              <LockIcon size={18} color={isFocused('confirmPassword') ? COLORS.secondary : COLORS.textMuted} />
             </View>
             <TextInput
               style={styles.textInput}
@@ -287,10 +331,19 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
               placeholderTextColor={COLORS.textPlaceholder}
               value={form.confirmPassword}
               onChangeText={v => set('confirmPassword', v)}
+              ref={confirmPasswordRef}
+              accessibilityLabel="Confirm password"
               secureTextEntry={!showConfirm}
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
               editable={!loading}
+              {...focusProps('confirmPassword')}
             />
-            <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={styles.eyeBtn}>
+            <TouchableOpacity
+              onPress={() => setShowConfirm(v => !v)}
+              style={styles.eyeBtn}
+              accessibilityLabel={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
+            >
               {showConfirm ? (
                 <EyeOffIcon size={18} color={COLORS.textSecondary} />
               ) : (
@@ -470,10 +523,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background,
-    borderWidth: 1.2,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: 12,
+  },
+  inputContainerFocused: {
+    borderColor: COLORS.secondary,
+    backgroundColor: '#FFFFFF',
+    ...SHADOWS.soft,
+  },
+  labelHint: {
+    color: COLORS.textMuted,
+    fontWeight: '500',
+    fontSize: 11.5,
   },
   inputIcon: {
     marginRight: 8,
@@ -511,7 +574,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    ...SHADOWS.card,
+    ...SHADOWS.hover,
   },
   registerBtnText: {
     color: '#FFFFFF',

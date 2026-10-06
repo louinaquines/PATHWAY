@@ -146,6 +146,7 @@ export default function CoordinatorDashboard() {
 
   const handleRequirement = async (studentId, reqId, status, reason = '') => {
     setSaving(true);
+    setError('');
     try {
       await adminRequest(`/coordinator/students/${encodeURIComponent(studentId)}/requirements/${encodeURIComponent(reqId)}/decision`, {
         method: 'POST', body: JSON.stringify({ status, reason }),
@@ -162,9 +163,14 @@ export default function CoordinatorDashboard() {
 
       const student = updated.find(s => s.id === studentId);
       setSelectedStudent(student);
+      return true;
 
     } catch (e) {
       console.error(e);
+      const message = e.message || 'Could not save the requirement decision. Please try again.';
+      setError(message);
+      window.alert(message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -539,8 +545,8 @@ export default function CoordinatorDashboard() {
                         confirmDisabled={!rejectionReason.trim()}
                         onCancel={() => setRejectionModal(null)}
                         onConfirm={async () => {
-                          await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
-                          setRejectionModal(null);
+                          const saved = await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
+                          if (saved) setRejectionModal(null);
                         }}
                       >
                         <textarea

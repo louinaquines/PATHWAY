@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import { COLORS, RADIUS, SPACE, TYPE } from '../theme';
+import { COLORS, RADIUS, SHADOWS, SPACE, TYPE } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
-import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, RefreshIcon, SearchIcon } from '../components/Icons';
+import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, SearchIcon } from '../components/Icons';
 import { postBackend } from '../services/backendApi';
+import { getStudentNotificationsEnabled } from '../services/studentPreferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 
@@ -24,10 +26,10 @@ const displayName = item => item.senderName || item.senderRole || item.fromName 
 
 export default function NotificationsScreen({ navigation, route }) {
   const [items, setItems] = useState([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [messages, setMessages] = useState([]);
   const [coordinator, setCoordinator] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState(route?.params?.initialTab || 'notifications');
   const [search, setSearch] = useState('');
   const [conversation, setConversation] = useState(null);
@@ -36,14 +38,16 @@ export default function NotificationsScreen({ navigation, route }) {
   const uid = auth.currentUser?.uid;
   const insets = useSafeAreaInsets();
 
-  const load = async isPull => {
-    if (isPull) setRefreshing(true); else setLoading(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
       if (!uid) return;
-      const [snap, userSnap] = await Promise.all([
+      const [snap, userSnap, isEnabled] = await Promise.all([
         getDocs(query(collection(db, 'notifications'), where('recipientId', '==', uid))),
         getDoc(doc(db, 'users', uid)),
+        getStudentNotificationsEnabled(uid),
       ]);
+      setNotificationsEnabled(isEnabled);
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))));
       const userData = userSnap.data() || {};
       let coordinatorId = userData.coordinatorId || '';
@@ -64,10 +68,12 @@ export default function NotificationsScreen({ navigation, route }) {
         setMessages([]);
       }
     } catch (error) { console.error('Fetch notifications error:', error); }
-    finally { setLoading(false); setRefreshing(false); }
-  };
+    finally { setLoading(false); }
+  }, [uid]);
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
   useEffect(() => {
     const nextTab = route?.params?.initialTab;
     if (nextTab === 'messages' || nextTab === 'notifications') setTab(nextTab);
@@ -149,23 +155,38 @@ export default function NotificationsScreen({ navigation, route }) {
       messages: messages.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))),
     }));
   }, [messageItems, coordinator, uid]);
-  const filteredNotifications = items.filter(item => `${item.title || ''} ${item.message || ''}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredNotifications = notificationsEnabled
+    ? items.filter(item => `${item.title || ''} ${item.message || ''}`.toLowerCase().includes(search.toLowerCase()))
+    : [];
   const filteredConversations = conversations.filter(item => {
     const searchableText = item.messages
       .map(message => message.body || message.message || message.title || '')
       .join(' ');
     return `${item.name} ${searchableText}`.toLowerCase().includes(search.toLowerCase());
   });
+  const unreadNotificationCount = notificationsEnabled ? items.filter(item => !item.read).length : 0;
+  const unreadConversationCount = conversations.filter(item =>
+    item.messages.some(message => message.recipientId === uid && !message.read),
+  ).length;
+  const listIsEmpty = tab === 'notifications'
+    ? !notificationsEnabled || filteredNotifications.length === 0
+    : filteredConversations.length === 0;
 
   if (loading) return <StudentScreenSkeleton variant="inbox" />;
 
   if (conversation) return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
-        <MotionTouchableOpacity onPress={() => setConversation(null)} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={22} color="#FFFFFF" /></MotionTouchableOpacity>
-        <View style={styles.headerIdentity}><View style={styles.avatarSmall}><Text style={styles.avatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View><Text style={styles.title}>{conversation.name}</Text></View>
-        <View style={styles.headerButton} />
+        <MotionTouchableOpacity onPress={() => setConversation(null)} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
+        <View style={styles.headerIdentity}>
+          <View style={styles.avatarSmall}><Text style={styles.avatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View>
+          <View style={styles.headerIdentityCopy}>
+            <Text variant="heading" style={styles.title} numberOfLines={1}>{conversation.name}</Text>
+            <Text style={styles.headerSubtitle}>Conversation</Text>
+          </View>
+        </View>
+        <View style={styles.headerButtonPlaceholder} />
       </View>
       <KeyboardAvoidingView style={styles.chatArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -203,22 +224,34 @@ export default function NotificationsScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
-        <MotionTouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back"><ChevronLeftIcon size={22} color="#FFFFFF" /></MotionTouchableOpacity>
-        <Text style={styles.title}>Inbox</Text>
-        <MotionTouchableOpacity onPress={() => load(true)} style={styles.headerButton} disabled={refreshing} accessibilityRole="button" accessibilityLabel="Refresh inbox">{refreshing ? <ActivityIndicator size="small" color={COLORS.brandGold} /> : <RefreshIcon size={18} color="#FFFFFF" />}</MotionTouchableOpacity>
+        <MotionTouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
+        <View pointerEvents="none" style={[styles.headerHeading, { top: Math.max(insets.top, SPACE.sm) }]}>
+          <Text variant="heading" style={styles.title}>Inbox</Text>
+          <Text style={styles.headerSubtitle}>Updates and conversations</Text>
+        </View>
       </View>
-      <View style={styles.tabs}>
-        <MotionTouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === 'notifications' }} style={[styles.tabButton, tab === 'notifications' && styles.tabActive]} onPress={() => { setTab('notifications'); setSearch(''); }}><BellIcon size={17} color={tab === 'notifications' ? COLORS.primary : COLORS.textMuted} /><Text style={[styles.tabText, tab === 'notifications' && styles.tabTextActive]}>Notifications</Text></MotionTouchableOpacity>
-        <MotionTouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: tab === 'messages' }} style={[styles.tabButton, tab === 'messages' && styles.tabActive]} onPress={() => { setTab('messages'); setSearch(''); }}><ChatBubbleIcon size={17} color={tab === 'messages' ? COLORS.primary : COLORS.textMuted} /><Text style={[styles.tabText, tab === 'messages' && styles.tabTextActive]}>Messages</Text></MotionTouchableOpacity>
+      <View style={styles.tabsWrap}>
+        <View style={styles.tabs}>
+          <MotionTouchableOpacity accessibilityRole="tab" accessibilityLabel={`Messages${unreadConversationCount ? `, ${unreadConversationCount} unread` : ''}`} accessibilityState={{ selected: tab === 'messages' }} style={[styles.tabButton, tab === 'messages' && styles.tabActive]} onPress={() => { setTab('messages'); setSearch(''); }}>
+            <ChatBubbleIcon size={17} color={tab === 'messages' ? COLORS.primaryDark : COLORS.textMuted} />
+            <Text style={[styles.tabText, tab === 'messages' && styles.tabTextActive]}>Messages</Text>
+            {unreadConversationCount > 0 && <View style={styles.tabCount}><Text style={styles.tabCountText}>{unreadConversationCount > 9 ? '9+' : unreadConversationCount}</Text></View>}
+          </MotionTouchableOpacity>
+          <MotionTouchableOpacity accessibilityRole="tab" accessibilityLabel={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ''}`} accessibilityState={{ selected: tab === 'notifications' }} style={[styles.tabButton, tab === 'notifications' && styles.tabActive]} onPress={() => { setTab('notifications'); setSearch(''); }}>
+            <BellIcon size={17} color={tab === 'notifications' ? COLORS.primaryDark : COLORS.textMuted} />
+            <Text style={[styles.tabText, tab === 'notifications' && styles.tabTextActive]}>Notifications</Text>
+            {unreadNotificationCount > 0 && <View style={styles.tabCount}><Text style={styles.tabCountText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text></View>}
+          </MotionTouchableOpacity>
+        </View>
       </View>
       <View style={styles.searchWrap}><View style={styles.searchField}><SearchIcon size={17} color={COLORS.textMuted} /><TextInput value={search} onChangeText={setSearch} placeholder={tab === 'messages' ? 'Search conversations' : 'Search notifications'} placeholderTextColor={COLORS.textMuted} style={styles.searchInput} accessibilityLabel={tab === 'messages' ? 'Search conversations' : 'Search notifications'} /></View></View>
-      <ScrollView style={styles.listViewport} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {tab === 'notifications' ? (filteredNotifications.length ? filteredNotifications.map(item => {
+      <ScrollView style={styles.listViewport} contentContainerStyle={[styles.scroll, listIsEmpty && styles.scrollEmpty]} showsVerticalScrollIndicator={false}>
+        {tab === 'notifications' ? (!notificationsEnabled ? <EmptyState icon="bell" title="Notifications are off" text="Coordinator updates are paused on this device. Turn them back on in Profile → Settings. Your messages remain available in the Messages tab." /> : filteredNotifications.length ? filteredNotifications.map(item => {
           const unread = !item.read;
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title || 'Notification'}${unread ? ', unread' : ''}. ${item.message || 'No additional details.'}`} style={[styles.notificationCard, unread && styles.notificationUnread]} onPress={() => markRead(item)} activeOpacity={0.88}><View style={styles.notificationIcon}><BellIcon size={18} color={unread ? COLORS.primary : COLORS.textMuted} /></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]} numberOfLines={1}>{item.title || 'Notification'}</Text></View><Text style={styles.message} numberOfLines={2}>{item.message || 'No additional details.'}</Text><Text style={styles.date}>{formatDate(item.createdAt)}</Text></View>{unread && <View style={styles.unreadDot} />}{item.read && <CheckCircleIcon size={15} color={COLORS.textMuted} />}</MotionTouchableOpacity>;
-        }) : <EmptyState icon="bell" title={search ? 'No matching notifications' : 'All caught up'} text="Updates regarding document submissions, evaluations, and clearance will appear here." />) : (filteredConversations.length ? filteredConversations.map(item => {
+        }) : <EmptyState icon="bell" title={search ? 'No matching notifications' : 'All caught up'} text={search ? 'Try another search term.' : 'Coordinator updates about your OJT records will appear here.'} />) : (filteredConversations.length ? filteredConversations.map(item => {
           const latest = item.messages[item.messages.length - 1];
           const unread = item.messages.some(message => message.recipientId === uid && !message.read);
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => { setConversation(item); markConversationRead(item); }} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
@@ -235,28 +268,36 @@ function EmptyState({ icon, title, text }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: COLORS.primaryDark, paddingBottom: SPACE.sm, paddingHorizontal: SPACE.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerButton: { width: 44, height: 44, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  headerIdentity: { flexDirection: 'row', alignItems: 'center', gap: SPACE.xs },
-  avatarSmall: { width: 30, height: 30, borderRadius: RADIUS.full, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center' },
-  title: { color: '#FFFFFF', fontSize: TYPE.titleSmall, fontWeight: '700', letterSpacing: -0.2 },
-  tabs: { width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: COLORS.surface, flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  tabButton: { flex: 1, minHeight: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: SPACE.xs, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: COLORS.primary },
-  tabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: TYPE.bodySmall },
+  header: { position: 'relative', backgroundColor: COLORS.surface, paddingBottom: SPACE.sm, paddingHorizontal: SPACE.md, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
+  headerButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.surfaceMuted, borderWidth: 1, borderColor: COLORS.borderLight, alignItems: 'center', justifyContent: 'center' },
+  headerButtonPlaceholder: { width: 42, height: 42 },
+  headerHeading: { position: 'absolute', left: 0, right: 0, height: 42, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  headerSubtitle: { color: COLORS.textMuted, fontSize: 11.5 },
+  headerIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  headerIdentityCopy: { flex: 1, minWidth: 0, gap: 1 },
+  avatarSmall: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  title: { color: COLORS.textPrimary, fontSize: 21, lineHeight: 27, fontWeight: '700', letterSpacing: -0.3 },
+  tabsWrap: { width: '100%', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
+  tabs: { width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: COLORS.surfaceMuted, padding: 4, borderRadius: 16, flexDirection: 'row', gap: 4 },
+  tabButton: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
+  tabActive: { backgroundColor: COLORS.surface, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  tabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 12.5 },
   tabTextActive: { color: COLORS.primaryDark, fontWeight: '700' },
-  searchWrap: { width: '100%', alignItems: 'center', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
-  searchField: { width: '100%', maxWidth: 760, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: SPACE.xs, borderRadius: RADIUS.md, backgroundColor: COLORS.surfaceMuted, paddingHorizontal: SPACE.md, borderWidth: 1, borderColor: COLORS.border },
+  tabCount: { minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  tabCountText: { color: COLORS.primaryDark, fontSize: 9.5, fontWeight: '800' },
+  searchWrap: { width: '100%', alignItems: 'center', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingBottom: SPACE.sm },
+  searchField: { width: '100%', maxWidth: 760, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: SPACE.xs, borderRadius: 14, backgroundColor: COLORS.surfaceMuted, paddingHorizontal: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight },
   searchInput: { flex: 1, minWidth: 0, height: 44, color: COLORS.textPrimary, fontSize: TYPE.bodySmall, paddingVertical: 0 },
   listViewport: { flex: 1, width: '100%' },
-  scroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingTop: SPACE.sm, paddingBottom: SPACE.xxl },
-  notificationCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: SPACE.md, marginBottom: SPACE.xs, borderWidth: 1, borderColor: 'transparent', flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm },
-  notificationUnread: { backgroundColor: COLORS.primaryLight, borderColor: '#D6E6FB' },
-  notificationIcon: { width: 38, height: 38, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  conversationCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, marginBottom: SPACE.xs, borderWidth: 1, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
-  unreadCard: { backgroundColor: COLORS.primaryLight, borderColor: '#D6E6FB' },
-  avatar: { width: 44, height: 44, borderRadius: RADIUS.full, backgroundColor: COLORS.brandNavy, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#FFFFFF', fontWeight: '700', fontSize: TYPE.bodySmall },
+  scroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, gap: SPACE.sm },
+  scrollEmpty: { flexGrow: 1, justifyContent: 'center' },
+  notificationCard: { backgroundColor: COLORS.surface, borderRadius: 17, padding: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm, ...SHADOWS.soft },
+  notificationUnread: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondaryLight, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  notificationIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  conversationCard: { backgroundColor: COLORS.surface, borderRadius: 17, paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, ...SHADOWS.soft },
+  unreadCard: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondaryLight, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  avatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { color: COLORS.primaryDark, fontWeight: '700', fontSize: TYPE.bodySmall },
   rowBody: { flex: 1, minWidth: 0 },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.xs },
   cardTitle: { color: COLORS.textPrimary, fontWeight: '600', fontSize: TYPE.bodySmall, flex: 1 },
@@ -264,10 +305,10 @@ const styles = StyleSheet.create({
   unreadDot: { width: 9, height: 9, borderRadius: RADIUS.full, backgroundColor: COLORS.secondary, alignSelf: 'center', marginLeft: SPACE.xxs },
   message: { color: COLORS.textSecondary, fontSize: TYPE.caption, lineHeight: 18, marginTop: SPACE.xxs },
   date: { color: COLORS.textMuted, fontSize: TYPE.micro, marginTop: SPACE.xxs, fontWeight: '500' },
-  emptyCard: { alignItems: 'center', justifyContent: 'center', marginTop: SPACE.xxl * 2, paddingHorizontal: SPACE.xl, paddingVertical: SPACE.xl },
-  emptyIconCircle: { width: 60, height: 60, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.md },
+  emptyCard: { width: '100%', maxWidth: 440, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl, paddingVertical: 30, backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  emptyIconCircle: { width: 58, height: 58, borderRadius: 18, backgroundColor: COLORS.secondarySubtle, borderWidth: 1, borderColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.md },
   emptyTitle: { fontSize: TYPE.titleSmall, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
-  emptySub: { fontSize: TYPE.bodySmall, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACE.xs, lineHeight: 20, maxWidth: 320 },
+  emptySub: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACE.xs, lineHeight: 20, maxWidth: 320 },
   chatArea: { flex: 1, width: '100%', alignItems: 'center' },
   chatViewport: { flex: 1, width: '100%' },
   chatScroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingTop: SPACE.md, paddingBottom: SPACE.lg },

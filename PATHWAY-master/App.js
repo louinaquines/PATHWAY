@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
 import { Animated, StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { auth, db } from './firebaseConfig';
+import { auth } from './firebaseConfig';
 import { destinationForProfile } from './services/authDestination';
+import { postBackend } from './services/backendApi';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import { hasCompletedOnboarding } from './services/onboardingStorage';
 import { COLORS } from './theme';
 import { MotionPreferenceProvider, MotionTouchableOpacity, ScreenEntrance } from './components/Motion';
@@ -21,8 +22,7 @@ import RequirementsScreen from './screens/RequirementsScreen';
 import CompanyScreen from './screens/CompanyScreen';
 import ReviewScreen from './screens/ReviewScreen';
 import ApprovalScreen from './screens/ApprovalScreen';
-import RegisterScreen from './screens/RegisterScreen';
-import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import ForgotPasswordScreen from './screens/AccountRecoveryScreen';
 import LogbookScreen from './screens/LogbookScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import ProgressScreen from './screens/ProgressScreen';
@@ -52,7 +52,6 @@ const RequirementsWithMotion = withStudentMotion(RequirementsScreen);
 const CompanyWithMotion = withStudentMotion(CompanyScreen);
 const ReviewWithMotion = withStudentMotion(ReviewScreen);
 const ApprovalWithMotion = withStudentMotion(ApprovalScreen);
-const RegisterWithMotion = RegisterScreen;
 const ForgotPasswordWithMotion = withStudentMotion(ForgotPasswordScreen);
 const LogbookWithMotion = withStudentMotion(LogbookScreen);
 const AttendanceWithMotion = withStudentMotion(AttendanceScreen);
@@ -107,9 +106,9 @@ export default function App() {
           if (active) setInitialRoute(completed ? 'Login' : 'Onboarding');
           return;
         }
-        const profile = await getDoc(doc(db, 'users', user.uid));
+        const { profile } = await postBackend('/auth/profile');
         if (!active) return;
-        const destination = profile.exists() ? destinationForProfile(profile.data()) : null;
+        const destination = profile ? destinationForProfile(profile) : null;
         if (!destination) {
           await signOut(auth);
           if (!active) return;
@@ -185,7 +184,7 @@ export default function App() {
         <Stack.Screen name="LogToday" component={AttendanceWithMotion} />
         <Stack.Screen name="Logbook" component={LogbookWithMotion} />
         <Stack.Screen name="Evaluations" component={Placeholder} />
-        <Stack.Screen name="Register" component={RegisterWithMotion} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordWithMotion} />
         <Stack.Screen name="Progress" component={ProgressWithMotion} />
         <Stack.Screen name="Notifications" component={NotificationsWithMotion} />

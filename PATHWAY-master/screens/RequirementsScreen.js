@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Alert,
-  Modal,
   Platform,
   BackHandler,
   useWindowDimensions,
@@ -18,17 +16,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { auth, db } from '../firebaseConfig';
 import { BACKEND_URL, requestBackend } from '../services/backendApi';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
-import { signOut } from 'firebase/auth';
+import { studentAlert as Alert } from '../services/studentAlert';
 import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { COLORS, SHADOWS } from '../theme';
 import { AppText as Text } from '../components/AppText';
-import PathwayWatermark from '../components/PathwayWatermark';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
-import PathwayMark from '../components/PathwayMark';
+import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import useStudentLogout from '../hooks/useStudentLogout';
+import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
+import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
+import PreDeploymentStepper from '../components/PreDeploymentStepper';
+import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
 import {
-  MenuIcon,
-  BellIcon,
   FileIcon,
   UploadCloudIcon,
   TrashIcon,
@@ -82,12 +82,12 @@ export default function RequirementsScreen({ navigation }) {
   const isNarrowScreen = width < 360;
   const isWideScreen = width >= 600;
   const contentPadding = isNarrowScreen ? 14 : isWideScreen ? 32 : 20;
-  const stepItemWidth = isNarrowScreen ? 62 : isWideScreen ? 88 : 76;
   const [requirements, setRequirements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadingId, setUploadingId] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const { loggingOut, logout } = useStudentLogout(navigation);
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
   const [expandedRequirementId, setExpandedRequirementId] = useState(null);
   const [requirementsEligible, setRequirementsEligible] = useState(false);
@@ -96,14 +96,12 @@ export default function RequirementsScreen({ navigation }) {
   const currentUser = auth?.currentUser;
   const uid = currentUser?.uid;
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
+  const handleLogout = logout;
 
   useEffect(() => {
     fetchRequirements();
-  }, []);
+    return navigation.addListener('focus', fetchRequirements);
+  }, [navigation, uid]);
 
   useEffect(() => {
     const handleHardwareBack = () => {
@@ -352,6 +350,17 @@ export default function RequirementsScreen({ navigation }) {
     );
   };
 
+  const requiredRequirements = requirements.filter(item => item.required !== false);
+  const requiredCount = requiredRequirements.length;
+  const approvedCount = requiredRequirements.filter(item => item.status === 'approved').length;
+  const inReviewCount = requiredRequirements.filter(item => item.status === 'submitted').length;
+  const receivedCount = approvedCount + inReviewCount;
+  const progressPercent = requiredCount ? Math.round((receivedCount / requiredCount) * 100) : 0;
+
+  if (loggingOut) {
+    return <StudentLogoutScreen />;
+  }
+
   if (loading) {
     return <StudentScreenSkeleton variant="requirements" />;
   }
@@ -360,29 +369,10 @@ export default function RequirementsScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
-      {/* ── Top Navigation Bar (Figure 39) ── */}
-      <View style={[styles.topBar, isNarrowScreen && styles.topBarNarrow]}>
-        <PathwayWatermark size={152} opacity={0.045} style={{ right: -47, top: -56 }} />
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => setShowMenuDrawer(true)}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <MenuIcon size={20} color={COLORS.primaryDark} />
-        </TouchableOpacity>
-
-        <PathwayMark size={isNarrowScreen ? 38 : 42} />
-
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => setShowNotifications(true)}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <BellIcon size={21} color={COLORS.primaryDark} hasUnread={true} />
-        </TouchableOpacity>
-      </View>
+      <PreDeploymentTopBar
+        onMenuPress={() => setShowMenuDrawer(true)}
+        onNotificationsPress={() => setShowNotifications(true)}
+      />
 
       <ScrollView
         contentContainerStyle={[
@@ -396,60 +386,67 @@ export default function RequirementsScreen({ navigation }) {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Section Header ── */}
+        {/* Page introduction */}
         <View style={[styles.headerSection, isNarrowScreen && styles.headerSectionNarrow]}>
-          <Text style={styles.subPipelineLabel}>Pre-deployment Pipeline</Text>
+          <View style={styles.headerMetaRow}>
+            <Text style={styles.subPipelineLabel}>PRE-DEPLOYMENT</Text>
+            <View style={styles.stageBadge}>
+              <Text style={styles.stageBadgeText}>STEP 01 / 04</Text>
+            </View>
+          </View>
           <Text variant="heading" style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow]}>Document Submission</Text>
+          <Text style={styles.headerDescription}>Your required forms, all in one place.</Text>
         </View>
 
-        {/* ── 4-Step Pipeline Stepper (Figure 39) ── */}
-        <View style={styles.stepperContainer}>
-          <View style={styles.stepTrack}>
-            {/* Step 1 is the starting state, so no progress fill is shown yet. */}
-          </View>
+        <PreDeploymentStepper
+          activeStep={1}
+          onStepPress={step => {
+            if (step === 1) setActiveStep(1);
+            if (step === 2) navigation.navigate('Company');
+            if (step === 3) navigation.navigate('Review');
+            if (step === 4) navigation.navigate('Approval');
+          }}
+        />
 
-          <View style={styles.stepperRow}>
-            {/* Step 1: Doc Submission */}
-            <MotionTouchableOpacity style={[styles.stepItem, { width: stepItemWidth }]} onPress={() => setActiveStep(1)} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Open document submission">
-              <View style={[styles.stepCircle, styles.stepCircleActive]}>
-                <Text style={styles.stepNumberActive}>1</Text>
+        {activeStep === 1 && <>
+          <View style={styles.checklistCard}>
+            <View style={styles.checklistTopRow}>
+              <View style={styles.checklistIcon}>
+                <FileIcon size={18} color={COLORS.primary} />
               </View>
-              <Text style={[styles.stepLabelActive, isNarrowScreen && styles.stepLabelNarrow]}>Doc Submission</Text>
-            </MotionTouchableOpacity>
-
-            {/* Step 2: Company */}
-            <MotionTouchableOpacity
-              style={[styles.stepItem, { width: stepItemWidth }]}
-              onPress={() => {
-                navigation.navigate('Company');
-              }}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Open company placement"
+              <View style={styles.checklistCopy}>
+                <Text style={styles.checklistTitle}>Required documents</Text>
+                <Text style={styles.checklistSubtitle}>{receivedCount} of {requiredCount} received</Text>
+              </View>
+              <View style={styles.progressValuePill}>
+                <Text style={styles.checklistPercent}>{progressPercent}%</Text>
+              </View>
+            </View>
+            <View
+              style={styles.progressTrack}
+              accessibilityRole="progressbar"
+              accessibilityLabel="Required documents received"
+              accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
             >
-              <View style={[styles.stepCircle, styles.stepCircleInactive]}>
-                <Text style={styles.stepNumberInactive}>2</Text>
-              </View>
-              <Text style={[styles.stepLabelInactive, isNarrowScreen && styles.stepLabelNarrow]}>Company</Text>
-            </MotionTouchableOpacity>
-
-            {/* Step 3: Review */}
-            <MotionTouchableOpacity style={[styles.stepItem, { width: stepItemWidth }]} onPress={() => navigation.navigate('Review')} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Open review step">
-              <View style={[styles.stepCircle, styles.stepCircleInactive]}>
-                <Text style={styles.stepNumberInactive}>3</Text>
-              </View>
-              <Text style={[styles.stepLabelInactive, isNarrowScreen && styles.stepLabelNarrow]}>Review</Text>
-            </MotionTouchableOpacity>
-
-            {/* Step 4: Approved */}
-            <MotionTouchableOpacity style={[styles.stepItem, { width: stepItemWidth }]} onPress={() => navigation.navigate('Approval')} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Open approval step">
-              <View style={[styles.stepCircle, styles.stepCircleInactive]}>
-                <Text style={styles.stepNumberInactive}>4</Text>
-              </View>
-              <Text style={[styles.stepLabelInactive, isNarrowScreen && styles.stepLabelNarrow]}>Approval</Text>
-            </MotionTouchableOpacity>
+              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            </View>
+          <Text style={styles.checklistFootnote}>
+              {requiredCount === 0
+                ? 'No required documents have been assigned yet.'
+                : receivedCount === requiredCount
+                  ? 'All required documents are with your coordinator.'
+                  : `${approvedCount} approved${inReviewCount ? ` · ${inReviewCount} in review` : ''} · ${Math.max(requiredCount - receivedCount, 0)} to submit`}
+            </Text>
           </View>
-        </View>
+
+        <View style={styles.documentsHeading}>
+            <View>
+              <Text style={styles.documentsTitle}>Your documents</Text>
+              <Text style={styles.documentsSubtitle}>Tap an item to upload or review its status.</Text>
+            </View>
+            <Text style={styles.documentsCount}>{requirements.length} items</Text>
+          </View>
+        </>}
 
         {activeStep === 1 && <>
         {/* ── Document List Cards (Figure 39) ── */}
@@ -460,17 +457,44 @@ export default function RequirementsScreen({ navigation }) {
             const isRejected = docItem.status === 'rejected' || docItem.status === 'needs_revision';
             const isSubmitted = docItem.status === 'submitted' || isApproved || isRejected;
             const isNotSubmitted = !isSubmitted;
+            const isExpanded = expandedRequirementId === docItem.id;
+            const headerDescription = isRejected
+              ? 'An updated file is needed'
+              : isApproved
+                ? (docItem.fileName || 'Approved by your coordinator')
+                : isSubmitted
+                  ? (docItem.fileName || 'Waiting for coordinator review')
+                  : docItem.fileTypeHint;
 
             return (
               <TouchableOpacity
                 key={docItem.id}
-                style={[styles.docCard, isNarrowScreen && styles.docCardNarrow]}
+                style={[styles.docCard, isNarrowScreen && styles.docCardNarrow, isExpanded && styles.docCardExpanded]}
                 onPress={() => setExpandedRequirementId(current => current === docItem.id ? null : docItem.id)}
                 activeOpacity={0.92}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isExpanded }}
+                accessibilityLabel={`${docItem.label}. ${isApproved ? 'Approved' : isRejected ? 'Action needed' : isSubmitted ? 'In review' : 'Required'}. ${isExpanded ? 'Tap to collapse.' : 'Tap to expand.'}`}
               >
                 {/* Card Title & Status Badge Header */}
-                <View style={styles.docHeaderRow}>
-                  <Text style={styles.docTitle}>{docItem.label}</Text>
+                <View style={[styles.docHeaderRow, isExpanded && styles.docHeaderExpanded]}>
+                  <View style={[
+                    styles.docStatusIcon,
+                    isApproved && styles.docStatusIconApproved,
+                    isRejected && styles.docStatusIconIssue,
+                    docItem.status === 'submitted' && styles.docStatusIconReview,
+                  ]}>
+                    {isApproved
+                      ? <CheckCircleIcon size={18} color={COLORS.successDark} />
+                      : isRejected
+                        ? <AlertCircleIcon size={18} color={COLORS.dangerDark} />
+                        : <FileIcon size={18} color={COLORS.primary} />}
+                  </View>
+
+                  <View style={styles.docHeaderCopy}>
+                    <Text style={styles.docTitle} numberOfLines={1}>{docItem.label}</Text>
+                    <Text style={styles.docSubtitle} numberOfLines={1}>{headerDescription}</Text>
+                  </View>
 
                   {isApproved && (
                     <View style={styles.verifiedBadge}>
@@ -482,25 +506,25 @@ export default function RequirementsScreen({ navigation }) {
                   {docItem.status === 'submitted' && (
                     <View style={styles.pendingBadge}>
                       <Text style={styles.pendingBadgeIcon}>•</Text>
-                      <Text style={styles.pendingBadgeText}>Pending Review</Text>
+                      <Text style={styles.pendingBadgeText}>In review</Text>
                     </View>
                   )}
 
                   {isRejected && (
                     <View style={styles.issueBadge}>
                       <AlertCircleIcon size={12} color={COLORS.danger} />
-                      <Text style={styles.issueBadgeText}>{docItem.status === 'needs_revision' ? 'Update for New Placement' : 'Needs Resubmission'}</Text>
+                      <Text style={styles.issueBadgeText}>{docItem.status === 'needs_revision' ? 'Needs update' : 'Resubmit'}</Text>
                     </View>
                   )}
 
                   {isNotSubmitted && (
                     <View style={styles.requiredBadge}>
                       <Text style={styles.requiredBadgeDot}>!</Text>
-                      <Text style={styles.requiredBadgeText}>Required</Text>
+                      <Text style={styles.requiredBadgeText}>{docItem.required === false ? 'Optional' : 'Required'}</Text>
                     </View>
                   )}
 
-                  <ChevronIcon size={16} color={COLORS.textMuted} expanded={expandedRequirementId === docItem.id} />
+                  <ChevronIcon size={16} color={COLORS.textMuted} expanded={isExpanded} />
                 </View>
 
                 {expandedRequirementId === docItem.id && isUploading && (
@@ -522,7 +546,7 @@ export default function RequirementsScreen({ navigation }) {
                           {docItem.fileName || 'app_form_signed.pdf'}
                         </Text>
                         <Text style={styles.fileMetaText}>
-                          {docItem.fileSize || '1.2 MB'} • Uploaded Today
+                          {[docItem.fileSize, docItem.submittedAt && `Uploaded ${new Date(docItem.submittedAt).toLocaleDateString('en-PH')}`].filter(Boolean).join(' · ') || 'File received'}
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -609,19 +633,12 @@ export default function RequirementsScreen({ navigation }) {
         <View style={styles.footerSection}>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
-            onPress={() => {
-              Alert.alert(
-                'Pre-deployment Checklist',
-                'Your uploaded pre-deployment documents are saved. Would you like to proceed to Step 2 (Company Selection)?',
-                [
-                  { text: 'Stay Here', style: 'cancel' },
-                  { text: 'Proceed to Step 2 →', onPress: () => navigation.navigate('Company') },
-                ]
-              );
-            }}
+            onPress={() => navigation.navigate('Company')}
             activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="Continue to company selection"
           >
-            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Save & Proceed to Next Step →</Text>
+            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to Company Selection →</Text>
           </MotionTouchableOpacity>
         </View>
         </>}
@@ -630,74 +647,18 @@ export default function RequirementsScreen({ navigation }) {
         {activeStep === 4 && <View style={styles.comingSoonCard}><CheckCircleIcon size={30} color={COLORS.secondary} /><Text style={styles.comingSoonTitle}>Approval step coming soon</Text><Text style={styles.comingSoonText}>The approval interface is not available yet. Your coordinator will continue reviewing your submitted records.</Text></View>}
       </ScrollView>
 
-      {/* ── Notifications Modal ── */}
-      <Modal
+      <PreDeploymentNotificationsSheet
         visible={showNotifications}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowNotifications(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Notifications</Text>
-              <TouchableOpacity onPress={() => setShowNotifications(false)}>
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight: 340 }}>
-              <View style={styles.notifItem}>
-                <Text style={styles.notifTitle}>Document review status</Text>
-                <Text style={styles.notifMsg}>Submitted documents are reviewed by your coordinator. You will see the decision here.</Text>
-                <Text style={styles.notifTime}>Current</Text>
-              </View>
-              <View style={styles.notifItem}>
-                <Text style={styles.notifTitle}>Pre-deployment Advisory</Text>
-                <Text style={styles.notifMsg}>Ensure all 5 requirements are submitted before starting your OJT deployment.</Text>
-                <Text style={styles.notifTime}>Yesterday</Text>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setShowNotifications(false)}
+      />
 
-      {/* ── Sidebar Navigation Drawer Modal ── */}
-      <Modal
+      <PreDeploymentDrawer
         visible={showMenuDrawer}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setShowMenuDrawer(false)}
-      >
-        <View style={styles.drawerOverlay}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Close navigation menu"
-            style={styles.drawerBackdrop}
-            onPress={() => setShowMenuDrawer(false)}
-            activeOpacity={1}
-          />
-          <View style={[
-            styles.drawerCard,
-            isNarrowScreen && styles.drawerCardNarrow,
-            isWideScreen && styles.drawerCardWide,
-          ]}>
-            <View style={styles.drawerHeader}>
-              <View style={styles.drawerAvatar}>
-                <Text style={styles.drawerAvatarLetter}>P</Text>
-              </View>
-              <Text style={styles.drawerTitle}>PATHWAY</Text>
-              <Text style={styles.drawerSubtitle}>OJT Management System</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.drawerLogoutBtn}
-              onPress={handleLogout}
-            >
-              <Text style={styles.drawerLogoutBtnText}>Log out</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        activeRoute="Requirements"
+        onClose={() => setShowMenuDrawer(false)}
+        onNavigate={route => navigation.replace(route)}
+        onSignOut={handleLogout}
+      />
     </View>
   );
 }
@@ -705,7 +666,7 @@ export default function RequirementsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.background,
   },
   centerContainer: {
     flex: 1,
@@ -722,37 +683,50 @@ const styles = StyleSheet.create({
 
   /* Top Navigation Bar */
   topBar: {
-    height: Platform.OS === 'ios' ? 94 : 64,
-    paddingTop: Platform.OS === 'ios' ? 44 : 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
+    height: Platform.OS === 'ios' ? 94 : 68,
+    paddingTop: Platform.OS === 'ios' ? 44 : 8,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    ...SHADOWS.soft,
+    borderBottomColor: COLORS.borderLight,
+    zIndex: 2,
   },
   topBarNarrow: {
     paddingHorizontal: 14,
   },
+  topBarLead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.primarySubtle,
+    borderWidth: 1,
+    borderColor: '#E6EEF9',
+    zIndex: 1,
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
   },
   brandTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: COLORS.primary,
-    letterSpacing: 2.5,
+    letterSpacing: 2.2,
   },
   brandTitleNarrow: {
-    fontSize: 16,
-    letterSpacing: 1.8,
+    fontSize: 15,
+    letterSpacing: 1.7,
   },
 
   scrollContent: {
@@ -766,20 +740,37 @@ const styles = StyleSheet.create({
 
   /* Header Section */
   headerSection: {
-    marginBottom: 20,
-  },
-  headerSectionNarrow: {
     marginBottom: 16,
   },
+  headerSectionNarrow: {
+    marginBottom: 14,
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
   subPipelineLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
     color: COLORS.secondary,
-    marginBottom: 4,
-    letterSpacing: 0.3,
+    letterSpacing: 1.05,
+  },
+  stageBadge: {
+    backgroundColor: '#EAF2FF',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  stageBadgeText: {
+    color: COLORS.primaryDark,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   screenHeading: {
-    fontSize: 24,
+    fontSize: 25,
     fontWeight: '800',
     color: COLORS.textPrimary,
     letterSpacing: -0.5,
@@ -787,19 +778,33 @@ const styles = StyleSheet.create({
   screenHeadingNarrow: {
     fontSize: 22,
   },
+  headerDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.textMuted,
+    marginTop: 4,
+  },
 
   /* ── Four-Step Stepper (Figure 39) ── */
   stepperContainer: {
-    marginBottom: 24,
+    marginBottom: 16,
     position: 'relative',
+    paddingHorizontal: 10,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+    ...SHADOWS.soft,
   },
   stepTrack: {
     position: 'absolute',
-    top: 16,
+    top: 27,
     left: '12%',
     right: '12%',
-    height: 3,
-    backgroundColor: '#E2E8F0',
+    height: 2,
+    backgroundColor: '#E5EAF2',
     borderRadius: 2,
   },
   stepTrackLine: {
@@ -817,34 +822,34 @@ const styles = StyleSheet.create({
     width: 76,
   },
   stepCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 7,
     backgroundColor: '#FFFFFF',
   },
   stepCircleActive: {
-    borderWidth: 2,
+    borderWidth: 0,
     borderColor: COLORS.primary,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.primary,
   },
   stepNumberActive: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: '#FFFFFF',
   },
   stepLabelActive: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
     color: COLORS.primary,
     textAlign: 'center',
   },
   stepCircleInactive: {
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: '#FFFFFF',
   },
   stepNumberInactive: {
     fontSize: 13,
@@ -852,18 +857,108 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   stepLabelInactive: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.textMuted,
     textAlign: 'center',
   },
   stepLabelNarrow: {
     fontSize: 10,
   },
 
+  checklistCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 22,
+    ...SHADOWS.soft,
+  },
+  checklistTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  checklistIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checklistCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  checklistTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  checklistSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  checklistPercent: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  progressValuePill: {
+    minWidth: 48,
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    backgroundColor: COLORS.primarySubtle,
+    borderRadius: 999,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginTop: 13,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 5,
+  },
+  checklistFootnote: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 8,
+  },
+  documentsHeading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 12,
+  },
+  documentsTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  documentsSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  documentsCount: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    paddingBottom: 2,
+  },
+
   /* ── Document List Cards ── */
   docsList: {
-    gap: 16,
+    gap: 10,
   },
   comingSoonCard: {
     backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', padding: 28,
@@ -872,59 +967,92 @@ const styles = StyleSheet.create({
   comingSoonTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, textAlign: 'center' },
   comingSoonText: { color: COLORS.textSecondary, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8 },
   docCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 18,
+    backgroundColor: COLORS.surface,
+    borderRadius: 15,
+    padding: 15,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOWS.card,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.soft,
+  },
+  docCardExpanded: {
+    borderColor: '#C8DDFB',
   },
   docCardNarrow: {
-    padding: 14,
-    borderRadius: 15,
+    padding: 12,
+    borderRadius: 14,
   },
   docHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 9,
+  },
+  docHeaderExpanded: {
     marginBottom: 14,
   },
+  docStatusIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: COLORS.primarySubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  docStatusIconApproved: {
+    backgroundColor: COLORS.successSubtle,
+  },
+  docStatusIconIssue: {
+    backgroundColor: COLORS.dangerSubtle,
+  },
+  docStatusIconReview: {
+    backgroundColor: COLORS.warningSubtle,
+  },
+  docHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   docTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    flex: 1,
+  },
+  docSubtitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    marginTop: 3,
   },
 
   /* Badges */
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.successSubtle,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   verifiedBadgeIcon: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#0284C7',
+    color: COLORS.successDark,
   },
   verifiedBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#0284C7',
+    color: COLORS.successDark,
   },
 
   pendingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF9C3',
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.warningSubtle,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   pendingBadgeIcon: {
     fontSize: 16,
@@ -933,44 +1061,46 @@ const styles = StyleSheet.create({
     color: '#A16207',
   },
   pendingBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#A16207',
+    color: COLORS.warningDark,
   },
 
   issueBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.dangerSubtle,
+    paddingHorizontal: 7,
     paddingVertical: 4,
     borderRadius: 20,
-    gap: 5,
+    gap: 3,
+    flexShrink: 0,
   },
   issueBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: COLORS.danger,
+    color: COLORS.dangerDark,
   },
 
   requiredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E0F2FE',
-    paddingHorizontal: 10,
+    backgroundColor: COLORS.primarySubtle,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 20,
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   requiredBadgeDot: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#0284C7',
+    color: COLORS.primary,
   },
   requiredBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#0284C7',
+    color: COLORS.primary,
   },
 
   /* Uploading State */
@@ -1125,176 +1255,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  /* Modals */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  modalCloseText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    padding: 4,
-  },
-
-  notifItem: {
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFC',
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.secondary,
-    marginBottom: 10,
-  },
-  notifTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  notifMsg: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 3,
-    lineHeight: 17,
-  },
-  notifTime: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 5,
-  },
-
-  /* Drawer Modal */
-  drawerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    flexDirection: 'row',
-  },
-  drawerBackdrop: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-  },
-  drawerCard: {
-    width: '75%',
-    height: '100%',
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
-  },
-  drawerCardNarrow: {
-    width: '86%',
-    paddingHorizontal: 20,
-  },
-  drawerCardWide: {
-    width: 360,
-  },
-  drawerHeader: {
-    marginBottom: 28,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 20,
-  },
-  drawerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  drawerAvatarLetter: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  drawerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-    letterSpacing: 1,
-  },
-  drawerSubtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  drawerItems: {
-    gap: 8,
-    flex: 1,
-  },
-  drawerLogoutBtn: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  drawerLogoutBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  drawerLink: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-  },
-  drawerLinkActive: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: '#F0F9FF',
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.secondary,
-  },
-  drawerLinkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  drawerLinkTextActive: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  drawerCloseBtn: {
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  drawerCloseBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
 });

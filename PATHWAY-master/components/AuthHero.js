@@ -2,7 +2,6 @@ import React, { useRef } from 'react';
 import { Animated, ImageBackground, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../theme';
 import { ChevronLeftIcon } from './Icons';
-import PathwayWatermark from './PathwayWatermark';
 import { FONTS, useCustomFontsAvailable } from './AppText';
 import PathwayMark from './PathwayMark';
 
@@ -53,7 +52,6 @@ export default function AuthHero({
     <ImageBackground source={CAMPUS_IMAGE} resizeMode="cover" style={styles.hero} imageStyle={styles.image}>
       <View pointerEvents="none" style={styles.tint} />
       <Animated.View pointerEvents="none" style={[styles.deepCover, { opacity: backdropOpacity }]} />
-      <PathwayWatermark size={224} opacity={0.055} style={{ right: -72, top: -34 }} />
       <View style={styles.content}>
         {onBack ? (
           <TouchableOpacity
@@ -66,9 +64,9 @@ export default function AuthHero({
           </TouchableOpacity>
         ) : null}
         <View style={styles.brandRow}>
-          <Animated.View style={[styles.logoTile, logoStyle]}>
+          <Animated.View style={[styles.logoFrame, logoStyle]}>
             <View ref={logoRef} onLayout={reportLogoFrame} style={styles.logoMeasureTarget}>
-              <PathwayMark size={34} decorative />
+              <PathwayMark size={40} decorative />
             </View>
           </Animated.View>
         <Animated.Text style={[styles.brandName, brandStyle, { fontFamily: customFontsAvailable ? FONTS.bodySemiBold : fallbackBody }]}>PATHWAY</Animated.Text>
@@ -104,7 +102,7 @@ const styles = StyleSheet.create({
   image: { width: '100%', height: '100%' },
   tint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(4, 24, 50, 0.72)',
+    backgroundColor: 'rgba(0, 69, 156, 0.72)',
   },
   deepCover: {
     ...StyleSheet.absoluteFillObject,
@@ -119,20 +117,21 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginBottom: 10,
+    transform: [{ translateY: -18 }],
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(4, 24, 50, 0.38)',
+    backgroundColor: 'rgba(0, 69, 156, 0.42)',
   },
   brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  logoTile: {
-    width: 34,
-    height: 34,
+  logoFrame: {
+    width: 40,
+    height: 40,
     marginRight: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoMeasureTarget: { width: 34, height: 34 },
+  logoMeasureTarget: { width: 40, height: 40 },
   brandName: { color: '#FFFFFF', fontFamily: FONTS.bodySemiBold, fontSize: 15, fontWeight: '700', letterSpacing: 2.1 },
   title: { color: '#FFFFFF', fontFamily: FONTS.headingBold, fontSize: 30, fontWeight: '700', letterSpacing: -0.45 },
   subtitle: { color: '#E6F2FF', fontFamily: FONTS.body, fontSize: 13, lineHeight: 19, marginTop: 6, maxWidth: 340 },

@@ -15,7 +15,7 @@ export default function PathwayMark({ size = 224, pReveal, decorative = false, s
       accessibilityLabel={decorative ? undefined : 'PATHWAY logo'}
       accessibilityElementsHidden={decorative}
       importantForAccessibility={decorative ? 'no-hide-descendants' : 'auto'}
-      style={[{ width: size, height: size, opacity: pReveal || 1, transform: [{ scale: pScale }] }, style]}
+      style={[{ width: size, height: size, opacity: pReveal || 1, backgroundColor: 'transparent', transform: [{ scale: pScale }] }, style]}
     >
       <Image
         accessible={false}

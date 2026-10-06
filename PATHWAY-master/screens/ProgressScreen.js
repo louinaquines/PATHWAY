@@ -102,7 +102,7 @@ export default function ProgressScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
       {/* Modern Top Header */}
       <View style={styles.header}>
@@ -112,9 +112,9 @@ export default function ProgressScreen({ navigation }) {
           activeOpacity={0.7}
           accessibilityLabel="Go back"
         >
-          <ChevronLeftIcon size={22} color="#FFFFFF" />
+          <ChevronLeftIcon size={22} color={COLORS.primaryDark} />
         </MotionTouchableOpacity>
-        <Text style={styles.headerTitle}>OJT Progress & Clearance</Text>
+        <Text style={styles.headerTitle}>OJT Progress</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -436,24 +436,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: COLORS.surface,
     paddingTop: Platform.OS === 'ios' ? 48 : 16,
     paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: COLORS.secondaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: COLORS.textPrimary,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
@@ -467,19 +469,19 @@ const styles = StyleSheet.create({
   },
   // Hours card
   hoursCard: {
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: COLORS.border,
     ...SHADOWS.card,
   },
   hoursTitle: {
-    color: '#93C5FD',
+    color: COLORS.primaryDark,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 0.8,
     marginBottom: 16,
   },
   hoursRow: {
@@ -487,35 +489,44 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.md,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
   hoursStat: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
   },
   hoursNum: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
   },
   hoursLabel: {
-    fontSize: 11,
-    color: '#93C5FD',
+    fontSize: 10,
+    color: COLORS.textMuted,
     marginTop: 4,
     fontWeight: '600',
   },
   hoursDivider: {
     width: 1,
-    height: 36,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    height: 34,
+    backgroundColor: COLORS.border,
   },
   progressBg: {
     height: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: COLORS.secondaryLight,
     borderRadius: RADIUS.full,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.brandGold,
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
   },
   progressMeta: {
@@ -526,11 +537,11 @@ const styles = StyleSheet.create({
   },
   progressSub: {
     fontSize: 12,
-    color: '#BAE6FD',
+    color: COLORS.textMuted,
   },
   progressPct: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: COLORS.primaryDark,
     fontWeight: '700',
   },
   // Clearance card

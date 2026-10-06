@@ -9,7 +9,12 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
 
-export default function ClassListTab({ department }) {
+export default function ClassListTab({ department, coordinatorId }) {
+  const [sections, setSections] = useState([]);
+  const [sectionId, setSectionId] = useState('');
+  const [outcomes, setOutcomes] = useState([]);
+  const [resetResult, setResetResult] = useState(null);
+  const [resetConfirm, setResetConfirm] = useState(null);
   const [ids, setIds]         = useState([]);
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(true);
@@ -40,24 +45,34 @@ export default function ClassListTab({ department }) {
     if (department) loadIds();
   }, [department, loadIds]);
 
+  useEffect(() => {
+    getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)))
+      .then(snap => setSections(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => setMessage('Could not load your assigned sections.'));
+  }, [coordinatorId]);
+
   const addIds = async () => {
-    const newIds = [...new Set(input.split(/[\s,;]+/).map(v => v.trim()).filter(Boolean))];
-    if (!newIds.length) {
-      setMessage('Enter at least one valid student ID.');
+    const students = input.trim().split(/\r?\n/).filter(Boolean).map(line => {
+      const [idNumber, firstName, lastName, ...extra] = line.split(',').map(v => v.trim());
+      return { idNumber, firstName, lastName, extra };
+    }).filter(row => row.idNumber.toLowerCase() !== 'studentid');
+    if (!sectionId || !students.length || students.some(row => !row.firstName || !row.lastName || row.extra.length)) {
+      setMessage('Select a section and enter one StudentID,FirstName,LastName row per student. Commas inside names are not supported.');
       return;
     }
     setSaving(true);
     setMessage('');
     try {
-      await adminRequest('/coordinator/student-roster', {
-        method: 'POST', body: JSON.stringify({ idNumbers: newIds }),
+      const result = await adminRequest('/coordinator/provision-students', {
+        method: 'POST', body: JSON.stringify({ sectionId, students: students.map(({ extra, ...row }) => row) }),
       });
-      setInput('');
-      setMessage(`Successfully added ${newIds.length} authorized ID(s) to ${department}.`);
+      setOutcomes(result.outcomes);
+      if (result.outcomes.every(row => row.status !== 'failed')) setInput('');
+      setMessage(`Import finished: ${result.outcomes.filter(row => row.status === 'created').length} created, ${result.outcomes.filter(row => row.status === 'unchanged').length} unchanged, ${result.outcomes.filter(row => row.status === 'failed').length} failed.`);
       await loadIds();
     } catch (e) {
       console.error(e);
-      setMessage('Could not save the student IDs. Please try again.');
+      setMessage(e.message || 'Could not provision student accounts. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -90,22 +105,32 @@ export default function ClassListTab({ department }) {
       <div style={s.card}>
         <div style={s.cardHeader}>
           <div>
-            <h2 style={s.title}>Authorized Department Roster</h2>
+            <h2 style={s.title}>Class List Account Provisioning</h2>
             <p style={s.help}>
-              Students can only register their PATHWAY accounts if their student ID number is listed here for <strong>{department}</strong>.
+              Import authorized students for <strong>{department}</strong>. Username: uclm-StudentID. Initial password: UC@StudentID. Password replacement is required before access. Existing passwords are never reset by reimport.
             </p>
           </div>
           <span style={s.deptBadge}>{department}</span>
         </div>
 
         <div style={s.inputSection}>
-          <label style={s.label}>Add Student ID Numbers (Bulk or Single)</label>
+          <label style={s.label}>Assigned section</label>
+          <select aria-label="Assigned section" value={sectionId} onChange={e => setSectionId(e.target.value)} disabled={saving}>
+            <option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+          </select>
+          <label style={s.label}>Class list CSV — StudentID,FirstName,LastName</label>
+          <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={async e => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            if (file.size > 100000) { setMessage('Class list must be under 100 KB.'); return; }
+            try { setInput((await file.text()).replace(/^\uFEFF/, '')); } catch { setMessage('Could not read the class list.'); }
+          }} />
           <textarea
             style={s.textarea}
             rows={4}
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Paste student IDs separated by spaces, commas, or new lines (e.g. 21-00123 21-00124 21-00125)..."
+            placeholder={'StudentID,FirstName,LastName\n24228132,Taylor,Student'}
             disabled={saving}
           />
           <div style={s.formActions}>
@@ -114,7 +139,7 @@ export default function ClassListTab({ department }) {
               onClick={addIds}
               disabled={saving || !input.trim()}
             >
-              {saving ? 'Adding IDs...' : '+ Add to Authorized Roster'}
+              {saving ? 'Provisioning accounts...' : 'Import and create accounts'}
             </button>
             {message && (
               <span style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>
@@ -123,6 +148,8 @@ export default function ClassListTab({ department }) {
             )}
           </div>
         </div>
+        {outcomes.length > 0 && <ul aria-label="Import results">{outcomes.map(row => <li key={row.idNumber}>{row.idNumber}: {row.status}{row.error ? ` — ${row.error}` : ` — ${row.username}`}</li>)}</ul>}
+        {resetResult && <div role="status">Temporary password for {resetResult.id}: <code>{resetResult.password}</code>. Deliver privately after verifying identity. <button onClick={() => setResetResult(null)}>Dismiss</button></div>}
       </div>
 
       {/* Roster List Card */}
@@ -148,6 +175,7 @@ export default function ClassListTab({ department }) {
               <thead>
                 <tr>
                   <th style={s.th}>Student ID</th>
+                  <th style={s.th}>Username</th>
                   <th style={s.th}>Department</th>
                   <th style={s.th}>Date Added</th>
                   <th style={{ ...s.th, textAlign: 'right' }}>Action</th>
@@ -159,6 +187,7 @@ export default function ClassListTab({ department }) {
                     <td style={s.td}>
                       <span style={s.idCode}>{item.id}</span>
                     </td>
+                    <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Legacy / not provisioned'}</td>
                     <td style={s.td}>{item.department}</td>
                     <td style={s.td}>
                       {item.createdAt
@@ -173,6 +202,7 @@ export default function ClassListTab({ department }) {
                       >
                         Remove
                       </button>
+                      {item.claimedBy && <button disabled={saving} onClick={() => { setResetResult(null); setResetConfirm(item); }}>Reset password</button>}
                     </td>
                   </tr>
                 ))}
@@ -182,9 +212,22 @@ export default function ClassListTab({ department }) {
         )}
       </div>
       <AlertDialog
+        open={Boolean(resetConfirm)} title="Verify identity before resetting password"
+        description="Confirm that you verified this student's identity. Existing sessions will be revoked and a new password change will be required."
+        confirmLabel="Identity verified — reset" busy={saving} onCancel={() => setResetConfirm(null)}
+        onConfirm={async () => {
+          setSaving(true);
+          try {
+            const result = await adminRequest(`/coordinator/students/${encodeURIComponent(resetConfirm.claimedBy)}/reset-password`, { method: 'POST', body: JSON.stringify({ identityVerified: true }) });
+            setResetResult({ id: resetConfirm.id, password: result.temporaryPassword }); setResetConfirm(null);
+          } catch (e) { setMessage(e.message); }
+          finally { setSaving(false); }
+        }}
+      />
+      <AlertDialog
         open={Boolean(removeConfirm)}
         title="Remove authorized student ID?"
-        description={removeConfirm ? `Student ID ${removeConfirm.id} will no longer be allowed to register under ${department}. This does not delete an existing student account.` : ''}
+        description={removeConfirm ? `Student ID ${removeConfirm.id} will be marked inactive in the roster. This does not delete or suspend an existing student account.` : ''}
         confirmLabel="Remove ID"
         busy={saving}
         onCancel={() => setRemoveConfirm(null)}

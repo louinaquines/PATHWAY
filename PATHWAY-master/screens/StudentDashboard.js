@@ -7,25 +7,33 @@ import {
   Image,
   Alert,
   Platform,
+  Pressable,
   ScrollView,
   StatusBar,
+  Switch,
   StyleSheet,
   TouchableOpacity,
   View,
   useWindowDimensions,
 } from 'react-native';
-import { signOut } from 'firebase/auth';
-import { addDoc, collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import * as DocumentPicker from 'expo-document-picker';
 import { auth, db } from '../firebaseConfig';
 import { requestBackend, postBackend } from '../services/backendApi';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
+import { nextPreDeploymentAction } from '../services/preDeploymentStatus';
+import { getStudentNotificationsEnabled, setStudentNotificationsEnabled } from '../services/studentPreferences';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import PathwayWatermark from '../components/PathwayWatermark';
 import { MotionTouchableOpacity, useReducedMotion } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import PathwayMark from '../components/PathwayMark';
+import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
+import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
+import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
+import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import useStudentLogout from '../hooks/useStudentLogout';
 import {
   AlertCircleIcon,
   BellIcon,
@@ -38,8 +46,10 @@ import {
   ClockIcon,
   FileIcon,
   HomeIcon,
+  InfoIcon,
   LogbookIcon,
   LogOutIcon,
+  MailIcon,
   ProfileIcon,
   ProgressIcon,
   SettingsIcon,
@@ -90,19 +100,130 @@ const initials = student => {
   return (f + l).toUpperCase() || 'ST';
 };
 
+const DEFAULT_PREDEPLOYMENT_REQUIREMENT_IDS = [
+  'application_form',
+  'updated_resume',
+  'medical_certificate',
+  'endorsement_letter',
+  'signed_moa',
+];
+
+const toTimestamp = value => {
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  const parsed = new Date(value || 0).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+async function loadPreDeploymentSummary(uid, profile) {
+  const optionalRead = promise => promise.catch(error => {
+    console.warn('Unable to load one pre-deployment summary section.', error);
+    return null;
+  });
+  const [configuredRequirements, proposalSnapshot, reviewSnapshot] = await Promise.all([
+    profile.sectionId
+      ? optionalRead(getDocs(collection(db, 'sections', profile.sectionId, 'requirements')))
+      : Promise.resolve(null),
+    optionalRead(getDocs(query(collection(db, 'companyProposals'), where('studentId', '==', uid)))),
+    optionalRead(getDocs(query(collection(db, 'finalReviewRequests'), where('studentId', '==', uid)))),
+  ]);
+
+  const latestRecord = snapshot => (snapshot?.docs || [])
+    .map(item => ({ id: item.id, ...item.data() }))
+    .sort((a, b) => toTimestamp(b.updatedAt || b.createdAt) - toTimestamp(a.updatedAt || a.createdAt))[0] || null;
+  const latestProposal = latestRecord(proposalSnapshot);
+  const latestReview = latestRecord(reviewSnapshot);
+  const assignedRequirements = configuredRequirements?.docs?.length
+    ? configuredRequirements.docs.map(item => ({ id: item.id, ...item.data() }))
+    : DEFAULT_PREDEPLOYMENT_REQUIREMENT_IDS.map(id => ({ id, required: true, category: 'Pre-OJT' }));
+  const requiredRequirements = assignedRequirements.filter(item =>
+    item.required !== false && (!item.category || /pre|deploy/i.test(item.category))
+  );
+  const savedRequirements = profile.requirements || {};
+  const submittedCount = profile.requirementsStatus === 'approved'
+    ? requiredRequirements.length
+    : requiredRequirements.filter(item => ['submitted', 'approved'].includes(savedRequirements[item.id]?.status)).length;
+  const needsChangesCount = requiredRequirements.filter(item =>
+    ['needs_revision', 'rejected'].includes(savedRequirements[item.id]?.status)
+  ).length;
+  const reviewStatus = latestReview?.status
+    || (!reviewSnapshot && ['pending_review', 'needs_revision', 'rejected'].includes(profile.preDeploymentStatus)
+      ? profile.preDeploymentStatus
+      : 'not_submitted');
+  const submittedAt = latestReview?.submittedAt;
+
+  return {
+    accountApproved: profile.accountApproved === true,
+    requirements: {
+      status: profile.requirementsStatus || 'not_submitted',
+      received: submittedCount,
+      total: requiredRequirements.length,
+      needsChanges: needsChangesCount,
+    },
+    placement: {
+      status: profile.placementStatus || latestProposal?.status || 'not_started',
+      companyName: profile.company || profile.companyName || latestProposal?.companyName || '',
+      supervisorName: profile.supervisorName || latestProposal?.supervisorName || '',
+    },
+    review: {
+      status: reviewStatus,
+      submittedAt: typeof submittedAt?.toDate === 'function' ? submittedAt.toDate().toISOString() : submittedAt || '',
+      reviewReason: latestReview?.reviewReason || '',
+    },
+  };
+}
+
 export default function StudentDashboard({ navigation }) {
   const [student, setStudent] = useState(null);
+  const [preDeploymentSummary, setPreDeploymentSummary] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [logbook, setLogbook] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [tab, setTab] = useState('home');
+  const [hoveredTab, setHoveredTab] = useState(null);
+  const [focusedTab, setFocusedTab] = useState(null);
+  const [hoveredMessage, setHoveredMessage] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationPreferenceLoaded, setNotificationPreferenceLoaded] = useState(false);
+  const { loggingOut, logout } = useStudentLogout(navigation);
   const fade = useRef(new Animated.Value(1)).current;
+  const summaryRequestRef = useRef(0);
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const studentUid = auth.currentUser?.uid;
+
+  useEffect(() => {
+    let active = true;
+    if (!studentUid) {
+      setNotificationPreferenceLoaded(true);
+      return () => { active = false; };
+    }
+    getStudentNotificationsEnabled(studentUid)
+      .then(value => {
+        if (!active) return;
+        setNotificationsEnabled(value);
+        setNotificationPreferenceLoaded(true);
+      })
+      .catch(error => {
+        console.warn('Unable to read student notification preference; using enabled by default.', error);
+        if (active) setNotificationPreferenceLoaded(true);
+      });
+    return () => { active = false; };
+  }, [studentUid]);
+
+  const changeNotificationsPreference = async enabled => {
+    const previous = notificationsEnabled;
+    setNotificationsEnabled(enabled);
+    try {
+      await setStudentNotificationsEnabled(studentUid, enabled);
+    } catch (error) {
+      setNotificationsEnabled(previous);
+      Alert.alert('Preference not saved', 'Your notification setting could not be saved. Please try again.');
+    }
+  };
 
   const load = async () => {
     const uid = auth.currentUser?.uid;
@@ -113,6 +234,8 @@ export default function StudentDashboard({ navigation }) {
     }
     setLoading(true);
     setLoadError('');
+    setPreDeploymentSummary(null);
+    const summaryRequestId = ++summaryRequestRef.current;
     try {
       const [user, att, logs, notices] = await Promise.all([
         getDoc(doc(db, 'users', uid)),
@@ -125,7 +248,15 @@ export default function StudentDashboard({ navigation }) {
         setLoadError('Your student profile could not be found. Sign out and sign in again, or contact your coordinator.');
         return;
       }
-      setStudent(user.data());
+      const profile = user.data();
+      setStudent(profile);
+      if (profile.preDeploymentStatus !== 'approved') {
+        loadPreDeploymentSummary(uid, profile)
+          .then(summary => {
+            if (summaryRequestRef.current === summaryRequestId) setPreDeploymentSummary(summary);
+          })
+          .catch(error => console.warn('Unable to build the pre-deployment dashboard summary.', error));
+      }
       setAttendance(att.docs.map(item => ({ id: item.id, ...item.data() })));
       setLogbook(logs.docs.map(item => ({ id: item.id, ...item.data() })));
       setNotifications(notices.docs.map(item => ({ id: item.id, ...item.data() })));
@@ -140,7 +271,17 @@ export default function StudentDashboard({ navigation }) {
 
   useEffect(() => {
     load();
-  }, []);
+    return navigation.addListener('focus', load);
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!studentUid) return;
+    let firstSnapshot = true;
+    return onSnapshot(doc(db, 'users', studentUid), () => {
+      if (firstSnapshot) { firstSnapshot = false; return; }
+      load();
+    }, error => console.warn('Unable to watch student approval updates.', error));
+  }, [studentUid]);
 
   useEffect(() => {
     const handleBack = () => {
@@ -167,9 +308,9 @@ export default function StudentDashboard({ navigation }) {
         ? Math.round((verified / attendance.length) * 100)
         : null,
       pendingLogs: logbook.filter(item => item.status === 'pending').length,
-      unread: notifications.filter(item => !item.read).length,
+      unread: notificationsEnabled ? notifications.filter(item => !item.read).length : 0,
     };
-  }, [student, attendance, logbook, notifications]);
+  }, [student, attendance, logbook, notifications, notificationsEnabled]);
 
   const switchTab = next => {
     if (next === tab) return;
@@ -187,11 +328,6 @@ export default function StudentDashboard({ navigation }) {
     }).start();
   };
 
-  const logout = async () => {
-    await signOut(auth);
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
-
   const updateProfilePhoto = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ['image/jpeg', 'image/png', 'image/webp'], copyToCacheDirectory: true, multiple: false });
     if (result.canceled || !result.assets?.[0]) return;
@@ -204,6 +340,21 @@ export default function StudentDashboard({ navigation }) {
     } catch (error) { Alert.alert('Profile photo', error.message || 'Unable to update your profile photo.'); }
   };
 
+  const gateProps = {
+    logout,
+    navigation,
+    student,
+    summary: preDeploymentSummary,
+    onRequirementsPress: () => navigation.navigate('Requirements'),
+    onCompanyPress: () => navigation.navigate('Company'),
+    onReviewPress: () => navigation.navigate('Review'),
+    onApprovalPress: () => navigation.navigate('Approval'),
+  };
+
+  if (loggingOut) {
+    return <StudentLogoutScreen />;
+  }
+
   if (loading && !student) {
     return <StudentScreenSkeleton variant="dashboard" />;
   }
@@ -212,58 +363,15 @@ export default function StudentDashboard({ navigation }) {
     return <DashboardLoadError message={loadError} onRetry={load} onLogout={logout} />;
   }
 
-  if (!student?.accountApproved) {
+  if (!student?.accountApproved || student.preDeploymentStatus !== 'approved') {
+    const next = nextPreDeploymentAction(student || {}, preDeploymentSummary);
     return (
       <Gate
-        logout={logout}
-        title="Account under review"
-        message="Your registration is being verified by your OJT Coordinator. You will gain access once your account is authorized."
-        icon={<ClockIcon size={46} color={COLORS.accent} />}
-      />
-    );
-  }
-
-  if (
-    student.preDeploymentStatus !== 'approved' &&
-    (!student.requirementsStatus || student.requirementsStatus === 'not_submitted')
-  ) {
-    return (
-      <Gate
-        logout={logout}
-        title="Submit your requirements first"
-        message="Before you can log your OJT hours, your coordinator needs to verify your pre-deployment documents."
-        icon={<FileIcon size={46} color={COLORS.secondary} />}
-        button="Go to Requirements"
-        onPress={() => navigation.navigate('Requirements')}
-      />
-    );
-  }
-
-  if (
-    student.preDeploymentStatus !== 'approved' &&
-    student.requirementsStatus === 'pending'
-  ) {
-    return (
-      <Gate
-        logout={logout}
-        title="Requirements under review"
-        message="Your coordinator is reviewing your submitted documents. You will get full workspace access once approved."
-        icon={<ClockIcon size={46} color={COLORS.accent} />}
-        button="View Requirements Progress"
-        onPress={() => navigation.navigate('Requirements')}
-      />
-    );
-  }
-
-  if (student.preDeploymentStatus !== 'approved') {
-    return (
-      <Gate
-        logout={logout}
-        title="Final approval pending"
-        message="Your pre-deployment information is ready or under final review. OJT tracking will unlock after your coordinator approves Step 4."
-        icon={<ClockIcon size={46} color={COLORS.accent} />}
-        button="View Approval Status"
-        onPress={() => navigation.navigate('Approval')}
+        {...gateProps}
+        {...next}
+        icon={next.waiting ? <ClockIcon size={46} color={COLORS.accent} /> : <FileIcon size={46} color={COLORS.secondary} />}
+        iconBg={next.waiting ? COLORS.accentLight : COLORS.secondaryLight}
+        onPress={next.route ? () => navigation.navigate(next.route) : undefined}
       />
     );
   }
@@ -283,7 +391,7 @@ export default function StudentDashboard({ navigation }) {
       date: dateLabel(item.createdAt),
       color: COLORS.accent,
     })),
-    ...notifications.slice(0, 2).map(item => ({
+    ...(notificationsEnabled ? notifications.slice(0, 2) : []).map(item => ({
       id: `n-${item.id}`,
       Icon: BellIcon,
       text: item.title || 'New notification',
@@ -294,35 +402,52 @@ export default function StudentDashboard({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
-      {/* Modern Dashboard Header */}
-      <View style={[styles.header, { paddingTop: Math.max(14, insets.top) }]}>
-        <PathwayWatermark size={176} opacity={0.075} style={{ right: -58, top: -70 }} />
+      {/* Student workspace top bar */}
+      <View style={[styles.header, styles.homeHeader, { paddingTop: Math.max(14, insets.top) }]}>
         <View style={styles.headerLeft}>
           <View style={styles.headerLogoBadge}><PathwayMark size={40} decorative /></View>
-          <View>
-            <Text style={styles.brand}>PATHWAY</Text>
-            <Text style={styles.headerCampus}>UC Lapu-Lapu & Mandaue</Text>
+          <View style={styles.headerBrandCopy}>
+            <Text numberOfLines={1} style={[styles.brand, styles.homeBrand]}>PATHWAY</Text>
           </View>
         </View>
 
         <View style={styles.headerRight}>
-          <MotionTouchableOpacity
+          <Pressable
             onPress={() => navigation.navigate('Notifications', { initialTab: 'notifications' })}
-            style={styles.headerIconBtn}
+            style={({ hovered, focused, pressed }) => [
+              styles.headerIconBtn,
+              hovered && styles.headerActionHover,
+              hovered && !reducedMotion && styles.headerActionHoverMotion,
+              focused && styles.headerActionFocus,
+              pressed && styles.headerActionPressed,
+              pressed && !reducedMotion && styles.headerActionPressMotion,
+              reducedMotion && styles.motionDisabledWeb,
+            ]}
             accessibilityLabel="Notifications"
+            accessibilityRole="button"
           >
-            <BellIcon size={20} color="#FFFFFF" hasUnread={metrics.unread > 0} />
-          </MotionTouchableOpacity>
+            <BellIcon size={20} color={COLORS.primaryDark} hasUnread={metrics.unread > 0} />
+          </Pressable>
 
-          <MotionTouchableOpacity
+          <Pressable
             onPress={() => { setSettingsVisible(true); switchTab('profile'); }}
-            style={styles.headerSettingsBtn}
+            style={({ hovered, focused, pressed }) => [
+              styles.headerIconBtn,
+              styles.headerSettingsBtn,
+              hovered && styles.headerActionHover,
+              hovered && !reducedMotion && styles.headerActionHoverMotion,
+              focused && styles.headerActionFocus,
+              pressed && styles.headerActionPressed,
+              pressed && !reducedMotion && styles.headerActionPressMotion,
+              reducedMotion && styles.motionDisabledWeb,
+            ]}
             accessibilityLabel="Open settings"
+            accessibilityRole="button"
           >
-            <SettingsIcon size={20} color="#FFFFFF" />
-          </MotionTouchableOpacity>
+            <SettingsIcon size={20} color={COLORS.primaryDark} />
+          </Pressable>
         </View>
       </View>
 
@@ -377,44 +502,110 @@ export default function StudentDashboard({ navigation }) {
           />
         )}
         {tab === 'profile' && (settingsVisible
-          ? <SettingsPanel student={student} onBack={() => setSettingsVisible(false)} onLogout={logout} />
+          ? <SettingsPanel
+            student={student}
+            notificationsEnabled={notificationsEnabled}
+            notificationPreferenceLoaded={notificationPreferenceLoaded}
+            onNotificationsEnabledChange={changeNotificationsPreference}
+            onBack={() => setSettingsVisible(false)}
+            onLogout={logout}
+            onChangePassword={() => navigation.navigate('ChangePassword')}
+          />
           : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onRequestPlacementChange={() => navigation.navigate('Company')} />)}
       </Animated.View>
 
-      <View style={[styles.floatingActions, { bottom: 72 + insets.bottom }]} pointerEvents="box-none">
-        <MotionTouchableOpacity style={styles.quickMessageButton} onPress={() => navigation.navigate('Notifications', { initialTab: 'messages' })} accessibilityRole="button" accessibilityLabel="Open messages">
-          <ChatBubbleIcon size={18} color={COLORS.primary} /><Text style={styles.quickMessageText}>Messages</Text>
-        </MotionTouchableOpacity>
-        <MotionTouchableOpacity style={styles.quickLogButton} onPress={() => navigation.navigate('Logbook')} accessibilityRole="button" accessibilityLabel="Add logbook entry">
-          <PlusIcon size={18} color="#FFFFFF" /><Text style={styles.quickLogText}>New log</Text>
-        </MotionTouchableOpacity>
-      </View>
+      {tab !== 'profile' && (
+        <View style={[styles.floatingActions, { bottom: 84 + insets.bottom }]} pointerEvents="box-none">
+          <Pressable
+            style={({ pressed }) => [
+              styles.quickMessageButton,
+              hoveredMessage && styles.quickMessageHover,
+              pressed && styles.quickMessagePressed,
+              pressed && !reducedMotion && styles.quickMessagePressMotion,
+              reducedMotion && styles.motionDisabledWeb,
+            ]}
+            onPress={() => navigation.navigate('Notifications', { initialTab: 'messages' })}
+            onHoverIn={() => setHoveredMessage(true)}
+            onHoverOut={() => setHoveredMessage(false)}
+            onFocus={() => setHoveredMessage(true)}
+            onBlur={() => setHoveredMessage(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Open messages"
+          >
+            <ChatBubbleIcon size={28} color={COLORS.primary} />
+          </Pressable>
+        </View>
+      )}
 
-      {/* Elevated Bottom Navigation Bar */}
+      {/* Floating student navigation dock */}
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom) }]}>
-        {TABS.map(({ key, label, Icon }) => {
-          const active = key === tab;
-          return (
-            <MotionTouchableOpacity
-              key={key}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={label}
-              onPress={() => switchTab(key)}
-              style={styles.tabButton}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.tabIconContainer, active && styles.tabIconContainerActive]}>
-                <Icon
-                  size={19}
-                  color={active ? '#FFFFFF' : 'rgba(255, 255, 255, 0.65)'}
-                  hasUnread={key === 'notifications' && metrics.unread > 0}
-                />
-              </View>
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
-            </MotionTouchableOpacity>
-          );
-        })}
+        <View style={styles.bottomDock}>
+          {TABS.map(({ key, label, Icon }, index) => {
+            const active = key === tab;
+            const hovered = key === hoveredTab;
+            const focused = key === focusedTab;
+            const emphasized = active || hovered || focused;
+            return (
+              <React.Fragment key={key}>
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={label}
+                  onPress={() => switchTab(key)}
+                  onHoverIn={() => setHoveredTab(key)}
+                  onHoverOut={() => setHoveredTab(current => current === key ? null : current)}
+                  onFocus={() => setFocusedTab(key)}
+                  onBlur={() => setFocusedTab(current => current === key ? null : current)}
+                  style={({ pressed }) => [
+                    styles.tabButton,
+                    active && styles.tabButtonActive,
+                    hovered && !active && styles.tabButtonHover,
+                    hovered && active && styles.tabButtonActiveHover,
+                    hovered && !reducedMotion && styles.tabButtonHoverMotion,
+                    focused && styles.tabButtonFocus,
+                    pressed && styles.tabButtonPressed,
+                    pressed && !reducedMotion && styles.tabButtonPressMotion,
+                    reducedMotion && styles.motionDisabledWeb,
+                  ]}
+                >
+                  <View style={[styles.tabIconContainer, emphasized && styles.tabIconContainerEmphasized]}>
+                    <Icon
+                      size={21}
+                      color={emphasized ? COLORS.primaryDark : COLORS.textMuted}
+                      hasUnread={key === 'notifications' && metrics.unread > 0}
+                    />
+                  </View>
+                  {emphasized && <View style={styles.tabIndicatorDot} />}
+                </Pressable>
+                {index === 1 && (
+                  <View style={styles.centerNavSlot}>
+                    <View pointerEvents="none" style={styles.centerNavHalo} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Add logbook entry"
+                      onPress={() => navigation.navigate('Logbook')}
+                      onHoverIn={() => setHoveredTab('new-log')}
+                      onHoverOut={() => setHoveredTab(current => current === 'new-log' ? null : current)}
+                      onFocus={() => setFocusedTab('new-log')}
+                      onBlur={() => setFocusedTab(current => current === 'new-log' ? null : current)}
+                      style={({ pressed }) => [
+                        styles.centerNavButton,
+                        hoveredTab === 'new-log' && styles.centerNavButtonHover,
+                        focusedTab === 'new-log' && styles.centerNavButtonFocus,
+                        hoveredTab === 'new-log' && !reducedMotion && styles.centerNavButtonHoverMotion,
+                        pressed && styles.centerNavButtonPressed,
+                        pressed && !reducedMotion && styles.centerNavButtonPressMotion,
+                        reducedMotion && styles.motionDisabledWeb,
+                      ]}
+                    >
+                      <PlusIcon size={25} color="#FFFFFF" />
+                    </Pressable>
+                  </View>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
@@ -445,30 +636,256 @@ function DashboardLoadError({ message, onRetry, onLogout }) {
   );
 }
 
-function Gate({ logout, title, message, icon, button, onPress }) {
+function Gate({
+  logout,
+  navigation,
+  student,
+  summary,
+  title,
+  message,
+  icon,
+  iconBg,
+  button,
+  onPress,
+  totalSteps = 4,
+  statusLabel,
+  onRequirementsPress,
+  onCompanyPress,
+  onReviewPress,
+  onApprovalPress,
+}) {
+  const [showMenuDrawer, setShowMenuDrawer] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 380;
+  const firstName = student?.firstName || 'Student';
+  const requirements = summary?.requirements;
+  const placement = summary?.placement;
+  const review = summary?.review;
+  const requirementsStatus = requirements?.status || student?.requirementsStatus || 'not_submitted';
+  const placementStatus = placement?.status || student?.placementStatus || 'not_started';
+  const reviewStatus = review?.status
+    || (['pending_review', 'needs_revision', 'rejected'].includes(student?.preDeploymentStatus)
+      ? student.preDeploymentStatus
+      : 'not_submitted');
+  const accountApproved = summary?.accountApproved ?? (student?.accountApproved === true);
+  const activeStep = !accountApproved
+    ? null
+    : requirementsStatus !== 'approved'
+      ? 0
+      : placementStatus !== 'approved'
+        ? 1
+        : ['pending_review', 'approved'].includes(reviewStatus)
+          ? 3
+          : 2;
+  const progressPercent = activeStep == null ? 0 : Math.round((activeStep / totalSteps) * 100);
+  const canOpenCompany = accountApproved && requirementsStatus === 'approved';
+  const canOpenReview = canOpenCompany && placementStatus === 'approved';
+  const formatStatus = value => ({
+    approved: 'Approved',
+    pending: 'Under review',
+    pending_review: 'Under review',
+    needs_revision: 'Needs updates',
+    rejected: 'Needs updates',
+    superseded: 'Review needed',
+    draft: 'Draft saved',
+    not_submitted: 'Not submitted',
+    not_started: 'Not started',
+  }[value] || 'In progress');
+  const statusTone = value => {
+    if (value === 'approved') return 'success';
+    if (['needs_revision', 'rejected', 'superseded'].includes(value)) return 'danger';
+    if (['pending', 'pending_review'].includes(value)) return 'info';
+    if (['draft', 'not_submitted', 'not_started'].includes(value)) return 'warning';
+    return 'neutral';
+  };
+  const documentValue = requirements?.total
+    ? `${requirements.received} / ${requirements.total}`
+    : formatStatus(requirementsStatus);
+  const companyName = placement?.companyName || student?.company || student?.companyName || '';
+  const supervisorName = placement?.supervisorName || student?.supervisorName || '';
+  const reviewDetail = review?.reviewReason
+    || (reviewStatus === 'pending_review'
+      ? 'Your submission is with your coordinator.'
+      : reviewStatus === 'approved'
+        ? 'Final approval is recorded in PATHWAY.'
+        : ['needs_revision', 'rejected', 'superseded'].includes(reviewStatus)
+          ? 'Check your coordinator’s notes and update your submission.'
+          : requirementsStatus === 'approved' && placementStatus === 'approved'
+            ? 'Your application is ready for final review.'
+            : 'Available after your documents and placement are approved.');
+
+  useEffect(() => {
+    if (!showMenuDrawer && !showNotifications) return undefined;
+    const handleBack = () => {
+      if (showMenuDrawer) {
+        setShowMenuDrawer(false);
+        return true;
+      }
+      if (showNotifications) {
+        setShowNotifications(false);
+        return true;
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleBack);
+    return () => subscription.remove();
+  }, [showMenuDrawer, showNotifications]);
+
+  const summaryItems = [
+    {
+      title: 'Student account',
+      value: accountApproved ? 'Verified' : 'Under review',
+      detail: accountApproved ? 'Your student account is approved.' : 'Waiting for coordinator verification.',
+      status: accountApproved ? 'approved' : 'pending_review',
+      Icon: ProfileIcon,
+    },
+    {
+      title: 'Required documents',
+      value: documentValue,
+      detail: requirements?.total
+        ? `${requirements.received === 1 ? 'required item' : 'required items'} received${requirements.needsChanges ? ` · ${requirements.needsChanges} need updates` : ''}`
+        : 'Open your checklist to see the required files.',
+      status: requirementsStatus,
+      Icon: FileIcon,
+      onPress: accountApproved ? onRequirementsPress : null,
+    },
+    {
+      title: 'Company placement',
+      value: companyName || formatStatus(placementStatus),
+      detail: supervisorName ? `Supervisor · ${supervisorName}` : 'Placement details and coordinator status.',
+      status: placementStatus,
+      Icon: BuildingIcon,
+      onPress: canOpenCompany ? onCompanyPress : null,
+    },
+    {
+      title: 'Final review',
+      value: formatStatus(reviewStatus),
+      detail: reviewDetail,
+      status: reviewStatus,
+      Icon: ClockIcon,
+      onPress: reviewStatus === 'not_submitted'
+        ? (canOpenReview ? onReviewPress : null)
+        : (accountApproved ? onApprovalPress : null),
+    },
+  ];
+
+  const renderSummaryItem = item => {
+    const ItemIcon = item.Icon;
+    const tone = statusTone(item.status);
+    const content = (
+      <>
+        <View style={styles.gateSummaryTopRow}>
+          <View style={styles.gateSummaryIcon}><ItemIcon size={17} color={COLORS.primary} /></View>
+          {item.onPress ? <ChevronRightIcon size={16} color={COLORS.textMuted} /> : null}
+        </View>
+        <Text style={styles.gateSummaryTitle}>{item.title}</Text>
+        <Text numberOfLines={2} style={styles.gateSummaryValue}>{item.value}</Text>
+        <Text numberOfLines={2} style={styles.gateSummaryDetail}>{item.detail}</Text>
+        <View style={[styles.gateSummaryBadge, styles[`gateSummaryBadge_${tone}`]]}>
+          <Text style={[styles.gateSummaryBadgeText, styles[`gateSummaryBadgeText_${tone}`]]}>{formatStatus(item.status)}</Text>
+        </View>
+      </>
+    );
+
+    return item.onPress ? (
+      <TouchableOpacity
+        key={item.title}
+        style={[styles.gateSummaryTile, isNarrow && styles.gateSummaryTileNarrow]}
+        onPress={item.onPress}
+        activeOpacity={0.82}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.title}: ${item.value}. ${formatStatus(item.status)}. Open details.`}
+      >
+        {content}
+      </TouchableOpacity>
+    ) : (
+      <View key={item.title} style={[styles.gateSummaryTile, isNarrow && styles.gateSummaryTileNarrow]}>
+        {content}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
-      <View style={styles.header}>
-        <PathwayWatermark size={176} opacity={0.075} style={{ right: -58, top: -70 }} />
-        <View style={styles.headerLeft}>
-          <View style={styles.headerLogoBadge}><PathwayMark size={40} decorative /></View>
-          <Text style={styles.brand}>PATHWAY</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
+      <PreDeploymentTopBar
+        onMenuPress={() => setShowMenuDrawer(true)}
+        onNotificationsPress={() => setShowNotifications(true)}
+      />
+      <ScrollView
+        style={styles.gateScroll}
+        contentContainerStyle={styles.gatePage}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <View style={styles.gateDashboard}>
+          <View style={styles.gateWelcomeRow}>
+            <View style={styles.gateWelcomeCopy}>
+              <Text style={styles.gateEyebrow}>STUDENT DASHBOARD</Text>
+              <Text variant="heading" style={styles.gateWelcomeTitle}>Welcome, {firstName}</Text>
+              <Text style={styles.gateWelcomeSub}>Your pre-deployment progress, at a glance.</Text>
+            </View>
+            <View style={styles.gateAvatar} accessibilityLabel={`${firstName}'s profile`}>
+              <Text style={styles.gateAvatarText}>{initials(student)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.gateHeroCard}>
+            <View style={styles.gateHeroTopRow}>
+              <View style={[styles.gateIconCircle, iconBg && { backgroundColor: iconBg }]}>{icon}</View>
+              <View style={styles.gateHeroStatusCopy}>
+                <Text style={styles.gateHeroOverline}>CURRENT STATUS</Text>
+                <View style={styles.gateStatusBadge}>
+                  <Text style={styles.gateStatusLabel}>{statusLabel || 'IN PROGRESS'}</Text>
+                </View>
+              </View>
+            </View>
+            <Text variant="heading" style={styles.gateTitle}>{title}</Text>
+            <Text style={styles.gateSub}>{message}</Text>
+            <View style={styles.gateHeroProgressHeader}>
+              <Text style={styles.gateHeroProgressLabel}>Overall progress</Text>
+              <Text style={styles.gateHeroProgressValue}>{progressPercent}%</Text>
+            </View>
+            <View style={styles.gateHeroProgressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: progressPercent }}>
+              <View style={[styles.gateHeroProgressFill, { width: `${progressPercent}%` }]} />
+            </View>
+            {button ? (
+              <TouchableOpacity
+                style={styles.gateBtn}
+                onPress={onPress}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+              >
+                <Text style={styles.gateBtnText}>{button}</Text>
+                <ChevronRightIcon size={17} color="#FFFFFF" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <View style={styles.gateSummarySection}>
+            <View style={styles.gateSummaryHeadingRow}>
+              <View>
+                <Text style={styles.gateSummarySectionTitle}>Application summary</Text>
+                <Text style={styles.gateSummarySectionSub}>A snapshot of your saved PATHWAY record.</Text>
+              </View>
+              {student?.idNumber ? <Text style={styles.gateStudentId}>ID · {student.idNumber}</Text> : null}
+            </View>
+            <View style={styles.gateSummaryGrid}>{summaryItems.map(renderSummaryItem)}</View>
+          </View>
         </View>
-        <TouchableOpacity onPress={logout} style={styles.logoutBtn} activeOpacity={0.75}>
-          <Text style={styles.logoutText}>Log Out</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.centered}>
-        <View style={styles.gateIconCircle}>{icon}</View>
-        <Text variant="heading" style={styles.gateTitle}>{title}</Text>
-        <Text style={styles.gateSub}>{message}</Text>
-        {button && (
-          <TouchableOpacity style={styles.gateBtn} onPress={onPress} activeOpacity={0.85}>
-            <Text style={styles.gateBtnText}>{button}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </ScrollView>
+      <PreDeploymentNotificationsSheet
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
+      <PreDeploymentDrawer
+        visible={showMenuDrawer}
+        activeRoute="StudentDashboard"
+        onClose={() => setShowMenuDrawer(false)}
+        onNavigate={route => navigation.replace(route)}
+        onSignOut={logout}
+      />
     </View>
   );
 }
@@ -494,6 +911,11 @@ function CardTitle({ Icon, title, action, onPress }) {
 }
 
 function HomePanel({ student, metrics, recent, width, go }) {
+  const normalizedProgress = Number.isFinite(metrics.progress)
+    ? Math.max(0, Math.min(metrics.progress, 1))
+    : 0;
+  const progressPercent = Math.round(normalizedProgress * 100);
+
   return (
     <ScrollView
       contentContainerStyle={[
@@ -504,26 +926,29 @@ function HomePanel({ student, metrics, recent, width, go }) {
     >
       <View style={styles.homeWelcome}>
         <View style={styles.homeWelcomeCopy}>
-          <Text style={styles.homeEyebrow}>STUDENT WORKSPACE</Text>
+          <Text style={styles.homeEyebrow}>YOUR OJT AT A GLANCE</Text>
           <Text variant="heading" style={styles.greeting}>Welcome, {student?.firstName || 'Student'}</Text>
           <Text style={styles.profileDepartment}>{student?.department || student?.course || 'OJT Student'}</Text>
         </View>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{initials(student)}</Text></View>
+        <View style={styles.homeAvatar} accessibilityLabel={`${student?.firstName || 'Student'} profile picture`}>
+          {student?.profilePhotoUrl
+            ? <Image source={{ uri: student.profilePhotoUrl }} style={styles.homeAvatarImage} />
+            : <Text style={styles.homeAvatarText}>{initials(student)}</Text>}
+        </View>
       </View>
 
       <View style={styles.homeProgressHero}>
         <View style={styles.homeProgressHeader}>
-          <View style={styles.homeProgressLabelWrap}><ClockIcon size={15} color={COLORS.brandGold} /><Text style={styles.homeProgressLabel}>OJT HOURS</Text></View>
-          <Text style={styles.homeProgressPercent}>{Math.round(metrics.progress * 100)}%</Text>
+          <View style={styles.homeProgressLabelWrap}><ClockIcon size={15} color={COLORS.primary} /><Text style={styles.homeProgressLabel}>TOTAL OJT HOURS</Text></View>
+          <View style={styles.homeProgressPercentBadge}>
+            <Text style={styles.homeProgressPercent}>{progressPercent}% complete</Text>
+          </View>
         </View>
         <Text variant="heading" style={styles.homeHoursValue}>{metrics.rendered.toFixed(1)}<Text style={styles.homeHoursTotal}> / {metrics.required} hrs</Text></Text>
-        <View style={styles.homeProgressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(metrics.progress * 100) }}>
-          <View style={[styles.homeProgressFill, { width: `${Math.min(metrics.progress * 100, 100)}%` }]} />
-        </View>
         <View style={styles.homeProgressFooter}>
           <Text style={styles.homeProgressRemaining}>{metrics.remaining.toFixed(1)} hours to go</Text>
           <MotionTouchableOpacity onPress={() => go('Progress')} activeOpacity={0.7} accessibilityRole="button">
-            <View style={styles.homeProgressLink}><Text style={styles.homeProgressLinkText}>View progress</Text><ChevronRightIcon size={14} color={COLORS.brandGold} /></View>
+            <View style={styles.homeProgressLink}><Text style={styles.homeProgressLinkText}>View progress</Text><ChevronRightIcon size={14} color={COLORS.primary} /></View>
           </MotionTouchableOpacity>
         </View>
       </View>
@@ -543,7 +968,7 @@ function HomePanel({ student, metrics, recent, width, go }) {
       </View>
 
       <View style={styles.homeSectionHeading}>
-        <Text style={styles.homeSectionTitle}>Your placement</Text>
+        <Text style={styles.homeSectionTitle}>Official placement</Text>
         <BuildingIcon size={18} color={COLORS.secondary} />
       </View>
       <View style={styles.homePlacementRow}>
@@ -575,7 +1000,13 @@ function HomePanel({ student, metrics, recent, width, go }) {
             <Text style={styles.activityDate}>{item.date}</Text>
           </View>
         )) : (
-          <View style={styles.activityEmpty}><Text style={styles.emptyText}>Your attendance, logbook, and coordinator updates will appear here.</Text></View>
+          <View style={styles.activityEmpty}>
+            <View style={styles.activityEmptyIcon}><CalendarIcon size={17} color={COLORS.secondary} /></View>
+            <View style={styles.activityEmptyCopy}>
+              <Text style={styles.activityEmptyTitle}>No recent activity</Text>
+              <Text style={styles.emptyText}>Attendance, logbook, and coordinator updates will appear here.</Text>
+            </View>
+          </View>
         )}
       </View>
     </ScrollView>
@@ -640,6 +1071,12 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
     finally { setAttLoading(false); }
   };
 
+  const changeWeek = offset => {
+    const dayOffset = offset * 7;
+    setWeekStart(current => addDays(current, dayOffset));
+    setSelectedDate(current => localDateKey(addDays(new Date(`${current}T00:00:00`), dayOffset)));
+  };
+
   const handleTimeIn = async () => {
     setSaving(true);
     try {
@@ -677,49 +1114,66 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
   const selectedMonthLabel = weekStart.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
   const selectedIsToday = selectedDate === todayStr;
+  const visibleAttendanceLogs = attLogs.filter(log => selectedIsToday ? log.date !== todayStr : log.date === selectedDate);
+  const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       {/* ── Page header ── */}
       <View style={styles.logsPageHeader}>
-        <Text variant="heading" style={styles.pageTitle}>Training Logs</Text>
+        <Text variant="heading" style={styles.pageTitle}>Logs</Text>
         <Text style={styles.pageSub}>Daily attendance and weekly logbook in one place.</Text>
       </View>
 
-      {/* ── OJT Hours hero card ── */}
-      <View style={styles.attHeroCard}>
-        <View style={styles.attHeroRow}>
-          <View>
-            <Text style={styles.attHeroSub}>OJT ACCUMULATION</Text>
-            <Text style={styles.attHeroTitle}>Total Hours Rendered</Text>
+      {/* ── Logs-only hours ledger: linear meter, distinct from the Home ring ── */}
+      <View style={styles.logsAccumulationCard}>
+        <View style={styles.logsAccumulationHeader}>
+          <View style={styles.logsAccumulationLabelGroup}>
+            <View style={styles.logsAccumulationIcon}><ClockIcon size={15} color={COLORS.primaryDark} /></View>
+            <Text style={styles.logsAccumulationLabel}>OJT ACCUMULATION</Text>
           </View>
-          <View style={styles.attHoursBadge}>
-            <Text style={styles.attHoursBadgeText}>
-              {metrics.rendered.toFixed(1)} / {metrics.required} hrs
-            </Text>
+          <View style={styles.logsAccumulationPercent}>
+            <Text style={styles.logsAccumulationPercentValue}>{progressPercent}%</Text>
+            <Text style={styles.logsAccumulationPercentLabel}>complete</Text>
           </View>
         </View>
-        <View style={styles.attProgressBg}>
-          <View style={[styles.attProgressFill, { width: `${Math.min(metrics.progress * 100, 100)}%` }]} />
+
+        <View>
+          <View style={styles.logsAccumulationValueRow}>
+            <Text variant="heading" style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}</Text>
+            <Text style={styles.logsAccumulationUnit}>hours logged</Text>
+          </View>
+          <Text style={styles.logsAccumulationSubline}>of {metrics.required} required hours</Text>
         </View>
-        <View style={styles.attProgressMeta}>
-          <Text style={styles.attProgressSub}>{metrics.remaining.toFixed(1)} hrs remaining</Text>
-          <Text style={styles.attProgressPct}>{Math.round(metrics.progress * 100)}% Complete</Text>
+
+        <View
+          style={styles.logsAccumulationTrack}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel="OJT hours completed"
+          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+        >
+          <View style={[styles.logsAccumulationFill, { width: `${progressPercent}%` }]} />
+        </View>
+
+        <View style={styles.logsAccumulationFooter}>
+          <Text style={styles.logsAccumulationRemaining}>{metrics.remaining.toFixed(1)} hours remaining</Text>
+          <Text style={styles.logsAccumulationGoal}>{metrics.required}h goal</Text>
         </View>
       </View>
 
-      {/* ── Attendance calendar ── */}
+      {/* ── Calendar and shift grouped as one attendance workspace ── */}
       <Card style={styles.calendarCard}>
         <View style={styles.calendarHeader}>
           <MotionTouchableOpacity onPress={() => { setWeekStart(weekStartFor(new Date())); setSelectedDate(todayStr); }} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Return to today">
             <Text style={styles.calendarMonth}>{selectedMonthLabel}</Text>
           </MotionTouchableOpacity>
           <View style={styles.calendarNav}>
-            <MotionTouchableOpacity style={styles.calendarNavButton} onPress={() => setWeekStart(current => addDays(current, -7))} accessibilityRole="button" accessibilityLabel="Previous week">
+            <MotionTouchableOpacity style={styles.calendarNavButton} onPress={() => changeWeek(-1)} accessibilityRole="button" accessibilityLabel="Previous week">
               <View style={styles.calendarChevronLeft}><ChevronIcon size={15} color={COLORS.textSecondary} /></View>
             </MotionTouchableOpacity>
-            <MotionTouchableOpacity style={styles.calendarNavButton} onPress={() => setWeekStart(current => addDays(current, 7))} accessibilityRole="button" accessibilityLabel="Next week">
+            <MotionTouchableOpacity style={styles.calendarNavButton} onPress={() => changeWeek(1)} accessibilityRole="button" accessibilityLabel="Next week">
               <View style={styles.calendarChevronRight}><ChevronIcon size={15} color={COLORS.textSecondary} /></View>
             </MotionTouchableOpacity>
           </View>
@@ -731,7 +1185,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             const isToday = key === todayStr;
             const hasRecord = attLogs.some(log => log.date === key) || logbookRecords.some(item => localDateKey(item.date || item.createdAt || item.updatedAt) === key);
             return (
-              <MotionTouchableOpacity key={key} style={styles.calendarDay} onPress={() => setSelectedDate(key)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Select ${key}`}>
+              <MotionTouchableOpacity key={key} style={styles.calendarDay} onPress={() => setSelectedDate(key)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Select ${key}`} accessibilityState={{ selected: active }}>
                 <Text style={styles.calendarWeekday}>{day.toLocaleDateString('en-PH', { weekday: 'short' }).slice(0, 1)}</Text>
                 <View style={[styles.calendarDateCircle, active && styles.calendarDateActive, isToday && !active && styles.calendarDateToday]}>
                   <Text style={[styles.calendarDateText, active && styles.calendarDateTextActive]}>{day.getDate()}</Text>
@@ -741,16 +1195,14 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             );
           })}
         </View>
-      </Card>
 
-      {/* ── Today's shift card ── */}
-      <Card>
+        <View style={styles.attShiftDivider} />
         <View style={styles.attTodayHeader}>
           <View style={styles.attTodayTag}>
             <ClockIcon size={13} color={COLORS.secondaryDark} />
             <Text style={styles.attTodayTagText}>{selectedIsToday ? "TODAY'S SHIFT" : 'SELECTED DAY'}</Text>
           </View>
-          <Text style={styles.attTodayDate}>{selectedDateLabel}</Text>
+          <Text style={styles.attTodayDate} numberOfLines={1}>{selectedDateLabel}</Text>
         </View>
 
         {/* TIME IN / OUT / DURATION columns */}
@@ -788,8 +1240,8 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             onPress={handleTimeIn} disabled={saving} activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <><CheckCircleIcon size={18} color="#fff" /><Text style={styles.attPunchText}>Punch Time In</Text></>}
+              ? <ActivityIndicator color={COLORS.primary} size="small" />
+              : <><CheckCircleIcon size={18} color={COLORS.secondary} /><Text style={styles.attPunchText}>Punch Time In</Text></>}
           </MotionTouchableOpacity>
         ) : !hasTimeOut ? (
           <MotionTouchableOpacity
@@ -797,8 +1249,8 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             onPress={handleTimeOut} disabled={saving} activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <><ClockIcon size={18} color="#fff" /><Text style={styles.attPunchText}>Log Time Out</Text></>}
+              ? <ActivityIndicator color={COLORS.primary} size="small" />
+              : <><ClockIcon size={18} color={COLORS.primary} /><Text style={styles.attPunchText}>Log Time Out</Text></>}
           </MotionTouchableOpacity>
         ) : (
           <View style={styles.attDoneBox}>
@@ -812,57 +1264,57 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
 
       {/* ── Attendance History ── */}
       <View style={styles.attSectionRow}>
-        <Text style={styles.attSectionTitle}>ATTENDANCE HISTORY</Text>
-        <Text style={styles.attSectionCount}>{attLogs.length} Total Records</Text>
+        <Text style={styles.homeSectionTitle}>Attendance history</Text>
+        <Text style={styles.attSectionCount}>{attLogs.length} records</Text>
       </View>
 
-      {attLogs.filter(l => selectedIsToday ? l.date !== todayStr : l.date === selectedDate).length === 0 && !attLoading && (
-        <Card>
-          <View style={{ alignItems: 'center', paddingVertical: 16, gap: 8 }}>
-            <CalendarIcon size={30} color={COLORS.textMuted} />
+      <Card style={styles.attHistoryCard}>
+        {attLoading ? (
+          <ActivityIndicator color={COLORS.primary} style={{ paddingVertical: 14 }} />
+        ) : visibleAttendanceLogs.length === 0 ? (
+          <View style={styles.attHistoryEmpty}>
+            <View style={styles.attHistoryEmptyIcon}><CalendarIcon size={18} color={COLORS.primary} /></View>
             <Text style={styles.emptyText}>{selectedIsToday ? 'No previous attendance records yet.' : 'No logs recorded for this day.'}</Text>
           </View>
-        </Card>
-      )}
-
-      {attLogs.filter(l => selectedIsToday ? l.date !== todayStr : l.date === selectedDate).map(log => (
-        <View key={log.id} style={styles.attLogCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.attLogDate}>{attFormatDate(log.date + 'T00:00:00')}</Text>
-            <Text style={styles.attLogTime}>
-              {attFormatTime(log.timeIn)} — {attFormatTime(log.timeOut)}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <Text style={styles.attLogHours}>{log.hoursToday ? formatHours(log.hoursToday) : '--'}</Text>
-            <View style={[styles.attLogStatus, log.status === 'verified' && styles.attLogStatusVerified]}>
-              <Text style={[styles.attLogStatusText, log.status === 'verified' && { color: COLORS.successDark }]}>
-                {log.status === 'verified' ? '✓ Verified' : '• Pending'}
+        ) : visibleAttendanceLogs.map((log, index) => (
+          <View key={log.id} style={[styles.attLogRow, index > 0 && styles.attLogRowDivider]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.attLogDate}>{attFormatDate(log.date + 'T00:00:00')}</Text>
+              <Text style={styles.attLogTime}>
+                {attFormatTime(log.timeIn)} — {attFormatTime(log.timeOut)}
               </Text>
             </View>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              <Text style={styles.attLogHours}>{log.hoursToday ? formatHours(log.hoursToday) : '--'}</Text>
+              <View style={[styles.attLogStatus, log.status === 'verified' && styles.attLogStatusVerified]}>
+                <Text style={[styles.attLogStatusText, log.status === 'verified' && { color: COLORS.successDark }]}>
+                  {log.status === 'verified' ? 'Verified' : 'Pending'}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
-      ))}
-
-      {/* ── Weekly Logbook CTA ── */}
-      <ActionCard
-        Icon={FileIcon}
-        title="Weekly Logbook Entries"
-        sub="Submit and monitor weekly work summaries with AI enhancement"
-        onPress={logbook}
-      />
+        ))}
+      </Card>
 
       {/* ── Recent logbook entries ── */}
+      <View style={styles.logsSectionHeader}>
+        <Text style={styles.homeSectionTitle}>Recent logbook entries</Text>
+        <MotionTouchableOpacity onPress={logbook} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Open all logbook entries">
+          <View style={styles.homeProgressLink}><Text style={styles.homeProgressLinkText}>Open logbook</Text><ChevronRightIcon size={14} color={COLORS.primary} /></View>
+        </MotionTouchableOpacity>
+      </View>
       <Card>
-        <CardTitle Icon={FileIcon} title="Recent logbook entries" />
         {selectedDate === todayStr && !selectedLogbook.length ? (
-          <Text style={styles.emptyText}>No logbook entries recorded for this day.</Text>
+          <View style={styles.logsEmptyState}>
+            <View style={styles.attHistoryEmptyIcon}><FileIcon size={18} color={COLORS.primary} /></View>
+            <Text style={styles.emptyText}>No logbook entries for this date.</Text>
+          </View>
         ) : selectedLogbook.length ? (
-          selectedLogbook.slice(0, 3).map(item => {
+          selectedLogbook.slice(0, 3).map((item, index) => {
             const isApproved = item.status === 'approved';
             const isPending  = !item.status || item.status === 'pending';
             return (
-              <View style={styles.logSummaryRow} key={item.id}>
+              <View style={[styles.logSummaryRow, index > 0 && styles.logSummaryDivider]} key={item.id}>
                 <View style={[styles.logSummaryDot,
                   { backgroundColor: isApproved ? COLORS.success : isPending ? COLORS.warning : COLORS.danger }]} />
                 <View style={styles.logSummaryCopy}>
@@ -879,44 +1331,21 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
                     isApproved && { color: COLORS.successDark },
                     !isPending && !isApproved && { color: COLORS.dangerDark },
                   ]}>
-                    {isApproved ? 'Good' : isPending ? 'Review' : 'Revision'}
+                    {isApproved ? 'Approved' : isPending ? 'In review' : item.status === 'rejected' ? 'Rejected' : 'Needs revision'}
                   </Text>
                 </View>
               </View>
             );
           })
         ) : (
-          <Text style={styles.emptyText}>{selectedIsToday ? 'No logbook entries recorded for this day.' : 'No logs recorded for this day.'}</Text>
+          <View style={styles.logsEmptyState}>
+            <View style={styles.attHistoryEmptyIcon}><FileIcon size={18} color={COLORS.primary} /></View>
+            <Text style={styles.emptyText}>No logbook entries for this date.</Text>
+          </View>
         )}
       </Card>
 
     </ScrollView>
-  );
-}
-
-function ActionCard({ Icon, title, sub, onPress, primary }) {
-  return (
-    <MotionTouchableOpacity
-      style={[styles.actionCard, primary && styles.actionPrimary]}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View
-        style={[
-          styles.actionIconContainer,
-          primary && { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-        ]}
-      >
-        <Icon size={22} color={primary ? '#FFFFFF' : COLORS.secondary} />
-      </View>
-      <View style={styles.actionCopy}>
-        <Text style={[styles.actionTitle, primary && { color: '#FFFFFF' }]}>{title}</Text>
-        <Text style={[styles.actionSub, primary && { color: 'rgba(255, 255, 255, 0.85)' }]}>
-          {sub}
-        </Text>
-      </View>
-      <ChevronRightIcon size={20} color={primary ? '#FFFFFF' : COLORS.textMuted} />
-    </MotionTouchableOpacity>
   );
 }
 
@@ -947,25 +1376,71 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
   const requirementTotal = requirementEntries.length;
   const clearanceComplete = student?.clearanceStatus === 'cleared';
   const requirementsApproved = student?.requirementsStatus === 'approved';
+  const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.progressPageHeader}><Text variant="heading" style={styles.pageTitle}>Progress Analytics</Text><Text style={styles.pageSub}>Track your OJT hours, attendance, requirements, and performance.</Text></View>
+      <View style={styles.progressPageHeader}>
+        <Text variant="heading" style={styles.pageTitle}>Progress</Text>
+        <Text style={styles.pageSub}>Your OJT hours, attendance, and requirements at a glance.</Text>
+      </View>
 
       <Card style={styles.progressHeroCard}>
-        <Text style={styles.progressHeroLabel}>TOTAL OJT HOURS</Text>
-        <View style={styles.progressHeroStats}><View><Text style={styles.progressHeroNumber}>{metrics.rendered.toFixed(1)}</Text><Text style={styles.progressHeroCaption}>Rendered</Text></View><View style={styles.progressHeroDivider} /><View><Text style={styles.progressHeroNumber}>{metrics.required}</Text><Text style={styles.progressHeroCaption}>Required</Text></View><View style={styles.progressHeroDivider} /><View><Text style={styles.progressHeroNumberAccent}>{metrics.remaining.toFixed(1)}</Text><Text style={styles.progressHeroCaption}>Remaining</Text></View></View>
-        <View style={styles.progressHeroTrack}><View style={[styles.progressHeroFill, { width: `${metrics.progress * 100}%` }]} /></View><View style={styles.progressHeroMeta}><Text style={styles.progressHeroCaption}>Training target</Text><Text style={styles.progressHeroPercent}>{Math.round(metrics.progress * 100)}% Complete</Text></View>
+        <View style={styles.progressHeroHeader}>
+          <View style={styles.progressHeroLabelGroup}>
+            <ClockIcon size={15} color={COLORS.primary} />
+            <Text style={styles.progressHeroLabel}>OJT HOURS</Text>
+          </View>
+          <Text style={styles.progressHeroPercent}>{progressPercent}% complete</Text>
+        </View>
+
+        <View style={styles.progressHeroStats}>
+          <View style={styles.progressHeroStat}>
+            <Text style={styles.progressHeroNumber}>{metrics.rendered.toFixed(1)}</Text>
+            <Text style={styles.progressHeroCaption}>Rendered</Text>
+          </View>
+          <View style={styles.progressHeroDivider} />
+          <View style={styles.progressHeroStat}>
+            <Text style={styles.progressHeroNumber}>{metrics.required}</Text>
+            <Text style={styles.progressHeroCaption}>Required</Text>
+          </View>
+          <View style={styles.progressHeroDivider} />
+          <View style={styles.progressHeroStat}>
+            <Text style={styles.progressHeroNumberAccent}>{metrics.remaining.toFixed(1)}</Text>
+            <Text style={styles.progressHeroCaption}>Remaining</Text>
+          </View>
+        </View>
+
+        <View
+          style={styles.progressHeroTrack}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel="OJT hours completed"
+          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
+        >
+          <View style={[styles.progressHeroFill, { width: `${progressPercent}%` }]} />
+        </View>
+        <View style={styles.progressHeroMeta}>
+          <Text style={styles.progressHeroMetaLabel}>Training target</Text>
+          <Text style={styles.progressHeroMetaText}>{metrics.required} hours</Text>
+        </View>
       </Card>
 
       <View style={styles.progressInsight}>
-        <ProgressIcon size={18} color={COLORS.primary} />
-        <Text style={styles.progressInsightText}>{metrics.remaining > 0 ? `${metrics.remaining.toFixed(1)} hours remain in your OJT requirement.` : 'You have completed your required OJT hours.'} {attendance.length ? `${verifiedDays} attendance day${verifiedDays === 1 ? '' : 's'} verified.` : 'Log attendance to begin building your verified record.'}</Text>
+        <View style={styles.progressInsightIcon}>
+          <ProgressIcon size={16} color={COLORS.primary} />
+        </View>
+        <View style={styles.progressInsightCopy}>
+          <Text style={styles.progressInsightEyebrow}>CURRENT SNAPSHOT</Text>
+          <Text style={styles.progressInsightText}>
+            {metrics.remaining > 0 ? `${metrics.remaining.toFixed(1)} hours remain in your OJT requirement.` : 'You have completed your required OJT hours.'} {attendance.length ? `${verifiedDays} attendance day${verifiedDays === 1 ? '' : 's'} verified.` : 'Log attendance to begin building your verified record.'}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.progressSectionHeader}><Text style={styles.homeSectionTitle}>Your records</Text><Text style={styles.progressSectionCaption}>Updated from your submissions</Text></View>
       <View style={styles.progressRowsPanel}>
-        <View style={styles.progressRecordGroup}>
+        <View style={[styles.progressRecordGroup, styles.progressRecordGroupFirst]}>
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: COLORS.secondaryLight }]}><CalendarIcon size={17} color={COLORS.primary} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Attendance</Text><Text style={styles.progressRecordSub}>{completedDays} completed shifts · {verifiedDays} verified</Text></View><MotionTouchableOpacity onPress={openAttendance} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Details</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
           <View style={styles.analyticsGrid}><MetricLine label="Attendance days" value={attendance.length} /><MetricLine label="Missing time-outs" value={missingOuts} warning={missingOuts > 0} /></View>
         </View>
@@ -993,52 +1468,77 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
 function MetricLine({ label, value, warning }) { return <View style={styles.metricLine}><Text style={styles.metricLineLabel}>{label}</Text><Text style={[styles.metricLineValue, warning && { color: COLORS.warningDark }]}>{value}</Text></View>; }
 
 function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPlacementChange }) {
-  return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <Text variant="heading" style={styles.pageTitle}>Profile</Text>
-      <Text style={styles.pageSub}>Institutional student information and preferences.</Text>
+  const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
+  const approved = Boolean(student?.accountApproved);
 
-      <Card style={styles.profileLarge}>
-        <MotionTouchableOpacity onPress={onPhotoPress} accessibilityRole="button" accessibilityLabel="Change profile picture" style={styles.avatarLarge}>
+  return (
+    <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll]} showsVerticalScrollIndicator={false}>
+      <View style={styles.progressPageHeader}>
+        <Text variant="heading" style={styles.pageTitle}>Profile</Text>
+        <Text style={styles.pageSub}>Your student record and official placement.</Text>
+      </View>
+
+      <Card style={styles.profileIdentityCard}>
+        <MotionTouchableOpacity onPress={onPhotoPress} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityHint="Opens the image picker" style={styles.avatarLarge}>
           {student?.profilePhotoUrl ? <Image source={{ uri: student.profilePhotoUrl }} style={styles.avatarImageLarge} /> : <Text style={styles.avatarLargeText}>{initials(student)}</Text>}
-          <View style={styles.avatarEditBadge}><Text style={styles.avatarEditText}>+</Text></View>
+          <View style={styles.avatarEditBadge}><PlusIcon size={12} color="#FFFFFF" /></View>
         </MotionTouchableOpacity>
-        <Text style={styles.photoHint}>Tap your photo to change it</Text>
-        <Text style={styles.profileLargeName}>
-          {student?.firstName} {student?.lastName || ''}
-        </Text>
-        <Text style={styles.profileLargeDept}>
-          {student?.department || student?.course || 'Student'}
-        </Text>
-        <View style={styles.profileBadge}>
-          <Text style={styles.profileBadgeText}>
-            {student?.accountApproved ? '✓ Active Student' : 'Account Under Review'}
+        <View style={styles.profileIdentityCopy}>
+          <Text style={styles.profileLargeName} numberOfLines={2}>{fullName}</Text>
+          <Text style={styles.profileLargeDept} numberOfLines={2}>
+            {student?.department || student?.course || 'OJT Student'}
           </Text>
+          <View style={[styles.profileBadge, !approved && styles.profileBadgePending]}>
+            {approved
+              ? <CheckCircleIcon size={14} color={COLORS.success} />
+              : <TasksIcon size={14} color={COLORS.warningDark} />}
+            <Text style={[styles.profileBadgeText, !approved && styles.profileBadgePendingText]}>
+              {approved ? 'Active student' : 'Approval in progress'}
+            </Text>
+          </View>
         </View>
       </Card>
 
-      <Card>
-        <CardTitle Icon={ProfileIcon} title="Student Details" />
+      <Card style={styles.profileDetailsCard}>
+        <CardTitle Icon={ProfileIcon} title="Student details" />
         <InfoRow label="Student ID" value={student?.idNumber || student?.studentId || '—'} />
         <InfoRow label="Email" value={student?.email || '—'} />
-        <InfoRow label="Department" value={student?.department || '—'} />
+        <InfoRow label="Department" value={student?.department || student?.course || '—'} />
         <InfoRow
-          label="Required Hours"
-          value={`${student?.hoursRequired || 486} Hours`}
+          label="Required hours"
+          value={`${student?.hoursRequired || 486} hours`}
         />
       </Card>
 
-      <Card>
-        <CardTitle Icon={BuildingIcon} title="OJT Placement" />
-        <InfoRow label="Company" value={student?.company || 'Not yet assigned'} />
+      <Card style={styles.profilePlacementCard}>
+        <CardTitle Icon={BuildingIcon} title="Official placement" />
+        <InfoRow label="Company" value={student?.company || 'Not assigned yet'} />
         <InfoRow label="Supervisor" value={student?.supervisorName || '—'} />
-        <Text style={styles.placementReadOnlyNote}>Official placement details are verified and managed by your coordinator.</Text>
-        {student?.company && <MotionTouchableOpacity style={styles.placementRequestButton} onPress={onRequestPlacementChange} activeOpacity={0.85} accessibilityRole="button"><Text style={styles.placementRequestText}>Request placement change</Text><ChevronRightIcon size={16} color={COLORS.secondary} /></MotionTouchableOpacity>}
+        <View style={styles.profileManagedNotice}>
+          <CheckCircleIcon size={15} color={COLORS.primary} />
+          <Text style={styles.placementReadOnlyNote}>
+            {student?.company
+              ? 'This assignment is managed by your coordinator.'
+              : 'Your coordinator will add the official assignment here.'}
+          </Text>
+        </View>
+        {student?.company && (
+          <MotionTouchableOpacity
+            style={styles.placementRequestButton}
+            onPress={onRequestPlacementChange}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Request a placement change"
+          >
+            <Text style={styles.placementRequestText}>Request a placement change</Text>
+            <ChevronRightIcon size={16} color={COLORS.secondary} />
+          </MotionTouchableOpacity>
+        )}
       </Card>
 
       <MotionTouchableOpacity style={styles.settingsCard} onPress={onSettings} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open settings">
         <View style={styles.settingIcon}><SettingsIcon size={18} color={COLORS.secondary} /></View>
-        <View style={styles.settingCopy}><Text style={styles.settingTitle}>Settings</Text><Text style={styles.settingValue}>Account, notifications, appearance, help, and privacy</Text></View>
+        <View style={styles.settingCopy}><Text style={styles.settingTitle}>Settings</Text><Text style={styles.settingValue}>Account, notifications, and support</Text></View>
         <ChevronRightIcon size={18} color={COLORS.textMuted} />
       </MotionTouchableOpacity>
 
@@ -1046,34 +1546,114 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         style={styles.profileLogoutBtn}
         onPress={onLogout}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel="Sign out of PATHWAY"
       >
-        <LogOutIcon size={18} color="#FFFFFF" />
+        <LogOutIcon size={18} color={COLORS.dangerDark} />
         <Text style={styles.profileLogoutBtnText}>Sign Out</Text>
       </MotionTouchableOpacity>
     </ScrollView>
   );
 }
 
-function SettingsPanel({ student, onBack, onLogout }) {
+function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLoaded, onNotificationsEnabledChange, onBack, onLogout, onChangePassword }) {
   const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
+  const approved = Boolean(student?.accountApproved);
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll, styles.settingsScroll]} showsVerticalScrollIndicator={false}>
       <MotionTouchableOpacity onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to profile" style={styles.settingsBack}>
-        <ChevronIcon size={16} color={COLORS.secondary} expanded />
+        <View style={styles.settingsBackArrow}><ChevronRightIcon size={15} color={COLORS.secondary} /></View>
         <Text style={styles.settingsBackText}>Profile</Text>
       </MotionTouchableOpacity>
-      <Text variant="heading" style={styles.pageTitle}>Settings</Text>
-      <Text style={styles.pageSub}>Manage your account and app preferences.</Text>
-      <Card><CardTitle Icon={ProfileIcon} title="Account" /><InfoRow label="Student" value={fullName} /><InfoRow label="Account status" value={student?.accountApproved ? 'Approved' : 'Under review'} /><InfoRow label="Email" value={student?.email || '—'} /></Card>
-      <Card><CardTitle Icon={BellIcon} title="App preferences" /><SettingRow Icon={BellIcon} title="Notifications" value="Coordinator updates enabled" /><SettingRow Icon={SettingsIcon} title="Appearance" value="System default" /></Card>
-      <Card><CardTitle Icon={FileIcon} title="Support and privacy" /><SettingRow Icon={FileIcon} title="Help center" value="PATHWAY support information" /><SettingRow Icon={FileIcon} title="Privacy" value="Review how your records are used" /></Card>
-      <MotionTouchableOpacity onPress={onLogout} style={styles.profileLogoutBtn} accessibilityRole="button"><LogOutIcon size={18} color="#FFFFFF" /><Text style={styles.profileLogoutBtnText}>Sign Out</Text></MotionTouchableOpacity>
+      <View style={styles.settingsPageHeader}>
+        <Text variant="heading" style={styles.pageTitle}>Settings</Text>
+        <Text style={styles.pageSub}>Your account and app preferences.</Text>
+      </View>
+
+      <Card style={styles.settingsAccountCard}>
+        <View style={styles.settingsIdentityHeader}>
+          <View style={styles.settingsAvatar} accessibilityLabel={`${fullName} initials`}>
+            <Text style={styles.settingsAvatarText}>{initials(student)}</Text>
+          </View>
+          <View style={styles.settingsIdentityCopy}>
+            <Text style={styles.settingsName} numberOfLines={1}>{fullName}</Text>
+            <View style={styles.settingsEmailLine}>
+              <MailIcon size={13} color={COLORS.textMuted} />
+              <Text style={styles.settingsEmail} numberOfLines={1}>{student?.username || student?.email || 'No email on file'}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.settingsStatusRow}>
+          <Text style={styles.settingsStatusLabel}>ACCOUNT STATUS</Text>
+          <View style={[styles.settingsStatusPill, approved ? styles.settingsStatusApproved : styles.settingsStatusPending]}>
+            {approved
+              ? <CheckCircleIcon size={13} color={COLORS.successDark} />
+              : <ClockIcon size={13} color={COLORS.warningDark} />}
+            <Text style={[styles.settingsStatusText, approved ? styles.settingsStatusApprovedText : styles.settingsStatusPendingText]}>
+              {approved ? 'Approved' : 'Under review'}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card style={styles.settingsGroupCard}>
+        <CardTitle Icon={BellIcon} title="App preferences" />
+        <SettingRow
+          Icon={BellIcon}
+          title="Notifications"
+          value="Coordinator updates on this device"
+          trailing={(
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={onNotificationsEnabledChange}
+              disabled={!notificationPreferenceLoaded}
+              trackColor={{ false: COLORS.border, true: COLORS.primaryLight }}
+              thumbColor={notificationsEnabled ? COLORS.primary : '#FFFFFF'}
+              ios_backgroundColor={COLORS.border}
+              accessibilityRole="switch"
+              accessibilityLabel="Coordinator updates"
+              accessibilityHint="Controls whether coordinator updates appear in PATHWAY on this device. Messages remain available."
+              accessibilityState={{ checked: notificationsEnabled, disabled: !notificationPreferenceLoaded }}
+            />
+          )}
+        />
+        <SettingRow Icon={SettingsIcon} title="Appearance" value="System default" />
+        {student.username && <MotionTouchableOpacity onPress={onChangePassword} accessibilityRole="button" accessibilityLabel="Change password" style={{ paddingVertical: 16 }}><Text style={{ color: COLORS.primary }}>Change password</Text></MotionTouchableOpacity>}
+      </Card>
+
+      <Card style={styles.settingsGroupCard}>
+        <CardTitle Icon={FileIcon} title="Support and privacy" />
+        <SettingRow Icon={FileIcon} title="Help center" value="PATHWAY support information" />
+        <SettingRow Icon={InfoIcon} title="Privacy" value="Review how your records are used" />
+      </Card>
+
+      <View style={styles.settingsSignOutGroup}>
+        <Text style={styles.settingsSignOutHint}>You can sign back in at any time.</Text>
+        <MotionTouchableOpacity
+          onPress={onLogout}
+          style={styles.settingsSignOutButton}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out of PATHWAY"
+        >
+          <LogOutIcon size={17} color={COLORS.dangerDark} />
+          <Text style={styles.profileLogoutBtnText}>Sign out</Text>
+        </MotionTouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
-function SettingRow({ Icon, title, value }) {
-  return <View style={styles.settingRow}><View style={styles.settingIcon}><Icon size={16} color={COLORS.secondary} /></View><View style={styles.settingCopy}><Text style={styles.settingTitle}>{title}</Text><Text style={styles.settingValue}>{value}</Text></View><ChevronRightIcon size={15} color={COLORS.textMuted} /></View>;
+function SettingRow({ Icon, title, value, trailing }) {
+  return (
+    <View style={styles.settingsPreferenceRow}>
+      <View style={styles.settingsPreferenceIcon}><Icon size={16} color={COLORS.secondary} /></View>
+      <View style={styles.settingCopy}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        <Text style={styles.settingValue}>{value}</Text>
+      </View>
+      {trailing || null}
+    </View>
+  );
 }
 
 function InfoRow({ label, value }) {
@@ -1133,14 +1713,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  homeHeader: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 18,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
+  headerBrandCopy: { flexShrink: 1, minWidth: 0 },
   headerLogoBadge: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1151,44 +1741,54 @@ const styles = StyleSheet.create({
   },
   brand: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
-    letterSpacing: 2.5,
+    letterSpacing: 2.35,
   },
-  headerCampus: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '500',
-  },
+  homeBrand: { color: COLORS.primaryDark },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    marginLeft: 10,
   },
   headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transitionProperty: 'background-color, border-color, transform, box-shadow',
+        transitionDuration: '150ms',
+      },
+      default: {},
+    }),
   },
   headerSettingsBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.secondaryLight,
   },
+  headerActionHover: { backgroundColor: COLORS.secondarySubtle, borderColor: COLORS.secondary, ...SHADOWS.soft },
+  headerActionHoverMotion: { transform: [{ translateY: -1 }] },
+  headerActionFocus: { borderColor: COLORS.focusRing, borderWidth: 2 },
+  headerActionPressed: { backgroundColor: COLORS.secondaryLight },
+  headerActionPressMotion: { transform: [{ scale: 0.96 }] },
+  motionDisabledWeb: Platform.select({ web: { transitionDuration: '0ms' }, default: {} }),
   scroll: {
     width: '100%',
     maxWidth: 760,
     alignSelf: 'center',
     padding: 18,
-    paddingBottom: 112,
+    paddingBottom: 216,
     gap: 18,
   },
+  profileScroll: { paddingBottom: 26, gap: 14 },
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: 15,
@@ -1220,7 +1820,7 @@ const styles = StyleSheet.create({
   },
   homeWelcome: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4, paddingBottom: 2 },
   homeWelcomeCopy: { flex: 1, gap: 3 },
-  homeEyebrow: { color: COLORS.secondaryDark, fontSize: 10, fontWeight: '600', letterSpacing: 0.55 },
+  homeEyebrow: { color: COLORS.secondaryDark, fontSize: 10, fontWeight: '700', letterSpacing: 0.7 },
   greeting: {
     color: COLORS.textPrimary,
     fontSize: 27,
@@ -1228,19 +1828,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.35,
   },
-  homeProgressHero: { backgroundColor: COLORS.primaryDark, borderRadius: 20, padding: 20, borderWidth: 0 },
-  homeProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  homeAvatar: { width: 46, height: 46, borderRadius: 23, overflow: 'hidden', backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  homeAvatarImage: { width: '100%', height: '100%', borderRadius: 23 },
+  homeAvatarText: { color: COLORS.primaryDark, fontSize: 15, fontWeight: '700' },
+  homeProgressHero: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.soft },
+  homeProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   homeProgressLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  homeProgressLabel: { color: '#BBD3EA', fontSize: 10, fontWeight: '800', letterSpacing: 0.9 },
-  homeProgressPercent: { color: COLORS.brandGold, fontSize: 12, fontWeight: '800' },
-  homeHoursValue: { color: '#FFFFFF', fontSize: 34, lineHeight: 42, fontWeight: '700', letterSpacing: -0.6, marginTop: 12 },
-  homeHoursTotal: { color: '#BBD3EA', fontSize: 14, fontWeight: '600', letterSpacing: 0 },
-  homeProgressTrack: { height: 8, borderRadius: RADIUS.full, backgroundColor: '#FFFFFF25', overflow: 'hidden', marginTop: 14 },
-  homeProgressFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.brandGold },
-  homeProgressFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10 },
-  homeProgressRemaining: { color: '#D5E3F1', fontSize: 12, fontWeight: '600' },
+  homeProgressLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.85 },
+  homeProgressPercentBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: RADIUS.full, backgroundColor: COLORS.primarySubtle },
+  homeProgressPercent: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '700' },
+  homeHoursValue: { color: COLORS.textPrimary, fontSize: 30, lineHeight: 38, fontWeight: '700', letterSpacing: -0.6, marginTop: 6 },
+  homeHoursTotal: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '600', letterSpacing: 0 },
+  homeProgressFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  homeProgressRemaining: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
   homeProgressLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  homeProgressLinkText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  homeProgressLinkText: { color: COLORS.primary, fontSize: 12, fontWeight: '700' },
   homeStatsStrip: { flexDirection: 'row', backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingVertical: 6, paddingHorizontal: 2 },
   homeStatCell: { flex: 1, gap: 4 },
   homeStatDivider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: 16 },
@@ -1249,8 +1851,8 @@ const styles = StyleSheet.create({
   homeStatHint: { color: COLORS.textSecondary, fontSize: 11 },
   homeSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   homeSectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: -0.15 },
-  homePlacementRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: 'transparent', borderRadius: 0, paddingVertical: 13, paddingHorizontal: 0, borderTopWidth: 1, borderBottomWidth: 1, borderColor: COLORS.borderLight },
-  homePlacementMark: { width: 30, height: 34, borderRadius: 0, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  homePlacementRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: COLORS.surface, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.borderLight },
+  homePlacementMark: { width: 36, height: 36, borderRadius: 11, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
   homePlacementCopy: { flex: 1, minWidth: 0 },
   homePlacementStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 6, borderRadius: RADIUS.full },
   homePlacementConfirmed: { backgroundColor: COLORS.successLight },
@@ -1265,7 +1867,10 @@ const styles = StyleSheet.create({
   homeSeeAll: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 4 },
   activityList: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0 },
   activityRowFirst: { borderTopWidth: 0 },
-  activityEmpty: { paddingVertical: 14 },
+  activityEmpty: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, padding: 14, borderRadius: 14, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight },
+  activityEmptyIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  activityEmptyCopy: { flex: 1, gap: 3 },
+  activityEmptyTitle: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' },
   profileCompany: {
     color: COLORS.secondary,
     fontSize: 13,
@@ -1419,89 +2024,80 @@ const styles = StyleSheet.create({
   },
   // ── Logs Panel ──────────────────────────────────────────────────────────────
   logsPageHeader: { gap: 4 },
-  attHeroCard: { backgroundColor: COLORS.primaryDark, borderRadius: RADIUS.lg, padding: 18, ...SHADOWS.card },
-  calendarCard: { marginTop: -4, padding: 14 },
-  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  logsAccumulationCard: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, ...SHADOWS.soft },
+  logsAccumulationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  logsAccumulationLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  logsAccumulationIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  logsAccumulationLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
+  logsAccumulationPercent: { flexDirection: 'row', alignItems: 'baseline', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.primarySubtle },
+  logsAccumulationPercentValue: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '800' },
+  logsAccumulationPercentLabel: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' },
+  logsAccumulationValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  logsAccumulationValue: { color: COLORS.textPrimary, fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.8 },
+  logsAccumulationUnit: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  logsAccumulationSubline: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
+  logsAccumulationTrack: { width: '100%', height: 8, borderRadius: 4, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
+  logsAccumulationFill: { height: '100%', borderRadius: 4, backgroundColor: COLORS.primary },
+  logsAccumulationFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  logsAccumulationRemaining: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' },
+  logsAccumulationGoal: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600' },
+  calendarCard: { padding: 16 },
+  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   calendarMonth: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800' },
-  calendarNav: { flexDirection: 'row', gap: 4 },
-  calendarNavButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  calendarNav: { flexDirection: 'row', gap: 6 },
+  calendarNavButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   calendarChevronLeft: { transform: [{ rotate: '90deg' }] },
   calendarChevronRight: { transform: [{ rotate: '-90deg' }] },
   calendarWeekRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  calendarDay: { flex: 1, alignItems: 'center', gap: 4 },
+  calendarDay: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 4 },
   calendarWeekday: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700' },
-  calendarDateCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  calendarDateCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   calendarDateActive: { backgroundColor: COLORS.secondary },
   calendarDateToday: { borderWidth: 1, borderColor: COLORS.secondary },
   calendarDateText: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' },
   calendarDateTextActive: { color: '#FFFFFF', fontWeight: '900' },
   calendarRecordDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.secondary },
   calendarRecordDotHidden: { opacity: 0 },
-  attHeroRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 },
-  attHeroSub: { color: '#93C5FD', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  attHeroTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: 5 },
-  attHoursBadge: { backgroundColor: '#FFFFFF18', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 6 },
-  attHoursBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
-  attProgressBg: { height: 9, borderRadius: RADIUS.full, backgroundColor: '#FFFFFF24', overflow: 'hidden' },
-  attProgressFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.brandGold },
-  attProgressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 9 },
-  attProgressSub: { color: '#CBD5E1', fontSize: 11 },
-  attProgressPct: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
-  attTodayHeader: { marginBottom: 14 },
+  attShiftDivider: { height: 1, backgroundColor: COLORS.borderLight, marginVertical: 14 },
+  attTodayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
   attTodayTag: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  attTodayTagText: { color: COLORS.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  attTodayDate: { color: COLORS.textMuted, fontSize: 12, marginTop: 5 },
+  attTodayTagText: { color: COLORS.secondaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
+  attTodayDate: { color: COLORS.textMuted, flexShrink: 1, fontSize: 11, textAlign: 'right' },
   attTimeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   attTimeBox: { flex: 1, alignItems: 'center' },
   attTimeDivider: { width: 1, height: 38, backgroundColor: COLORS.borderLight },
   attTimeLabel: { color: COLORS.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
   attTimeValue: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '900', marginTop: 6 },
   attTimeMuted: { color: COLORS.textMuted },
-  attPunchBtn: { minHeight: 48, borderRadius: RADIUS.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  attPunchIn: { backgroundColor: COLORS.secondary },
-  attPunchOut: { backgroundColor: COLORS.primary },
-  attPunchText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  attPunchBtn: { minHeight: 52, borderRadius: RADIUS.md, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...SHADOWS.soft },
+  attPunchIn: { backgroundColor: COLORS.surface, borderColor: COLORS.secondary },
+  attPunchOut: { backgroundColor: COLORS.surface, borderColor: COLORS.primary },
+  attPunchText: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
   attDoneBox: { backgroundColor: COLORS.successLight, borderRadius: RADIUS.md, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   selectedDayStatus: { backgroundColor: COLORS.secondarySubtle, borderRadius: RADIUS.sm, paddingHorizontal: 10, paddingVertical: 9, marginTop: 2 },
   selectedDayStatusText: { color: COLORS.secondaryDark, fontSize: 11.5, fontWeight: '700', textAlign: 'center' },
   selectedDayEmpty: { color: COLORS.textMuted, fontSize: 12, textAlign: 'center', marginTop: 2 },
   attDoneText: { color: COLORS.successDark, fontSize: 13, fontWeight: '800' },
-  placementReadOnlyNote: { color: COLORS.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  placementRequestButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  placementReadOnlyNote: { flex: 1, color: COLORS.textMuted, fontSize: 11, lineHeight: 16 },
+  placementRequestButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingHorizontal: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.secondaryLight, backgroundColor: COLORS.secondarySubtle },
   placementRequestText: { color: COLORS.secondary, fontSize: 12, fontWeight: '800' },
-  attSectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
-  attSectionTitle: { color: COLORS.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
+  profileManagedNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, paddingHorizontal: 10, paddingVertical: 9, borderRadius: RADIUS.sm, backgroundColor: COLORS.secondarySubtle },
+  attSectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 },
   attSectionCount: { color: COLORS.textMuted, fontSize: 11 },
-  attLogCard: { backgroundColor: COLORS.surface, borderRadius: RADIUS.md, padding: 14, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.soft },
+  attHistoryCard: { paddingVertical: 4, paddingHorizontal: 14 },
+  attHistoryEmpty: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  attHistoryEmptyIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  attLogRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  attLogRowDivider: { borderTopWidth: 1, borderTopColor: COLORS.borderLight },
   attLogDate: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' },
   attLogTime: { color: COLORS.textSecondary, fontSize: 11, marginTop: 4 },
   attLogHours: { color: COLORS.secondary, fontSize: 13, fontWeight: '900' },
   attLogStatus: { backgroundColor: COLORS.warningLight, borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 4 },
   attLogStatusVerified: { backgroundColor: COLORS.successLight },
   attLogStatusText: { color: COLORS.warningDark, fontSize: 10, fontWeight: '800' },
-  // Hero OJT Hours card
-  logsHeroCard: { paddingBottom: 16 },
-  logsHeroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  logsHeroLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 4 },
-  logsHeroBig: { color: COLORS.textPrimary, fontSize: 32, fontWeight: '900', letterSpacing: -1 },
-  logsHeroOf: { color: COLORS.textMuted, fontSize: 14, fontWeight: '600', letterSpacing: 0 },
-  logsHeroPct: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: RADIUS.full },
-  logsHeroPctText: { fontSize: 13, fontWeight: '800' },
-  logsProgressTrack: { height: 8, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, overflow: 'hidden', marginBottom: 8 },
-  logsProgressFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.secondary },
-  logsHeroCaption: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
-  // Shift columns
-  shiftColumns: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  shiftCol: { flex: 1, alignItems: 'center', paddingVertical: 6 },
-  shiftColDivider: { width: 1, height: 40, backgroundColor: COLORS.borderLight },
-  shiftLabel: { color: COLORS.textMuted, fontSize: 9.5, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
-  shiftValue: { color: COLORS.textPrimary, fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  shiftValueMuted: { color: COLORS.textMuted, fontWeight: '600' },
-  shiftWarning: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: COLORS.warningSubtle, borderRadius: RADIUS.sm, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
-  shiftInfoBg: { backgroundColor: COLORS.secondarySubtle },
-  shiftWarningText: { color: COLORS.warningDark, fontSize: 11.5, fontWeight: '700', flex: 1 },
   // Log summary rows
-  logSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  logSummaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingVertical: 10 },
+  logSummaryDivider: { borderTopWidth: 1, borderTopColor: COLORS.borderLight },
   logSummaryDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
   logSummaryCopy: { flex: 1 },
   logSummaryTitle: { color: COLORS.textPrimary, fontSize: 12.5, fontWeight: '800' },
@@ -1511,6 +2107,8 @@ const styles = StyleSheet.create({
   logStatusApprovedPill: { backgroundColor: COLORS.successLight },
   logStatusRejectedPill: { backgroundColor: COLORS.dangerLight },
   logStatusText: { color: COLORS.warningDark, fontSize: 10.5, fontWeight: '800', overflow: 'hidden' },
+  logsSectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  logsEmptyState: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
   // Logs panel
   pageTitle: {
     color: COLORS.textPrimary,
@@ -1524,44 +2122,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 1,
     marginBottom: 4,
-  },
-  actionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  actionPrimary: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-    ...SHADOWS.card,
-  },
-  actionIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.secondaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionCopy: {
-    flex: 1,
-  },
-  actionTitle: {
-    color: COLORS.textPrimary,
-    fontWeight: '800',
-    fontSize: 15,
-  },
-  actionSub: {
-    color: COLORS.textSecondary,
-    fontSize: 11.5,
-    marginTop: 2,
-    lineHeight: 16,
   },
   outlineAction: {
     borderWidth: 1.5,
@@ -1578,17 +2138,22 @@ const styles = StyleSheet.create({
   },
   // Profile panel
   progressPageHeader: { gap: 4 },
-  progressHeroCard: { backgroundColor: COLORS.primaryDark, borderColor: COLORS.primaryDark },
-  progressHeroLabel: { color: '#93C5FD', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  progressHeroStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginVertical: 18 },
-  progressHeroNumber: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', textAlign: 'center' },
-  progressHeroNumberAccent: { color: COLORS.brandGold, fontSize: 24, fontWeight: '900', textAlign: 'center' },
-  progressHeroCaption: { color: '#BBD3EA', fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 },
-  progressHeroDivider: { width: 1, height: 38, backgroundColor: '#FFFFFF25' },
-  progressHeroTrack: { height: 8, borderRadius: RADIUS.full, backgroundColor: '#FFFFFF25', overflow: 'hidden' },
-  progressHeroFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.brandGold },
-  progressHeroMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  progressHeroPercent: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  progressHeroCard: { backgroundColor: COLORS.surface, borderColor: COLORS.border, borderRadius: 18, ...SHADOWS.card },
+  progressHeroHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  progressHeroLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  progressHeroLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
+  progressHeroStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14, paddingVertical: 12, paddingHorizontal: 4, borderRadius: 13, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.borderLight },
+  progressHeroStat: { flex: 1, minWidth: 0, alignItems: 'center' },
+  progressHeroNumber: { color: COLORS.textPrimary, fontSize: 21, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
+  progressHeroNumberAccent: { color: COLORS.accentDark, fontSize: 21, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
+  progressHeroCaption: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 },
+  progressHeroDivider: { width: 1, height: 34, backgroundColor: COLORS.border },
+  progressHeroTrack: { height: 8, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
+  progressHeroFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.primary },
+  progressHeroMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 9 },
+  progressHeroPercent: { fontSize: 11, color: COLORS.primaryDark, fontWeight: '800' },
+  progressHeroMetaLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600' },
+  progressHeroMetaText: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
   progressMetricGrid: { flexDirection: 'row', gap: 12 },
   progressMetricCard: { flex: 1, minHeight: 100 },
   progressMetricNumber: { color: COLORS.textPrimary, fontSize: 23, fontWeight: '900', marginTop: 9 },
@@ -1597,12 +2162,16 @@ const styles = StyleSheet.create({
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   insightTitle: { color: COLORS.primary, fontSize: 15, fontWeight: '900' },
   insightText: { color: COLORS.textSecondary, fontSize: 13, lineHeight: 20 },
-  progressInsight: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 12, paddingHorizontal: 13, borderRadius: 12, backgroundColor: COLORS.secondarySubtle, borderWidth: 1, borderColor: COLORS.borderLight },
-  progressInsightText: { flex: 1, color: COLORS.textSecondary, fontSize: 12.5, lineHeight: 19 },
+  progressInsight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 13, borderRadius: 14, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  progressInsightIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  progressInsightCopy: { flex: 1, minWidth: 0, gap: 3 },
+  progressInsightEyebrow: { color: COLORS.primaryDark, fontSize: 9, fontWeight: '800', letterSpacing: 0.65 },
+  progressInsightText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18 },
   progressSectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 },
   progressSectionCaption: { color: COLORS.textMuted, fontSize: 10.5 },
-  progressRowsPanel: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, borderRadius: 15, paddingHorizontal: 14 },
+  progressRowsPanel: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 15, paddingHorizontal: 14, ...SHADOWS.soft },
   progressRecordGroup: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  progressRecordGroupFirst: { borderTopWidth: 0 },
   progressRecordHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressRecordIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   progressRecordCopy: { flex: 1, minWidth: 0 },
@@ -1622,54 +2191,61 @@ const styles = StyleSheet.create({
   statusSummarySub: { color: COLORS.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 2 },
   clearanceSuccess: { backgroundColor: COLORS.successLight, borderColor: '#A7F3D0' },
   clearancePending: { backgroundColor: COLORS.warningLight, borderColor: '#FDE68A' },
-  profileLarge: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
+  profileIdentityCard: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 17 },
+  profileIdentityCopy: { flex: 1, minWidth: 0, gap: 4 },
+  profileDetailsCard: { paddingBottom: 8 },
+  profilePlacementCard: { paddingBottom: 14 },
   avatarLarge: {
-    width: 76,
-    height: 76,
-    borderRadius: 24,
+    width: 68,
+    height: 68,
+    borderRadius: 21,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    flexShrink: 0,
     position: 'relative',
     ...SHADOWS.soft,
   },
-  avatarImageLarge: { width: '100%', height: '100%', borderRadius: 24 },
+  avatarImageLarge: { width: '100%', height: '100%', borderRadius: 21 },
   avatarEditBadge: { position: 'absolute', right: -4, bottom: -4, width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.surface },
-  avatarEditText: { color: '#FFFFFF', fontSize: 18, lineHeight: 20, fontWeight: '800' },
-  photoHint: { color: COLORS.secondary, fontSize: 11, fontWeight: '700', marginTop: -4, marginBottom: 10 },
   avatarLargeText: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 23,
     fontWeight: '900',
   },
   profileLargeName: {
     color: COLORS.textPrimary,
     fontWeight: '900',
-    fontSize: 18,
+    fontSize: 17,
+    lineHeight: 22,
   },
   profileLargeDept: {
     color: COLORS.textSecondary,
-    fontSize: 12.5,
-    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
   },
   profileBadge: {
     backgroundColor: COLORS.successLight,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
-    marginTop: 8,
+    marginTop: 3,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
+  profileBadgePending: { backgroundColor: COLORS.warningLight },
+  profileBadgePendingText: { color: COLORS.warningDark },
   profileBadgeText: {
     color: COLORS.successDark,
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
   },
   infoRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderTopWidth: 1,
@@ -1684,6 +2260,9 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 12.5,
+    lineHeight: 17,
+    flex: 1,
+    minWidth: 0,
     maxWidth: '65%',
     textAlign: 'right',
   },
@@ -1709,104 +2288,306 @@ const styles = StyleSheet.create({
   settingCopy: { flex: 1 },
   settingTitle: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' },
   settingValue: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  settingRow: {
+  settingsScroll: { paddingTop: 12, paddingBottom: 28, gap: 12 },
+  settingsPageHeader: { gap: 3, marginBottom: 1 },
+  settingsBack: {
+    alignSelf: 'flex-start',
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    marginLeft: -7,
+    borderRadius: 10,
+    ...Platform.select({ web: { cursor: 'pointer' }, default: {} }),
+  },
+  settingsBackArrow: { transform: [{ rotate: '180deg' }] },
+  settingsBackText: { color: COLORS.secondaryDark, fontSize: 12.5, fontWeight: '700' },
+  settingsAccountCard: {
+    padding: 16,
+    borderRadius: 19,
+    borderColor: COLORS.border,
+    gap: 14,
+    ...SHADOWS.card,
+  },
+  settingsIdentityHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingsAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsAvatarText: { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  settingsIdentityCopy: { flex: 1, minWidth: 0, gap: 4 },
+  settingsName: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '700' },
+  settingsEmailLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
+  settingsEmail: { flex: 1, minWidth: 0, color: COLORS.textMuted, fontSize: 11.5 },
+  settingsStatusRow: {
+    minHeight: 34,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+    paddingTop: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  settingsStatusLabel: { color: COLORS.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 0.9 },
+  settingsStatusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: RADIUS.full },
+  settingsStatusApproved: { backgroundColor: COLORS.successLight },
+  settingsStatusPending: { backgroundColor: COLORS.warningLight },
+  settingsStatusText: { fontSize: 10.5, fontWeight: '700' },
+  settingsStatusApprovedText: { color: COLORS.successDark },
+  settingsStatusPendingText: { color: COLORS.warningDark },
+  settingsGroupCard: { padding: 15, borderRadius: 18, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  settingsPreferenceRow: {
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
   },
-  settingsBack: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: -4 },
-  settingsBackText: { color: COLORS.secondary, fontSize: 13, fontWeight: '800' },
+  settingsPreferenceIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: COLORS.secondarySubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsSignOutGroup: { gap: 8, marginTop: 1 },
+  settingsSignOutHint: { color: COLORS.textMuted, fontSize: 11, textAlign: 'center' },
+  settingsSignOutButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.dangerLight,
+  },
   profileLogoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.danger,
+    backgroundColor: COLORS.surface,
     borderRadius: RADIUS.md,
-    paddingVertical: 14,
-    marginTop: 6,
-    ...SHADOWS.soft,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: COLORS.dangerLight,
+    marginTop: 2,
   },
   profileLogoutBtnText: {
-    color: '#FFFFFF',
+    color: COLORS.dangerDark,
     fontWeight: '800',
-    fontSize: 14,
+    fontSize: 13,
   },
   // Bottom Bar
-  floatingActions: { position: 'absolute', right: 14, bottom: 72, flexDirection: 'row', alignItems: 'center', gap: 8, zIndex: 4 },
-  quickMessageButton: { minHeight: 44, paddingHorizontal: 13, borderRadius: RADIUS.full, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, ...SHADOWS.soft },
-  quickMessageText: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '700' },
-  quickLogButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: RADIUS.full, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, ...SHADOWS.soft },
-  quickLogText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  floatingActions: { position: 'absolute', right: 14, bottom: 84, flexDirection: 'column', alignItems: 'center', gap: 10, zIndex: 4 },
+  quickMessageButton: { width: 64, height: 64, borderRadius: RADIUS.full, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center', zIndex: 4, ...SHADOWS.soft, ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'background-color, border-color, transform, box-shadow', transitionDuration: '180ms' }, default: {} }) },
+  quickMessageHover: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondary, transform: [{ translateY: -2 }, { scale: 1.06 }], ...SHADOWS.card },
+  quickMessagePressed: { backgroundColor: COLORS.secondaryLight, borderColor: COLORS.primary },
+  quickMessagePressMotion: { transform: [{ scale: 0.94 }] },
   bottomBar: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  bottomDock: {
+    position: 'relative',
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    padding: 5,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
-    minHeight: 46,
+    gap: 1,
+    minHeight: 54,
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: 16,
+    paddingHorizontal: 3,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transitionProperty: 'background-color, border-color, transform, box-shadow',
+        transitionDuration: '170ms',
+      },
+      default: {},
+    }),
   },
+  tabButtonActive: { backgroundColor: 'transparent', borderColor: 'transparent' },
+  tabButtonHover: { backgroundColor: COLORS.secondarySubtle, borderColor: COLORS.secondaryLight, ...SHADOWS.soft },
+  tabButtonHoverMotion: { transform: [{ translateY: -2 }, { scale: 1.04 }] },
+  tabButtonActiveHover: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondaryLight },
+  tabButtonFocus: { borderColor: COLORS.focusRing, borderWidth: 2 },
+  tabButtonPressed: { backgroundColor: COLORS.secondaryLight },
+  tabButtonPressMotion: { transform: [{ scale: 0.96 }] },
   tabIconContainer: {
     minWidth: 42,
-    height: 30,
-    borderRadius: RADIUS.full,
+    height: 23,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabIconContainerActive: {
-    backgroundColor: COLORS.secondary,
+  tabIconContainerEmphasized: { transform: [{ translateY: -1 }] },
+  tabIndicatorDot: { width: 5, height: 5, borderRadius: RADIUS.full, backgroundColor: COLORS.primary, marginTop: 1 },
+  centerNavSlot: { flex: 1, minHeight: 54, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  centerNavHalo: { position: 'absolute', top: -32, left: '50%', marginLeft: -38, width: 76, height: 76, borderRadius: 38, backgroundColor: COLORS.background, zIndex: 2 },
+  centerNavButton: { position: 'absolute', top: -26, left: '50%', marginLeft: -31, width: 62, height: 62, borderRadius: RADIUS.full, backgroundColor: COLORS.primary, borderWidth: 4, borderColor: COLORS.background, alignItems: 'center', justifyContent: 'center', zIndex: 3, ...SHADOWS.card, ...Platform.select({ web: { cursor: 'pointer', transitionProperty: 'background-color, border-color, transform, box-shadow', transitionDuration: '180ms' }, default: {} }) },
+  centerNavButtonHover: { backgroundColor: COLORS.primaryDark, borderColor: COLORS.surface, ...SHADOWS.card },
+  centerNavButtonFocus: { borderColor: COLORS.focusRing },
+  centerNavButtonHoverMotion: { transform: [{ translateY: -3 }, { scale: 1.07 }] },
+  centerNavButtonPressed: { backgroundColor: COLORS.primaryDark },
+  centerNavButtonPressMotion: { transform: [{ scale: 0.94 }] },
+  // Gate
+  gateScroll: { flex: 1 },
+  gatePage: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 22,
+    paddingBottom: 32,
   },
-  tabLabel: {
-    color: 'rgba(255, 255, 255, 0.65)',
-    fontSize: 10.5,
-    fontWeight: '600',
+  gateDashboard: {
+    width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
   },
-  tabLabelActive: {
-    color: '#FFFFFF',
+  gateWelcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 18,
+  },
+  gateWelcomeCopy: { flex: 1, minWidth: 0 },
+  gateEyebrow: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  gateWelcomeTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    lineHeight: 32,
     fontWeight: '800',
   },
-  // Gate
-  gateIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.surface,
+  gateWelcomeSub: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  gateAvatar: {
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    ...SHADOWS.card,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.secondaryLight,
+  },
+  gateAvatarText: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
+  gateHeroCard: {
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+    ...SHADOWS.soft,
+  },
+  gateHeroTopRow: { flexDirection: 'row', alignItems: 'center' },
+  gateHeroStatusCopy: { flex: 1, alignItems: 'flex-start', gap: 7, marginLeft: 12 },
+  gateHeroOverline: {
+    color: COLORS.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+  },
+  gateStatusBadge: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 11,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primarySubtle,
+  },
+  gateStatusLabel: {
+    color: COLORS.primaryDark,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.65,
+  },
+  gateIconCircle: {
+    width: 54,
+    height: 54,
+    borderRadius: 17,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gateTitle: {
     color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginTop: 20,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
+    marginTop: 16,
   },
   gateSub: {
     color: COLORS.textSecondary,
     fontSize: 13,
     lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 8,
-    maxWidth: 320,
+    marginTop: 5,
+  },
+  gateHeroProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  gateHeroProgressLabel: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' },
+  gateHeroProgressValue: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '800' },
+  gateHeroProgressTrack: {
+    height: 7,
+    overflow: 'hidden',
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.surfaceMuted,
+  },
+  gateHeroProgressFill: {
+    height: '100%',
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primary,
   },
   gateBtn: {
+    minHeight: 50,
+    width: '100%',
+    maxWidth: 350,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    marginTop: 24,
+    borderRadius: 15,
+    paddingHorizontal: 18,
+    marginTop: 17,
     ...SHADOWS.hover,
   },
   gateBtnText: {
@@ -1814,15 +2595,58 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
-  logoutBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: RADIUS.sm,
+  gateSummarySection: { marginTop: 24 },
+  gateSummaryHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
   },
-  logoutText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+  gateSummarySectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800' },
+  gateSummarySectionSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
+  gateStudentId: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700' },
+  gateSummaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  gateSummaryTile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 0,
+    minHeight: 164,
+    padding: 13,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.surface,
+    ...SHADOWS.soft,
   },
+  gateSummaryTileNarrow: { flexBasis: '100%' },
+  gateSummaryTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  gateSummaryIcon: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: COLORS.primarySubtle,
+  },
+  gateSummaryTitle: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' },
+  gateSummaryValue: { color: COLORS.textPrimary, fontSize: 15, lineHeight: 20, fontWeight: '800', marginTop: 4 },
+  gateSummaryDetail: { color: COLORS.textMuted, fontSize: 10, lineHeight: 15, marginTop: 4, flexGrow: 1 },
+  gateSummaryBadge: { alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 8, paddingVertical: 5, borderRadius: RADIUS.full },
+  gateSummaryBadgeText: { fontSize: 9, fontWeight: '800' },
+  gateSummaryBadge_success: { backgroundColor: COLORS.successSubtle },
+  gateSummaryBadgeText_success: { color: COLORS.successDark },
+  gateSummaryBadge_info: { backgroundColor: COLORS.primarySubtle },
+  gateSummaryBadgeText_info: { color: COLORS.primaryDark },
+  gateSummaryBadge_warning: { backgroundColor: COLORS.warningSubtle },
+  gateSummaryBadgeText_warning: { color: COLORS.warningDark },
+  gateSummaryBadge_danger: { backgroundColor: COLORS.dangerSubtle },
+  gateSummaryBadgeText_danger: { color: COLORS.dangerDark },
+  gateSummaryBadge_neutral: { backgroundColor: COLORS.surfaceMuted },
+  gateSummaryBadgeText_neutral: { color: COLORS.textMuted },
 });

@@ -2,9 +2,95 @@
 
 ## Project Documentation and Change Log
 
-**Last updated:** 2026-10-02  
+**Last updated:** 2026-10-06
 **Project status:** Local development  
 **Primary reference:** `PATHWAY-OJT-Management-System-with-AI-Analytics-1.docx`
+
+---
+
+## Approved Planned Change — Student Account Provisioning
+
+**Decision recorded: 2026-10-06. Status: local implementation added; not deployed.**
+
+This section records the team's revised onboarding requirement and the exact manuscript revisions needed later. It supersedes student self-registration as the target design. The decision/checklist below is retained; the implementation entry immediately afterward records the work completed and remaining acceptance limitations. Historical entries remain records of earlier behavior. **The manuscript has not been edited.**
+
+### Agreed target workflow
+
+1. The coordinator uploads an authorized class list containing student identities and associates it with the correct section and department. The list does not contain student email addresses.
+2. The system provisions student authentication accounts and profiles from the authorized list, linked to their section and coordinator. Students cannot self-register.
+3. Each student's fixed username is `uclm-{StudentID}`. Their initial password is `UC@{StudentID}`. Example: Student ID `24228132`, username `uclm-24228132`, initial password `UC@24228132`.
+4. On first login, the student must replace the initial password before accessing dashboards, student records, or any pre-deployment or OJT operation. The username stays unchanged; the password is not permanently fixed.
+5. The password-change gate must be enforced by protected backend operations and database access rules, not only by navigation or a screen. Completion is recorded only after a successful authentication password change and a trustworthy server-side completion check.
+6. After changing the password, the student enters the appropriate dashboard according to their pre-deployment status. Account provisioning and password setup do not automatically grant final OJT deployment clearance.
+7. Reuploading a class list must not reset existing passwords, recreate accounts, or silently move students between coordinators or sections. Imports must detect duplicates and ownership conflicts and report per-entry outcomes, including partial failures.
+
+### Authentication and recovery design to implement
+
+- Preserve Firebase Authentication using a generated, unique email-shaped internal identifier mapped to the username. This identifier is not a real student inbox, is not presented as a contact email, and must never be used for email delivery or email-based password recovery. The exact identifier domain and mapping remain implementation details to finalize.
+- Remove the student signup entry and disable the public student self-registration operation. Merely hiding the registration screen is insufficient.
+- Store passwords only through Firebase Authentication. Do not retain readable initial or changed passwords in Firestore, uploaded class-list records, application logs, or exports.
+- Provide coordinator-assisted recovery for students in the coordinator's assigned sections after identity verification. Use a random temporary recovery password rather than restoring the predictable initial password. Require another password change before restoring student access, revoke existing sessions, and record an audit event without the password.
+- Student email addresses are not required for enrollment. Any optional contact-email feature added later must remain separate from the internal authentication identifier.
+- The Student ID-derived initial password is predictable. First-login enforcement reduces exposure but does not prove the person signing in is the intended student. Before implementation is finalized, define controlled credential distribution and identity verification, plus login abuse protections.
+
+### Manuscript revision checklist
+
+These are proposed revisions for the team to apply to the manuscript later, not edits made to the DOCX. Section names and figure labels are used rather than unverified page numbers.
+
+| Manuscript location | Existing statement or conflict | Required revision |
+|---|---|---|
+| Scope and Delimitation — class-list pre-verification paragraph | The student attempts registration and the system checks their submitted ID against an uploaded master list, granting immediate access after verification. | State that the coordinator uploads the authorized list and the system provisions accounts. Replace student registration with username login and mandatory first-login password change before protected access. State that no student email is required. |
+| Program Workflow explanation | The student journey begins with mobile account registration and coordinators vet new registrations. | Begin the student journey with a coordinator-provisioned account, login, mandatory password replacement, then pre-deployment tasks. Describe coordinator import/provisioning instead of reviewing self-registration requests. |
+| Overall Use Case Diagram and role explanation | The Student role includes Register Account. | Remove student self-registration. Add coordinator class-list upload/account provisioning and student first-login password change and password-change actions. Describe coordinator-assisted recovery. |
+| Figure 19 — System Use Case Model — Register Account | Triggering actor is Student; inputs are Name, Student ID, Email, and Password through a mobile registration option. | Replace with a coordinator-triggered provisioning use case: authorized list, section/department ownership validation, duplicate detection, account creation, fixed username and initial-password convention, and outcome reporting. Document mandatory password replacement in a separate student use case. |
+| Access Account use case and student login screen logic | Login descriptions use institutional credentials and route directly into the student's workspace after authentication. | Specify `uclm-{StudentID}` login, `UC@{StudentID}` for initial login only, and password-change-required routing before any workspace access. Include failed login, incomplete password setup, recovery, and session invalidation cases. |
+| Coordinator student-registration review modal description and logic | A pending self-registration is reviewed and Approve and Activate generates credentials. | Replace or repurpose this UI/use case around authorized roster import and provisioned-account management. Keep deployment/document approval distinct from account provisioning; eliminate approval of self-registration requests. |
+| Program Specification — Functional Requirements — Registration and Account Activation Process | Coordinator-created accounts and a forced first-login credential change are already stated. | Retain that direction, but explicitly define class-list-driven provisioning, no self-registration, username/initial-password convention, email-free onboarding, protected first-login enforcement, safe reimports, and coordinator-assisted recovery. |
+| Database Design — Users description and data dictionary | Authentication credentials and an `is_first_login` flag are described. | Clarify that passwords are managed by Firebase Authentication, not stored as readable user-table fields. Define username, authentication UID/internal identifier, Student ID, section/coordinator links, password-change-required state, and server-owned completion/reset metadata. Explain that the state gates access, not just routing. |
+| Related-system comparison and any remaining Student ID verification claims | Some passages describe ID verification during student account registration. | Update claims about PATHWAY to authorized roster validation during coordinator provisioning. Do not rewrite descriptions of other researchers' systems as though they use PATHWAY's new flow. |
+| Module list, onboarding storyboards, and evaluation questionnaire | Student Registration, registration inputs, and automatic registration through ID verification appear. | Rename the relevant module to Class List Account Provisioning; replace signup storyboards with first-login password setup and coordinator account management; update questionnaire wording to assess authorized-list provisioning and onboarding. |
+
+### Acceptance checks before marking this implemented
+
+- Authorized coordinator imports provision correctly scoped accounts; unauthenticated, wrong-role, and cross-section requests are denied.
+- Students can sign in with their usernames; no student self-registration path remains usable.
+- Initial-login and recovery-password sessions cannot read protected student records or perform operations before password replacement, including direct API/database attempts.
+- Successful replacement unlocks the correct student workspace; the original password no longer works, and interrupted/failed changes do not incorrectly unlock access.
+- Reimports preserve changed passwords and existing account links; duplicate IDs and conflicting ownership produce clear outcomes.
+- Coordinator recovery is scoped, audited, revokes previous sessions, and re-enforces password replacement without recording passwords.
+- Account provisioning does not bypass document review or final deployment approval.
+
+**Original decision-record boundary:** the initial documentation update changed documentation only. The implementation described below was added afterward; the manuscript remains unchanged.
+
+### 2026-10-06 Local implementation and verification
+
+- Added coordinator-only `/coordinator/provision-students` with assigned-section validation, name/ID validation, deterministic usernames and internal Firebase identifiers, per-student results, and server-owned audit records. Class List accepts CSV files or pasted rows in the exact format `StudentID,FirstName,LastName`, with at most 250 students per request. Commas inside names/quoted CSV fields are not supported by this initial importer.
+- Added username login using `uclm-{StudentID}` and internal identifiers at `students.pathway.invalid`. This reserved, non-delivery domain is not a student contact email. Student passwords remain in Firebase Authentication, not roster documents or exports.
+- Removed student registration navigation and signup prompts, and replaced `/register-student` with a retired-operation response. The old registration source file is no longer registered as a navigation screen. Direct Firebase client signup configuration has not been changed in a live project; an Auth identity alone cannot create a PATHWAY user profile or gain record access.
+- Added mandatory Change Password routing, minimal authenticated profile bootstrap, current-password verification, server-side password replacement, token revocation, and password-epoch claims. Backend operations and Firestore rules block protected record access before replacement and reject old token epochs after resets. Password operations remain fail-closed on partial failure, with operation-lock cleanup allowing coordinator recovery when the database is reachable.
+- Added a voluntary Change Password action for provisioned students in Settings. Student recovery now directs users to their assigned coordinator instead of email reset. The Class List reset action requires an identity-verification confirmation, returns a random temporary password once with no-store response headers, revokes sessions, re-enforces password replacement, and records a password-free audit event.
+- Class-list reimports return existing ready accounts as unchanged. Existing self-registered accounts are flagged for manual migration rather than being recreated or having their passwords reset. Existing email-based accounts and local demo fixtures can still use email login during transition; the new provisioning flow does not require student email.
+- Verification: isolated Auth/Firestore emulator security suite passed 34/34 tests; student web helpers passed 8/8; identifier/password-policy unit tests passed 2/2; production packaging/configuration tests passed 4/4. Staff production build and student Expo web export passed. No production service was deployed or accessed by these tests.
+- Remaining acceptance: hands-on coordinator CSV upload/reset and student first-login checks in the running UI and on native devices; controlled distribution and identity verification for predictable initial credentials; legacy-account migration policy; production Firebase client-signup settings and coordinated backend/rules/client rollout. These are not represented as completed or production-ready.
+
+The manuscript revision checklist above remains applicable: no manuscript wording, figures, or tables were modified.
+
+### 2026-10-06 Authentication UI follow-up
+
+- Replaced the obsolete single active Sign In tab with a plain form heading; retained the actual submit button as the primary action.
+- Changed the username field's email icon to a user icon. Suppressed the nested browser input outline on login fields while retaining their enclosing blue focus border, and prevented flex-width overflow.
+- Added matching visible focus borders and keyboard avoidance to the password-change form. Browser/native visual acceptance remains separate from successful bundling.
+
+### 2026-10-06 Student sign-in screen redesign
+
+- Reorganized login into a compact campus hero, inset rounded account card, Student Access label, Welcome Back heading, and separate coordinator-access guidance.
+- Enlarged input and password-visibility targets, retained explicit field focus borders, added username/current-password autofill hints, and improved accessible error announcements.
+- Kept one primary sign-in action and a concise first-login password-change explanation. Username authentication, mandatory password replacement, and coordinator recovery behavior are unchanged. No manuscript or production configuration was edited.
+
+### 2026-10-06 Sign-in layout preference refinement
+
+- Restored the previous Welcome campus header and full-width white panel with rounded top corners, following the user's layout preference. The inset card, Student Access badge, and separate help footer were removed.
+- Retained username-specific iconography, clean visible focus borders, larger field/button targets, autofill hints, accessible errors, and concise password-setup/account guidance. Authentication and manuscript content remain unchanged.
 
 ---
 
@@ -44,8 +130,8 @@ The project is currently intended for local development. No production deploymen
 
 Implemented workflow:
 
-1. Register using an authorized student ID.
-2. Wait for coordinator approval.
+1. Receive a username account provisioned by the coordinator's authorized class-list import.
+2. Sign in and replace the initial password before accessing student records.
 3. Upload required documents.
 4. Monitor requirement status.
 5. Resubmit rejected requirements.
@@ -68,8 +154,8 @@ Implemented web workflow:
 4. Review, approve, or reject requirements.
 5. Review and approve/reject logbook entries.
 6. Manage sections and section requirements.
-7. Manage the authorized student roster.
-8. Review student registrations.
+7. Import the authorized class list into an assigned section and provision student accounts.
+8. Assist with identity-verified student password recovery; preserve existing passwords on reimport.
 9. Generate supervisor evaluation links.
 10. Review evaluation submissions.
 11. Review attendance and progress analytics.
@@ -98,7 +184,7 @@ Implemented web workflow:
 The following features have a usable implementation in the current project. “Implemented” means a working baseline exists; advanced manuscript requirements may still be incomplete.
 
 - Firebase Authentication and role-based routing
-- Student registration and authorized student-ID verification
+- Class-list student account provisioning, username login, and mandatory first-login password replacement
 - Coordinator account creation
 - Student account approval and activation
 - Requirement upload, review, rejection, and resubmission

@@ -8,10 +8,10 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/pathway-splash-image.png",
-      "imageWidth": 188,
+      "image": "./assets/pathway-logo-2026-cutout.png",
+      "imageWidth": 236,
       "resizeMode": "contain",
-      "backgroundColor": "#041832"
+      "backgroundColor": "#F6F8FB"
     },
     "ios": {
       "supportsTablet": true,

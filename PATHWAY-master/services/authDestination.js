@@ -4,6 +4,7 @@ export function destinationForProfile(profile) {
     case 'coordinator': return 'CoordinatorDashboard';
     case 'supervisor': return 'SupervisorDashboard';
     case 'student':
+      if (profile.passwordChangeRequired) return 'ChangePassword';
       if (profile.accountApproved &&
         (profile.requirementsStatus === 'approved' || profile.preDeploymentStatus === 'approved')) {
         return 'StudentDashboard';

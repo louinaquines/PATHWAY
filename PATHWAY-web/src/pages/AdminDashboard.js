@@ -25,6 +25,7 @@ export default function AdminDashboard() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [dashboardSearch, setDashboardSearch] = useState('');
   const [dashboardRange, setDashboardRange] = useState('last30');
   const [dashboardPeriod, setDashboardPeriod] = useState('month');
@@ -36,6 +37,7 @@ export default function AdminDashboard() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const [userSnap, secSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
@@ -45,6 +47,7 @@ export default function AdminDashboard() {
       setSections(secSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
+      setError('Could not load administrator records. Check your connection and retry.');
     } finally {
       setLoading(false);
     }
@@ -65,6 +68,7 @@ export default function AdminDashboard() {
 
   const handleToggleAccount = async (userId, currentStatus) => {
     setSaving(true);
+    setError('');
     try {
       await adminRequest(`/admin/students/${encodeURIComponent(userId)}/account-status`, {
         method: 'PATCH',
@@ -73,6 +77,7 @@ export default function AdminDashboard() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, accountApproved: !currentStatus } : u));
     } catch (e) {
       console.error(e);
+      setError(e.message || 'Could not change the student account status. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -346,6 +351,11 @@ export default function AdminDashboard() {
             </div>
           )}
         </header>
+
+        {error && <div role="alert" style={{ margin: '16px 24px', padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239' }}>
+          {error}
+          <button type="button" onClick={fetchAll} disabled={loading || saving} style={{ marginLeft: 12 }}>Reload records</button>
+        </div>}
 
         {!loading && activeTab === 'overview' && (
           <div style={s.dashboardToolbar} className="admin-dashboard-toolbar">

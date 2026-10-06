@@ -1,18 +1,20 @@
 export const COLORS = {
-  brandNavy: '#062E71',
-  brandBlue: '#0152BD',
+  // Keep the interface bright and neutral; use cobalt blue and gold as accents.
+  // `brandNavy` remains as a compatibility token for existing components.
+  brandNavy: '#075FC9',
+  brandBlue: '#075FC9',
   brandSky: '#10B8FE',
   brandGold: '#F8AA04',
   brandYellow: '#FED02A',
 
-  primary: '#0846A0',
-  primaryDark: '#071F47',
-  primaryDeep: '#041832',
+  primary: '#0864CE',
+  primaryDark: '#0757B8',
+  primaryDeep: '#F6F8FB',
   primaryLight: '#EAF2FF',
   primarySubtle: '#F5F8FF',
 
-  secondary: '#0067B1',
-  secondaryDark: '#005087',
+  secondary: '#0874C8',
+  secondaryDark: '#07559A',
   secondaryLight: '#E4F3FF',
   secondarySubtle: '#F2F9FF',
 
@@ -59,7 +61,7 @@ export const COLORS = {
   textPlaceholder: '#94A3B8',
   textOnPrimary: '#FFFFFF',
   textOnSecondary: '#FFFFFF',
-  textOnGold: '#071F47',
+  textOnGold: '#26313F',
   focusRing: '#0088D1',
 };
 
@@ -121,14 +123,14 @@ export const SHADOWS = {
     elevation: 1,
   },
   hover: {
-    shadowColor: '#062E71',
+    shadowColor: '#075FC9',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.1,
     shadowRadius: 13,
     elevation: 4,
   },
   floating: {
-    shadowColor: '#062E71',
+    shadowColor: '#075FC9',
     shadowOffset: { width: 0, height: 7 },
     shadowOpacity: 0.16,
     shadowRadius: 16,

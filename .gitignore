@@ -19,6 +19,7 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+**/dist-account-qa/
 build/
 **/build/
 web-build/

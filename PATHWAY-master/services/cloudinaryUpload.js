@@ -1,10 +1,20 @@
+import { Platform } from 'react-native';
+
 export async function uploadCloudinaryFile(file, authorization) {
   const formData = new FormData();
-  formData.append('file', {
-    uri: file.uri,
-    type: file.mimeType || 'application/octet-stream',
-    name: file.name || 'upload',
-  });
+  if (Platform.OS === 'web') {
+    const bytes = file.file || await fetch(file.uri).then(response => {
+      if (!response.ok) throw new Error('The selected file could not be read. Please select it again.');
+      return response.blob();
+    });
+    formData.append('file', bytes, file.name || 'upload');
+  } else {
+    formData.append('file', {
+      uri: file.uri,
+      type: file.mimeType || 'application/octet-stream',
+      name: file.name || 'upload',
+    });
+  }
   formData.append('api_key', authorization.apiKey);
   formData.append('timestamp', String(authorization.timestamp));
   formData.append('signature', authorization.signature);

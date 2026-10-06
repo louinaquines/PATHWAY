@@ -29,7 +29,6 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   CloseIcon,
-  FileIcon,
   CalendarIcon,
   ArrowRightIcon,
   InfoIcon,
@@ -49,7 +48,7 @@ const STATUS_CONFIG = {
     border: '#BBF7D0',
     text: '#15803D',
     dot: '#22C55E',
-    label: 'Good',
+    label: 'Approved',
   },
   rejected: {
     bg: '#FFF1F2',
@@ -83,29 +82,40 @@ function formatTimeAgo(isoStr) {
   return date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }
 
-// ─── AI Insights card ────────────────────────────────────────────────────────
-function AIInsightsCard({ entries }) {
-  const approvedCount = entries.filter(e => e.status === 'approved').length;
-  const total = entries.length;
-  const avgHours = total > 0
-    ? (entries.reduce((s, e) => s + (e.hours || 0), 0) / total).toFixed(1)
-    : 0;
+// ─── Coordinator review status ───────────────────────────────────────────────
+function ReviewStatusCard({ entries }) {
+  const pendingCount = entries.filter(entry => entry.status === 'pending').length;
+  const revisionCount = entries.filter(entry => entry.status === 'rejected').length;
+  const approvedCount = entries.filter(entry => entry.status === 'approved').length;
 
-  let insight = 'Submit your first logbook entry to receive AI-powered feedback on your internship progress.';
-  if (total > 0 && approvedCount === total)
-    insight = `All ${total} entries approved! You're maintaining excellent documentation habits. Keep it up.`;
-  else if (total > 0)
-    insight = `Your recent logs show ${approvedCount} of ${total} entries approved with an average of ${avgHours} hrs/week. Focus on adding specific tools and techniques to strengthen your reports.`;
+  let message = 'Submitted entries and their coordinator review status will appear here.';
+  let Icon = InfoIcon;
+  let iconColor = COLORS.primary;
+  if (pendingCount > 0 && revisionCount > 0) {
+    message = `${pendingCount} ${pendingCount === 1 ? 'entry is' : 'entries are'} awaiting review; ${revisionCount} ${revisionCount === 1 ? 'needs' : 'need'} revision.`;
+    Icon = AlertCircleIcon;
+    iconColor = COLORS.warningDark;
+  } else if (pendingCount > 0) {
+    message = `${pendingCount} ${pendingCount === 1 ? 'entry is' : 'entries are'} waiting for coordinator review.`;
+  } else if (revisionCount > 0) {
+    message = `${revisionCount} ${revisionCount === 1 ? 'entry needs' : 'entries need'} revision. Open the report to review it before submitting an updated entry.`;
+    Icon = AlertCircleIcon;
+    iconColor = COLORS.warningDark;
+  } else if (entries.length > 0 && approvedCount === entries.length) {
+    message = 'Your submitted entries have been reviewed and approved by your coordinator.';
+    Icon = CheckCircleIcon;
+    iconColor = COLORS.successDark;
+  }
 
   return (
-    <View style={styles.insightsCard}>
-      <View style={styles.insightsHeader}>
-        <View style={styles.insightsIconWrap}>
-          <SparklesIcon size={16} color={COLORS.accent} />
-        </View>
-        <Text style={styles.insightsTitle}>AI Insights</Text>
+    <View style={styles.reviewCard}>
+      <View style={styles.reviewIconWrap}>
+        <Icon size={17} color={iconColor} />
       </View>
-      <Text style={styles.insightsText}>{insight}</Text>
+      <View style={styles.reviewCopy}>
+        <Text style={styles.reviewTitle}>Coordinator review</Text>
+        <Text style={styles.reviewText}>{message}</Text>
+      </View>
     </View>
   );
 }
@@ -195,6 +205,7 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
 export default function LogbookScreen({ navigation }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [modal, setModal] = useState(false);
   const [rawNotes, setRawNotes] = useState('');
   const [hours, setHours] = useState('');
@@ -209,12 +220,14 @@ export default function LogbookScreen({ navigation }) {
 
   const fetchEntries = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const q = query(collection(db, 'users', uid, 'logbook'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
       setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error('Fetch logbook entries error:', e);
+      setLoadError('Your logbook entries could not be loaded. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -286,7 +299,7 @@ export default function LogbookScreen({ navigation }) {
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -294,13 +307,14 @@ export default function LogbookScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backBtn}
           activeOpacity={0.7}
+          accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ChevronLeftIcon size={22} color="#FFFFFF" />
+          <ChevronLeftIcon size={21} color={COLORS.primary} />
         </TouchableOpacity>
 
-        <View style={styles.headerCenter}>
-          <LogbookIcon size={18} color="rgba(255,255,255,0.8)" />
+        <View pointerEvents="none" style={styles.headerCenter}>
+          <LogbookIcon size={18} color={COLORS.primary} />
           <Text style={styles.headerTitle}>Logbook</Text>
         </View>
 
@@ -308,39 +322,63 @@ export default function LogbookScreen({ navigation }) {
           onPress={() => setModal(true)}
           style={styles.addBtn}
           activeOpacity={0.8}
+          accessibilityRole="button"
           accessibilityLabel="Add new log entry"
         >
-          <PlusIcon size={15} color={COLORS.primaryDark} />
+          <PlusIcon size={15} color="#FFFFFF" />
           <Text style={styles.addBtnText}>New Log</Text>
         </MotionTouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Stats summary bar ── */}
+        <View style={styles.pageIntro}>
+          <Text style={styles.pageEyebrow}>WEEKLY JOURNAL</Text>
+          <Text variant="heading" style={styles.pageTitle}>Your logbook</Text>
+          <Text style={styles.pageSubtitle}>Record your work and track each report through coordinator review.</Text>
+        </View>
+
+        {loadError ? (
+          <View style={styles.loadErrorCard}>
+            <View style={styles.loadErrorIcon}><AlertCircleIcon size={19} color={COLORS.dangerDark} /></View>
+            <Text style={styles.loadErrorTitle}>Couldn’t load your entries</Text>
+            <Text style={styles.loadErrorText}>{loadError}</Text>
+            <MotionTouchableOpacity onPress={fetchEntries} style={styles.retryBtn} accessibilityRole="button">
+              <Text style={styles.retryBtnText}>Try again</Text>
+            </MotionTouchableOpacity>
+          </View>
+        ) : (
+          <>
+        {/* ── Stats summary ── */}
         <View style={styles.statsBar}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{entries.length}</Text>
-            <Text style={styles.statLabel}>Total Entries</Text>
+          <View style={styles.statsHeading}>
+            <LogbookIcon size={15} color={COLORS.primary} />
+            <Text style={styles.statsEyebrow}>ACTIVITY SUMMARY</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {entries.reduce((s, e) => s + (e.hours || 0), 0)}
-            </Text>
-            <Text style={styles.statLabel}>Hours Logged</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: COLORS.success }]}>
-              {entries.filter(e => e.status === 'approved').length}
-            </Text>
-            <Text style={styles.statLabel}>Approved</Text>
+          <View style={styles.statsMetrics}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{entries.length}</Text>
+              <Text style={styles.statLabel}>Entries</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {entries.reduce((sum, entry) => sum + (Number(entry.hours) || 0), 0).toFixed(1).replace(/\.0$/, '')}
+              </Text>
+              <Text style={styles.statLabel}>Hours logged</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: COLORS.successDark }]}>
+                {entries.filter(entry => entry.status === 'approved').length}
+              </Text>
+              <Text style={styles.statLabel}>Approved</Text>
+            </View>
           </View>
         </View>
 
-        {/* ── AI Insights ── */}
-        <AIInsightsCard entries={entries} />
+        {/* ── Coordinator review status ── */}
+        <ReviewStatusCard entries={entries} />
 
         {/* ── Entries section header ── */}
         <View style={styles.sectionHeader}>
@@ -356,16 +394,18 @@ export default function LogbookScreen({ navigation }) {
             </View>
             <Text style={styles.emptyTitle}>No Log Entries Yet</Text>
             <Text style={styles.emptySub}>
-              Tap <Text style={{ fontWeight: '700', color: COLORS.primary }}>"+ New Log"</Text> to submit your first weekly training report.
+              Add a weekly report with your hours, tasks, and key takeaways. Your coordinator will review it after submission.
             </Text>
-            <TouchableOpacity
+            <MotionTouchableOpacity
               style={styles.emptyBtn}
               onPress={() => setModal(true)}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Add your first logbook entry"
             >
               <PlusIcon size={14} color="#fff" />
-              <Text style={styles.emptyBtnText}>Add First Entry</Text>
-            </TouchableOpacity>
+              <Text style={styles.emptyBtnText}>Add first entry</Text>
+            </MotionTouchableOpacity>
           </View>
         )}
 
@@ -379,33 +419,36 @@ export default function LogbookScreen({ navigation }) {
           />
         ))}
 
-        {/* ── DTR Upload card ── */}
+        {/* ── Attendance handoff ── */}
         <View style={styles.dtrCard}>
           <View style={styles.dtrHeaderRow}>
             <View style={styles.dtrIconWrap}>
-              <FileIcon size={16} color={COLORS.primary} />
+              <CalendarIcon size={16} color={COLORS.primary} />
             </View>
-            <Text style={styles.dtrTitle}>Manual DTR Upload</Text>
+            <View style={styles.dtrTitleWrap}>
+              <Text style={styles.dtrTitle}>Attendance records</Text>
+              <Text style={styles.dtrSubtitle}>Daily time-in and time-out</Text>
+            </View>
           </View>
-          <TouchableOpacity
-            style={styles.dtrUploadArea}
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('DTR Upload', 'Document upload popup coming soon.')}
+          <View style={styles.dtrNotice}>
+            <InfoIcon size={16} color={COLORS.textMuted} />
+            <Text style={styles.dtrNoticeText}>DTR file upload and automated verification aren’t available yet. Record your daily attendance in the Logs screen.</Text>
+          </View>
+          <MotionTouchableOpacity
+            style={styles.attendanceBtn}
+            onPress={() => navigation.navigate('LogToday')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Open attendance records"
           >
-            <FileIcon size={28} color={COLORS.textMuted} />
-            <Text style={styles.dtrUploadText}>Tap to upload scanned DTR</Text>
-            <Text style={styles.dtrUploadSub}>JPEG · PDF · PNG accepted</Text>
-          </TouchableOpacity>
-          <View style={styles.dtrFooterRow}>
-            <View style={styles.dtrBadge}>
-              <SparklesIcon size={11} color={COLORS.primary} />
-              <Text style={styles.dtrBadgeText}>AI Verification</Text>
-            </View>
-            <Text style={styles.dtrFooterNote}>Scanned DTR is cross-checked by AI</Text>
-          </View>
+            <Text style={styles.attendanceBtnText}>Open attendance</Text>
+            <ArrowRightIcon size={15} color={COLORS.primary} />
+          </MotionTouchableOpacity>
         </View>
 
         <View style={{ height: 32 }} />
+          </>
+        )}
       </ScrollView>
 
       {/* ── New Log Modal ── */}
@@ -553,45 +596,61 @@ const styles = StyleSheet.create({
 
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: COLORS.primaryDark,
+    position: 'relative',
+    backgroundColor: COLORS.surface,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     paddingTop: Platform.OS === 'ios' ? 50 : 18,
-    paddingBottom: 14,
+    paddingBottom: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   headerCenter: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    top: Platform.OS === 'ios' ? 50 : 18,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 7,
   },
   headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
+    color: COLORS.textPrimary,
+    fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 5,
-    backgroundColor: COLORS.brandGold,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    minWidth: 88,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
+    zIndex: 1,
     ...SHADOWS.soft,
   },
   addBtnText: {
-    color: COLORS.primaryDark,
+    color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 12.5,
   },
@@ -605,17 +664,99 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
+  pageIntro: {
+    marginBottom: 16,
+  },
+  pageEyebrow: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    marginBottom: 3,
+  },
+  pageTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '700',
+  },
+  pageSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 3,
+    maxWidth: 430,
+  },
+
+  loadErrorCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: 20,
+    alignItems: 'center',
+    ...SHADOWS.card,
+  },
+  loadErrorIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.dangerLight,
+    marginBottom: 10,
+  },
+  loadErrorTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  loadErrorText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginTop: 5,
+    maxWidth: 300,
+  },
+  retryBtn: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 16,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
   // ── Stats bar ───────────────────────────────────────────────────────────────
   statsBar: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginBottom: 14,
+    padding: 15,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
+    ...SHADOWS.card,
+  },
+  statsHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 12,
+  },
+  statsEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    color: COLORS.textMuted,
+  },
+  statsMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statItem: {
     flex: 1,
@@ -628,12 +769,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: COLORS.textMuted,
     fontWeight: '600',
     marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.1,
+    textAlign: 'center',
   },
   statDivider: {
     width: 1,
@@ -641,38 +782,41 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
 
-  // ── AI Insights card ─────────────────────────────────────────────────────────
-  insightsCard: {
-    backgroundColor: '#FFFBEB',
-    borderRadius: RADIUS.lg,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  insightsHeader: {
+  // ── Coordinator review status ────────────────────────────────────────────────
+  reviewCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: 11,
+    backgroundColor: COLORS.secondarySubtle,
+    borderRadius: RADIUS.lg,
+    padding: 13,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: COLORS.secondaryLight,
   },
-  insightsIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: RADIUS.sm,
-    backgroundColor: '#FEF3C7',
+  reviewIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
-  insightsTitle: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: COLORS.accentDark,
+  reviewCopy: {
+    flex: 1,
   },
-  insightsText: {
+  reviewTitle: {
     fontSize: 12.5,
-    color: '#92400E',
-    lineHeight: 18.5,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  reviewText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
   },
 
   // ── Section header ───────────────────────────────────────────────────────────
@@ -877,21 +1021,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ── DTR Upload card ──────────────────────────────────────────────────────────
+  // ── Attendance handoff ───────────────────────────────────────────────────────
   dtrCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 16,
-    marginTop: 14,
+    padding: 15,
+    marginTop: 18,
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
+    ...SHADOWS.card,
   },
   dtrHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 11,
   },
   dtrIconWrap: {
     width: 30,
@@ -906,49 +1050,44 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.textPrimary,
   },
-  dtrUploadArea: {
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderStyle: 'dashed',
-    borderRadius: RADIUS.md,
-    padding: 22,
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceMuted,
-    gap: 6,
-    marginBottom: 12,
+  dtrTitleWrap: {
+    flex: 1,
   },
-  dtrUploadText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  dtrUploadSub: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  dtrFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dtrBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  dtrBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  dtrFooterNote: {
+  dtrSubtitle: {
     fontSize: 11.5,
     color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  dtrNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceMuted,
+    padding: 11,
+  },
+  dtrNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
+  attendanceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: COLORS.secondaryLight,
+    backgroundColor: COLORS.secondarySubtle,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderRadius: RADIUS.md,
+    marginTop: 10,
+  },
+  attendanceBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: COLORS.primary,
   },
 
   // ── Modal sheet ──────────────────────────────────────────────────────────────

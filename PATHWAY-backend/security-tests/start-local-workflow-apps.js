@@ -1,6 +1,5 @@
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const PROJECT_ID = 'demo-pathway-security';
@@ -9,7 +8,6 @@ const mobileDir = path.resolve(backendDir, '..', 'PATHWAY-master');
 const portalDir = path.resolve(backendDir, '..', 'PATHWAY-web');
 const children = [];
 let stopping = false;
-let exportDirectory;
 
 function canConnect(port) {
   return new Promise(resolve => {
@@ -74,14 +72,6 @@ function shutdown(code = 0) {
   stopping = true;
   process.exitCode = code;
   for (const child of [...children].reverse()) stopChild(child);
-  if (exportDirectory) {
-    try {
-      fs.rmSync(exportDirectory, { recursive: true, force: true });
-    } catch (error) {
-      console.warn(`Could not remove temporary web export ${exportDirectory}: ${error.message}`);
-    }
-    exportDirectory = undefined;
-  }
   setTimeout(() => process.exit(code), 500).unref();
 }
 
@@ -104,7 +94,6 @@ async function main() {
 
   const expoCli = path.join(mobileDir, 'node_modules', 'expo', 'bin', 'cli');
   if (!fs.existsSync(expoCli)) throw new Error('Expo CLI was not found. Install PATHWAY-master dependencies first.');
-  exportDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'pathway-workflow-web-'));
   const expoEnvironment = {
     ...process.env,
     EXPO_NO_DOTENV: '1',
@@ -123,23 +112,6 @@ async function main() {
   ]) {
     delete expoEnvironment[key];
   }
-  const webExport = spawnSync(process.execPath, [
-    expoCli, 'export', '--platform', 'web', '--dev', '--no-bytecode', '--output-dir', exportDirectory,
-  ], {
-    cwd: mobileDir,
-    env: expoEnvironment,
-    stdio: 'inherit',
-    windowsHide: true,
-  });
-  if (webExport.error) throw webExport.error;
-  if (webExport.status !== 0) throw new Error('Could not export the PATHWAY web app in local emulator mode.');
-  const webBundleDirectory = path.join(exportDirectory, '_expo', 'static', 'js', 'web');
-  const webBundles = fs.readdirSync(webBundleDirectory)
-    .filter(file => file.endsWith('.js'))
-    .map(file => fs.readFileSync(path.join(webBundleDirectory, file), 'utf8'));
-  if (!webBundles.length || !webBundles.some(bundle => bundle.includes('demo-pathway-security'))) {
-    throw new Error('The exported app is missing its emulator-only Firebase project configuration.');
-  }
 
   const backendEnvironment = {
     ...process.env,
@@ -152,14 +124,9 @@ async function main() {
   const backend = launch('PATHWAY backend (local emulator mode)', process.execPath, ['server.js'], backendDir, backendEnvironment);
   await waitForBackend(backend);
 
-  const web = launch('PATHWAY local web app (Firebase emulator mode)', process.execPath, [
-    path.join(__dirname, 'serve-workflow-web.js'),
-  ], backendDir, {
-    ...process.env,
-    PATHWAY_WORKFLOW_WEB_DIR: exportDirectory,
-    PATHWAY_WORKFLOW_WEB_HOST: '127.0.0.1',
-    PATHWAY_WORKFLOW_WEB_PORT: '8083',
-  });
+  const web = launch('PATHWAY student app (live reload, Firebase emulator mode)', process.execPath, [
+    expoCli, 'start', '--web', '--localhost', '--port', '8083',
+  ], mobileDir, expoEnvironment);
   await waitForPort(8083, web, 'PATHWAY local web app');
 
   const portalCli = path.join(portalDir, 'node_modules', 'react-scripts', 'scripts', 'start.js');
@@ -181,7 +148,7 @@ async function main() {
   console.log('\nLocal-only test environment is ready. No production Firebase project is used.');
   console.log('Open http://localhost:8083 in this computer’s browser.');
   console.log('Staff portal: http://127.0.0.1:3001 (Auth and Firestore emulators only).');
-  console.log('This is a development-mode static export (no hot reload), served on loopback only.');
+  console.log('The student app is now served by Expo with Fast Refresh. Save UI files to see changes without restarting Firebase.');
   console.log('Student: student.emulator@pathway.test / PathwayLocal!2026');
   console.log('Approved dashboard preview: student.approved@pathway.test / PathwayLocal!2026');
   console.log('Coordinator: coordinator.emulator@pathway.test / PathwayLocal!2026');
@@ -191,7 +158,7 @@ async function main() {
   console.log('  npm run emulator:decision -- placement approved');
   console.log('  npm run emulator:decision -- final-review needs_revision');
   console.log('  npm run emulator:decision -- final-review approved');
-  console.log('Press Ctrl+C here to stop the local test services and emulators.');
+  console.log('Keep this terminal open while developing. Press Ctrl+C here once when you want to stop the local services and emulators.');
 
   await new Promise(resolve => {
     web.once('exit', resolve);

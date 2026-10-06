@@ -8,8 +8,16 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 
-function csvCell(value) {
-  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+export function csvCell(value) {
+  const text = String(value ?? '');
+  const safeText = /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
+}
+
+export function escapeReportText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[character]));
 }
 
 export default function ClearanceTab({ coordinatorId, selectedSection }) {
@@ -27,7 +35,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       const sections = sectionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const scopedSections = selectedSection ? sections.filter(section => section.id === selectedSection.id) : [];
       const groups = await Promise.all(scopedSections.map(async section => {
-        const studentSnap = await getDocs(query(collection(db, 'users'), where('sectionId', '==', section.id)));
+        const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
         return studentSnap.docs.map(d => {
           const student = d.data();
           const required = Number(student.hoursRequired || section.hoursRequired || 486);
@@ -108,10 +116,10 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
     }
     const body = rows.map(row => `
       <tr>
-        <td>${row.section}</td>
-        <td><strong>${row.student}</strong></td>
-        <td>${row.idNumber}</td>
-        <td>${row.requirements}</td>
+        <td>${escapeReportText(row.section)}</td>
+        <td><strong>${escapeReportText(row.student)}</strong></td>
+        <td>${escapeReportText(row.idNumber)}</td>
+        <td>${escapeReportText(row.requirements)}</td>
         <td>${row.rendered} / ${row.required} hrs</td>
         <td>${row.clearanceStatus === 'cleared' ? 'CLEARED' : row.ready ? 'READY' : 'NOT READY'}</td>
       </tr>

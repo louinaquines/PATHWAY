@@ -1,5 +1,5 @@
 // screens/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -11,14 +11,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebaseConfig';
+import { auth } from '../firebaseConfig';
 import { destinationForProfile } from '../services/authDestination';
+import { postBackend } from '../services/backendApi';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import AuthHero, { AuthPanel } from '../components/AuthHero';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
-import { MailIcon, LockIcon, EyeIcon, EyeOffIcon, AlertCircleIcon } from '../components/Icons';
+import { UserIcon, LockIcon, EyeIcon, EyeOffIcon, AlertCircleIcon, ChevronRightIcon } from '../components/Icons';
 
 export default function LoginScreen({ navigation, initialError = '', onClearInitialError, startupProgress, startupTransition = false, onStartupLogoLayout }) {
   const [email, setEmail] = useState('');
@@ -28,26 +28,27 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
   const [showPassword, setShowPassword] = useState(false);
   const [isFocusedEmail, setIsFocusedEmail] = useState(false);
   const [isFocusedPass, setIsFocusedPass] = useState(false);
+  const passwordInputRef = useRef(null);
 
   const handleLogin = async () => {
     setError('');
     onClearInitialError?.();
-    if (!email.trim()) { setError('Enter your email address.'); return; }
+    if (!email.trim()) { setError('Enter your username.'); return; }
     if (!password) { setError('Enter your password.'); return; }
 
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const uid = userCredential.user.uid;
+      const login = email.trim().toLowerCase();
+      const identifier = /^uclm-[a-z0-9-]{4,20}$/.test(login) ? `${login}@students.pathway.invalid` : login;
+      await signInWithEmailAndPassword(auth, identifier, password);
 
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (!userDoc.exists()) {
+      const { profile: userData } = await postBackend('/auth/profile');
+      if (!userData) {
         setError('Account not found. Contact your OJT Coordinator.');
         await auth.signOut();
         return;
       }
 
-      const userData = userDoc.data();
       const destination = destinationForProfile(userData);
       if (!destination) {
         setError('Unrecognized role. Contact your OJT Coordinator.');
@@ -57,10 +58,10 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
       navigation.reset({ index: 0, routes: [{ name: destination }] });
     } catch (err) {
       switch (err.code) {
-        case 'auth/invalid-email':          setError("That email doesn't look right."); break;
+        case 'auth/invalid-email':          setError('Enter your coordinator-issued username.'); break;
         case 'auth/user-not-found':
         case 'auth/wrong-password':
-        case 'auth/invalid-credential':     setError('Email or password is incorrect.'); break;
+        case 'auth/invalid-credential':     setError('Username or password is incorrect.'); break;
         case 'auth/too-many-requests':      setError('Too many attempts. Try again later.'); break;
         case 'auth/network-request-failed': setError('No internet connection.'); break;
         default: setError('Something went wrong. Try again.');
@@ -83,7 +84,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
         showsVerticalScrollIndicator={false}
       >
         <AuthHero
-          title="Welcome back."
+          title="Welcome"
           subtitle="Your OJT journey continues here."
           startupProgress={startupProgress}
           startupTransition={startupTransition}
@@ -91,43 +92,36 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
         />
 
         <AuthPanel style={styles.card} startupProgress={startupProgress} startupTransition={startupTransition}>
-          <View style={styles.authTabs}>
-            <View style={styles.authTabActive}><Text style={styles.authTabActiveText}>Sign In</Text></View>
-            <TouchableOpacity
-              style={styles.authTab}
-              onPress={() => navigation.navigate('Register')}
-              accessibilityRole="button"
-              accessibilityLabel="Create account"
-            >
-              <Text style={styles.authTabText}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.formIntro}>Sign in with your institutional credentials.</Text>
+          <Text variant="heading" style={styles.formTitle}>Sign in</Text>
+          <Text style={styles.formIntro}>Sign in with your coordinator-issued account.</Text>
 
           {(error || initialError) ? (
-            <View style={styles.errorBanner}>
+            <View style={styles.errorBanner} accessibilityRole="alert" accessibilityLiveRegion="polite">
               <AlertCircleIcon size={18} color={COLORS.danger} />
               <Text style={styles.errorText}>{error || initialError}</Text>
             </View>
           ) : null}
 
-          {/* Email Input */}
-          <Text style={styles.label}>Email Address</Text>
+          {/* Coordinator-issued username */}
+          <Text style={styles.label}>Username</Text>
           <View style={[styles.inputContainer, isFocusedEmail && styles.inputContainerFocused]}>
             <View style={styles.inputIcon}>
-              <MailIcon size={19} color={isFocusedEmail ? COLORS.secondary : COLORS.textMuted} />
+              <UserIcon size={19} color={isFocusedEmail ? COLORS.secondary : COLORS.textMuted} />
             </View>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. student@uclm.edu.ph"
+              placeholder="e.g. uclm-24228132"
               placeholderTextColor={COLORS.textPlaceholder}
               value={email}
               onChangeText={setEmail}
-              keyboardType="email-address"
+              keyboardType="default"
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              accessibilityLabel="Username"
               returnKeyType="next"
               editable={!loading}
+              onSubmitEditing={() => passwordInputRef.current?.focus()}
               onFocus={() => setIsFocusedEmail(true)}
               onBlur={() => setIsFocusedEmail(false)}
             />
@@ -145,7 +139,10 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
               placeholderTextColor={COLORS.textPlaceholder}
               value={password}
               onChangeText={setPassword}
+              ref={passwordInputRef}
               secureTextEntry={!showPassword}
+              accessibilityLabel="Password"
+              autoComplete="current-password"
               returnKeyType="done"
               onSubmitEditing={handleLogin}
               editable={!loading}
@@ -156,6 +153,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
               onPress={() => setShowPassword(v => !v)}
               disabled={loading}
               style={styles.eyeBtn}
+              accessibilityRole="button"
               accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
@@ -170,6 +168,9 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
             onPress={() => navigation.navigate('ForgotPassword')}
             style={styles.forgotBtn}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Forgot password"
+            disabled={loading}
           >
             <Text style={styles.forgotBtnText}>Forgot password?</Text>
           </TouchableOpacity>
@@ -185,27 +186,13 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
             {loading ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
-              <Text style={styles.signInBtnText}>Sign In</Text>
+              <><Text style={styles.signInBtnText}>Sign in</Text><ChevronRightIcon size={19} color="#FFFFFF" /></>
             )}
           </MotionTouchableOpacity>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Register')}
-            style={styles.registerPrompt}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.registerPromptText}>
-              New student? <Text style={styles.registerHighlight}>Create Account</Text>
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.securityNote}><LockIcon size={15} color={COLORS.textMuted} /><Text style={styles.securityText}>First time here? You’ll set a new password after signing in.</Text></View>
+          <Text style={styles.formIntro}>Need an account? Contact your assigned OJT coordinator.</Text>
         </AuthPanel>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -239,6 +226,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: 4,
   },
+  formTitle: { fontSize: 23, fontWeight: '700', color: COLORS.textPrimary },
+  securityNote: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 20, paddingTop: 18, borderTopWidth: 1, borderTopColor: COLORS.border },
+  securityText: { flex: 1, fontSize: 12, lineHeight: 18, color: COLORS.textSecondary },
   authTabActive: {
     flex: 1,
     backgroundColor: COLORS.primaryDark,
@@ -258,9 +248,9 @@ const styles = StyleSheet.create({
   formIntro: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginTop: 20,
-    marginBottom: 10,
-    lineHeight: 18,
+    marginTop: 8,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -289,6 +279,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   inputContainer: {
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.background,
@@ -307,18 +298,24 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
+    minWidth: 0,
+    backgroundColor: 'transparent',
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
     paddingVertical: 13,
     fontSize: 14.5,
     color: COLORS.textPrimary,
     fontWeight: '500',
   },
   eyeBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   forgotBtn: {
     alignSelf: 'flex-end',
     marginTop: 10,
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   forgotBtnText: {
     fontSize: 12.5,
@@ -326,12 +323,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   signInBtn: {
+    flexDirection: 'row',
+    gap: 10,
+    minHeight: 54,
     backgroundColor: COLORS.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 10,
     ...SHADOWS.hover,
   },
   signInBtnText: {

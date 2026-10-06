@@ -4,7 +4,7 @@ import { COLORS, RADIUS } from '../theme';
 import { useReducedMotion } from './Motion';
 
 const VARIANTS = {
-  dashboard: { profile: true, stats: true, cards: 3, darkHeader: true },
+  dashboard: { profile: true, stats: true, cards: 3, darkHeader: false },
   inbox: { profile: false, stats: false, cards: 5, darkHeader: true },
   progress: { profile: false, stats: true, cards: 4, darkHeader: true },
   requirements: { profile: false, stats: false, cards: 5, darkHeader: false },
@@ -57,20 +57,23 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
                 <Block pulse={pulse} style={{ width: '68%', height: 24 }} />
                 <Block pulse={pulse} style={{ width: '45%', height: 12 }} />
               </View>
-              <Block pulse={pulse} style={styles.avatar} />
+              <Block pulse={pulse} style={[styles.avatar, styles.dashboardAvatar]} />
             </View>
 
             {/* OJT Progress Hero Block */}
             <View style={styles.heroSkeleton}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 }}>
-                <Block pulse={pulse} style={{ width: 90, height: 12, backgroundColor: '#1E3A5F' }} />
-                <Block pulse={pulse} style={{ width: 44, height: 14, backgroundColor: '#1E3A5F' }} />
+              <View style={styles.heroMainSkeleton}>
+                <View style={{ flex: 1, gap: 12 }}>
+                  <Block pulse={pulse} style={{ width: 112, height: 12, backgroundColor: COLORS.secondaryLight }} />
+                  <Block pulse={pulse} style={{ width: 150, height: 32, backgroundColor: COLORS.secondaryLight }} />
+                </View>
+                <View style={styles.progressRingSkeleton}>
+                  <Block pulse={pulse} style={styles.progressRingCenterSkeleton} />
+                </View>
               </View>
-              <Block pulse={pulse} style={{ width: 140, height: 32, backgroundColor: '#1E3A5F', marginBottom: 14 }} />
-              <Block pulse={pulse} style={{ width: '100%', height: 8, borderRadius: 4, backgroundColor: '#1E3A5F', marginBottom: 12 }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Block pulse={pulse} style={{ width: 110, height: 12, backgroundColor: '#1E3A5F' }} />
-                <Block pulse={pulse} style={{ width: 80, height: 12, backgroundColor: '#1E3A5F' }} />
+              <View style={styles.heroFooterSkeleton}>
+                <Block pulse={pulse} style={{ width: 110, height: 12, backgroundColor: COLORS.secondaryLight }} />
+                <Block pulse={pulse} style={{ width: 80, height: 12, backgroundColor: COLORS.secondaryLight }} />
               </View>
             </View>
 
@@ -153,6 +156,22 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
           </>
         )}
       </View>
+      {variant === 'dashboard' ? (
+        <View style={styles.dashboardBottomDock}>
+          <View style={styles.dashboardQuickActions}>
+            <Block pulse={pulse} style={styles.dashboardMessageAction} />
+            <Block pulse={pulse} style={styles.dashboardLogAction} />
+          </View>
+          <View style={styles.dashboardBottomBar}>
+            {[0, 1, 2, 3].map(key => (
+              <View key={key} style={styles.dashboardTabPlaceholder}>
+                <Block pulse={pulse} style={styles.dashboardTabIcon} />
+                <Block pulse={pulse} style={styles.dashboardTabLabel} />
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
     </View>
 
   );
@@ -176,6 +195,14 @@ const styles = StyleSheet.create({
   lightHeaderBlock: { backgroundColor: COLORS.secondaryLight },
   body: { width: '100%', maxWidth: 600, alignSelf: 'center', padding: 18, paddingBottom: 30 },
   dashboardBody: { maxWidth: 760 },
+  dashboardBottomDock: { width: '100%', maxWidth: 760, alignSelf: 'center', marginTop: 'auto' },
+  dashboardQuickActions: { flexDirection: 'column', alignItems: 'flex-end', gap: 10, paddingHorizontal: 14, paddingBottom: 8 },
+  dashboardMessageAction: { width: 60, height: 60, borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceMuted },
+  dashboardLogAction: { width: 60, height: 60, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight },
+  dashboardBottomBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight, backgroundColor: COLORS.surface },
+  dashboardTabPlaceholder: { flex: 1, alignItems: 'center', gap: 4 },
+  dashboardTabIcon: { width: 34, height: 28, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight },
+  dashboardTabLabel: { width: 30, height: 8, borderRadius: 4 },
   pageTitle: { width: '52%', height: 22, marginBottom: 10 },
   pageSubtitle: { width: '78%', height: 11, marginBottom: 18 },
   card: {
@@ -186,6 +213,7 @@ const styles = StyleSheet.create({
   },
   profileCard: { minHeight: 86, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 12 },
   avatar: { width: 48, height: 48, borderRadius: 16 },
+  dashboardAvatar: { width: 46, height: 46, borderRadius: 23 },
   profileLines: { flex: 1, gap: 10 },
   profileName: { width: '48%', height: 14 },
   profileDetail: { width: '63%', height: 10 },
@@ -206,11 +234,16 @@ const styles = StyleSheet.create({
   dashboardSkeleton: { gap: 18 },
   welcomeSkeleton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   heroSkeleton: {
-    backgroundColor: COLORS.primaryDark,
+    backgroundColor: COLORS.surface,
     borderRadius: 18,
     padding: 18,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
+  heroMainSkeleton: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  progressRingSkeleton: { width: 80, height: 80, borderRadius: 40, borderWidth: 7, borderColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  progressRingCenterSkeleton: { width: 28, height: 12, borderRadius: 6, backgroundColor: COLORS.secondaryLight },
+  heroFooterSkeleton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
   stripSkeleton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -43,7 +43,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     setSelectedStudent(null);
     setEntries([]);
     try {
-      const snap = await getDocs(query(collection(db, 'users'), where('sectionId', '==', section.id)));
+      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
       setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
@@ -85,9 +85,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       setEntries(prev => prev.map(e => e.id === entryId ? {
         ...e, status, reviewReason: status === 'rejected' ? 'Please revise and resubmit this weekly entry.' : '',
       } : e));
+      return true;
     } catch (e) {
       console.error(e);
       window.alert(e.message || 'Could not process this logbook review.');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -236,7 +238,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       confirmLabel="Reject entry"
       busy={saving}
       onCancel={() => setRejectConfirm(null)}
-      onConfirm={async () => { await handleAction(rejectConfirm.id, 'rejected'); setRejectConfirm(null); }}
+      onConfirm={async () => {
+        const saved = await handleAction(rejectConfirm.id, 'rejected');
+        if (saved) setRejectConfirm(null);
+      }}
       />
     </div>
   );

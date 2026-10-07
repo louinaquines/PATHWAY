@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, BackHandler, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { studentAlert as Alert } from '../services/studentAlert';
 import { useFocusEffect } from '@react-navigation/native';
-import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { COLORS, RADIUS, SHADOWS, SPACE, TYPE } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
@@ -11,6 +12,8 @@ import { postBackend } from '../services/backendApi';
 import { getStudentNotificationsEnabled } from '../services/studentPreferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
+import LoadMore from '../components/LoadMore';
+import { mergeRecords, activityTime } from '../services/recordPagination';
 
 const toDate = value => {
   if (!value) return null;
@@ -27,7 +30,7 @@ const displayName = item => item.senderName || item.senderRole || item.fromName 
 export default function NotificationsScreen({ navigation, route }) {
   const [items, setItems] = useState([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [messages, setMessages] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [coordinator, setCoordinator] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(route?.params?.initialTab || 'notifications');
@@ -35,45 +38,78 @@ export default function NotificationsScreen({ navigation, route }) {
   const [conversation, setConversation] = useState(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const chatScrollRef = useRef(null);
+  const [noticePage, setNoticePage] = useState({ cursor: null, hasMore: false });
+  const [unreadNotices, setUnreadNotices] = useState(0);
+  const [unreadChats, setUnreadChats] = useState(0);
+  const [listBusy, setListBusy] = useState(false);
+  const [listError, setListError] = useState('');
+  const [olderBusy, setOlderBusy] = useState(false);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const listRequest = useRef(0);
+  const activeChat = useRef(null);
+  const noticeLock = useRef(false);
+  const olderLock = useRef(false);
+  const chatPosition = useRef({ height: 0, offset: 0, prepend: null, follow: true });
   const uid = auth.currentUser?.uid;
   const insets = useSafeAreaInsets();
 
+  useEffect(() => () => { activeChat.current = null; }, []);
+
+  useEffect(() => {
+    chatPosition.current = { height: 0, offset: 0, prepend: null, follow: true };
+  }, [conversation?.id]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+      chatPosition.current.follow = true;
+      chatScrollRef.current?.scrollToEnd({ animated: true });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
   const load = useCallback(async () => {
-    setLoading(true);
+    const request = ++listRequest.current;
+    setListBusy(true);
+    setListError('');
     try {
       if (!uid) return;
-      const [snap, userSnap, isEnabled] = await Promise.all([
-        getDocs(query(collection(db, 'notifications'), where('recipientId', '==', uid))),
-        getDoc(doc(db, 'users', uid)),
+      const [notices, chats, isEnabled, assignment] = await Promise.all([
+        postBackend('/student/inbox/notifications', { search }),
+        postBackend('/student/inbox/conversations', { search }),
         getStudentNotificationsEnabled(uid),
+        postBackend('/student/assigned-coordinator', {}),
       ]);
+      if (request !== listRequest.current) return;
       setNotificationsEnabled(isEnabled);
-      setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))));
-      const userData = userSnap.data() || {};
-      let coordinatorId = userData.coordinatorId || '';
-      if (!coordinatorId && userData.sectionId) {
-        const sectionSnap = await getDoc(doc(db, 'sections', userData.sectionId));
-        coordinatorId = sectionSnap.data()?.coordinatorId || '';
-      }
-      if (coordinatorId) {
-        const coordinatorSnap = await getDoc(doc(db, 'users', coordinatorId));
-        const coordinatorData = coordinatorSnap.data() || {};
-        setCoordinator({ id: coordinatorId, name: [coordinatorData.firstName, coordinatorData.lastName].filter(Boolean).join(' ') || coordinatorData.name || 'OJT Coordinator' });
-      }
-      try {
-        const messageSnap = await getDocs(query(collection(db, 'messages'), where('participantIds', 'array-contains', uid)));
-        setMessages(messageSnap.docs.map(d => ({ id: d.id, ...d.data(), message: d.data().body || d.data().message || '' })).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
-      } catch (messageError) {
-        console.warn('Dedicated messages are not available yet; keeping notification messages available.', messageError);
-        setMessages([]);
-      }
-    } catch (error) { console.error('Fetch notifications error:', error); }
-    finally { setLoading(false); }
-  }, [uid]);
+      setItems(notices.records); setNoticePage(notices); setUnreadNotices(notices.unread);
+      setConversations(chats.conversations); setUnreadChats(chats.unread);
+      setCoordinator(assignment.coordinator || null);
+    } catch (error) { if (request === listRequest.current) setListError(error.message || 'Could not load your inbox.'); }
+    finally { if (request === listRequest.current) { setLoading(false); setListBusy(false); } }
+  }, [uid, search]);
 
   useFocusEffect(useCallback(() => {
-    load();
+    const timer = setTimeout(load, search ? 250 : 0);
+    return () => { clearTimeout(timer); listRequest.current += 1; };
   }, [load]));
+  const loadMoreNotices = async () => {
+    if (noticeLock.current || listBusy || !noticePage.hasMore) return;
+    noticeLock.current = true;
+    const request = listRequest.current;
+    setListBusy(true); setListError('');
+    try {
+      const page = await postBackend('/student/inbox/notifications', { search, cursor: noticePage.cursor });
+      if (request !== listRequest.current) return;
+      setItems(previous => mergeRecords(previous, page.records));
+      setNoticePage(page); setUnreadNotices(page.unread);
+    } catch (error) { if (request === listRequest.current) setListError(error.message); }
+    finally { noticeLock.current = false; if (request === listRequest.current) setListBusy(false); }
+  };
   useEffect(() => {
     const nextTab = route?.params?.initialTab;
     if (nextTab === 'messages' || nextTab === 'notifications') setTab(nextTab);
@@ -81,6 +117,7 @@ export default function NotificationsScreen({ navigation, route }) {
   useEffect(() => {
     const onBack = () => {
       if (!conversation) return false;
+      activeChat.current = null;
       setConversation(null);
       return true;
     };
@@ -93,18 +130,59 @@ export default function NotificationsScreen({ navigation, route }) {
     try {
       await updateDoc(doc(db, 'notifications', item.id), { read: true });
       setItems(prev => prev.map(current => current.id === item.id ? { ...current, read: true } : current));
+      setUnreadNotices(value => Math.max(0, value - 1));
     } catch (error) { console.error('Mark read error:', error); }
   };
 
   const markConversationRead = async conversationItem => {
-    const unread = conversationItem.messages.filter(item => item.recipientId === uid && item.read === false);
-    if (!unread.length) return;
-    await Promise.all(unread.map(item => updateDoc(doc(db, 'messages', item.id), { read: true, readAt: new Date().toISOString() }).catch(() => null)));
-    setMessages(previous => previous.map(item => unread.some(current => current.id === item.id) ? { ...item, read: true, readAt: new Date().toISOString() } : item));
+    const result = await postBackend('/student/inbox/read', { conversationId: conversationItem.legacy ? conversationItem.id : conversationItem.conversationId, legacy: !!conversationItem.legacy });
+    if (conversationItem.unread) setUnreadChats(value => Math.max(0, value - 1));
+    if (conversationItem.legacy) setUnreadNotices(value => Math.max(0, value - result.marked));
+    setConversations(previous => previous.map(item => item.id === conversationItem.id ? { ...item, unread: false } : item));
   };
+
+  const loadChat = async (item, { older = false, refresh = false } = {}) => {
+    if (older && olderLock.current) return;
+    if (older) { olderLock.current = true; setOlderBusy(true); }
+    else if (!refresh) setChatBusy(true);
+    setChatError('');
+    const id = item.id;
+    try {
+      const scope = { conversationId: item.legacy ? item.id : item.conversationId, legacy: !!item.legacy };
+      const page = await postBackend('/student/inbox/conversation', { ...scope, ...(older ? { cursor: item.cursor } : {}) });
+      if (activeChat.current !== id) return;
+      if (item.unread || page.records.some(record => record.recipientId === uid && !record.read)) {
+        await markConversationRead(item);
+        if (activeChat.current !== id) return;
+        page.records = page.records.map(record => record.recipientId === uid ? { ...record, read: true } : record);
+      }
+      if (older) {
+        chatPosition.current.prepend = { height: chatPosition.current.height, offset: chatPosition.current.offset };
+        chatPosition.current.follow = false;
+      }
+      setConversation(previous => previous?.id !== id ? previous : {
+        ...previous, unread: false,
+        messages: (older || refresh ? mergeRecords(previous.messages, page.records) : page.records).map(record => ({ ...record, message: record.body || record.message || record.title || '' })).sort((a, b) => activityTime(a.createdAt) - activityTime(b.createdAt) || a.id.localeCompare(b.id)),
+        ...(!refresh ? { cursor: page.cursor, hasMore: page.hasMore } : {}),
+      });
+    } catch (error) { if (activeChat.current === id) setChatError(error.message); }
+    finally { if (older) olderLock.current = false; if (activeChat.current === id) { setOlderBusy(false); setChatBusy(false); } }
+  };
+  const openConversation = item => {
+    activeChat.current = item.id;
+    setDraft(''); setChatError('');
+    setConversation({ ...item, messages: [], cursor: null, hasMore: false });
+    loadChat(item);
+  };
+  useFocusEffect(useCallback(() => {
+    if (!conversation || conversation.id === 'new') return;
+    const timer = setInterval(() => loadChat(conversation, { refresh: true }), 8000);
+    return () => clearInterval(timer);
+  }, [conversation?.id, conversation?.unread]));
 
   const sendMessage = async () => {
     const body = draft.trim();
+    const sendingChat = conversation?.id;
     const recipientId = conversation?.participantId || coordinator?.id;
     if (!body || !recipientId || sending) return;
     setSending(true);
@@ -129,45 +207,25 @@ export default function NotificationsScreen({ navigation, route }) {
         type: 'direct_message',
       };
       const result = await postBackend('/messages', { recipientId, body });
+      if (activeChat.current !== sendingChat) { load(); return; }
       const newMessage = { ...payload, conversationId: result.conversationId, id: result.messageId, createdAt: result.createdAt };
-      setMessages(previous => [...previous, newMessage]);
-      setConversation(previous => previous ? { ...previous, messages: [...previous.messages, newMessage] } : previous);
+      activeChat.current = result.conversationId;
+      setConversation(previous => previous ? { ...previous, id: result.conversationId, conversationId: result.conversationId, legacy: false, messages: [...previous.messages, newMessage] } : previous);
       setDraft('');
+      chatPosition.current.follow = true;
+      load();
     } catch (error) {
       console.error('Send message error:', error);
       Alert.alert('Message not sent', error.message || 'Check your connection and try again.');
     } finally { setSending(false); }
   };
 
-  const messageItems = useMemo(() => messages.length ? messages : items.filter(item => item.senderId || ['message', 'chat'].includes(String(item.type).toLowerCase())), [items, messages]);
-  const conversations = useMemo(() => {
-    const grouped = new Map();
-    messageItems.forEach(item => {
-      const key = item.conversationId || item.senderId || item.senderEmail || displayName(item);
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key).push(item);
-    });
-    return Array.from(grouped.values()).map(messages => ({
-      id: messages[0].conversationId || messages[0].senderId || messages[0].senderEmail || displayName(messages[0]),
-      conversationId: messages[0].conversationId,
-      participantId: messages.find(item => item.senderId !== uid)?.senderId || messages[0].recipientId || coordinator?.id,
-      name: messages.find(item => item.senderId !== uid)?.senderName || messages[0].recipientName || coordinator?.name || displayName(messages[0]),
-      messages: messages.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))),
-    }));
-  }, [messageItems, coordinator, uid]);
   const filteredNotifications = notificationsEnabled
-    ? items.filter(item => `${item.title || ''} ${item.message || ''}`.toLowerCase().includes(search.toLowerCase()))
+    ? items
     : [];
-  const filteredConversations = conversations.filter(item => {
-    const searchableText = item.messages
-      .map(message => message.body || message.message || message.title || '')
-      .join(' ');
-    return `${item.name} ${searchableText}`.toLowerCase().includes(search.toLowerCase());
-  });
-  const unreadNotificationCount = notificationsEnabled ? items.filter(item => !item.read).length : 0;
-  const unreadConversationCount = conversations.filter(item =>
-    item.messages.some(message => message.recipientId === uid && !message.read),
-  ).length;
+  const filteredConversations = conversations;
+  const unreadNotificationCount = notificationsEnabled ? unreadNotices : 0;
+  const unreadConversationCount = unreadChats;
   const listIsEmpty = tab === 'notifications'
     ? !notificationsEnabled || filteredNotifications.length === 0
     : filteredConversations.length === 0;
@@ -178,18 +236,29 @@ export default function NotificationsScreen({ navigation, route }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
-        <MotionTouchableOpacity onPress={() => setConversation(null)} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
+        <MotionTouchableOpacity onPress={() => { activeChat.current = null; setConversation(null); }} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
         <View style={styles.headerIdentity}>
           <View style={styles.avatarSmall}><Text style={styles.avatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View>
           <View style={styles.headerIdentityCopy}>
-            <Text variant="heading" style={styles.title} numberOfLines={1}>{conversation.name}</Text>
-            <Text style={styles.headerSubtitle}>Conversation</Text>
+            <Text style={styles.chatTitle} numberOfLines={1}>{conversation.name}</Text>
+            <Text style={styles.headerSubtitle}>Your OJT coordinator</Text>
           </View>
         </View>
-        <View style={styles.headerButtonPlaceholder} />
       </View>
-      <KeyboardAvoidingView style={styles.chatArea} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={styles.chatArea} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView ref={chatScrollRef} style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" scrollEventThrottle={16} onScroll={event => { chatPosition.current.offset = event.nativeEvent.contentOffset.y; }} onContentSizeChange={(_, height) => {
+          const position = chatPosition.current;
+          if (position.prepend) {
+            chatScrollRef.current?.scrollTo({ y: Math.max(0, position.prepend.offset + height - position.prepend.height), animated: false });
+            position.prepend = null;
+          } else if (position.follow) {
+            chatScrollRef.current?.scrollToEnd({ animated: false });
+            position.follow = false;
+          }
+          position.height = height;
+        }} onLayout={() => { if (keyboardVisible && !chatPosition.current.prepend) chatScrollRef.current?.scrollToEnd({ animated: false }); }}>
+          <LoadMore label="Load older messages" hasMore={conversation.hasMore} loading={olderBusy || chatBusy} error={chatError} onPress={() => loadChat(conversation, { older: !!conversation.cursor })} />
+          {chatBusy && <Text style={styles.chatNote}>Loading conversation…</Text>}
           <Text style={styles.chatNote}>Conversation history</Text>
           {conversation.messages.map((item, index) => {
             const previous = conversation.messages[index - 1];
@@ -199,20 +268,20 @@ export default function NotificationsScreen({ navigation, route }) {
             const groupedBelow = next && (next.senderId || displayName(next)) === (item.senderId || displayName(item));
             return (
               <View key={item.id} style={[styles.messageRow, mine ? styles.messageRowEnd : styles.messageRowStart]}>
-                {!mine && <View style={styles.avatarSlot}>{!groupedBelow && <View style={styles.messageAvatar}><Text style={styles.avatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View>}</View>}
+                {!mine && <View style={styles.avatarSlot}>{!groupedBelow && <View style={styles.messageAvatar}><Text style={styles.messageAvatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View>}</View>}
                 <View style={styles.messageContent}>
                   {!groupedAbove && <Text style={[styles.senderLabel, mine && styles.senderLabelEnd]}>{mine ? 'You' : conversation.name}</Text>}
-                  <View accessible accessibilityRole="text" accessibilityLabel={`${mine ? 'You' : conversation.name}: ${item.message || item.title || 'No message content.'}`} style={[styles.bubble, mine ? styles.bubbleDefault : styles.bubbleSecondary, !item.read && styles.bubbleTinted, groupedAbove && styles.bubbleGroupedTop, groupedBelow && styles.bubbleGroupedBottom]}>
+                  <View accessible accessibilityRole="text" accessibilityLabel={`${mine ? 'You' : conversation.name}: ${item.message || item.title || 'No message content.'}`} style={[styles.bubble, mine ? styles.bubbleDefault : styles.bubbleSecondary, groupedAbove && styles.bubbleGroupedTop, groupedBelow && styles.bubbleGroupedBottom]}>
                     <Text style={[styles.bubbleText, mine && styles.bubbleTextLight]}>{item.message || item.title || 'No message content.'}</Text>
                     <View style={styles.bubbleMeta}><Text style={[styles.bubbleDate, mine && styles.bubbleDateLight]}>{formatDate(item.createdAt)}</Text>{item.read && <CheckCircleIcon size={12} color={mine ? '#BAE6FD' : COLORS.successDark} />}</View>
                   </View>
                 </View>
-                {mine && <View style={styles.avatarSlot}>{!groupedBelow && <View style={[styles.messageAvatar, styles.messageAvatarMine]}><Text style={styles.avatarText}>Y</Text></View>}</View>}
+                {mine && <View style={styles.avatarSlot}>{!groupedBelow && <View style={[styles.messageAvatar, styles.messageAvatarMine]}><Text style={styles.messageAvatarText}>Y</Text></View>}</View>}
               </View>
             );
           })}
         </ScrollView>
-        <View style={[styles.composerDock, { paddingBottom: Math.max(12, insets.bottom) }]}>
+        <View style={[styles.composerDock, { paddingBottom: keyboardVisible ? 12 : Math.max(12, insets.bottom) }]}>
           <View style={styles.composer}>
             <TextInput value={draft} onChangeText={setDraft} placeholder="Write a message..." placeholderTextColor={COLORS.textMuted} style={styles.composerInput} multiline accessibilityLabel="Write a message" />
             <MotionTouchableOpacity style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]} onPress={sendMessage} disabled={!draft.trim() || sending} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={sending ? 'Sending message' : 'Send message'}><Text style={styles.sendButtonText}>{sending ? 'Sending' : 'Send'}</Text>{!sending && <ArrowRightIcon size={15} color="#FFFFFF" />}</MotionTouchableOpacity>
@@ -253,9 +322,10 @@ export default function NotificationsScreen({ navigation, route }) {
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title || 'Notification'}${unread ? ', unread' : ''}. ${item.message || 'No additional details.'}`} style={[styles.notificationCard, unread && styles.notificationUnread]} onPress={() => markRead(item)} activeOpacity={0.88}><View style={styles.notificationIcon}><BellIcon size={18} color={unread ? COLORS.primary : COLORS.textMuted} /></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]} numberOfLines={1}>{item.title || 'Notification'}</Text></View><Text style={styles.message} numberOfLines={2}>{item.message || 'No additional details.'}</Text><Text style={styles.date}>{formatDate(item.createdAt)}</Text></View>{unread && <View style={styles.unreadDot} />}{item.read && <CheckCircleIcon size={15} color={COLORS.textMuted} />}</MotionTouchableOpacity>;
         }) : <EmptyState icon="bell" title={search ? 'No matching notifications' : 'All caught up'} text={search ? 'Try another search term.' : 'Coordinator updates about your OJT records will appear here.'} />) : (filteredConversations.length ? filteredConversations.map(item => {
           const latest = item.messages[item.messages.length - 1];
-          const unread = item.messages.some(message => message.recipientId === uid && !message.read);
-          return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => { setConversation(item); markConversationRead(item); }} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
-        }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages yet'} text={search ? 'Try another search term.' : 'Start a conversation with your assigned coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [] })} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>Start conversation</Text></MotionTouchableOpacity>}</View>)}
+          const unread = item.unread;
+          return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => openConversation(item)} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
+        }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages yet'} text={search ? 'Try another search term.' : 'Start a conversation with your assigned coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => { activeChat.current = 'new'; setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [], cursor: null, hasMore: false }); }} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>Start conversation</Text></MotionTouchableOpacity>}</View>)}
+        <LoadMore hasMore={tab === 'notifications' && noticePage.hasMore} loading={listBusy} error={listError} onPress={tab === 'notifications' && noticePage.cursor && !listError ? loadMoreNotices : load} />
       </ScrollView>
     </View>
   );
@@ -275,6 +345,7 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: COLORS.textMuted, fontSize: 11.5 },
   headerIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
   headerIdentityCopy: { flex: 1, minWidth: 0, gap: 1 },
+  chatTitle: { color: COLORS.textPrimary, fontSize: 16, lineHeight: 22, fontWeight: '700' },
   avatarSmall: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   title: { color: COLORS.textPrimary, fontSize: 21, lineHeight: 27, fontWeight: '700', letterSpacing: -0.3 },
   tabsWrap: { width: '100%', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
@@ -291,18 +362,18 @@ const styles = StyleSheet.create({
   listViewport: { flex: 1, width: '100%' },
   scroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, gap: SPACE.sm },
   scrollEmpty: { flexGrow: 1, justifyContent: 'center' },
-  notificationCard: { backgroundColor: COLORS.surface, borderRadius: 17, padding: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm, ...SHADOWS.soft },
-  notificationUnread: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondaryLight, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  notificationCard: { backgroundColor: COLORS.surface, borderRadius: 14, padding: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm },
+  notificationUnread: { backgroundColor: '#F8FAFF', borderColor: COLORS.borderLight },
   notificationIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  conversationCard: { backgroundColor: COLORS.surface, borderRadius: 17, paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, ...SHADOWS.soft },
-  unreadCard: { backgroundColor: COLORS.primarySubtle, borderColor: COLORS.secondaryLight, borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+  conversationCard: { backgroundColor: COLORS.surface, borderRadius: 14, paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
+  unreadCard: { backgroundColor: '#F8FAFF', borderColor: COLORS.borderLight },
   avatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: COLORS.primaryDark, fontWeight: '700', fontSize: TYPE.bodySmall },
   rowBody: { flex: 1, minWidth: 0 },
   rowTitleLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.xs },
   cardTitle: { color: COLORS.textPrimary, fontWeight: '600', fontSize: TYPE.bodySmall, flex: 1 },
   unreadTitle: { fontWeight: '700', color: COLORS.primaryDark },
-  unreadDot: { width: 9, height: 9, borderRadius: RADIUS.full, backgroundColor: COLORS.secondary, alignSelf: 'center', marginLeft: SPACE.xxs },
+  unreadDot: { display: 'none' },
   message: { color: COLORS.textSecondary, fontSize: TYPE.caption, lineHeight: 18, marginTop: SPACE.xxs },
   date: { color: COLORS.textMuted, fontSize: TYPE.micro, marginTop: SPACE.xxs, fontWeight: '500' },
   emptyCard: { width: '100%', maxWidth: 440, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl, paddingVertical: 30, backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.soft },
@@ -311,31 +382,31 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACE.xs, lineHeight: 20, maxWidth: 320 },
   chatArea: { flex: 1, width: '100%', alignItems: 'center' },
   chatViewport: { flex: 1, width: '100%' },
-  chatScroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingTop: SPACE.md, paddingBottom: SPACE.lg },
+  chatScroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
   chatNote: { color: COLORS.textMuted, textAlign: 'center', fontSize: TYPE.caption, marginBottom: SPACE.md },
-  messageRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', marginBottom: SPACE.sm },
+  messageRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', marginBottom: 12, gap: 6 },
   messageRowStart: { justifyContent: 'flex-start' },
   messageRowEnd: { justifyContent: 'flex-end' },
-  avatarSlot: { width: 32, marginHorizontal: SPACE.xxs, alignItems: 'center', justifyContent: 'flex-end' },
-  messageAvatar: { width: 28, height: 28, borderRadius: RADIUS.full, backgroundColor: COLORS.brandNavy, alignItems: 'center', justifyContent: 'center' },
-  messageAvatarMine: { backgroundColor: COLORS.secondary },
-  messageContent: { maxWidth: '80%', minWidth: 0 },
+  avatarSlot: { width: 30, alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 },
+  messageAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  messageAvatarMine: { backgroundColor: COLORS.primaryDark },
+  messageAvatarText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  messageContent: { maxWidth: '84%', minWidth: 0, flexShrink: 1 },
   senderLabel: { color: COLORS.textMuted, fontSize: TYPE.micro, fontWeight: '600', marginHorizontal: SPACE.xs, marginBottom: SPACE.xxs },
   senderLabelEnd: { color: COLORS.secondaryDark, textAlign: 'right' },
-  bubble: { maxWidth: '100%', borderRadius: RADIUS.lg, paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, borderWidth: 1 },
+  bubble: { maxWidth: '100%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1 },
   bubbleDefault: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, borderBottomRightRadius: RADIUS.xs },
   bubbleSecondary: { backgroundColor: COLORS.surface, borderColor: COLORS.border, borderBottomLeftRadius: RADIUS.xs },
-  bubbleTinted: { backgroundColor: COLORS.secondaryLight, borderColor: '#BAE6FD' },
   bubbleGroupedTop: { borderTopLeftRadius: RADIUS.sm, borderTopRightRadius: RADIUS.sm, marginTop: -SPACE.xs },
   bubbleGroupedBottom: { borderBottomLeftRadius: RADIUS.sm, borderBottomRightRadius: RADIUS.sm },
-  bubbleText: { color: COLORS.textPrimary, fontSize: TYPE.bodySmall, lineHeight: 20 },
+  bubbleText: { color: COLORS.textPrimary, fontSize: 14, lineHeight: 21 },
   bubbleTextLight: { color: '#FFFFFF' },
   bubbleMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: SPACE.xxs, marginTop: SPACE.xs },
-  bubbleDate: { color: COLORS.textMuted, fontSize: TYPE.micro },
-  bubbleDateLight: { color: '#D7EBFF' },
+  bubbleDate: { color: COLORS.textSecondary, fontSize: 10, lineHeight: 14 },
+  bubbleDateLight: { color: '#FFFFFF' },
   composerDock: { width: '100%', borderTopWidth: 1, borderTopColor: COLORS.borderLight, backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingTop: SPACE.sm, alignItems: 'center' },
-  composer: { width: '100%', maxWidth: 760, flexDirection: 'row', alignItems: 'flex-end', gap: SPACE.xs, backgroundColor: COLORS.surface, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, padding: SPACE.xs },
-  composerInput: { flex: 1, minHeight: 44, maxHeight: 112, color: COLORS.textPrimary, fontSize: TYPE.bodySmall, paddingHorizontal: SPACE.xs, paddingVertical: SPACE.xs },
+  composer: { width: '100%', maxWidth: 760, flexDirection: 'row', alignItems: 'flex-end', gap: 8, backgroundColor: COLORS.surfaceMuted, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 6 },
+  composerInput: { flex: 1, minHeight: 44, maxHeight: 112, color: COLORS.textPrimary, fontSize: 14, lineHeight: 21, paddingHorizontal: 8, paddingVertical: 10, textAlignVertical: 'top' },
   sendButton: { minWidth: 76, minHeight: 44, borderRadius: RADIUS.md, backgroundColor: COLORS.primary, flexDirection: 'row', gap: SPACE.xxs, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.sm },
   sendButtonDisabled: { opacity: 0.5 },
   sendButtonText: { color: '#FFFFFF', fontSize: TYPE.caption, fontWeight: '700' },

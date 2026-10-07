@@ -14,6 +14,11 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { setPageMetadata } from '../pageMetadata';
+import './AdminOverview.css';
+import './AdminStudents.css';
+import './AdminDirectories.css';
+import './CreateCoordinator.css';
+import './AdminProfileNavigation.css';
 import {
   BarChart, Bar, CartesianGrid, Cell, Legend, Pie, PieChart,
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -33,6 +38,7 @@ export default function AdminDashboard() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationsRead, setNotificationsRead] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sectionSearch, setSectionSearch] = useState('');
   const navigate = useNavigate();
 
   const fetchAll = useCallback(async () => {
@@ -87,6 +93,10 @@ export default function AdminDashboard() {
   const coordinators = users.filter(u => u.role === 'coordinator');
   const pending = students.filter(u => !u.accountApproved && u.status !== 'rejected_registration');
   const active = students.filter(u => u.accountApproved);
+  const visibleSections = sections.filter(section => {
+    const coordinator = coordinators.find(user => user.id === section.coordinatorId);
+    return `${section.name || ''} ${section.department || ''} ${coordinator?.firstName || ''} ${coordinator?.lastName || ''}`.toLowerCase().includes(sectionSearch.trim().toLowerCase());
+  });
   const dashboardScopedStudents = students.filter(student => isWithinDashboardRange(student, dashboardRange));
   const notificationItems = [
     ...pending.slice(0, 3).map(student => ({
@@ -206,7 +216,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div style={s.page} className="admin-page">
+    <div style={s.page} className={`admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'sections', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
@@ -257,8 +267,8 @@ export default function AdminDashboard() {
               <Icon name="user" size={17} label="Admin profile" />
             </div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{auth.currentUser?.email || 'Administrator'}</span>
-              <span className="sidebar-user-role">System Admin</span>
+              <span className="sidebar-user-name">{[users.find(user => user.id === auth.currentUser?.uid)?.firstName, users.find(user => user.id === auth.currentUser?.uid)?.lastName].filter(Boolean).join(' ') || auth.currentUser?.email || 'Administrator'}</span>
+              <span className="sidebar-user-role">Profile settings</span>
             </div>
             <Icon name="chevronRight" size={14} className="sidebar-user-chevron" />
           </button>
@@ -274,7 +284,7 @@ export default function AdminDashboard() {
         <header style={s.topbar}>
           <div style={s.topbarLeft}>
             <h1 style={s.pageTitle}>
-              {activeTab === 'overview' ? 'System Overview & Health' :
+              {activeTab === 'overview' ? 'System Overview' :
                 activeTab === 'students' ? 'Student Account Directory' :
                     activeTab === 'coordinators' ? 'Coordinator Management' :
                     activeTab === 'companies' ? 'Company Directory & Capacity' :
@@ -381,7 +391,6 @@ export default function AdminDashboard() {
                     <Icon name="x" size={14} />
                   </button>
                 )}
-                {!dashboardSearch && <kbd style={s.searchShortcut}>⌘ K</kbd>}
               </label>
               {dashboardSearchOpen && normalizedDashboardSearch && (
                 <div style={s.dashboardSearchSuggestions} role="listbox" aria-label="Related search results">
@@ -440,7 +449,8 @@ export default function AdminDashboard() {
           <div style={s.content}>
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
-              <div style={s.overviewGrid}>
+              <div className="admin-system-overview" style={s.overviewGrid}>
+                <div className="admin-overview-intro"><div><h2>System at a glance</h2><p>Monitor student accounts, academic sections, and coordinator activity.</p></div><span>Administrative overview</span></div>
                 <div className="admin-overview-metrics-wrap">
                   {/* Featured Hero Stat Cards */}
                   <div className="admin-featured-stats-grid">
@@ -475,9 +485,10 @@ export default function AdminDashboard() {
                   departmentData={departmentData}
                   accountStatusData={accountStatusData}
                   registrationData={registrationData}
+                  period={dashboardPeriod}
                 />
 
-                <div style={s.fullWidth}>
+                <div className="admin-overview-recent" style={s.fullWidth}>
                   <div style={s.cardHeader}>
                     <h2 style={s.subTitle}>Recent Student Registrations</h2>
                     <span style={s.countBadge}>
@@ -504,49 +515,70 @@ export default function AdminDashboard() {
 
             {/* STUDENTS */}
             {activeTab === 'students' && (
-              <div style={s.tabContent}>
+              <div style={s.tabContent} className="admin-students-directory">
                 <div style={s.tabHeader}>
                   <div>
-                    <h2 style={s.subTitle}>All Enrolled Students ({students.length})</h2>
-                    <p style={s.subText}>Manage student portal access, activation status, and view department assignments.</p>
+                    <h2 style={s.subTitle}>Student directory</h2>
+                    <p style={s.subText}>View student accounts, section assignments, and portal access.</p>
                   </div>
+                </div>
+                <div className="admin-student-summary">
+                  <div><span>Total students</span><strong>{students.length}</strong></div>
+                  <div><span>Active accounts</span><strong>{active.length}</strong></div>
+                  <div><span>Pending accounts</span><strong>{pending.length}</strong></div>
+                  <div><span>Sections</span><strong>{new Set(students.map(student => student.sectionId).filter(Boolean)).size}</strong></div>
                 </div>
                 <UserTable
                   users={students}
                   saving={saving}
                   onToggle={handleToggleAccount}
                   showToggle
+                  studentDirectory
+                  sections={sections}
                 />
               </div>
             )}
 
             {/* COORDINATORS */}
             {activeTab === 'coordinators' && (
-              <div style={s.tabContent}>
+              <div style={s.tabContent} className="admin-directory-screen">
                 <div style={s.tabHeader}>
                   <div>
-                    <h2 style={s.subTitle}>OJT Department Coordinators ({coordinators.length})</h2>
-                    <p style={s.subText}>Active faculty members authorized to review student requirements and logbooks.</p>
+                    <h2 style={s.subTitle}>Coordinators</h2>
+                    <p style={s.subText}>Faculty accounts and their assigned departments.</p>
                   </div>
                   <button style={s.addCoordinatorBtn} onClick={() => setActiveTab('create')}>
                     + Create Coordinator
                   </button>
+                </div>
+                <div className="admin-directory-summary">
+                  <div><span>Coordinators</span><strong>{coordinators.length}</strong></div>
+                  <div><span>Departments</span><strong>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</strong></div>
+                  <div><span>Assigned sections</span><strong>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</strong></div>
                 </div>
                 <UserTable
                   users={coordinators}
                   saving={saving}
                   onToggle={handleToggleAccount}
                   showToggle={false}
+                  coordinatorDirectory
                 />
               </div>
             )}
 
             {/* SECTIONS */}
             {activeTab === 'sections' && (
-              <div style={s.tabContent}>
+              <div style={s.tabContent} className="admin-directory-screen">
                 <div style={s.tabHeader}>
-                  <h2 style={s.subTitle}>All Department Sections ({sections.length})</h2>
+                  <div><h2 style={s.subTitle}>Sections</h2><p style={s.subText}>Monitor class assignments, required hours, and student enrollment.</p></div>
                 </div>
+                <div className="admin-directory-summary">
+                  <div><span>Total sections</span><strong>{sections.length}</strong></div>
+                  <div><span>Assigned students</span><strong>{students.filter(student => sections.some(section => section.id === student.sectionId)).length}</strong></div>
+                  <div><span>Without a coordinator</span><strong>{sections.filter(section => !coordinators.some(user => user.id === section.coordinatorId)).length}</strong></div>
+                </div>
+                <div className="admin-directory-records">
+                  <div className="admin-directory-search"><input type="search" aria-label="Search sections" placeholder="Search section, department, or coordinator..." value={sectionSearch} onChange={event => setSectionSearch(event.target.value)} /><span>{visibleSections.length} sections</span></div>
                 <div style={s.tableWrap}>
                   <table style={s.table}>
                     <thead>
@@ -559,7 +591,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sections.map((sec) => {
+                      {visibleSections.map((sec) => {
                         const coord = coordinators.find(c => c.id === sec.coordinatorId);
                         const secStudents = students.filter(st => st.sectionId === sec.id);
                         return (
@@ -580,21 +612,22 @@ export default function AdminDashboard() {
                           </tr>
                         );
                       })}
-                      {sections.length === 0 && (
+                      {visibleSections.length === 0 && (
                         <tr>
                           <td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
-                            No sections created yet.
+                            {sections.length ? 'No matching sections found.' : 'No sections created yet.'}
                           </td>
                         </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
+                </div>
               </div>
             )}
 
             {activeTab === 'create' && <CreateCoordinatorTab onCreated={fetchAll} />}
-            {activeTab === 'companies' && <CompanyDirectoryTab />}
+            {activeTab === 'companies' && <div className="admin-companies-screen"><CompanyDirectoryTab readOnly /></div>}
             {activeTab === 'terms' && <AcademicTermsTab />}
             {activeTab === 'settings' && <SystemSettingsTab />}
             {activeTab === 'audit' && <AuditLogsTab />}
@@ -674,7 +707,6 @@ function AdminProfileTab({ admin, onSaved }) {
             <div className="admin-profile-hero-avatar">
               {initials}
             </div>
-            <div className="admin-profile-hero-badge-status" title="Account Active" />
           </div>
           <div className="admin-profile-hero-details">
             <h2>{displayName}</h2>
@@ -697,7 +729,7 @@ function AdminProfileTab({ admin, onSaved }) {
 
       {/* Alert banner if status exists */}
       {status.message && (
-        <div className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
+        <div role={status.type === 'error' ? 'alert' : 'status'} className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
           <Icon name={status.type === 'error' ? 'x' : 'check'} size={16} />
           <span>{status.message}</span>
         </div>
@@ -709,7 +741,7 @@ function AdminProfileTab({ admin, onSaved }) {
           <div>
             <div className="admin-profile-card-title">
               <Icon name="user" size={18} />
-              Personal & Contact Information
+              Personal details
             </div>
             <div className="admin-profile-card-subtitle">
               Manage your administrator name, department affiliation, and contact details.
@@ -719,8 +751,9 @@ function AdminProfileTab({ admin, onSaved }) {
 
         <div className="admin-profile-grid">
           <div className="admin-profile-field">
-            <label className="admin-profile-label">First Name</label>
+            <label className="admin-profile-label" htmlFor="admin-profile-first-name">First name</label>
             <input
+              id="admin-profile-first-name" autoComplete="given-name"
               className="admin-profile-input"
               value={form.firstName}
               onChange={e => setForm({ ...form, firstName: e.target.value })}
@@ -730,8 +763,9 @@ function AdminProfileTab({ admin, onSaved }) {
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Last Name</label>
+            <label className="admin-profile-label" htmlFor="admin-profile-last-name">Last name</label>
             <input
+              id="admin-profile-last-name" autoComplete="family-name"
               className="admin-profile-input"
               value={form.lastName}
               onChange={e => setForm({ ...form, lastName: e.target.value })}
@@ -741,8 +775,9 @@ function AdminProfileTab({ admin, onSaved }) {
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Email Address (Read-Only)</label>
+            <label className="admin-profile-label" htmlFor="admin-profile-email">Email address (read-only)</label>
             <input
+              id="admin-profile-email"
               className="admin-profile-input admin-profile-input-readonly"
               value={auth.currentUser?.email || ''}
               disabled
@@ -751,8 +786,9 @@ function AdminProfileTab({ admin, onSaved }) {
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Department / Office</label>
+            <label className="admin-profile-label" htmlFor="admin-profile-department">Department / office</label>
             <input
+              id="admin-profile-department"
               className="admin-profile-input"
               value={form.department}
               onChange={e => setForm({ ...form, department: e.target.value })}
@@ -761,8 +797,9 @@ function AdminProfileTab({ admin, onSaved }) {
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Phone Number (Optional)</label>
+            <label className="admin-profile-label" htmlFor="admin-profile-phone">Phone number (optional)</label>
             <input
+              id="admin-profile-phone" type="tel" autoComplete="tel"
               className="admin-profile-input"
               value={form.phone}
               onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -785,7 +822,7 @@ function AdminProfileTab({ admin, onSaved }) {
           <div>
             <div className="admin-profile-card-title">
               <Icon name="shield" size={18} />
-              Security & System Privileges
+              Account & security
             </div>
             <div className="admin-profile-card-subtitle">
               Overview of security tier and system access assigned to this account.
@@ -829,6 +866,7 @@ function CreateCoordinatorTab({ onCreated }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -859,6 +897,7 @@ function CreateCoordinatorTab({ onCreated }) {
       }
       setSuccess(`Coordinator account created successfully for ${form.firstName} ${form.lastName}!`);
       setForm({ firstName: '', lastName: '', email: '', password: '', department: '' });
+      setShowPassword(false);
       if (onCreated) onCreated();
     } catch (e) {
       setError('Could not reach backend server. Please verify the backend service is running.');
@@ -868,20 +907,23 @@ function CreateCoordinatorTab({ onCreated }) {
   };
 
   return (
-    <div style={s.tabContent}>
-      <h2 style={s.subTitle}>Create Coordinator Account</h2>
+    <div style={s.tabContent} className="admin-create-coordinator">
+      <h2 style={s.subTitle}>Create coordinator</h2>
       <p style={s.subText}>
-        Coordinators manage student requirements, approve registrations, and review logbooks for their specific department.
+        Set up a faculty account and assign its department.
       </p>
 
-      {error && <div style={s.errorBox}>{error}</div>}
-      {success && <div style={s.successBox}>{success}</div>}
+      {error && <div role="alert" style={s.errorBox}>{error}</div>}
+      {success && <div role="status" style={s.successBox}>{success}</div>}
 
-      <form onSubmit={handleCreate} style={s.createForm}>
-        <div style={s.formRow}>
+      <div className="create-coordinator-layout">
+      <form onSubmit={handleCreate} style={s.createForm} className="create-coordinator-form">
+        <div className="create-coordinator-form-heading"><Icon name="user" size={20} /><div><h3>Account details</h3><p>All fields are required.</p></div></div>
+        <div style={s.formRow} className="create-coordinator-name-row">
           <div style={s.formGroup}>
-            <label style={s.label}>First Name</label>
+            <label style={s.label} htmlFor="coordinator-first-name">First name</label>
             <input
+              id="coordinator-first-name" autoComplete="given-name"
               style={s.input}
               placeholder="Juan"
               value={form.firstName}
@@ -891,8 +933,9 @@ function CreateCoordinatorTab({ onCreated }) {
             />
           </div>
           <div style={s.formGroup}>
-            <label style={s.label}>Last Name</label>
+            <label style={s.label} htmlFor="coordinator-last-name">Last name</label>
             <input
+              id="coordinator-last-name" autoComplete="family-name"
               style={s.input}
               placeholder="Dela Cruz"
               value={form.lastName}
@@ -904,8 +947,9 @@ function CreateCoordinatorTab({ onCreated }) {
         </div>
 
         <div style={s.formGroup}>
-          <label style={s.label}>Email Address</label>
+          <label style={s.label} htmlFor="coordinator-email">Email address</label>
           <input
+            id="coordinator-email" autoComplete="email"
             style={s.input}
             type="email"
             placeholder="coordinator@uclm.edu.ph"
@@ -917,21 +961,27 @@ function CreateCoordinatorTab({ onCreated }) {
         </div>
 
         <div style={s.formGroup}>
-          <label style={s.label}>Initial Password (Min. 6 characters)</label>
+          <label style={s.label} htmlFor="coordinator-password">Initial password</label>
+          <div className="create-coordinator-password">
           <input
+            id="coordinator-password" autoComplete="new-password" minLength={6} aria-describedby="coordinator-password-help"
             style={s.input}
-            type="password"
-            placeholder="••••••••"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Enter an initial password"
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
             disabled={loading}
             required
           />
+          <button type="button" className="create-coordinator-password-toggle" disabled={loading} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button>
+          </div>
+          <small id="coordinator-password-help">Use at least 6 characters. Share credentials securely.</small>
         </div>
 
         <div style={s.formGroup}>
-          <label style={s.label}>Assigned Department</label>
+          <label style={s.label} htmlFor="coordinator-department">Assigned department</label>
           <select
+            id="coordinator-department"
             style={s.select}
             value={form.department}
             onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
@@ -944,12 +994,15 @@ function CreateCoordinatorTab({ onCreated }) {
         </div>
 
         <button
+          type="submit" className="create-coordinator-submit"
           style={{ ...s.createBtn, opacity: loading ? 0.7 : 1 }}
           disabled={loading}
         >
-          {loading ? 'Creating Coordinator Account...' : 'Create Coordinator Account'}
+          {loading ? 'Creating account…' : 'Create coordinator account'}
         </button>
       </form>
+      <aside className="create-coordinator-guide"><div className="create-coordinator-guide-icon"><Icon name="shield" size={22} /></div><h3>Coordinator access</h3><p>This account is for faculty responsible for the assigned department.</p><div><h4>Student management</h4><p>Manage authorized class lists, student requirements, and logbooks.</p></div><div><h4>Placement oversight</h4><p>Manage partner companies, placements, and evaluation requests.</p></div><div><h4>Before creating</h4><p>Confirm the faculty member’s email and department. Provide the initial password through a secure channel.</p></div></aside>
+      </div>
     </div>
   );
 }
@@ -1114,7 +1167,7 @@ function getRegistrationData(students, period = 'month') {
   return months;
 }
 
-function AdminCharts({ departmentData, accountStatusData, registrationData }) {
+function AdminCharts({ departmentData, accountStatusData, registrationData, period }) {
   const hasStudents = departmentData.length > 0;
   const hasAccounts = accountStatusData.length > 0;
   const [expandedChart, setExpandedChart] = useState(null);
@@ -1178,7 +1231,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData }) {
             <XAxis dataKey="month" tick={{ fontSize: expanded ? 13 : 11, fill: COLORS.slate700 }} />
             <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: COLORS.slate700 }} />
             <Tooltip />
-            <Line type="monotone" dataKey="registrations" name="Registrations" stroke={COLORS.sky600} strokeWidth={expanded ? 4 : 3} dot={{ r: expanded ? 5 : 4, fill: COLORS.sky600 }} />
+            <Line type="monotone" dataKey="registrations" name="Registrations" stroke={COLORS.sky600} strokeWidth={expanded ? 4 : 3} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -1200,7 +1253,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData }) {
   });
 
   return (
-    <div style={s.chartGrid}>
+    <div className="admin-overview-charts" style={s.chartGrid}>
       <div {...chartCardProps('department')} style={s.chartCard}>
         <div style={s.chartHeading}>
           <h2 style={s.subTitle}>Students by Department</h2>
@@ -1220,7 +1273,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData }) {
       <div {...chartCardProps('registration')} style={{ ...s.chartCard, ...s.chartWide }}>
         <div style={s.chartHeading}>
           <h2 style={s.subTitle}>Registration Trend</h2>
-          <span className="admin-chart-caption" style={s.chartCaption}>New student accounts over the last 6 months <Icon name="expand" size={14} /></span>
+          <span className="admin-chart-caption" style={s.chartCaption}>New accounts grouped by {period === 'day' ? 'day' : period === 'year' ? 'year' : 'month'} <Icon name="expand" size={14} /></span>
         </div>
         {renderChart('registration')}
       </div>
@@ -1249,24 +1302,40 @@ function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
 }
 
-function UserTable({ users, saving, onToggle, showToggle }) {
+function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [] }) {
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const sectionName = user => sections.find(section => section.id === user.sectionId)?.name || user.sectionName || 'Unassigned';
   const filtered = users.filter(u =>
-    `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''} ${u.idNumber || ''} ${u.department || ''}`
+    `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''} ${u.email || ''} ${u.idNumber || ''} ${u.department || ''} ${studentDirectory ? sectionName(u) : ''}`
       .toLowerCase()
-      .includes(search.toLowerCase())
+      .includes(search.toLowerCase()) && (!studentDirectory || (
+        (sectionFilter === 'all' || u.sectionId === sectionFilter) &&
+        (statusFilter === 'all' || (statusFilter === 'active' ? u.accountApproved : statusFilter === 'rejected' ? !u.accountApproved && u.status === 'rejected_registration' : !u.accountApproved && u.status !== 'rejected_registration'))
+      ))
   );
 
   return (
-    <div>
-      <div style={s.tableSearchRow}>
+    <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
+      <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
         <input
           type="text"
-          placeholder="Filter by name, ID, department, or email..."
+          aria-label="Search accounts"
+          placeholder={studentDirectory ? 'Search name, student ID, username, or section...' : 'Filter by name, ID, department, or email...'}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={s.tableSearchInput}
         />
+        {studentDirectory && <>
+          <select aria-label="Filter by section" value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}>
+            <option value="all">All sections</option>
+            {sections.map(section => <option key={section.id} value={section.id}>{section.name || section.id}</option>)}
+          </select>
+          <select aria-label="Filter by account status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="rejected">Rejected</option>
+          </select>
+        </>}
         <span style={s.countBadge}>{filtered.length} record(s)</span>
       </div>
 
@@ -1275,9 +1344,10 @@ function UserTable({ users, saving, onToggle, showToggle }) {
           <thead>
             <tr>
               <th style={s.th}>Name</th>
-              <th style={s.th}>Student / Employee ID</th>
-              <th style={s.th}>Email Address</th>
+              <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student / Employee ID'}</th>
+              <th style={s.th}>{studentDirectory ? 'Username' : 'Email Address'}</th>
               <th style={s.th}>Department</th>
+              {studentDirectory && <th style={s.th}>Section</th>}
               <th style={s.th}>Account Status</th>
               {showToggle && <th style={{ ...s.th, textAlign: 'right' }}>Action</th>}
             </tr>
@@ -1291,16 +1361,17 @@ function UserTable({ users, saving, onToggle, showToggle }) {
                 <td style={s.td}>
                   <span style={s.idCode}>{user.idNumber || '—'}</span>
                 </td>
-                <td style={s.td}>{user.email}</td>
+                <td style={s.td}>{studentDirectory ? user.username || '—' : user.email}</td>
                 <td style={s.td}>{user.department || '—'}</td>
+                {studentDirectory && <td style={s.td}>{sectionName(user)}</td>}
                 <td style={s.td}>
                   <span style={{
                     ...s.statusBadge,
                     backgroundColor: user.accountApproved ? COLORS.emerald50 : COLORS.yellow100,
                     color: '#000000',
                     border: `1px solid ${user.accountApproved ? COLORS.emerald200 : COLORS.yellow300}`,
-                  }}>
-                    {user.accountApproved ? 'Active' : 'Pending'}
+                  }} className={studentDirectory ? `admin-student-status ${user.accountApproved ? 'is-active' : user.status === 'rejected_registration' ? 'is-rejected' : 'is-pending'}` : undefined}>
+                    {user.accountApproved ? 'Active' : studentDirectory && user.status === 'rejected_registration' ? 'Rejected' : 'Pending'}
                   </span>
                 </td>
                 {showToggle && (
@@ -1326,8 +1397,8 @@ function UserTable({ users, saving, onToggle, showToggle }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
-                  No matching user records found.
+                <td colSpan={5 + (studentDirectory ? 1 : 0) + (showToggle ? 1 : 0)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
+                  {users.length === 0 ? 'No accounts to display yet.' : 'No matching user records found.'}
                 </td>
               </tr>
             )}

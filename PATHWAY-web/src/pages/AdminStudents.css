@@ -1,0 +1,31 @@
+.admin-students-mode main { background: #f6f8fc; }
+.admin-students-mode main > header { box-shadow: none !important; border-bottom-color: #e4eaf3 !important; }
+.admin-students-mode main > header h1 { color: #152238 !important; font-size: 20px !important; }
+.admin-students-directory > div:first-child { margin-bottom: 22px !important; }
+.admin-students-directory h2 { color: #152238 !important; font-size: 23px !important; font-weight: 700 !important; }
+.admin-students-directory p { color: #697991 !important; font-size: 12px !important; }
+.admin-student-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 24px; }
+.admin-student-summary > div { display: flex; flex-direction: column; gap: 10px; background: white; border: 1px solid #e4eaf3; border-radius: 14px; padding: 20px; }
+.admin-student-summary span { color: #697991; font-size: 12px; }
+.admin-student-summary strong { color: #152238; font-size: 28px; font-weight: 650; }
+.admin-student-records { background: white; border: 1px solid #e4eaf3; border-radius: 16px; overflow: hidden; }
+.admin-student-filters { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px !important; margin: 0 !important; align-items: center; }
+.admin-student-filters input { flex: 1 1 280px; min-width: 0 !important; max-width: none !important; }
+.admin-student-filters input, .admin-student-filters select { background: #f8fafd !important; border: 1px solid #e4eaf3 !important; border-radius: 9px !important; padding: 11px 12px !important; font-size: 12px !important; color: #34445c !important; min-height: 42px; }
+.admin-student-filters > span { background: transparent !important; color: #697991 !important; font-size: 11px !important; white-space: nowrap; }
+.admin-student-records table { width: 100%; }
+.admin-student-records th { background: #f8fafd !important; color: #697991 !important; font-size: 11px !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: normal !important; white-space: nowrap; }
+.admin-student-records td { font-size: 12px !important; color: #34445c !important; padding: 18px 16px !important; border-bottom: 1px solid #edf1f7 !important; }
+.admin-student-records td strong { color: #152238 !important; font-weight: 600; }
+.admin-student-records td > span:not(.admin-student-status) { background: transparent !important; border: 0 !important; color: #697991 !important; padding: 0 !important; }
+.admin-student-status { border: none !important; border-radius: 6px !important; font-size: 11px !important; font-weight: 500 !important; padding: 5px 9px !important; }
+.admin-student-status.is-active { background: #e8f7ef !important; color: #087950 !important; }
+.admin-student-status.is-pending { background: #fff5dd !important; color: #88600a !important; }
+.admin-student-status.is-rejected { background: #fff0f2 !important; color: #b42343 !important; }
+.admin-student-records .account-action-button { background: white !important; border: 1px solid #dce5f1 !important; border-radius: 8px !important; color: #075fc9 !important; box-shadow: none !important; font-size: 11px !important; font-weight: 500 !important; white-space: nowrap; }
+.admin-student-records .account-action-deactivate { color: #b42343 !important; }
+.admin-student-records .account-action-button:hover { background: #f6f8fc !important; }
+.admin-student-records .account-action-button:disabled { opacity: .5; cursor: wait; }
+.admin-student-records input:focus-visible, .admin-student-records select:focus-visible, .admin-student-records button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+@media (max-width: 900px) { .admin-student-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .admin-student-filters { padding: 14px !important; } .admin-student-filters select { flex: 1 1 140px; min-width: 0; } .admin-student-summary > div { padding: 14px; } }

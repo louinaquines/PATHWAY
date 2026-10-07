@@ -1,0 +1,43 @@
+.admin-overview-mode main { background: #f6f8fc; }
+.admin-overview-mode main > header { border-bottom-color: #e4eaf3 !important; box-shadow: none !important; }
+.admin-overview-mode main > header h1 { color: #152238 !important; font-size: 20px !important; font-weight: 700 !important; }
+.admin-overview-mode .admin-dashboard-toolbar { background: #f6f8fc !important; border: none !important; padding: 20px 24px 0 !important; gap: 14px; flex-wrap: wrap; }
+.admin-overview-mode .dashboardSearch { background: white !important; border-color: #e4eaf3 !important; border-radius: 10px !important; box-shadow: none !important; min-height: 44px; }
+.admin-overview-mode .dashboardSearch input { font-size: 12px !important; color: #34445c !important; }
+.admin-overview-mode .dashboardTools { flex-wrap: wrap; }
+.admin-overview-mode .dashboardTools > label { background: white !important; border-color: #e4eaf3 !important; border-radius: 9px !important; min-height: 40px; }
+.admin-overview-mode .dashboardTools button { background: #075fc9 !important; color: white !important; border: 0 !important; border-radius: 9px !important; min-height: 40px; box-shadow: none !important; }
+.admin-system-overview { gap: 22px !important; }
+.admin-overview-intro { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-overview-intro h2 { color: #152238; font-size: 23px; font-weight: 700; margin: 0; }
+.admin-overview-intro p { color: #697991; font-size: 12px; line-height: 1.7; margin: 7px 0 0; }
+.admin-overview-intro > span { font-size: 11px; color: #697991; }
+.admin-system-overview .admin-overview-metrics-wrap { gap: 14px !important; }
+.admin-system-overview .admin-featured-stats-grid { gap: 14px !important; }
+.admin-system-overview .admin-featured-stat-card { border: 1px solid transparent !important; border-radius: 16px !important; padding: 22px !important; box-shadow: none !important; min-height: 0 !important; color: white !important; }
+.admin-system-overview .admin-featured-stat-emerald { background: linear-gradient(135deg, #059669 0%, #0d9488 60%, #0f766e 100%) !important; }
+.admin-system-overview .admin-featured-stat-sky { background: linear-gradient(135deg, #0284c7 0%, #0369a1 55%, #1e40af 100%) !important; }
+.admin-system-overview .admin-featured-stat-card::before, .admin-system-overview .admin-featured-stat-card::after { display: none !important; }
+.admin-system-overview .admin-featured-stat-label { color: white !important; font-size: 12px !important; font-weight: 500 !important; }
+.admin-system-overview .admin-featured-stat-badge { display: none; }
+.admin-system-overview .admin-featured-stat-icon-wrap { background: rgba(255, 255, 255, 0.16) !important; color: white !important; border-radius: 10px !important; width: 38px !important; height: 38px !important; box-shadow: none !important; }
+.admin-system-overview .admin-featured-stat-value { color: white !important; font-size: 36px !important; font-weight: 650 !important; margin-top: 10px; }
+.admin-system-overview .admin-featured-stat-subtext { color: #edf7ff !important; font-size: 11px !important; line-height: 1.6; }
+.admin-system-overview .admin-supporting-stats-grid { gap: 14px !important; }
+.admin-system-overview .admin-regular-stat-card { background: white !important; border: 1px solid #e4eaf3 !important; border-radius: 14px !important; box-shadow: none !important; padding: 18px !important; }
+.admin-system-overview .admin-regular-stat-label { color: #697991 !important; font-size: 11px !important; font-weight: 500 !important; }
+.admin-system-overview .admin-regular-stat-value { color: #152238 !important; font-size: 24px !important; font-weight: 650 !important; }
+.admin-system-overview .admin-regular-stat-footer { color: #697991 !important; font-size: 10px !important; }
+.admin-system-overview .admin-regular-stat-icon { background: #f1f5fa !important; color: #526985 !important; border-radius: 8px !important; }
+.admin-system-overview .admin-chart-card { background: white !important; border-color: #e4eaf3 !important; border-radius: 16px !important; box-shadow: none !important; transition: border-color 150ms ease; }
+.admin-system-overview .admin-chart-card:hover { transform: none !important; border-color: #bdd4f3 !important; box-shadow: none !important; }
+.admin-system-overview .admin-chart-card h2 { color: #152238 !important; font-size: 15px !important; font-weight: 600 !important; }
+.admin-system-overview .admin-chart-caption { color: #697991 !important; font-size: 10px !important; }
+.admin-overview-recent { background: white !important; border: 1px solid #e4eaf3; border-radius: 16px; overflow: hidden; }
+.admin-overview-recent > div:first-child { padding: 20px !important; gap: 12px; flex-wrap: wrap; }
+.admin-overview-recent h2 { color: #152238 !important; font-size: 16px !important; font-weight: 600 !important; }
+.admin-overview-recent th { background: #f8fafd !important; color: #697991 !important; font-size: 11px !important; font-weight: 500 !important; text-transform: none !important; letter-spacing: normal !important; white-space: nowrap; }
+.admin-overview-recent td { color: #34445c !important; font-size: 12px !important; }
+.admin-overview-recent button { border-radius: 8px !important; font-weight: 500 !important; box-shadow: none !important; }
+.admin-overview-mode main button:focus-visible, .admin-overview-mode .admin-chart-card:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+@media (max-width: 760px) { .admin-overview-mode .admin-dashboard-toolbar { padding: 16px 16px 0 !important; } .admin-system-overview .admin-featured-stats-grid, .admin-system-overview .admin-supporting-stats-grid, .admin-overview-charts { grid-template-columns: 1fr !important; } }

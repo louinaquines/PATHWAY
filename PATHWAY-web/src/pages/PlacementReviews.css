@@ -1,0 +1,35 @@
+.placement-reviews { color: #152238; margin-top: 24px; }
+.placement-page .placement-workspace-tabs { display: inline-flex; gap: 6px; padding: 6px; margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 14px; background: #eaf0f7; }
+.placement-page .placement-workspace-tabs button { min-height: 44px; padding: 12px 20px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #475569; font-weight: 600; }
+.placement-page .placement-workspace-tabs button[aria-pressed=true] { background: #075fc9; color: #fff; border-color: #075fc9; box-shadow: 0 2px 5px #075fc926; }
+.placement-page .placement-workspace-tabs button:hover:not([aria-pressed=true]) { background: #fff; color: #075fc9; border-color: #cbd5e1; }
+.placement-page .placement-workspace-tabs button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.review-overview { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; }
+.review-overview > div { display: grid; gap: 8px; padding: 22px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+.review-overview span { font-size: 13px; font-weight: 600; color: #475569; }
+.review-overview strong { font-size: 30px; color: #075fc9; }
+.review-overview small { font-size: 12px; color: #64748b; }
+.review-overview button { justify-self: start; margin-top: 8px; padding: 0; border: 0; background: transparent; color: #075fc9; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.review-toolbar { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0 16px; }
+.review-toolbar label, .review-decision label { display: grid; gap: 8px; font-size: 12px; font-weight: 600; color: #475569; }
+.review-search { flex: 1; min-width: 200px; }
+.review-toolbar input, .review-toolbar select, .review-decision input { background: #fff; color: #152238; font: inherit; font-size: 14px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 10px; min-width: 0; }
+.review-stage-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+.review-stage-tabs button { background: transparent; color: #64748b; font: inherit; font-size: 13px; border: 1px solid transparent; border-radius: 9px; padding: 10px 14px; cursor: pointer; }
+.review-stage-tabs button[aria-pressed=true] { background: #eaf2ff; color: #075fc9; border-color: #c7dcff; }
+.review-section-heading { margin: 26px 0 16px; }
+.review-section-heading h3 { font-size: 18px; margin: 0 0 6px; }
+.review-section-heading p { font-size: 13px; color: #64748b; margin: 0; line-height: 1.6; }
+.review-card, .review-empty { border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; background: #fff; margin-top: 14px; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.review-card h3 { font-size: 17px; }
+.review-empty { color: #64748b; text-align: center; padding: 32px; }
+.review-decision { border-top: 1px solid #edf1f7; padding-top: 18px; margin-top: 18px; display: grid; gap: 14px; }
+.review-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.placement-reviews .review-actions button { border: 1px solid #dbe3ee; border-radius: 10px; padding: 11px 16px; background: #fff; color: #475569; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.placement-reviews .review-actions .review-approve { background: #075fc9; color: #fff; border-color: #075fc9; }
+.placement-reviews .review-actions .review-reject { color: #b42318; }
+.placement-reviews button:focus-visible, .placement-reviews input:focus-visible, .placement-reviews select:focus-visible, .placement-reviews summary:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.review-documents { margin-top: 16px; border: 1px solid #e2e8f0; padding: 12px 16px; border-radius: 10px; }
+.review-documents summary { cursor: pointer; font-weight: 600; color: #075fc9; }
+.review-documents > div { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid #edf1f7; margin-top: 10px; padding-top: 10px; font-size: 13px; }
+@media(max-width: 700px) { .review-overview { grid-template-columns: 1fr; } .review-card { padding: 18px; } .review-toolbar > label { width: 100%; } .review-actions button { flex: 1; } }

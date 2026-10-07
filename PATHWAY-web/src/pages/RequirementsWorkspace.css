@@ -1,0 +1,114 @@
+.requirements-workspace {
+  gap: 16px;
+  padding: 24px;
+  background: #f6f8fc;
+  min-height: 0;
+  box-sizing: border-box;
+}
+.requirements-workspace > div {
+  border: 1px solid #e4eaf3 !important;
+  border-radius: 18px;
+  background: #fff !important;
+  min-height: 0;
+}
+.requirements-workspace .requirements-sections { width: 220px !important; }
+.requirements-workspace .requirements-students { width: 285px !important; }
+.requirements-workspace > div > div:first-child {
+  padding: 20px 18px 16px !important;
+  font-size: 17px !important;
+  letter-spacing: normal !important;
+  color: #152238 !important;
+  border-bottom-color: #edf1f7 !important;
+}
+.requirements-workspace p {
+  margin: 6px 0 0;
+  color: #697991;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+.requirements-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #eef4fc;
+  color: #075fc9;
+  font-size: 11px;
+  vertical-align: middle;
+}
+.requirements-section-card, .requirements-student-card {
+  width: calc(100% - 20px);
+  margin: 6px 10px;
+  border: 1px solid transparent !important;
+  border-radius: 12px;
+  background: white;
+  text-align: left;
+  font: inherit;
+  box-sizing: border-box;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.requirements-section-card:hover, .requirements-student-card:hover { background: #f5f8fd; }
+.requirements-section-card[aria-pressed="true"], .requirements-student-card[aria-pressed="true"] {
+  background: #eef5ff !important;
+  border-color: #c6dcfa !important;
+}
+.requirements-workspace button:focus-visible, .requirements-workspace a:focus-visible {
+  outline: 3px solid #87b9f6;
+  outline-offset: 2px;
+}
+.requirements-workspace .requirements-student-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  margin: 10px;
+  border-color: #e4eaf3 !important;
+  background: #fff;
+  color: #152238;
+  cursor: pointer;
+}
+.requirements-workspace .requirements-student-card[aria-pressed="true"] {
+  background: #f8fbff !important;
+  border-color: #075fc9 !important;
+}
+.student-card-identity { display: flex; gap: 10px; align-items: center; }
+.student-card-name { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.student-card-name strong { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.student-card-name > span { font-size: 11px; color: #697991; overflow-wrap: anywhere; }
+.student-card-percentage { color: #075fc9; font-size: 16px; letter-spacing: -.4px; }
+.student-card-percentage.is-complete { color: #087c56; }
+.student-card-progress { width: 100%; }
+.student-card-progress-caption { margin-top: 7px; color: #697991; font-size: 10px; line-height: 1.5; }
+.requirements-document { padding: 18px !important; border-color: #e4eaf3 !important; border-radius: 14px !important; gap: 12px; }
+.requirements-document-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef5ff;
+  border-radius: 10px;
+  color: #075fc9;
+}
+.requirements-document > div:first-child > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.requirements-document button, .requirements-document a { min-height: 36px; }
+.requirements-workspace button:disabled { opacity: .55; cursor: wait; }
+@media (max-width: 1250px) {
+  .requirements-workspace { gap: 10px; padding: 16px; }
+  .requirements-workspace .requirements-sections { width: 170px !important; }
+  .requirements-workspace .requirements-students { width: 235px !important; }
+  .requirements-document { flex-direction: column; }
+  .requirements-document > div:last-child { margin-left: 46px !important; align-items: flex-start !important; }
+}
+@media (max-width: 900px) {
+  .requirements-workspace { flex-wrap: wrap; overflow-y: auto !important; align-content: flex-start; }
+  .requirements-workspace .requirements-sections, .requirements-workspace .requirements-students { width: calc(50% - 5px) !important; max-height: 340px; }
+  .requirements-workspace .requirements-detail { flex: 0 0 100% !important; overflow: visible !important; }
+}
+@media (max-width: 520px) {
+  .requirements-workspace { padding: 12px; }
+  .requirements-workspace .requirements-sections, .requirements-workspace .requirements-students { width: 100% !important; max-height: 300px; }
+  .requirements-document > div:last-child { margin-left: 0 !important; }
+}

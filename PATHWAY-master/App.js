@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { signOut } from 'firebase/auth';
 import { Animated, StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import StudentSuccessHost from './components/StudentSuccessHost';
 import { auth } from './firebaseConfig';
 import { destinationForProfile } from './services/authDestination';
 import { postBackend } from './services/backendApi';
@@ -20,6 +21,7 @@ import AdminDashboard from './screens/AdminDashboard';
 import StudentDashboard from './screens/StudentDashboard';
 import RequirementsScreen from './screens/RequirementsScreen';
 import CompanyScreen from './screens/CompanyScreen';
+import StudentDialogHost from './components/StudentDialogHost';
 import ReviewScreen from './screens/ReviewScreen';
 import ApprovalScreen from './screens/ApprovalScreen';
 import ForgotPasswordScreen from './screens/AccountRecoveryScreen';
@@ -27,6 +29,7 @@ import LogbookScreen from './screens/LogbookScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import ActivityHistoryScreen from './screens/ActivityHistoryScreen';
 
 
 // Placeholder screens — replace these as you build each one
@@ -57,6 +60,7 @@ const LogbookWithMotion = withStudentMotion(LogbookScreen);
 const AttendanceWithMotion = withStudentMotion(AttendanceScreen);
 const ProgressWithMotion = withStudentMotion(ProgressScreen);
 const NotificationsWithMotion = withStudentMotion(NotificationsScreen);
+const ActivityHistoryWithMotion = withStudentMotion(ActivityHistoryScreen);
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -188,6 +192,7 @@ export default function App() {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordWithMotion} />
         <Stack.Screen name="Progress" component={ProgressWithMotion} />
         <Stack.Screen name="Notifications" component={NotificationsWithMotion} />
+        <Stack.Screen name="ActivityHistory" component={ActivityHistoryWithMotion} />
 
         </Stack.Navigator>
     </NavigationContainer>
@@ -202,6 +207,8 @@ export default function App() {
         importantForAccessibility={startupComplete ? 'auto' : 'no-hide-descendants'}
       >
         {appContent}
+        <StudentDialogHost />
+        <StudentSuccessHost />
       </View>
       {!startupComplete ? (
         <AnimatedSplash

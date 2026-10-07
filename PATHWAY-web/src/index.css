@@ -1771,6 +1771,82 @@ button {
   }
 }
 
+.coordinator-page .section-export-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 17px;
+  margin-left: 16px;
+  flex-shrink: 0;
+  border: 1px solid #075fc9;
+  border-radius: 10px;
+  background: #075fc9;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(7, 95, 201, .14);
+  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.coordinator-page .section-export-button:hover:not(:disabled) {
+  background: #064da3;
+  box-shadow: 0 4px 10px rgba(7, 95, 201, .22);
+  transform: translateY(-1px);
+}
+
+.coordinator-page .section-export-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.coordinator-page .section-export-button:focus-visible {
+  outline: 3px solid #7bb5ff;
+  outline-offset: 3px;
+}
+
+.coordinator-page .section-export-button:disabled {
+  background: #edf2f7;
+  border-color: #dce4ee;
+  color: #64748b;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.coordinator-page .section-export-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: section-export-spin 800ms linear infinite;
+}
+
+@keyframes section-export-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coordinator-page .section-export-button { transition: none; }
+  .coordinator-page .section-export-button:hover:not(:disabled) { transform: none; }
+  .coordinator-page .section-export-spinner { animation: none; }
+}
+
+@media (max-width: 1100px) {
+  .coordinator-page .topbar { flex-wrap: wrap; gap: 14px; }
+  .coordinator-page .topbarLeft { flex-wrap: wrap; min-width: 0; }
+  .coordinator-page .section-export-button { margin-left: 0; }
+}
+
+@media (max-width: 680px) {
+  .coordinator-page .topbarLeft { flex-basis: 100%; }
+  .coordinator-page .section-export-button { width: 100%; }
+}
+
 @media (max-width: 900px) {
 
   .coordinator-page>aside,

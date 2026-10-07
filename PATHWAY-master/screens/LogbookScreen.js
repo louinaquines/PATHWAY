@@ -8,15 +8,19 @@ import {
   StatusBar,
   ActivityIndicator,
   Modal,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
+import { readRecordPage, mergeRecords } from '../services/recordPagination';
+import LoadMore from '../components/LoadMore';
+import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
+import { studentAlert as Alert } from '../services/studentAlert';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import {
@@ -83,10 +87,10 @@ function formatTimeAgo(isoStr) {
 }
 
 // ─── Coordinator review status ───────────────────────────────────────────────
-function ReviewStatusCard({ entries }) {
-  const pendingCount = entries.filter(entry => entry.status === 'pending').length;
-  const revisionCount = entries.filter(entry => entry.status === 'rejected').length;
-  const approvedCount = entries.filter(entry => entry.status === 'approved').length;
+function ReviewStatusCard({ summary }) {
+  const pendingCount = summary.pending;
+  const revisionCount = summary.rejected;
+  const approvedCount = summary.approved;
 
   let message = 'Submitted entries and their coordinator review status will appear here.';
   let Icon = InfoIcon;
@@ -101,7 +105,7 @@ function ReviewStatusCard({ entries }) {
     message = `${revisionCount} ${revisionCount === 1 ? 'entry needs' : 'entries need'} revision. Open the report to review it before submitting an updated entry.`;
     Icon = AlertCircleIcon;
     iconColor = COLORS.warningDark;
-  } else if (entries.length > 0 && approvedCount === entries.length) {
+  } else if (summary.count > 0 && approvedCount === summary.count) {
     message = 'Your submitted entries have been reviewed and approved by your coordinator.';
     Icon = CheckCircleIcon;
     iconColor = COLORS.successDark;
@@ -130,10 +134,9 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
       style={styles.entryCard}
       onPress={onToggle}
       activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isExpanded }}
     >
-      {/* Left accent bar */}
-      <View style={[styles.entryAccent, { backgroundColor: config.dot }]} />
-
       <View style={styles.entryBody}>
         {/* Top row: title + badge */}
         <View style={styles.entryTop}>
@@ -146,7 +149,6 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
               <Text style={styles.entryMeta}>
                 {formatTimeAgo(entry.createdAt)}
               </Text>
-              <View style={styles.metaDot} />
               <ClockIcon size={11} color={COLORS.textMuted} />
               <Text style={styles.entryMeta}>{entry.hours} hrs</Text>
             </View>
@@ -154,7 +156,6 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
 
           {/* Status badge */}
           <View style={[styles.statusBadge, { backgroundColor: config.bg, borderColor: config.border }]}>
-            <View style={[styles.statusDot, { backgroundColor: config.dot }]} />
             <Text style={[styles.statusBadgeText, { color: config.text }]}>
               {config.label}
             </Text>
@@ -203,6 +204,7 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function LogbookScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -213,6 +215,10 @@ export default function LogbookScreen({ navigation }) {
   const [refined, setRefined] = useState('');
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [pageState, setPageState] = useState({ cursor: null, hasMore: false });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState('');
+  const [summary, setSummary] = useState({ count: 0, hours: 0, pending: 0, approved: 0, rejected: 0 });
 
   const uid = auth.currentUser.uid;
 
@@ -222,15 +228,34 @@ export default function LogbookScreen({ navigation }) {
     setLoading(true);
     setLoadError('');
     try {
-      const q = query(collection(db, 'users', uid, 'logbook'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const records = collection(db, 'users', uid, 'logbook');
+      const [page, count, hours, pending, approved, rejected] = await Promise.all([
+        readRecordPage(query(records, orderBy('createdAt', 'desc')), 5),
+        getCountFromServer(records), getAggregateFromServer(records, { hours: sum('hours') }),
+        ...['pending', 'approved', 'rejected'].map(status => getCountFromServer(query(records, where('status', '==', status)))),
+      ]);
+      setEntries(page.records);
+      setPageState(page);
+      setPageError('');
+      setSummary({ count: count.data().count, hours: hours.data().hours || 0, pending: pending.data().count, approved: approved.data().count, rejected: rejected.data().count });
     } catch (e) {
       console.error('Fetch logbook entries error:', e);
       setLoadError('Your logbook entries could not be loaded. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMoreEntries = async () => {
+    if (loadingMore || !pageState.hasMore) return;
+    setLoadingMore(true);
+    setPageError('');
+    try {
+      const page = await readRecordPage(query(collection(db, 'users', uid, 'logbook'), orderBy('createdAt', 'desc')), 5, pageState.cursor);
+      setEntries(previous => mergeRecords(previous, page.records));
+      setPageState(page);
+    } catch { setPageError('Could not load older journals. Please try again.'); }
+    finally { setLoadingMore(false); }
   };
 
   const refineWithAI = async () => {
@@ -260,7 +285,7 @@ export default function LogbookScreen({ navigation }) {
     }
     setSaving(true);
     try {
-      const weekNum = entries.length + 1;
+      const weekNum = summary.count + 1;
       const entryText = refined.trim() || rawNotes.trim();
       await addDoc(collection(db, 'users', uid, 'logbook'), {
         weekNum,
@@ -273,6 +298,7 @@ export default function LogbookScreen({ navigation }) {
         createdAt: new Date().toISOString(),
       });
       setModal(false);
+      showStudentSuccess('Logbook submitted', 'Your entry was saved and is ready for coordinator review.');
       setRawNotes('');
       setHours('');
       setRefined('');
@@ -302,6 +328,7 @@ export default function LogbookScreen({ navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
       {/* ── Header ── */}
+      <View style={{ height: insets.top, backgroundColor: COLORS.surface }} />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -330,7 +357,7 @@ export default function LogbookScreen({ navigation }) {
         </MotionTouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
 
         <View style={styles.pageIntro}>
           <Text style={styles.pageEyebrow}>WEEKLY JOURNAL</Text>
@@ -357,20 +384,20 @@ export default function LogbookScreen({ navigation }) {
           </View>
           <View style={styles.statsMetrics}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{entries.length}</Text>
+              <Text style={styles.statValue}>{summary.count}</Text>
               <Text style={styles.statLabel}>Entries</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {entries.reduce((sum, entry) => sum + (Number(entry.hours) || 0), 0).toFixed(1).replace(/\.0$/, '')}
+                {Number(summary.hours).toFixed(1).replace(/\.0$/, '')}
               </Text>
               <Text style={styles.statLabel}>Hours logged</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: COLORS.successDark }]}>
-                {entries.filter(entry => entry.status === 'approved').length}
+                {summary.approved}
               </Text>
               <Text style={styles.statLabel}>Approved</Text>
             </View>
@@ -378,12 +405,12 @@ export default function LogbookScreen({ navigation }) {
         </View>
 
         {/* ── Coordinator review status ── */}
-        <ReviewStatusCard entries={entries} />
+        <ReviewStatusCard summary={summary} />
 
         {/* ── Entries section header ── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Weekly Entries</Text>
-          <Text style={styles.sectionCount}>{entries.length} logs</Text>
+          <Text style={styles.sectionCount}>{summary.count} logs</Text>
         </View>
 
         {/* ── Empty state ── */}
@@ -418,6 +445,7 @@ export default function LogbookScreen({ navigation }) {
             onToggle={() => setExpanded(expanded === entry.id ? null : entry.id)}
           />
         ))}
+        <LoadMore onPress={loadMoreEntries} loading={loadingMore} hasMore={pageState.hasMore} error={pageError} />
 
         {/* ── Attendance handoff ── */}
         <View style={styles.dtrCard}>
@@ -467,7 +495,7 @@ export default function LogbookScreen({ navigation }) {
               <View>
                 <Text style={styles.modalTitle}>New Weekly Entry</Text>
                 <Text style={styles.modalWeek}>
-                  Week {entries.length + 1}  ·  {getWeekRange(new Date())}
+                  Week {summary.count + 1}  ·  {getWeekRange(new Date())}
                 </Text>
               </View>
               <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
@@ -601,7 +629,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 760,
     alignSelf: 'center',
-    paddingTop: Platform.OS === 'ios' ? 50 : 18,
+    paddingTop: 12,
     paddingBottom: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -623,7 +651,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    top: Platform.OS === 'ios' ? 50 : 18,
+    top: 12,
     height: 40,
     flexDirection: 'row',
     alignItems: 'center',
@@ -898,16 +926,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...SHADOWS.soft,
-  },
-  entryAccent: {
-    width: 4,
-    borderTopLeftRadius: RADIUS.lg,
-    borderBottomLeftRadius: RADIUS.lg,
   },
   entryBody: {
     flex: 1,
-    padding: 14,
+    padding: 18,
   },
   entryTop: {
     flexDirection: 'row',
@@ -922,6 +944,7 @@ const styles = StyleSheet.create({
   },
   entryMetaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 4,
   },
@@ -930,26 +953,14 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontWeight: '500',
   },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: COLORS.textMuted,
-    marginHorizontal: 2,
-  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: RADIUS.full,
+    borderRadius: 8,
     borderWidth: 1,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
   },
   statusBadgeText: {
     fontSize: 11,
@@ -988,10 +999,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   rawNoteBox: {
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.secondary,
-    paddingLeft: 10,
-    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.md,
+    padding: 12,
     marginBottom: 8,
   },
   rawLabel: {

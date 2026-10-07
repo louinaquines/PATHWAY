@@ -13,6 +13,7 @@
     "qa:student-journey": "node security-tests/student-journey-qa.js",
     "dev:emulator": "node security-tests/start-emulator-workflow.js",
     "emulator:seed": "node security-tests/seed-workflow-emulator.js",
+    "emulator:backup": "node security-tests/emulator-persistence.js",
     "emulator:decision": "node security-tests/emulator-coordinator-action.js",
     "emulator:workflow-smoke": "node security-tests/emulator-workflow-smoke.js"
   },

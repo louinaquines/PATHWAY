@@ -1,0 +1,44 @@
+.admin-page .sidebar-container { background: white !important; border-right: 1px solid #e4eaf3 !important; padding: 22px 16px 16px !important; }
+.admin-page .sidebar-brand { padding: 0 6px 22px !important; margin-bottom: 18px !important; border-bottom: 1px solid #edf1f7; }
+.admin-page .sidebar-logo-box { border: 1px solid #e4eaf3 !important; background: #f5f9ff !important; border-radius: 11px !important; box-shadow: none !important; }
+.admin-page .sidebar-brand-title { color: #152238 !important; font-size: 16px !important; font-weight: 700 !important; }
+.admin-page .sidebar-brand-subtitle { color: #697991 !important; font-size: 11px !important; font-weight: 400 !important; }
+.admin-page .sidebar-group-title { font-size: 10px !important; color: #8a98ac !important; font-weight: 600 !important; letter-spacing: .06em !important; }
+.admin-page .sidebar-nav-btn { border: 1px solid transparent !important; border-radius: 9px !important; background: transparent !important; color: #526985 !important; font-size: 12px !important; font-weight: 500 !important; box-shadow: none !important; min-height: 42px; transform: none !important; }
+.admin-page .sidebar-nav-btn::before, .admin-page .sidebar-nav-btn::after { display: none !important; }
+.admin-page .sidebar-nav-btn:hover { background: #f6f8fc !important; color: #075fc9 !important; }
+.admin-page .sidebar-nav-btn-active, .admin-page .sidebar-nav-btn-active:hover { background: #eef4fc !important; color: #075fc9 !important; }
+.admin-page .sidebar-nav-btn svg { color: inherit !important; }
+.admin-page .sidebar-badge { background: #f1f5fa !important; color: #697991 !important; border: 0 !important; font-size: 10px !important; font-weight: 500 !important; border-radius: 6px !important; }
+.admin-page .sidebar-footer { border-top: 1px solid #edf1f7 !important; padding-top: 16px !important; }
+.admin-page .sidebar-user-pill { background: #f8fafd !important; border: 1px solid #e4eaf3 !important; border-radius: 10px !important; box-shadow: none !important; }
+.admin-page .sidebar-user-pill-active { border-color: #bcd3f2 !important; }
+.admin-page .sidebar-user-avatar { background: #eef4fc !important; color: #075fc9 !important; border-radius: 9px !important; box-shadow: none !important; }
+.admin-page .sidebar-user-name { color: #152238 !important; font-size: 12px !important; font-weight: 600 !important; }
+.admin-page .sidebar-user-role { color: #697991 !important; font-size: 10px !important; }
+.admin-page .sidebar-logout-btn { background: white !important; border: 1px solid #e4eaf3 !important; border-radius: 9px !important; color: #526985 !important; font-size: 12px !important; font-weight: 500 !important; box-shadow: none !important; }
+.admin-page .sidebar-container button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+.admin-page .admin-profile-container { max-width: 1050px; gap: 22px; }
+.admin-page .admin-profile-hero { background: white !important; border: 1px solid #e4eaf3 !important; border-radius: 16px !important; padding: 24px !important; box-shadow: none !important; }
+.admin-page .admin-profile-hero::before, .admin-page .admin-profile-hero::after { display: none !important; }
+.admin-page .admin-profile-hero-avatar { background: #eef4fc !important; color: #075fc9 !important; border: 0 !important; border-radius: 14px !important; box-shadow: none !important; width: 64px !important; height: 64px !important; font-size: 23px !important; }
+.admin-page .admin-profile-hero-details h2 { color: #152238 !important; font-size: 23px !important; font-weight: 700 !important; }
+.admin-page .admin-profile-hero-meta { flex-wrap: wrap; }
+.admin-page .admin-profile-tag { border: 0 !important; border-radius: 6px !important; font-weight: 500 !important; box-shadow: none !important; }
+.admin-page .admin-profile-tag-role { background: #eef4fc !important; color: #075fc9 !important; }
+.admin-page .admin-profile-tag-status { background: #e8f7ef !important; color: #087950 !important; }
+.admin-page .admin-profile-card { background: white !important; border: 1px solid #e4eaf3 !important; border-radius: 16px !important; box-shadow: none !important; }
+.admin-page .admin-profile-card-title { color: #152238 !important; font-size: 16px !important; font-weight: 600 !important; }
+.admin-page .admin-profile-card-subtitle { color: #697991 !important; font-size: 12px !important; }
+.admin-page .admin-profile-label { color: #34445c !important; font-size: 12px !important; font-weight: 500 !important; }
+.admin-page .admin-profile-input { background: #fbfcfe !important; border: 1px solid #dce5f1 !important; border-radius: 9px !important; color: #152238 !important; font-size: 13px !important; box-shadow: none !important; }
+.admin-page .admin-profile-input-readonly { background: #f1f5fa !important; color: #697991 !important; }
+.admin-page .admin-profile-save-btn { background: #075fc9 !important; border: 0 !important; border-radius: 9px !important; color: white !important; font-size: 12px !important; font-weight: 600 !important; box-shadow: none !important; }
+.admin-page .admin-profile-security-item { background: #f8fafd !important; border: 1px solid #edf1f7 !important; border-radius: 10px !important; }
+.admin-page .admin-profile-security-item-label { font-size: 11px !important; color: #697991 !important; }
+.admin-page .admin-profile-security-item-val { font-size: 12px !important; font-weight: 500 !important; }
+.admin-page .admin-profile-danger-card { background: #f8fafd !important; border: 1px solid #e4eaf3 !important; border-radius: 12px !important; box-shadow: none !important; }
+.admin-page .admin-profile-danger-card h4 { color: #34445c !important; font-weight: 600 !important; font-size: 12px !important; }
+.admin-page .admin-profile-danger-card p { color: #697991 !important; font-size: 11px !important; line-height: 1.7; }
+.admin-page .admin-profile-input:focus-visible, .admin-page .admin-profile-save-btn:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+@media (max-width: 700px) { .admin-page .admin-profile-grid, .admin-page .admin-profile-security-grid { grid-template-columns: 1fr !important; } .admin-page .admin-profile-hero-left { flex-wrap: wrap; } }

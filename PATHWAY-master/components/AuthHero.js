@@ -80,12 +80,11 @@ export default function AuthHero({
 
 export function AuthPanel({ children, style, startupProgress, startupTransition = false }) {
   const baseStyle = StyleSheet.flatten(style) || {};
-  if (!startupTransition || !startupProgress) {
-    return <View style={baseStyle}>{children}</View>;
-  }
-
-  const opacity = startupProgress.interpolate({ inputRange: [0, 0.6, 0.88, 1], outputRange: [0, 0, 1, 1] });
-  const translateY = startupProgress.interpolate({ inputRange: [0, 0.6, 0.88, 1], outputRange: [34, 34, 0, 0] });
+  // Keep the host component stable when startup ends: replacing Animated.View
+  // with View remounts the form and makes a focused native input lose its IME.
+  const animate = startupTransition && startupProgress;
+  const opacity = animate ? startupProgress.interpolate({ inputRange: [0, 0.6, 0.88, 1], outputRange: [0, 0, 1, 1] }) : 1;
+  const translateY = animate ? startupProgress.interpolate({ inputRange: [0, 0.6, 0.88, 1], outputRange: [34, 34, 0, 0] }) : 0;
   return (
     <Animated.View style={[baseStyle, { opacity, transform: [...(baseStyle.transform || []), { translateY }] }]}>
       {children}

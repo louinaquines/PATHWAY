@@ -7,6 +7,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './CoordinatorOperations.css';
 
 export function csvCell(value) {
   const text = String(value ?? '');
@@ -34,6 +35,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       const sectionSnap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
       const sections = sectionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const scopedSections = selectedSection ? sections.filter(section => section.id === selectedSection.id) : [];
+      const evaluationResult = await adminRequest('/coordinator-evaluations');
+      const evaluatedStudents = new Set((evaluationResult.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
       const groups = await Promise.all(scopedSections.map(async section => {
         const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
         return studentSnap.docs.map(d => {
@@ -52,7 +55,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
             required,
             hours: hours ? 'Complete' : 'Incomplete',
             account: student.accountApproved ? 'Approved' : 'Pending',
-            ready: student.accountApproved && requirements && hours,
+            ready: student.accountApproved && requirements && hours
+              && student.preDeploymentStatus === 'approved' && student.placementStatus === 'approved'
+              && evaluatedStudents.has(d.id),
             clearanceStatus: student.clearanceStatus || 'not_cleared',
           };
         });
@@ -179,7 +184,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       <div style={s.toolbar}>
         <div>
           <h2 style={s.title}>Clearance Readiness</h2>
-          <p style={s.sub}>Review student eligibility and issue official OJT clearance sign-offs.</p>
+          <p style={s.sub}>Clearance requires approved requirements and placement, final deployment approval, completed hours, and a submitted supervisor evaluation.</p>
         </div>
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={load}>Refresh</button>
@@ -188,10 +193,10 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
         </div>
       </div>
 
-      {error && <div style={s.errorBox}>{error}</div>}
+      {error && <div role="alert" style={s.errorBox}>{error}</div>}
 
       {/* Metrics Grid */}
-      <div style={s.metrics}>
+      <div className="clearance-metrics" style={s.metrics}>
         <MetricCard label="Total Students" value={rows.length} accent="sky" />
         <MetricCard label="Cleared" value={clearedCount} accent="emerald" />
         <MetricCard label="Ready for Sign-Off" value={readyCount} accent="yellow" />
@@ -200,7 +205,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       </div>
 
       {/* Table Card */}
-      <div style={s.card}>
+      <div className="clearance-records" style={s.card}>
         <div style={s.searchRow}>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" />
           <span style={s.searchCount}>{filteredRows.length} of {rows.length} record(s)</span>
@@ -266,8 +271,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
               ))}
             </tbody>
           </table>
-          {!rows.length && (
-            <div style={s.empty}>No student records found in your assigned sections.</div>
+          {!filteredRows.length && (
+            <div style={s.empty}>{searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
           )}
         </div>
       </div>
@@ -275,18 +280,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   );
 }
 
-function MetricCard({ label, value, accent }) {
-  const accentColors = {
-    sky: { border: COLORS.sky500, bg: COLORS.sky50 },
-    yellow: { border: COLORS.yellow500, bg: COLORS.yellow50 },
-    emerald: { border: COLORS.emerald500, bg: COLORS.emerald50 },
-    rose: { border: COLORS.rose500, bg: COLORS.rose50 },
-    slate: { border: COLORS.slate400, bg: COLORS.slate100 },
-  };
-  const theme = accentColors[accent] || accentColors.sky;
-
+function MetricCard({ label, value }) {
   return (
-    <div style={{ ...s.metricCard, borderLeft: `4px solid ${theme.border}` }}>
+    <div style={s.metricCard}>
       <div style={s.metricLabel}>{label}</div>
       <div style={s.metricValue}>{value}</div>
     </div>

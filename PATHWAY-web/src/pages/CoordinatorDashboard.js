@@ -12,6 +12,7 @@ import NotificationsTab from './NotificationsTab';
 import EvaluationTab from './EvaluationTab';
 import ClearanceTab from './ClearanceTab';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
+import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
 import { collection, getDocs, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
@@ -22,6 +23,11 @@ import { setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import { requirementProgress } from '../requirementProgress';
+import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
+import { downloadSectionExcel } from '../sectionExport';
+import './RequirementsWorkspace.css';
+import './CoordinatorProfile.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -39,14 +45,7 @@ const STATUS_TEXT = {
   rejected: 'Rejected',
 };
 
-const STATUS_DOT = {
-  not_submitted: COLORS.rose600,
-  submitted: COLORS.amber600,
-  approved: COLORS.emerald600,
-  rejected: COLORS.rose600,
-};
-
-const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
+const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const ACTIVE_TAB_STORAGE_KEY = 'pathway.coordinator.activeTab';
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
@@ -74,6 +73,26 @@ export default function CoordinatorDashboard() {
   const [coordinatorProfile, setCoordinatorProfile] = useState(null);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [exporting, setExporting] = useState(false);
+
+  const exportSection = async () => {
+    if (!selectedSection || exporting) return;
+    const section = selectedSection;
+    setExporting(true);
+    setError('');
+    try {
+      const [studentSnap, reqSnap] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', section.department), where('sectionId', '==', section.id))),
+        getDocs(collection(db, 'sections', section.id, 'requirements')),
+      ]);
+      if (studentSnap.metadata.fromCache || reqSnap.metadata.fromCache) throw new Error('Connect to the internet before exporting current section records.');
+      await downloadSectionExcel(section, studentSnap.docs.map(item => ({ ...item.data(), id: item.id })), reqSnap.docs.map(item => ({ ...item.data(), id: item.id })));
+    } catch (e) {
+      setError(e.message || 'Could not export this section. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchInitialData = useCallback(async () => {
     if (!coordinatorId) return;
@@ -134,8 +153,8 @@ export default function CoordinatorDashboard() {
       setStudents(studentSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       const reqs = reqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       reqs.sort((a, b) => {
-        const order = ['Pre-OJT', 'Ongoing', 'Post-OJT'];
-        return order.indexOf(a.category) - order.indexOf(b.category);
+        return REQUIREMENT_CATEGORIES.indexOf(requirementCategory(a.category))
+          - REQUIREMENT_CATEGORIES.indexOf(requirementCategory(b.category));
       });
       setSectionRequirements(reqs);
     } catch (e) {
@@ -214,6 +233,7 @@ export default function CoordinatorDashboard() {
         { id: 'sections', icon: 'section', label: 'Sections' },
         { id: 'logbook', icon: 'book', label: 'Logbook' },
         { id: 'placements', icon: 'building', label: 'Company Placements' },
+        { id: 'companies', icon: 'building', label: 'Company Directory' },
         { id: 'messages', icon: 'chat', label: 'Messages' },
         { id: 'evaluations', icon: 'star', label: 'Evaluations' },
         { id: 'clearance', icon: 'cap', label: 'Clearance' },
@@ -245,7 +265,7 @@ export default function CoordinatorDashboard() {
         </div>
 
         {coordDept && (
-          <div style={s.deptPill}>
+          <div className="coordinator-department" style={s.deptPill}>
             <span style={s.deptText}>{coordDept}</span>
           </div>
         )}
@@ -290,8 +310,8 @@ export default function CoordinatorDashboard() {
               <Icon name="user" size={17} label="Coordinator profile" />
             </div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{auth.currentUser?.email || 'Coordinator'}</span>
-              <span className="sidebar-user-role">{coordDept || 'Coordinator'}</span>
+              <span className="sidebar-user-name">{[coordinatorProfile?.firstName, coordinatorProfile?.lastName].filter(Boolean).join(' ') || auth.currentUser?.email || 'Coordinator'}</span>
+              <span className="sidebar-user-role">Profile settings</span>
             </div>
             <Icon name="chevronRight" size={14} className="sidebar-user-chevron" />
           </button>
@@ -312,6 +332,7 @@ export default function CoordinatorDashboard() {
                 activeTab === 'sections' ? 'Sections Management' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
                             activeTab === 'placements' ? 'Company Placements' :
+                              activeTab === 'companies' ? 'Company Directory' :
                               activeTab === 'messages' ? 'Messages' :
                     activeTab === 'registrations' ? 'Student Registrations' :
                       activeTab === 'classlist' ? 'Authorized Class List' :
@@ -336,6 +357,19 @@ export default function CoordinatorDashboard() {
               </label>
             )}
           </div>
+          {['requirements', 'sections'].includes(activeTab) && (
+            <button
+              type="button"
+              className="section-export-button"
+              onClick={exportSection}
+              disabled={!selectedSection || loading || exporting}
+              aria-busy={exporting}
+              title={selectedSection ? `Download ${selectedSection.name} records as an Excel file` : 'Select a section to export'}
+            >
+              {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
+              <span aria-live="polite">{exporting ? 'Exporting…' : 'Export Data'}</span>
+            </button>
+          )}
         </header>
 
         {error && !loading && (
@@ -361,71 +395,79 @@ export default function CoordinatorDashboard() {
         ) : (
           <div style={s.contentWrapper}>
             {activeTab === 'requirements' && (
-              <div style={s.threeCol}>
+              <div className="requirements-workspace" style={s.threeCol}>
                 {/* Column 1: Sections */}
-                <div style={s.col1}>
-                  <div style={s.colHeader}>SECTIONS ({filteredSections.length})</div>
+                <div className="requirements-sections" style={s.col1}>
+                  <div style={s.colHeader}>Sections <span className="requirements-count">{filteredSections.length}</span><p>Choose your class to get started.</p></div>
                   <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" /></div>
                   {filteredSections.length === 0 && (
-                    <div style={s.empty}>No sections yet. Create one in the Sections tab.</div>
+                    <div style={s.empty}>{searchQuery ? 'No matching sections. Try another search.' : 'No sections yet. Create one in the Sections tab.'}</div>
                   )}
                   {filteredSections.map(sec => (
-                    <div
+                    <button
+                      type="button"
+                      className="requirements-section-card"
+                      aria-pressed={selectedSection?.id === sec.id}
                       key={sec.id}
                       style={{ ...s.secCard, ...(selectedSection?.id === sec.id ? s.secCardActive : {}) }}
                       onClick={() => fetchStudents(sec)}
                     >
                       <div style={s.secName}>{sec.name}</div>
                       <div style={s.secInfo}>{sec.department}</div>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
                 {/* Column 2: Students */}
-                <div style={s.col2}>
+                <div className="requirements-students" style={s.col2}>
                   <div style={s.colHeader}>
-                    {selectedSection ? `STUDENTS — ${selectedSection.name}` : 'STUDENTS'}
+                    Students <span className="requirements-count">{filteredStudents.length}</span>
+                    <p>{selectedSection?.name || 'Select a section to see its students.'}</p>
                   </div>
                   {!selectedSection && (
                     <div style={s.empty}>Select a section from the left list.</div>
                   )}
                   {selectedSection && filteredStudents.length === 0 && (
-                    <div style={s.empty}>No students enrolled in this section.</div>
+                    <div style={s.empty}>{searchQuery ? 'No matching students. Try another search.' : 'No students enrolled in this section.'}</div>
                   )}
-                  {filteredStudents.map(student => (
-                    <div
+                  {filteredStudents.map(student => {
+                    const progress = requirementProgress(student.requirements, sectionRequirements);
+                    return (
+                    <button
+                      type="button"
+                      className="requirements-student-card"
+                      aria-pressed={selectedStudent?.id === student.id}
                       key={student.id}
-                      style={{ ...s.studentCard, ...(selectedStudent?.id === student.id ? s.studentCardActive : {}) }}
                       onClick={() => setSelectedStudent(student)}
                     >
-                      <div style={s.studentTop}>
-                        <div style={s.avatar}>{student.firstName?.[0]}{student.lastName?.[0]}</div>
-                        <div>
-                          <div style={s.studentName}>{student.firstName} {student.lastName}</div>
-                          <div style={s.studentInfo}>{student.idNumber}</div>
+                      <div className="student-card-identity">
+                        <div className="student-card-name">
+                          <strong>{student.firstName} {student.lastName}</strong>
+                          <span>ID {student.idNumber || 'not provided'}</span>
                         </div>
+                        {selectedStudent?.id === student.id && (
+                          <strong className={`student-card-percentage${progress.percentage === 100 ? ' is-complete' : ''}`}>{progress.percentage}%</strong>
+                        )}
                       </div>
-                      <div style={{
-                        ...s.statusPill,
-                        color: '#000000',
-                        backgroundColor: student.requirementsStatus === 'approved' ? COLORS.emerald100 :
-                          student.requirementsStatus === 'pending' ? COLORS.yellow100 : COLORS.rose100,
-                        border: `1px solid ${student.requirementsStatus === 'approved' ? COLORS.emerald200 : student.requirementsStatus === 'pending' ? COLORS.yellow300 : COLORS.rose200}`,
-                      }}>
-                        {student.requirementsStatus === 'approved' ? 'Approved' :
-                          student.requirementsStatus === 'pending' ? 'Pending Review' : 'Not Submitted'}
+                      {selectedStudent?.id === student.id && (
+                      <div className="student-card-progress">
+                        <div className="student-card-progress-caption">{progress.total ? `${progress.approved} of ${progress.total} requirements approved` : 'No requirements configured'}</div>
                       </div>
-                    </div>
-                  ))}
+                      )}
+                    </button>
+                    );
+                  })}
                 </div>
 
                 {/* Column 3: Requirements */}
-                <div style={s.col3}>
+                <div className="requirements-detail" style={s.col3}>
                   <div style={s.colHeader}>
-                    {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName} — Submissions` : 'REQUIREMENTS CHECKLIST'}
+                    {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Document review'}
+                    <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
                   </div>
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>
+                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements configured</h3><p style={s.emptySub}>Add a checklist for this section in the Sections screen.</p></div>}
                       <div style={s.emptyStatePanel}>
                         <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Requirements" /></div>
                         <h3 style={s.emptyTitle}>Select a Student</h3>
@@ -434,8 +476,9 @@ export default function CoordinatorDashboard() {
                     </div>
                   ) : (
                     <div style={s.requirementsScroll}>
-                      {['Pre-OJT', 'Ongoing', 'Post-OJT'].map(cat => {
-                        const catReqs = sectionRequirements.filter(r => r.category === cat);
+                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements configured</h3><p style={s.emptySub}>Add a checklist for this section in the Sections screen.</p></div>}
+                      {REQUIREMENT_CATEGORIES.map(cat => {
+                        const catReqs = sectionRequirements.filter(r => requirementCategory(r.category) === cat);
                         if (catReqs.length === 0) return null;
                         return (
                           <div key={cat} style={s.reqGroup}>
@@ -446,9 +489,9 @@ export default function CoordinatorDashboard() {
                                 const status = req?.status || 'not_submitted';
                                 const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
                                 return (
-                                  <div key={id} style={s.reqRow}>
+                                  <div className="requirements-document" key={id} style={s.reqRow}>
                                     <div style={s.reqLeft}>
-                                      <div style={{ ...s.reqDot, backgroundColor: STATUS_DOT[status] }} />
+                                      <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
                                       <div>
                                         <div style={s.reqLabel}>{label}</div>
                                         {deadline && (
@@ -567,7 +610,8 @@ export default function CoordinatorDashboard() {
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'logbook' && <LogbookTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
-            {activeTab === 'messages' && <MessagesTab selectedSection={selectedSection} />}
+            {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
+            {activeTab === 'messages' && <MessagesTab sections={sections} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'registrations' && <RegistrationsTab coordinatorId={coordinatorId} department={coordDept} sections={sections} />}
             {activeTab === 'classlist' && <ClassListTab coordinatorId={coordinatorId} department={coordDept} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
@@ -636,7 +680,6 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
             <div className="admin-profile-hero-avatar">
               {initials}
             </div>
-            <div className="admin-profile-hero-badge-status" title="Account Active" />
           </div>
           <div className="admin-profile-hero-details">
             <h2>{displayName}</h2>
@@ -659,7 +702,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
 
       {/* Alert Banner */}
       {status && (
-        <div className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
+        <div role={status.type === 'error' ? 'alert' : 'status'} className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
           <Icon name={status.type === 'error' ? 'x' : 'check'} size={16} />
           <span>{status.message}</span>
         </div>
@@ -671,7 +714,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           <div>
             <div className="admin-profile-card-title">
               <Icon name="user" size={18} />
-              Personal & Contact Information
+              Personal details
             </div>
             <div className="admin-profile-card-subtitle">
               Update your name and contact details visible to students and administrators.
@@ -681,8 +724,9 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
 
         <div className="admin-profile-grid">
           <div className="admin-profile-field">
-            <label className="admin-profile-label">First Name</label>
+            <label htmlFor="coordinator-first-name" className="admin-profile-label">First Name</label>
             <input
+              id="coordinator-first-name"
               className="admin-profile-input"
               value={form.firstName}
               onChange={e => setForm({ ...form, firstName: e.target.value })}
@@ -692,8 +736,9 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Last Name</label>
+            <label htmlFor="coordinator-last-name" className="admin-profile-label">Last Name</label>
             <input
+              id="coordinator-last-name"
               className="admin-profile-input"
               value={form.lastName}
               onChange={e => setForm({ ...form, lastName: e.target.value })}
@@ -703,8 +748,9 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Email Address (Read-Only)</label>
+            <label htmlFor="coordinator-email" className="admin-profile-label">Email Address (Read-Only)</label>
             <input
+              id="coordinator-email"
               className="admin-profile-input admin-profile-input-readonly"
               value={auth.currentUser?.email || ''}
               disabled
@@ -713,8 +759,9 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Assigned Department (Read-Only)</label>
+            <label htmlFor="coordinator-department" className="admin-profile-label">Assigned Department (Read-Only)</label>
             <input
+              id="coordinator-department"
               className="admin-profile-input admin-profile-input-readonly"
               value={departmentName}
               disabled
@@ -723,8 +770,10 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label className="admin-profile-label">Phone Number (Optional)</label>
+            <label htmlFor="coordinator-phone" className="admin-profile-label">Phone Number (Optional)</label>
             <input
+              id="coordinator-phone"
+              type="tel"
               className="admin-profile-input"
               value={form.phone}
               onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -747,7 +796,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           <div>
             <div className="admin-profile-card-title">
               <Icon name="shield" size={18} />
-              Coordinator Scope & Access Overview
+              Your workspace
             </div>
             <div className="admin-profile-card-subtitle">
               Summary of assigned department, sections, and operational permissions.
@@ -763,13 +812,13 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
             </span>
           </div>
           <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Active Sections</span>
+            <span className="admin-profile-security-item-label">Assigned sections</span>
             <span className="admin-profile-security-item-val">
               {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
             </span>
           </div>
           <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Monitored Students</span>
+            <span className="admin-profile-security-item-label">Students in selected section</span>
             <span className="admin-profile-security-item-val">
               {studentsCount} {studentsCount === 1 ? 'Student' : 'Students'}
             </span>

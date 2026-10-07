@@ -1,6 +1,6 @@
 // src/pages/LogbookTab.js
 import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -8,6 +8,8 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import './LogbookTab.css';
+import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, onSectionChange }) {
   const [sections, setSections]               = useState([]);
@@ -19,6 +21,45 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [loading, setLoading]                 = useState(true);
   const [searchQuery, setSearchQuery]         = useState('');
   const [rejectConfirm, setRejectConfirm]     = useState(null);
+  const [recordView, setRecordView] = useState('attendance');
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const exportStudentRecords = async () => {
+    if (!selectedStudent || !selectedSection || exporting) return;
+    const student = selectedStudent;
+    const section = selectedSection;
+    setExporting(true);
+    setExportError('');
+    try {
+      const [punches, journals] = await Promise.all([
+        getDocs(collection(db, 'users', student.id, 'attendance')),
+        getDocs(collection(db, 'users', student.id, 'logbook')),
+      ]);
+      await downloadStudentRecordsExcel(student, section, punches.docs.map(item => item.data()), journals.docs.map(item => item.data()));
+    } catch (_) { setExportError('Could not export student records. Check your connection and try again.'); }
+    finally { setExporting(false); }
+  };
+  useEffect(() => {
+    setAttendance([]);
+    setAttendanceError('');
+    if (!selectedStudent?.id) { setAttendanceLoading(false); return; }
+    setAttendanceLoading(true);
+    return onSnapshot(collection(db, 'users', selectedStudent.id, 'attendance'), snapshot => {
+      setAttendance(snapshot.docs.map(item => ({ ...item.data(), id: item.id })).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))));
+      setAttendanceLoading(false);
+    }, () => {
+      setAttendanceError('Could not load attendance records. Select the student again to retry.');
+      setAttendanceLoading(false);
+    });
+  }, [selectedStudent?.id]);
+  const formatPunch = value => {
+    if (!value) return 'Not recorded';
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  };
 
   const fetchSections = useCallback(async () => {
     if (!coordinatorId) return;
@@ -118,50 +159,65 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   }
 
   return (
-    <div style={t.page}>
+    <div className="logbook-workspace" style={t.page}>
       {/* Col 1: Sections */}
-      <div style={t.col1}>
-        <div style={t.colHeader}>SECTIONS ({sections.length})</div>
+      <div className="logbook-sections" style={t.col1}>
+        <div className="logbook-panel-header" style={t.colHeader}>Sections <span className="logbook-count">{sections.length}</span><p>Choose a class to review its journals.</p></div>
         <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" /></div>
         {filteredSections.length === 0 && <div style={t.empty}>No sections created yet.</div>}
         {filteredSections.map(sec => (
-          <div
+          <button type="button" className="logbook-select-card" aria-pressed={selectedSection?.id === sec.id}
             key={sec.id}
             style={{ ...t.card, ...(selectedSection?.id === sec.id ? t.cardActive : {}) }}
             onClick={() => fetchStudents(sec)}
           >
             <div style={t.cardTitle}>{sec.name}</div>
             <div style={t.cardSub}>{sec.department}</div>
-          </div>
+          </button>
         ))}
       </div>
 
       {/* Col 2: Students */}
-      <div style={t.col2}>
-        <div style={t.colHeader}>
-          {selectedSection ? `STUDENTS — ${selectedSection.name}` : 'STUDENTS'}
+      <div className="logbook-students" style={t.col2}>
+        <div className="logbook-panel-header" style={t.colHeader}>
+          Students <span className="logbook-count">{students.length}</span><p>{selectedSection?.name || 'Select a section first.'}</p>
         </div>
         {!selectedSection && <div style={t.empty}>Select a section first.</div>}
         {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>No students in this section.</div>}
         {filteredStudents.map(st => (
-          <div
+          <button type="button" className="logbook-select-card" aria-pressed={selectedStudent?.id === st.id}
             key={st.id}
             style={{ ...t.card, ...(selectedStudent?.id === st.id ? t.cardActive : {}) }}
             onClick={() => fetchEntries(st)}
           >
             <div style={t.cardTitle}>{st.firstName} {st.lastName}</div>
-            <div style={t.cardSub}>{st.idNumber || '—'}</div>
-          </div>
+            <div style={t.cardSub}>ID {st.idNumber || 'not provided'}</div>
+          </button>
         ))}
       </div>
 
       {/* Col 3: Logbook Entries */}
-      <div style={t.col3}>
-        <div style={t.colHeader}>
-          {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName} — Weekly Entries` : 'LOGBOOK ENTRIES'}
+      <div className="logbook-detail" style={t.col3}>
+        <div className="logbook-panel-header logbook-detail-header" style={t.colHeader}>
+          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Weekly journals'}
+          <p>{selectedStudent ? 'Review weekly work, reported hours, and original notes.' : 'Select a student to view their submissions.'}</p>
+          </div>
+          {selectedStudent && <button type="button" className="logbook-export" disabled={exporting} onClick={exportStudentRecords}><Icon name="download" size={16} />{exporting ? 'Exporting…' : 'Export Data'}</button>}
         </div>
 
-        <div style={t.entriesScroll}>
+        <div className="logbook-detail-content" style={t.entriesScroll}>
+          {exportError && <p role="alert">{exportError}</p>}
+          {selectedStudent && <div className="logbook-record-switch" role="group" aria-label="Student record type">
+            <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
+            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Weekly journals</button>
+          </div>}
+          {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
+            <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from weekly journal hours.</p>
+            {attendanceLoading && <p role="status">Loading attendance…</p>}
+            {attendanceError && <p role="alert">{attendanceError}</p>}
+            {!attendanceLoading && !attendanceError && attendance.length === 0 && <p>No attendance records yet.</p>}
+            {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendance.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
+          </section>}
           {!selectedStudent && (
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="book" size={28} label="Logbook" /></div>
@@ -170,7 +226,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </div>
           )}
 
-          {selectedStudent && entries.length === 0 && (
+          {selectedStudent && recordView === 'journals' && entries.length === 0 && (
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="clipboard" size={28} label="No entries" /></div>
               <h3 style={t.emptyTitle}>No Entries Submitted</h3>
@@ -178,14 +234,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </div>
           )}
 
-          <div style={t.entriesList}>
+          <div style={t.entriesList} hidden={recordView !== 'journals'}>
             {entries.map(entry => (
-            <div key={entry.id} style={t.entryCard}>
+            <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
               <div style={t.entryTop}>
                 <div>
                   <div style={t.entryWeek}>Week {entry.weekNum}</div>
                   <div style={t.entrySub}>
-                    <Icon name="calendar" size={14} /> {entry.weekRange || 'Weekly Period'} · <strong>{entry.hours} hrs rendered</strong>
+                    <span><Icon name="calendar" size={14} /> {entry.weekRange || 'Weekly period'}</span><span><strong>{entry.hours} hrs rendered</strong></span>
                   </div>
                 </div>
                 <span style={{
@@ -198,15 +254,16 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 </span>
               </div>
 
-              <div style={t.entryLabel}>REFINED ENTRY</div>
+              <div style={t.entryLabel}>Weekly report</div>
               <div style={t.entryText}>{entry.refined || 'No refined content.'}</div>
 
               {entry.rawNotes && (
                 <details style={t.detailsWrap}>
-                  <summary style={t.rawToggle}>View student's original raw notes</summary>
+                  <summary style={t.rawToggle}>Original notes</summary>
                   <div style={t.rawNotesBox}>{entry.rawNotes}</div>
                 </details>
               )}
+              {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Revision needed</strong><span>{entry.reviewReason}</span></p>}
 
               {entry.status === 'pending' && (
                 <div style={t.actionRow}>
@@ -299,7 +356,6 @@ const t = {
   },
   cardActive: {
     backgroundColor: COLORS.sky50,
-    borderLeft: `4px solid ${COLORS.sky600}`,
   },
   cardTitle: {
     fontSize: 14,

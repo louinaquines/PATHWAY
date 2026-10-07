@@ -2,6 +2,7 @@ const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
+const persistence = require('./emulator-persistence');
 
 const PROJECT_ID = 'demo-pathway-security';
 const backendDir = path.resolve(__dirname, '..');
@@ -60,6 +61,8 @@ async function main() {
     }
   }
 
+  const restored = persistence.latestSnapshot();
+  if (restored) console.log('Restoring saved local QA data; startup seeding will be skipped.');
   const env = {
     ...process.env,
     GOOGLE_CLOUD_PROJECT: PROJECT_ID,
@@ -68,6 +71,7 @@ async function main() {
     FIREBASE_EMULATORS_PATH: path.join(backendDir, '.firebase-cache'),
     FIREBASE_CLI_DISABLE_UPDATE_CHECK: 'true',
     PATHWAY_LOCAL_WORKFLOW: '1',
+    PATHWAY_EMULATOR_RESTORED: restored ? '1' : '0',
   };
   child = spawn(process.execPath, [
     firebaseCli,
@@ -75,6 +79,8 @@ async function main() {
     '--config', '../firebase.json',
     '--project', PROJECT_ID,
     '--only', 'auth,firestore',
+    ...(restored ? ['--import', restored] : []),
+    `--export-on-exit=${persistence.snapshotPath()}`,
     'node security-tests/start-local-workflow-apps.js',
   ], {
     cwd: backendDir,

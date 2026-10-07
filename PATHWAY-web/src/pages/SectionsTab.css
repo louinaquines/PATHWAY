@@ -1,0 +1,34 @@
+.sections-workspace { padding: 24px; gap: 20px; min-height: 0; box-sizing: border-box; background: #f6f8fc !important; }
+.sections-panel { width: 270px !important; border: 1px solid #e4eaf3 !important; border-radius: 18px; }
+.sections-panel > div:first-child { padding: 20px 18px !important; }
+.sections-panel > div:first-child h2 { color: #152238 !important; }
+.sections-panel > div:first-child span { color: #697991 !important; font-weight: 400 !important; }
+.sections-panel button, .sections-detail button, .section-modal button { font-weight: 600 !important; min-height: 38px; font-family: inherit; }
+.sections-panel > div:first-child button { background: #075fc9 !important; border-radius: 9px !important; box-shadow: none !important; }
+.section-list-card { margin: 10px; padding: 14px !important; border: 1px solid #e4eaf3 !important; border-radius: 12px; gap: 10px; }
+.section-list-card[data-selected="true"] { background: #f8fbff !important; border-color: #075fc9 !important; }
+.section-select { border: 0; background: transparent; padding: 0; text-align: left; min-width: 0; font: inherit; }
+.section-select > div:first-child { color: #152238 !important; font-size: 13px !important; overflow-wrap: anywhere; }
+.section-select > div:nth-child(2) { color: #697991 !important; font-size: 11px !important; line-height: 1.5; margin-top: 5px !important; }
+.section-select > div:last-child { background: #eef4fc !important; border: 0 !important; color: #526985 !important; font-weight: 500 !important; margin-top: 10px !important; }
+.sections-detail { padding: 0 !important; min-width: 0; }
+.section-overview { padding: 24px !important; border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
+.section-overview h2 { color: #152238 !important; font-size: 24px !important; font-weight: 700 !important; }
+.section-overview > div:first-child > div { color: #697991 !important; font-size: 12px !important; font-weight: 400 !important; margin-top: 10px; }
+.section-overview a { background: #eef4fc !important; color: #075fc9 !important; border: none !important; }
+.section-view-toggle { width: 100%; padding-top: 18px; border-top: 1px solid #edf1f7; gap: 6px !important; flex-wrap: wrap; }
+.section-view-toggle button { background: transparent !important; border: none !important; color: #697991 !important; box-shadow: none !important; border-radius: 9px !important; padding: 10px 14px !important; }
+.section-view-toggle button[aria-pressed="true"] { color: #075fc9 !important; background: #edf4ff !important; }
+.sections-detail h3 { color: #152238 !important; font-weight: 600 !important; }
+.sections-detail > div:not(.section-overview) { max-width: none !important; }
+.sections-detail button:focus-visible, .sections-panel button:focus-visible, .section-modal input:focus-visible, .section-modal select:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+.section-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 36px 20px !important; color: #697991 !important; font-size: 12px; }
+.section-empty svg { color: #075fc9; }
+.section-empty strong { color: #152238; font-size: 14px; font-weight: 600; }
+.section-assignment { margin-top: 4px !important; border-color: #e4eaf3 !important; border-radius: 16px !important; }
+.section-help { color: #697991; font-size: 12px; line-height: 1.6; margin: -6px 0 0; }
+.section-modal { max-height: 85vh; overflow-y: auto; box-sizing: border-box; border: 0 !important; border-radius: 20px !important; }
+.section-modal input, .section-modal select { min-height: 44px; border-width: 1px !important; }
+.section-modal label { font-weight: 500 !important; color: #526079 !important; }
+@media (max-width: 1100px) { .sections-workspace { padding: 16px; gap: 14px; } .sections-panel { width: 235px !important; } .section-overview { padding: 20px !important; } }
+@media (max-width: 760px) { .sections-workspace { flex-direction: column; overflow-y: auto !important; } .sections-panel { width: 100% !important; max-height: 340px; min-height: 240px; } .sections-detail { flex: none !important; overflow: visible !important; } .section-overview h2 { font-size: 20px !important; } }

@@ -7,6 +7,7 @@ import Icon from '../components/Icons';
 import PaginationButtonGroup from '../components/PaginationButtonGroup';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './CoordinatorOperations.css';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const EVALUATIONS_PER_PAGE = 2;
@@ -21,6 +22,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     companyName: '',
   });
   const [link, setLink]               = useState('');
+  const [invitation, setInvitation] = useState(null);
+  const [emailMessage, setEmailMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied]           = useState(false);
   const [status, setStatus]           = useState('');
   const [loading, setLoading]         = useState(true);
@@ -59,6 +64,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
 
   const createLink = async event => {
     event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setInvitation(null);
+    setEmailSent(false);
     setStatus('Generating secure evaluation link...');
     setLink('');
     setCopied(false);
@@ -79,10 +88,34 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       if (!response.ok) throw new Error(data.error || 'Could not create evaluation link');
       const generatedLink = `${window.location.origin}/evaluate?token=${data.token}`;
       setLink(generatedLink);
-      setStatus('Evaluation link generated successfully. Share it directly with the industry supervisor.');
+      setInvitation({ id: data.id, token: data.token, email: form.supervisorEmail, supervisorName: form.supervisorName });
+      setStatus('Invitation prepared. Confirm the recipient below and send the email directly from PATHWAY.');
       await loadEvaluations();
     } catch (error) {
       setStatus(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendEmail = async () => {
+    if (!invitation || busy || emailSent) return;
+    setBusy(true);
+    setStatus('Sending evaluation email…');
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch(`${API}/coordinator/evaluations/${encodeURIComponent(invitation.id)}/email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ token: invitation.token, message: emailMessage }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not send evaluation email.');
+      setEmailSent(true);
+      setStatus('Sent: the email server accepted the invitation. This does not confirm that the supervisor has read it.');
+    } catch (error) { setStatus(error.message); }
+    finally {
+      setBusy(false);
+      try { await loadEvaluations(); } catch (_) { /* Keep the delivery result visible. */ }
     }
   };
 
@@ -133,13 +166,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
   return (
     <div style={styles.panel} className="evaluation-panel">
       {/* Generator Card */}
-      <div style={styles.card}>
+      <div className="evaluation-invitation" style={styles.card}>
         <div style={styles.cardHeader}>
           <div style={styles.iconWrap}><Icon name="star" size={22} label="Supervisor evaluation" /></div>
           <div>
-            <h2 style={styles.title}>Supervisor Evaluation Link Generator</h2>
+            <h2 style={styles.title}>Request an evaluation</h2>
             <p style={styles.sub}>
-              Create a secure, one-time evaluation link to send to an industry supervisor upon internship completion.
+              Send a secure evaluation invitation directly to the supervisor's email.
             </p>
           </div>
         </div>
@@ -149,6 +182,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             <div style={styles.field}>
               <label style={styles.label}>Select Enrolled Student</label>
               <select
+                aria-label="Select enrolled student"
                 required
                 value={form.studentId}
                 onChange={e => setForm({ ...form, studentId: e.target.value })}
@@ -168,6 +202,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
               <input
                 required
                 placeholder="e.g. Acme Tech Solutions Inc."
+                aria-label="Host company"
                 value={form.companyName}
                 onChange={e => setForm({ ...form, companyName: e.target.value })}
                 style={styles.input}
@@ -181,6 +216,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
               <input
                 required
                 placeholder="e.g. John Doe, Senior Dev"
+                aria-label="Supervisor full name"
                 value={form.supervisorName}
                 onChange={e => setForm({ ...form, supervisorName: e.target.value })}
                 style={styles.input}
@@ -193,6 +229,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                 type="email"
                 required
                 placeholder="supervisor@company.com"
+                aria-label="Supervisor email address"
                 value={form.supervisorEmail}
                 onChange={e => setForm({ ...form, supervisorEmail: e.target.value })}
                 style={styles.input}
@@ -200,13 +237,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             </div>
           </div>
 
-          <button type="submit" style={styles.generateBtn}>
-            Generate Secure Evaluation Link
+          <button type="submit" disabled={busy} style={styles.generateBtn}>
+            {busy ? 'Please wait…' : 'Prepare Evaluation Email'}
           </button>
         </form>
 
         {status && (
-          <div style={status.includes('Could not') || status.includes('Error') ? styles.errorBox : styles.infoBox}>
+          <div role="status" aria-live="polite" style={status.includes('Could not') || status.includes('Error') ? styles.errorBox : styles.infoBox}>
             {status}
           </div>
         )}
@@ -220,6 +257,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
               </button>
             </div>
             <div style={styles.linkUrl}>{link}</div>
+            {invitation && <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+              <strong>To: {invitation.supervisorName} ({invitation.email})</strong>
+              <span>Subject: PATHWAY supervisor evaluation request</span>
+              <label style={styles.label} htmlFor="evaluation-email-message">Additional message (optional)</label>
+              <textarea id="evaluation-email-message" maxLength={2000} rows={4} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} style={styles.input} placeholder="Add a note for the supervisor. The student details, secure link, and expiry are included automatically." />
+              <button type="button" disabled={busy || emailSent} onClick={sendEmail} style={styles.generateBtn}><Icon name="mail" size={18} /> {emailSent ? 'Email Sent' : busy ? 'Sending…' : 'Send Email'}</button>
+            </div>}
           </div>
         )}
       </div>
@@ -263,12 +307,12 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             {visibleEvaluations.map(item => {
               const submitted = item.submitted || item.used;
               return (
-                <div key={item.id} style={styles.recordCard}>
+                <div className="evaluation-record" key={item.id} style={styles.recordCard}>
                   <div style={styles.recordTop}>
                     <div>
                       <h4 style={styles.recordStudent}>{item.studentName || item.studentId}</h4>
                       <div style={styles.recordCompany}>
-                        <Icon name="building" size={14} /> {item.companyName} · <strong>Supervisor: {item.supervisorName}</strong> ({item.supervisorEmail})
+                        <span><Icon name="building" size={14} /> {item.companyName}</span><br /><span>Supervisor: {item.supervisorName} ({item.supervisorEmail})</span>
                       </div>
                     </div>
                     <span style={{
@@ -280,6 +324,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                       {submitted ? 'Submitted' : 'Awaiting Response'}
                     </span>
                   </div>
+
+                  <p style={styles.sub}>Email: {({ sent: 'Sent — accepted by email server', sending: 'Sending / awaiting confirmation', delivery_unknown: 'Delivery uncertain — check mail service before resending', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Not sent'}</p>
 
                   {submitted && (
                     <div style={styles.ratingsSection}>

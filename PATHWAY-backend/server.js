@@ -1,5 +1,14 @@
 // pathway-backend/server.js
-if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
+if (process.env.NODE_ENV !== 'production' && process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
+// Fail before Firebase initialization or any local QA credential loading.
+require('./productionPreflight').assertProductionStartup(process.env);
+// Isolated emulator suites supply their own stub credentials and provider URL.
+if (process.env.PATHWAY_LOCAL_WORKFLOW === '1' && (process.env.PATHWAY_CLOUDINARY_QA === '1'
+  || (process.env.PORT === '3100' && process.env.GOOGLE_CLOUD_PROJECT === 'demo-pathway-security'
+    && process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:8080'
+    && process.env.FIREBASE_AUTH_EMULATOR_HOST === '127.0.0.1:9099'))) {
+  require('./localCloudinaryQa').loadLocalCloudinaryQa();
+}
 const adminApp = require('./firebaseAdmin');
 const { getAuth }                      = require('firebase-admin/auth');
 const { FieldValue, getFirestore }     = require('firebase-admin/firestore');
@@ -69,6 +78,8 @@ async function requireUser(req, res, next) {
   } catch (e) { return res.status(401).json({ error: 'Invalid authentication token' }); }
 }
 
+require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
+
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
 });
@@ -89,6 +100,7 @@ async function getEditableRequirement(uid, requirementId) {
     throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
   }
   const student = profile.data();
+  assertRecordsOpen(student);
   const customRequirement = student.sectionId
     ? await adminDb.collection('sections').doc(student.sectionId).collection('requirements').doc(requirementId).get()
     : null;
@@ -130,7 +142,9 @@ async function issueCloudinaryIntent(req, res, { kind, requirementId = null }) {
     const folder = kind === 'profile' ? `pathway/profile/${req.user.uid}` : `pathway/requirements/${req.user.uid}`;
     const publicId = `${folder}/${kind === 'profile' ? 'profile' : requirementId}-${crypto.randomBytes(16).toString('hex')}`;
     const deliveryType = kind === 'requirement' && requirementId === 'endorsement_letter' ? 'authenticated' : 'upload';
-    const params = { overwrite: 'false', public_id: publicId, timestamp };
+    const params = { overwrite: 'false', public_id: publicId, timestamp,
+      ...(deliveryType === 'authenticated' ? { type: 'authenticated' } : {}),
+    };
     const signature = signParams(params, config.apiSecret);
     await uploadIntents.doc(intentId).create({
       uid: req.user.uid, kind, requirementId, publicId, timestamp, signature, deliveryType,
@@ -138,11 +152,10 @@ async function issueCloudinaryIntent(req, res, { kind, requirementId = null }) {
       createdAt: Date.now(), expiresAt: Date.now() + 60 * 60_000, status: 'issued',
     });
     const resourceType = kind === 'profile' ? 'image' : 'auto';
-    const uploadAction = deliveryType === 'upload' ? 'upload' : deliveryType;
     return res.json({
       intentId, cloudName: config.cloudName, apiKey: config.apiKey,
       timestamp, signature, publicId, folder, resourceType, deliveryType,
-      uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/${resourceType}/${uploadAction}`,
+      uploadUrl: `https://api.cloudinary.com/v1_1/${config.cloudName}/${resourceType}/upload`,
     });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
@@ -484,6 +497,7 @@ app.post('/student/company-proposals', requireUser, async (req, res) => {
         throw Object.assign(new Error('Your section assignment is required before submitting a placement.'), { status: 409 });
       }
       const sectionRef = adminDb.collection('sections').doc(student.sectionId);
+      assertRecordsOpen(student);
       const sectionSnap = await transaction.get(sectionRef);
       if (!sectionSnap.exists || sectionSnap.data().department !== student.department || !sectionSnap.data().coordinatorId) {
         throw Object.assign(new Error('Your assigned coordinator could not be verified.'), { status: 409 });
@@ -607,6 +621,7 @@ app.post('/student/final-reviews', requireUser, async (req, res) => {
       }
       const student = studentSnap.data();
       if (student.preDeploymentStatus === 'approved') throw Object.assign(new Error('Final review has already been approved.'), { status: 409 });
+      assertRecordsOpen(student);
       if (student.placementStatus !== 'approved' || typeof student.sectionId !== 'string'
         || !/^[A-Za-z0-9_-]{1,120}$/.test(student.sectionId)
         || typeof student.department !== 'string' || !student.department.trim()) {
@@ -743,6 +758,7 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
         throw Object.assign(new Error('You cannot review a student outside your assigned section.'), { status: 403 });
       }
       if (review.status !== 'pending_review') throw Object.assign(new Error('This request has already been reviewed.'), { status: 409 });
+      assertRecordsOpen(studentSnap.data());
       if (status === 'approved') {
         if (studentSnap.data().accountApproved !== true) throw Object.assign(new Error('The student account must be approved before final approval.'), { status: 409 });
         const student = studentSnap.data();
@@ -807,6 +823,7 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
         throw Object.assign(new Error('You can only review students in your assigned sections.'), { status: 403 });
       }
       const entrySnap = await transaction.get(entryRef);
+      assertRecordsOpen(student);
       if (!entrySnap.exists) throw Object.assign(new Error('Logbook entry not found.'), { status: 404 });
       if (entrySnap.data().status !== 'pending') throw Object.assign(new Error('This entry is no longer awaiting review.'), { status: 409 });
       const reviewReason = status === 'rejected' ? 'Please revise and resubmit this weekly entry.' : '';
@@ -928,6 +945,7 @@ app.post('/coordinator/endorsements/:proposalId/draft', requireStaff, async (req
         || endorsement.department !== coordinatorSnap.data().department) {
         throw Object.assign(new Error('You can only prepare letters for your assigned sections.'), { status: 403 });
       }
+      assertRecordsOpen(studentSnap.data());
       if (!studentSnap.exists || studentSnap.data().role !== 'student' || studentSnap.data().accountApproved !== true
         || studentSnap.data().placementStatus !== 'approved' || studentSnap.data().placementProposalId !== proposalId
         || studentSnap.data().companyId !== endorsement.companyId
@@ -1057,6 +1075,7 @@ app.post('/coordinator/endorsements/:proposalId/send', requireStaff, async (req,
       ]);
       const fresh = freshEndorsementSnap.data();
       const freshStudent = freshStudentSnap.data();
+      assertRecordsOpen(freshStudent);
       const freshProposal = freshProposalSnap.data();
       if (!fresh || !freshStudent || !freshProposal || !sectionSnap.exists
         || sectionSnap.data().coordinatorId !== req.staff.uid
@@ -1225,6 +1244,7 @@ app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, a
         throw Object.assign(new Error('You can only review placement proposals from your assigned sections.'), { status: 403 });
       }
       if (proposal.status !== 'pending_review') throw Object.assign(new Error('This placement proposal has already been reviewed.'), { status: 409 });
+      assertRecordsOpen(student);
       const decisionFields = { status, reviewReason: note, reviewedBy: req.staff.uid, reviewedAt: now, updatedAt: now };
       let needsFreshFinalReview = false;
       if (status === 'approved') {
@@ -1494,6 +1514,7 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
       if (!studentSnap.exists || studentSnap.data().role !== 'student') throw Object.assign(new Error('Student not found.'), { status: 404 });
       const student = studentSnap.data();
       if (student.department !== sectionSnap.data().department || student.sectionId) throw Object.assign(new Error('Student must be unassigned and belong to this department.'), { status: 409 });
+      assertRecordsOpen(student);
       const hoursRequired = Number(sectionSnap.data().hoursRequired);
       if (!Number.isFinite(hoursRequired) || hoursRequired <= 0) throw Object.assign(new Error('Section has an invalid required-hours setting.'), { status: 409 });
       transaction.update(studentRef, { sectionId, hoursRequired });
@@ -1567,6 +1588,7 @@ app.post('/coordinator/students/:studentId/requirements/:requirementId/decision'
       if (!(await coordinatorOwnsStudent(req.staff.uid, student))) throw Object.assign(new Error('You can only review students in your assigned sections.'), { status: 403 });
       sectionId = student.sectionId;
       const configuredRef = adminDb.collection('sections').doc(sectionId).collection('requirements');
+      assertRecordsOpen(student);
       const hasCurrentPlacement = typeof student.placementProposalId === 'string'
         && /^[A-Za-z0-9_-]{1,120}$/.test(student.placementProposalId);
       const endorsementRef = req.params.requirementId === 'endorsement_letter' && hasCurrentPlacement
@@ -1667,6 +1689,26 @@ async function coordinatorOwnsStudent(coordinatorId, student) {
     && section.data().department === coordinator.data().department
     && student.department === coordinator.data().department;
 }
+
+// Messaging needs a display name, not access to the coordinator's private profile.
+app.post('/student/assigned-coordinator', requireUser, async (req, res) => {
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
+  try {
+    const student = (await adminDb.collection('users').doc(req.user.uid).get()).data();
+    if (!student?.sectionId) return res.json({ coordinator: null });
+    const section = (await adminDb.collection('sections').doc(student.sectionId).get()).data();
+    if (!section?.coordinatorId || section.department !== student.department) return res.json({ coordinator: null });
+    const coordinator = (await adminDb.collection('users').doc(section.coordinatorId).get()).data();
+    if (coordinator?.role !== 'coordinator' || coordinator.department !== student.department) return res.json({ coordinator: null });
+    return res.json({ coordinator: {
+      id: section.coordinatorId,
+      name: [coordinator.firstName, coordinator.lastName].filter(Boolean).join(' ') || coordinator.name || 'OJT Coordinator',
+    } });
+  } catch (error) {
+    console.error('Assigned coordinator lookup failed:', error);
+    return res.status(500).json({ error: 'Could not load your assigned coordinator.' });
+  }
+});
 
 app.post('/messages', requireUser, async (req, res) => {
   if (!['student', 'coordinator'].includes(req.user.role)) return res.status(403).json({ error: 'Only students and coordinators can send messages.' });
@@ -1797,7 +1839,12 @@ function manilaDateKey(date = new Date()) {
 
 function canTrackAttendance(user) {
   return user?.role === 'student' && user.accountApproved === true
+    && user.clearanceStatus !== 'cleared'
     && user.preDeploymentStatus === 'approved';
+}
+
+function assertRecordsOpen(student) {
+  if (student?.clearanceStatus === 'cleared') throw Object.assign(new Error('Cleared OJT records are locked.'), { status: 409 });
 }
 
 async function requireAdmin(req, res, next) {
@@ -1810,7 +1857,7 @@ async function requireAdmin(req, res, next) {
 const AUDIT_ACTIONS = new Set([
   'account.activation_changed', 'coordinator.created',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated',
+  'company.created', 'company.updated', 'evaluation.email_accepted', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
@@ -1881,7 +1928,12 @@ app.post('/coordinator/students/:studentId/clearance', requireStaff, async (req,
         || student.department !== req.staff.data.department) throw Object.assign(new Error('You can only clear students in your assigned sections.'), { status: 403 });
       const requiredHours = Number(student.hoursRequired || sectionSnap.data().hoursRequired || 486);
       if (student.accountApproved !== true || student.requirementsStatus !== 'approved'
+        || student.preDeploymentStatus !== 'approved' || student.placementStatus !== 'approved'
         || Number(student.hoursRendered || 0) < requiredHours) throw Object.assign(new Error('Student has not met the clearance requirements.'), { status: 409 });
+      const evaluations = await transaction.get(adminDb.collection('evaluations').where('studentId', '==', req.params.studentId));
+      if (!evaluations.docs.some(item => item.data().used === true && item.data().submittedAt)) {
+        throw Object.assign(new Error('A submitted supervisor evaluation is required before clearance.'), { status: 409 });
+      }
       if (student.clearanceStatus === 'cleared') throw Object.assign(new Error('Clearance is already approved.'), { status: 409 });
       const now = new Date().toISOString();
       transaction.update(studentRef, { clearanceStatus: 'cleared', clearedBy: req.staff.uid, clearedAt: now });
@@ -2088,10 +2140,29 @@ function parseCompanyPayload(body = {}) {
     throw Object.assign(new Error('Enter a company name, valid contact details, a positive whole-number capacity, and an active status.'), { status: 400 });
   }
   return { name, normalizedName: normalizedCompanyName(name), address, industry, email, phone,
-    capacity, active, status: active ? 'active' : 'inactive' };
+    capacity, active, status: active ? 'active' : 'inactive',
+    ...(body.geofence === undefined ? {} : { geofence: require('./geofence').parseGeofence(body.geofence) }) };
 }
 
-app.get('/admin/companies', requireAdmin, async (req, res) => {
+app.post('/attendance/location-policy', requireUser, async (req, res) => {
+  if (!canTrackAttendance(req.user.data)) return res.status(403).json({ error: 'Attendance is unavailable for this account.' });
+  try {
+    const company = req.user.data.companyId ? await adminDb.collection('companies').doc(req.user.data.companyId).get() : null;
+    return res.json({ enabled: company?.data()?.geofence?.enabled === true });
+  } catch (_) { return res.status(500).json({ error: 'Could not load attendance location policy.' }); }
+});
+
+async function attendanceLocation(transaction, student, location) {
+  if (!student.companyId) return { enforced: false };
+  const company = await transaction.get(adminDb.collection('companies').doc(student.companyId));
+  return require('./geofence').verifyLocation(company.data()?.geofence, location);
+}
+
+app.get(['/admin/companies', '/coordinator/company-directory'], requireStaff, async (req, res) => {
+  if ((req.path === '/admin/companies' && req.staff.role !== 'admin')
+    || (req.path === '/coordinator/company-directory' && req.staff.role !== 'coordinator')) {
+    return res.status(403).json({ error: 'Access denied for this company directory.' });
+  }
   try {
     const [companySnapshot, studentSnapshot] = await Promise.all([
       adminDb.collection('companies').get(),
@@ -2119,7 +2190,11 @@ app.get('/admin/companies', requireAdmin, async (req, res) => {
   }
 });
 
-app.post('/admin/companies', requireAdmin, async (req, res) => {
+app.post('/admin/companies', requireAdmin, (req, res) => res.status(403).json({ error: 'Company management is coordinator-only. Admin company access is read-only.' }));
+app.patch('/admin/companies/:companyId', requireAdmin, (req, res) => res.status(403).json({ error: 'Company management is coordinator-only. Admin company access is read-only.' }));
+
+app.post('/coordinator/companies', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   let company;
   try { company = parseCompanyPayload(req.body); }
   catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
@@ -2135,7 +2210,7 @@ app.post('/admin/companies', requireAdmin, async (req, res) => {
         createdBy: req.staff.uid, createdAt: now, updatedBy: req.staff.uid, updatedAt: now };
       transaction.create(companyRef, data);
       writeAuditInTransaction(transaction, {
-        actorId: req.staff.uid, actorRole: 'admin', action: 'company.created',
+        actorId: req.staff.uid, actorRole: 'coordinator', action: 'company.created',
         targetType: 'companies', targetId: companyRef.id, details: { name: company.name, capacity: company.capacity },
       });
     });
@@ -2147,7 +2222,8 @@ app.post('/admin/companies', requireAdmin, async (req, res) => {
   }
 });
 
-app.patch('/admin/companies/:companyId', requireAdmin, async (req, res) => {
+app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.companyId)) return res.status(400).json({ error: 'Invalid company.' });
   let company;
   try { company = parseCompanyPayload(req.body); }
@@ -2174,7 +2250,7 @@ app.patch('/admin/companies/:companyId', requireAdmin, async (req, res) => {
       transaction.update(companyRef, { ...company, occupiedSlots, availableSlots: company.capacity - occupiedSlots,
         updatedBy: req.staff.uid, updatedAt: now });
       writeAuditInTransaction(transaction, {
-        actorId: req.staff.uid, actorRole: 'admin', action: 'company.updated',
+        actorId: req.staff.uid, actorRole: 'coordinator', action: 'company.updated',
         targetType: 'companies', targetId: companyRef.id,
         details: { name: company.name, capacity: company.capacity, active: company.active },
       });
@@ -2267,7 +2343,8 @@ app.post('/attendance/time-in', requireUser, async (req, res) => {
       const [profile, existing] = await Promise.all([transaction.get(userRef), transaction.get(attendanceRef)]);
       if (!profile.exists || !canTrackAttendance(profile.data())) throw Object.assign(new Error('Your student account is not cleared to log attendance.'), { status: 403 });
       if (existing.exists) throw Object.assign(new Error('Attendance has already been started for today.'), { status: 409 });
-      transaction.create(attendanceRef, { date, timeIn, timeOut: null, hoursToday: 0, status: 'pending', createdAt: timeIn });
+      const locationEvidence = await attendanceLocation(transaction, profile.data(), req.body?.location);
+      transaction.create(attendanceRef, { date, timeIn, timeOut: null, hoursToday: 0, status: 'pending', createdAt: timeIn, timeInLocation: locationEvidence });
       writeAuditInTransaction(transaction, {
         actorId: req.user.uid, actorRole: 'student', action: 'attendance.time_in',
         targetType: 'attendance', targetId: date,
@@ -2301,7 +2378,8 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
         throw Object.assign(new Error('Time-out must be after time-in and within 24 hours.'), { status: 400 });
       }
       const hoursToday = Math.round((elapsed / 3_600_000) * 100) / 100;
-      transaction.update(attendanceRef, { timeOut, hoursToday, status: 'pending' });
+      const locationEvidence = await attendanceLocation(transaction, profile.data(), req.body?.location);
+      transaction.update(attendanceRef, { timeOut, hoursToday, status: 'pending', timeOutLocation: locationEvidence });
       transaction.update(userRef, { hoursRendered: FieldValue.increment(hoursToday) });
       writeAuditInTransaction(transaction, {
         actorId: req.user.uid, actorRole: 'student', action: 'attendance.time_out',
@@ -2318,7 +2396,10 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
   }
 });
 
+require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
+
 app.post('/create-evaluation-token', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 20, windowMs: 60 * 60_000, key: request => `evaluation:${request.staff.uid}` })) return;
   const { studentId, supervisorName, supervisorEmail, companyName } = req.body || {};
   const cleanSupervisorName = typeof supervisorName === 'string' ? supervisorName.trim() : '';
@@ -2338,11 +2419,17 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
       return res.status(403).json({ error: 'You can only create evaluations for students in your assigned sections.' });
     }
     const rawToken = crypto.randomBytes(32).toString('hex');
+    assertRecordsOpen(student);
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    await adminDb.collection('evaluations').add({ studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
-    res.json({ token: rawToken, expiresAt });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Could not create evaluation link' }); }
+    const evaluation = adminDb.collection('evaluations').doc();
+    await adminDb.runTransaction(async transaction => {
+      const freshStudent = await transaction.get(studentSnap.ref);
+      assertRecordsOpen(freshStudent.data());
+      transaction.create(evaluation, { studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
+    });
+    res.set('Cache-Control', 'no-store').json({ id: evaluation.id, token: rawToken, expiresAt });
+  } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); console.error(e); res.status(500).json({ error: 'Could not create evaluation link' }); }
 });
 
 app.get('/coordinator-evaluations', requireStaff, async (req, res) => {
@@ -2350,7 +2437,7 @@ app.get('/coordinator-evaluations', requireStaff, async (req, res) => {
     const snap = await adminDb.collection('evaluations').where('createdBy', '==', req.staff.uid).get();
     const evaluations = snap.docs.map(d => {
       const data = d.data();
-      return { id: d.id, studentId: data.studentId, studentName: data.studentName, supervisorName: data.supervisorName, supervisorEmail: data.supervisorEmail, companyName: data.companyName, expiresAt: data.expiresAt, used: data.used, submitted: Boolean(data.submittedAt || data.used), ratings: data.ratings || null, comments: data.comments || '', submittedAt: data.submittedAt || null };
+      return { id: d.id, studentId: data.studentId, studentName: data.studentName, supervisorName: data.supervisorName, supervisorEmail: data.supervisorEmail, companyName: data.companyName, expiresAt: data.expiresAt, used: data.used, submitted: Boolean(data.submittedAt || data.used), ratings: data.ratings || null, comments: data.comments || '', submittedAt: data.submittedAt || null, emailStatus: data.emailStatus || 'not_sent', emailAcceptedAt: data.emailAcceptedAt || null };
     });
     res.json({ evaluations });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Could not load evaluations' }); }
@@ -2390,6 +2477,8 @@ app.post('/evaluation/:token/submit', async (req, res) => {
       const evaluation = await transaction.get(ref);
       if (!evaluation.exists) throw Object.assign(new Error('Evaluation link is invalid'), { status: 404 });
       const data = evaluation.data();
+      const student = await transaction.get(adminDb.collection('users').doc(data.studentId));
+      assertRecordsOpen(student.data());
       if (data.used || new Date(data.expiresAt) < new Date()) {
         throw Object.assign(new Error('Evaluation link is expired or already submitted'), { status: 410 });
       }

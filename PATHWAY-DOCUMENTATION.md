@@ -2,9 +2,30 @@
 
 ## Project Documentation and Change Log
 
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-07
 **Project status:** Local development  
 **Primary reference:** `PATHWAY-OJT-Management-System-with-AI-Analytics-1.docx`
+
+### 2026-10-07 — Company placements browsing
+
+- Company Placements now has Companies and Placement Reviews workspaces. Companies supports responsive grid/list views and company-name or assigned-student-name search.
+- Cards show directory contact details, global capacity, and officially assigned students from the selected section. Pending proposals are not counted as assigned students; inactive/unlisted companies with existing approved placements remain visible.
+- Section student records are fetched freshly alongside placement records. Existing proposal decisions, final reviews, endorsement preparation/delivery, confirmation dialogs, and assignment history remain in Placement Reviews.
+
+### 2026-10-07 — Direct supervisor evaluation emails
+
+- Coordinators prepare the invitation, confirm its supervisor recipient, optionally add a message, and send it directly through PATHWAY's backend SMTP transport. No email-app redirect or company chat account is required.
+- Email uses a seven-day, single-use evaluation link. Configure `EVALUATION_WEB_URL` on the backend to the public staff website origin (HTTPS, e.g. `https://your-project.web.app`), alongside `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, and `SMTP_PASSWORD`. Localhost origins are allowed only for the isolated demo workflow.
+- Sending is limited to the evaluation's creating coordinator and currently assigned student. Recipient and evaluation details come from the stored invitation, not arbitrary send-request fields.
+- Email status is separate from evaluation completion. “Sent” means the email server accepted it, not delivered to the inbox or read. Repeat sends of an accepted invitation do not send again. An interrupted or uncertain attempt is blocked from automatic resend and requires mail-service review.
+- Production mailbox delivery and spam-folder acceptance still require configured SMTP and a public evaluation page. The manuscript is unchanged.
+
+### 2026-10-07 — Company management responsibility change
+
+- Coordinators now own company-directory creation, editing, capacity configuration, and deactivation through the Company Directory page and coordinator-only backend endpoints.
+- Admin company access is read-only for monitoring company records and placement capacity. Admin creation and update endpoints reject mutations, including calls from an older admin interface.
+- Existing companies and placements are preserved. Student company suggestions and coordinator placement approvals are unchanged.
+- Manuscript revision needed: describe the admin's company role as monitoring rather than directory maintenance. This documentation records the agreed change; the manuscript itself has not been edited.
 
 ---
 

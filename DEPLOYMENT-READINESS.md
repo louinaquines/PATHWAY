@@ -25,3 +25,11 @@ From `PATHWAY-backend`, run `npm run test:production` for validator regression t
 The preflight deliberately does not load local `.env` files, initialize Firebase, contact services, or print configuration values. It flags demo projects/emulators, local Cloudinary overrides, missing SMTP/Cloudinary settings, unsafe CORS origins, and missing Docker runtime dependencies. Local development is expected to fail this production-only check.
 
 A passing result validates configuration structure only. It does not prove credentials work, SMTP delivers, uploads succeed, or a restore/rollback is possible. Keep actual secrets in the deployment platform's secret manager; never commit them.
+
+## October 8 packaging and production guards
+
+The Docker runtime file list now also includes `studentInbox.js`, `geofence.js`, `localCloudinaryQa.js`, and `productionPreflight.js`; port 8080 is explicitly configured. Environment-file variants, emulator snapshots, and credential keys are excluded from the build context.
+
+Production startup enforces configuration checks before Firebase initialization, skips local dotenv loading, rejects emulator/QA activation, and validates the HTTPS `EVALUATION_WEB_URL` origin. Local development remains supported. Seven production-preflight tests and 35 isolated backend security tests passed, and the live local health endpoint returned HTTP 200.
+
+Container build/start remains unverified because Docker is unavailable. Dependency advisories remain open; see `RELEASE-SAFETY-AUDIT-2026-10-08.md`. No production release or real email delivery is implied by these checks.

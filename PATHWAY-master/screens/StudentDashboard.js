@@ -5,7 +5,6 @@ import {
   Animated,
   BackHandler,
   Image,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +19,8 @@ import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, w
 import * as DocumentPicker from 'expo-document-picker';
 import { auth, db } from '../firebaseConfig';
 import { requestBackend, postBackend } from '../services/backendApi';
+import { studentAlert as Alert } from '../services/studentAlert';
+import { punchAttendance } from '../services/attendanceLocation';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
 import { nextPreDeploymentAction } from '../services/preDeploymentStatus';
 import { getStudentNotificationsEnabled, setStudentNotificationsEnabled } from '../services/studentPreferences';
@@ -28,12 +29,16 @@ import { AppText as Text } from '../components/AppText';
 import PathwayWatermark from '../components/PathwayWatermark';
 import { MotionTouchableOpacity, useReducedMotion } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ApprovalWelcome from '../components/ApprovalWelcome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import PathwayMark from '../components/PathwayMark';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
 import useStudentLogout from '../hooks/useStudentLogout';
+import { buildActivity } from '../services/recordPagination';
+import { attendanceHistoryForDate, attendanceRecordCountLabel } from '../services/attendanceHistory';
 import {
   AlertCircleIcon,
   BellIcon,
@@ -194,6 +199,30 @@ export default function StudentDashboard({ navigation }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const studentUid = auth.currentUser?.uid;
+  const approvedForOjt = student?.accountApproved === true && student?.preDeploymentStatus === 'approved';
+  const approvalWelcomeKey = approvedForOjt && studentUid
+    ? `pathway:approval-welcome:v1:${studentUid}:${student.placementProposalId || 'initial'}` : null;
+  const [welcomeCheckedKey, setWelcomeCheckedKey] = useState(null);
+  const [showApprovalWelcome, setShowApprovalWelcome] = useState(false);
+  const completedWelcomeKeys = useRef(new Set());
+  useEffect(() => {
+    if (!approvalWelcomeKey) { setShowApprovalWelcome(false); setWelcomeCheckedKey(null); return; }
+    let active = true;
+    AsyncStorage.getItem(approvalWelcomeKey).then(seen => {
+      if (!active) return;
+      setShowApprovalWelcome(seen !== 'true' && !completedWelcomeKeys.current.has(approvalWelcomeKey));
+      setWelcomeCheckedKey(approvalWelcomeKey);
+    }).catch(() => {
+      if (active) { setShowApprovalWelcome(false); setWelcomeCheckedKey(approvalWelcomeKey); }
+    });
+    return () => { active = false; };
+  }, [approvalWelcomeKey]);
+  const finishApprovalWelcome = () => {
+    if (!approvalWelcomeKey || completedWelcomeKeys.current.has(approvalWelcomeKey)) return;
+    completedWelcomeKeys.current.add(approvalWelcomeKey);
+    setShowApprovalWelcome(false);
+    AsyncStorage.setItem(approvalWelcomeKey, 'true').catch(() => {});
+  };
 
   useEffect(() => {
     let active = true;
@@ -275,13 +304,16 @@ export default function StudentDashboard({ navigation }) {
   }, [navigation]);
 
   useEffect(() => {
-    if (!studentUid) return;
+    if (!studentUid || loggingOut) return;
     let firstSnapshot = true;
     return onSnapshot(doc(db, 'users', studentUid), () => {
       if (firstSnapshot) { firstSnapshot = false; return; }
       load();
-    }, error => console.warn('Unable to watch student approval updates.', error));
-  }, [studentUid]);
+    }, error => {
+      // Revoking the session can race the listener cleanup during sign-out.
+      if (auth.currentUser?.uid === studentUid) console.warn('Unable to watch student approval updates.', error);
+    });
+  }, [studentUid, loggingOut]);
 
   useEffect(() => {
     const handleBack = () => {
@@ -363,6 +395,9 @@ export default function StudentDashboard({ navigation }) {
     return <DashboardLoadError message={loadError} onRetry={load} onLogout={logout} />;
   }
 
+  if (approvalWelcomeKey && welcomeCheckedKey !== approvalWelcomeKey) return <StudentScreenSkeleton variant="dashboard" />;
+  if (approvedForOjt && showApprovalWelcome) return <ApprovalWelcome onComplete={finishApprovalWelcome} />;
+
   if (!student?.accountApproved || student.preDeploymentStatus !== 'approved') {
     const next = nextPreDeploymentAction(student || {}, preDeploymentSummary);
     return (
@@ -376,29 +411,11 @@ export default function StudentDashboard({ navigation }) {
     );
   }
 
-  const recent = [
-    ...attendance.slice(0, 2).map(item => ({
-      id: `a-${item.id}`,
-      Icon: ClockIcon,
-      text: `Attendance logged · ${item.hoursToday || 0} hrs`,
-      date: dateLabel(item.date),
-      color: COLORS.secondary,
-    })),
-    ...logbook.slice(0, 2).map(item => ({
-      id: `l-${item.id}`,
-      Icon: FileIcon,
-      text: `Week ${item.weekNum || ''} logbook submitted`,
-      date: dateLabel(item.createdAt),
-      color: COLORS.accent,
-    })),
-    ...(notificationsEnabled ? notifications.slice(0, 2) : []).map(item => ({
-      id: `n-${item.id}`,
-      Icon: BellIcon,
-      text: item.title || 'New notification',
-      date: dateLabel(item.createdAt),
-      color: COLORS.primary,
-    })),
-  ].slice(0, 4);
+  const recent = buildActivity(attendance, logbook, notificationsEnabled ? notifications : []).slice(0, 5).map(item => ({
+    ...item, date: dateLabel(item.createdAt),
+    Icon: item.type === 'attendance' ? ClockIcon : item.type === 'journal' ? FileIcon : BellIcon,
+    color: item.type === 'attendance' ? COLORS.secondary : item.type === 'journal' ? COLORS.accent : COLORS.primary,
+  }));
 
   return (
     <View style={styles.container}>
@@ -988,8 +1005,8 @@ function HomePanel({ student, metrics, recent, width, go }) {
           <Text style={styles.homeSectionTitle}>Recent activity</Text>
           <CalendarIcon size={17} color={COLORS.secondary} />
         </View>
-        <MotionTouchableOpacity onPress={() => go('Notifications')} accessibilityRole="button" style={styles.homeSeeAll}>
-          <Text style={styles.cardAction}>See all</Text><ChevronRightIcon size={14} color={COLORS.secondary} />
+        <MotionTouchableOpacity onPress={() => go('ActivityHistory')} accessibilityRole="button" style={styles.homeSeeAll}>
+          <Text style={styles.cardAction}>View all activity</Text><ChevronRightIcon size={14} color={COLORS.secondary} />
         </MotionTouchableOpacity>
       </View>
       <View style={styles.activityList}>
@@ -1080,11 +1097,11 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
   const handleTimeIn = async () => {
     setSaving(true);
     try {
-      const newLog = await postBackend('/attendance/time-in');
+      const newLog = await punchAttendance('/attendance/time-in');
       setTodayLog(newLog);
       setAttLogs(prev => [newLog, ...prev]);
     } catch (e) {
-      Alert.alert('Error', 'Failed to record time-in. Check your connection.');
+      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-in.');
     } finally { setSaving(false); }
   };
 
@@ -1092,13 +1109,13 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
     if (!todayLog || todayLog.timeOut) return;
     setSaving(true);
     try {
-      const result = await postBackend('/attendance/time-out');
+      const result = await punchAttendance('/attendance/time-out');
       const updated = { ...todayLog, ...result };
       setTodayLog(updated);
       setAttLogs(prev => prev.map(l => l.id === todayLog.id ? updated : l));
       if (onHoursUpdate) onHoursUpdate(); // refresh parent metrics
     } catch (e) {
-      Alert.alert('Error', 'Failed to record time-out.');
+      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-out.');
     } finally { setSaving(false); }
   };
 
@@ -1114,7 +1131,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
   const selectedMonthLabel = weekStart.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
   const selectedIsToday = selectedDate === todayStr;
-  const visibleAttendanceLogs = attLogs.filter(log => selectedIsToday ? log.date !== todayStr : log.date === selectedDate);
+  const visibleAttendanceLogs = attendanceHistoryForDate(attLogs, selectedDate, todayStr);
   const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
@@ -1265,7 +1282,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
       {/* ── Attendance History ── */}
       <View style={styles.attSectionRow}>
         <Text style={styles.homeSectionTitle}>Attendance history</Text>
-        <Text style={styles.attSectionCount}>{attLogs.length} records</Text>
+        <Text style={styles.attSectionCount}>{attendanceRecordCountLabel(visibleAttendanceLogs.length)}</Text>
       </View>
 
       <Card style={styles.attHistoryCard}>
@@ -1785,7 +1802,8 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     padding: 18,
-    paddingBottom: 216,
+    // Navigation is outside the scroll viewport. Only clear the 64px message FAB.
+    paddingBottom: 80,
     gap: 18,
   },
   profileScroll: { paddingBottom: 26, gap: 14 },

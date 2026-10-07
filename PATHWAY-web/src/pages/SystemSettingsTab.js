@@ -4,6 +4,7 @@ import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './AdminConfiguration.css';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DEFAULTS = {
@@ -61,22 +62,24 @@ export default function SystemSettingsTab() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="admin-configuration admin-settings">
       <div style={s.header}>
-        <h2 style={s.title}>System Configuration & Attendance Defaults</h2>
+        <h2 style={s.title}>System settings</h2>
         <p style={s.sub}>
-          Global defaults for OJT section creations, automated attendance analytics, workday expectations, and notifications.
+          Set default OJT hours, attendance schedules, and notification preferences.
         </p>
       </div>
 
-      {error   && <div style={s.error}>{error}</div>}
-      {message && <div style={s.success}>{message}</div>}
+      {error   && <div role="alert" style={s.error}>{error}</div>}
+      {message && <div role="status" style={s.success}>{message}</div>}
 
-      <form onSubmit={save} style={s.form}>
+      <form onSubmit={save} style={s.form} className="admin-configuration-form">
+        <div><h3>Hours & attendance</h3><p>Default values for section creation and attendance calculations.</p></div>
         <div style={s.grid}>
           <div style={s.field}>
-            <label style={s.label}>Default Required OJT Hours</label>
+            <label style={s.label} htmlFor="settings-required-hours">Default required OJT hours</label>
             <input
+              id="settings-required-hours"
               style={s.input}
               type="number"
               min="1"
@@ -88,8 +91,9 @@ export default function SystemSettingsTab() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label}>Daily Target Hours</label>
+            <label style={s.label} htmlFor="settings-daily-hours">Daily target hours</label>
             <input
+              id="settings-daily-hours"
               style={s.input}
               type="number"
               min="0.1"
@@ -103,8 +107,9 @@ export default function SystemSettingsTab() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label}>Expected Shift Start Time</label>
+            <label style={s.label} htmlFor="settings-start-time">Expected shift start time</label>
             <input
+              id="settings-start-time"
               style={s.input}
               type="time"
               value={settings.expectedStartTime}
@@ -115,8 +120,9 @@ export default function SystemSettingsTab() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label}>Late Arrival Grace Period (Minutes)</label>
+            <label style={s.label} htmlFor="settings-grace-period">Late arrival grace period (minutes)</label>
             <input
+              id="settings-grace-period"
               style={s.input}
               type="number"
               min="0"
@@ -129,8 +135,8 @@ export default function SystemSettingsTab() {
           </div>
         </div>
 
-        <div style={s.workdaysSection}>
-          <label style={s.label}>Expected Internship Workdays</label>
+        <div style={s.workdaysSection} className="admin-workdays">
+          <h3>Expected workdays</h3>
           <p style={s.hint}>Selected days are factored into student attendance analytics and missed shift calculations.</p>
           <div style={s.daysGrid}>
             {DAYS.map(day => {
@@ -138,6 +144,7 @@ export default function SystemSettingsTab() {
               return (
                 <button
                   type="button"
+                  aria-pressed={active}
                   key={day}
                   style={{
                     ...s.dayButton,
@@ -154,7 +161,7 @@ export default function SystemSettingsTab() {
           </div>
         </div>
 
-        <div style={s.notificationsWrap}>
+        <div style={s.notificationsWrap} className="admin-notification-preference">
           <label style={s.checkboxLabel}>
             <input
               type="checkbox"
@@ -170,6 +177,7 @@ export default function SystemSettingsTab() {
         </div>
 
         <button
+          type="submit" className="admin-configuration-save"
           style={s.saveButton}
           disabled={saving || settings.expectedWorkdays.length === 0}
         >

@@ -8,6 +8,7 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton, InlineSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
+import './SectionsTab.css';
 
 export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange }) {
   const [sections, setSections]         = useState([]);
@@ -69,7 +70,13 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   };
 
   useEffect(() => {
-    if (sharedSection) setSelected(sharedSection);
+    if (!sharedSection) return;
+    setSelected(sharedSection);
+    let cancelled = false;
+    getDocs(query(collection(db, 'users'), where('sectionId', '==', sharedSection.id)))
+      .then(snap => { if (!cancelled) setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
+      .catch(console.error);
+    return () => { cancelled = true; };
   }, [sharedSection]);
 
   const fetchRequirements = async (section) => {
@@ -161,13 +168,13 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   }
 
   return (
-    <div style={t.page}>
+    <div className="sections-workspace" style={t.page}>
       {/* Left Column: Sections List */}
-      <div style={t.left}>
+      <div className="sections-panel" style={t.left}>
         <div style={t.leftHeader}>
           <div>
             <h2 style={t.leftTitle}>Sections</h2>
-            <span style={t.leftCount}>{sections.length} Active</span>
+            <span style={t.leftCount}>{sections.length} {sections.length === 1 ? 'section' : 'sections'}</span>
           </div>
           <button style={t.addBtn} onClick={() => setModal(true)}>+ New Section</button>
         </div>
@@ -177,18 +184,20 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
         <div style={t.secList}>
           {filteredSections.length === 0 && (
-            <div style={t.empty}>No sections created yet. Click "+ New Section" to begin.</div>
+            <div style={t.empty}>{searchQuery ? 'No matching sections.' : 'Create your first section to get started.'}</div>
           )}
           {filteredSections.map(sec => (
             <div
+              className="section-list-card"
+              data-selected={selected?.id === sec.id}
               key={sec.id}
               style={{ ...t.secCard, ...(selected?.id === sec.id ? t.secCardActive : {}) }}
             >
-              <div onClick={() => fetchStudents(sec)} style={t.secMainClick}>
+              <button type="button" className="section-select" aria-pressed={selected?.id === sec.id} onClick={() => fetchStudents(sec)} style={t.secMainClick}>
                 <div style={t.secName}>{sec.name}</div>
                 <div style={t.secInfo}>{sec.department}</div>
                 <div style={t.secHoursBadge}>{sec.hoursRequired} hrs required</div>
-              </div>
+              </button>
               <button
                 style={t.configBtn}
                 onClick={() => fetchRequirements(sec)}
@@ -202,7 +211,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       </div>
 
       {/* Right Column: Detail Area */}
-      <div style={t.right}>
+      <div className="sections-detail" style={t.right}>
         {!selected ? (
           <div style={t.emptyDetail}>
             <div style={t.emptyIcon}><Icon name="section" size={28} label="Sections" /></div>
@@ -212,7 +221,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
         ) : (
           <>
             {/* Section Header Card */}
-            <div style={t.detailHeader}>
+            <div className="section-overview" style={t.detailHeader}>
               <div>
                 <h2 style={t.detailTitle}>{selected.name}</h2>
                 <div style={t.detailSubRow}>
@@ -223,19 +232,21 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                       <><Icon name="chat" size={14} /> Open Group Chat</>
                     </a>
                   ) : (
-                    <span style={{ color: '#000000' }}>No GC Link</span>
+                    <span style={{ color: '#697991' }}>No group chat linked</span>
                   )}
                 </div>
               </div>
 
-              <div style={t.viewToggle}>
+              <div className="section-view-toggle" style={t.viewToggle}>
                 <button
+                  aria-pressed={view === 'students'}
                   style={{ ...t.toggleBtn, ...(view === 'students' ? t.toggleBtnActive : {}) }}
                   onClick={() => fetchStudents(selected)}
                 >
-                  <Icon name="users" size={16} /> Enrolled Students ({students.length})
+                  <Icon name="users" size={16} /> Students ({students.length})
                 </button>
                 <button
+                  aria-pressed={view === 'requirements'}
                   style={{ ...t.toggleBtn, ...(view === 'requirements' ? t.toggleBtnActive : {}) }}
                   onClick={() => fetchRequirements(selected)}
                 >
@@ -248,12 +259,12 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             {view === 'students' && (
               <div style={t.viewContent}>
                 <div style={t.subHeaderRow}>
-                  <h3 style={t.sectionLabel}>ENROLLED STUDENTS IN THIS SECTION</h3>
+                  <h3 style={t.sectionLabel}>Enrolled students</h3>
                   <span style={t.studentCountText}>{students.length} Student(s)</span>
                 </div>
 
                   {filteredStudents.length === 0 ? (
-                    <div style={t.emptyCard}>No students enrolled in this section yet.</div>
+                    <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
                   ) : (
                   <div style={t.studentsGrid}>
                     {filteredStudents.map(st => (
@@ -262,7 +273,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                           <div style={t.studentAvatar}>{st.firstName?.[0]}{st.lastName?.[0]}</div>
                           <div>
                             <div style={t.studentName}>{st.firstName} {st.lastName}</div>
-                            <div style={t.studentInfo}>{st.idNumber || 'No ID'} · {st.email}</div>
+                            <div style={t.studentInfo}>ID {st.idNumber || 'not provided'}</div>
                           </div>
                         </div>
                         <span style={{
@@ -278,8 +289,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   </div>
                 )}
 
-                <div style={t.unassignedSection}>
-                  <h3 style={t.sectionLabel}>ASSIGN UNASSIGNED STUDENTS TO {selected.name}</h3>
+                <div className="section-assignment" style={t.unassignedSection}>
+                  <h3 style={t.sectionLabel}>Assign students</h3>
+                  <p className="section-help">Students in your department who haven't joined a section.</p>
                   <UnassignedStudents
                     sectionId={selected.id}
                     department={selected.department}
@@ -294,7 +306,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               <div style={t.viewContent}>
                 <div style={t.reqHeader}>
                   <div>
-                    <h3 style={t.sectionLabel}>CUSTOM REQUIREMENTS & SUBMISSION DEADLINES</h3>
+                    <h3 style={t.sectionLabel}>Checklist & deadlines</h3>
                     <p style={t.reqSubText}>Set specific deadlines for each requirement. Overdue alerts are automatically shown to students.</p>
                   </div>
                   <button
@@ -304,7 +316,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                       setReqForm({ label: '', category: 'Pre-OJT', deadline: '' });
                     }}
                   >
-                    + Add Custom Requirement
+                    + Add requirement
                   </button>
                 </div>
 
@@ -313,7 +325,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   if (catReqs.length === 0) return null;
                   return (
                     <div key={cat} style={t.catBlock}>
-                      <div style={t.catLabel}>{cat} Phase Requirements</div>
+                      <div style={t.catLabel}>{cat} requirements</div>
                       <div style={t.reqList}>
                         {catReqs.map(req => {
                           const isOverdue = req.deadline && new Date(req.deadline) < new Date();
@@ -325,6 +337,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                                   <span style={t.deadlineLabel}>Deadline:</span>
                                   <input
                                     type="date"
+                                    aria-label={`${req.label} deadline`}
                                     style={t.dateInput}
                                     value={req.deadline || ''}
                                     onChange={e => handleUpdateDeadline(req.id, e.target.value)}
@@ -364,7 +377,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       {/* Create Section Modal */}
       {modal && (
         <div style={t.overlay}>
-          <div style={t.modalCard}>
+          <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Create New Section</h2>
             <div style={t.field}>
               <label style={t.label}>Section Name / Code</label>
@@ -425,7 +438,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       {/* Add Requirement Modal */}
       {reqModal === 'add' && (
         <div style={t.overlay}>
-          <div style={t.modalCard}>
+          <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Add Custom Requirement</h2>
             <div style={t.field}>
               <label style={t.label}>Requirement Name</label>
@@ -523,7 +536,7 @@ function UnassignedStudents({ sectionId, department, onAssign }) {
         <div key={st.id} style={t.unassignedRow}>
           <div>
             <div style={t.studentName}>{st.firstName} {st.lastName}</div>
-            <div style={t.studentInfo}>{st.idNumber || 'No ID'} · {st.department}</div>
+            <div style={t.studentInfo}>ID {st.idNumber || 'not provided'}</div>
           </div>
           <button style={t.assignBtn} onClick={() => assign(st.id)}>
             + Assign to Section
@@ -596,7 +609,6 @@ const t = {
   },
   secCardActive: {
     backgroundColor: COLORS.sky50,
-    borderLeft: `4px solid ${COLORS.sky600}`,
   },
   secMainClick: {
     flex: 1,
@@ -731,10 +743,10 @@ const t = {
     alignItems: 'center',
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: 800,
     color: '#000000',
-    letterSpacing: '0.06em',
+    letterSpacing: 'normal',
     margin: 0,
   },
   studentCountText: {

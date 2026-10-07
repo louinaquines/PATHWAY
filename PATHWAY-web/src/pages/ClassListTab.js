@@ -8,6 +8,7 @@ import CoordinatorSearch from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
+import './CoordinatorRecords.css';
 
 export default function ClassListTab({ department, coordinatorId }) {
   const [sections, setSections] = useState([]);
@@ -100,14 +101,14 @@ export default function ClassListTab({ department, coordinatorId }) {
   }
 
   return (
-    <div style={s.page}>
+    <div className="authorized-roster-page" style={s.page}>
       {/* Top Banner / Card */}
-      <div style={s.card}>
+      <div className="roster-import-card" style={s.card}>
         <div style={s.cardHeader}>
           <div>
-            <h2 style={s.title}>Class List Account Provisioning</h2>
+            <h2 style={s.title}>Import class list</h2>
             <p style={s.help}>
-              Import authorized students for <strong>{department}</strong>. Username: uclm-StudentID. Initial password: UC@StudentID. Password replacement is required before access. Existing passwords are never reset by reimport.
+              Create accounts from your authorized class list. Students must change their initial password before accessing PATHWAY. Reimporting does not reset existing passwords.
             </p>
           </div>
           <span style={s.deptBadge}>{department}</span>
@@ -118,7 +119,8 @@ export default function ClassListTab({ department, coordinatorId }) {
           <select aria-label="Assigned section" value={sectionId} onChange={e => setSectionId(e.target.value)} disabled={saving}>
             <option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
           </select>
-          <label style={s.label}>Class list CSV — StudentID,FirstName,LastName</label>
+          <label style={s.label}>Upload a CSV file</label>
+          <p className="roster-format-help">Columns: StudentID, FirstName, LastName. Email addresses are not required.</p>
           <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={async e => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -126,6 +128,7 @@ export default function ClassListTab({ department, coordinatorId }) {
             try { setInput((await file.text()).replace(/^\uFEFF/, '')); } catch { setMessage('Could not read the class list.'); }
           }} />
           <textarea
+            aria-label="Class list CSV content"
             style={s.textarea}
             rows={4}
             value={input}
@@ -142,7 +145,7 @@ export default function ClassListTab({ department, coordinatorId }) {
               {saving ? 'Provisioning accounts...' : 'Import and create accounts'}
             </button>
             {message && (
-              <span style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>
+              <span role="status" style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>
                 {message}
               </span>
             )}
@@ -153,10 +156,10 @@ export default function ClassListTab({ department, coordinatorId }) {
       </div>
 
       {/* Roster List Card */}
-      <div style={s.card}>
+      <div className="roster-records-card" style={s.card}>
         <div style={s.listHeader}>
           <div>
-            <h3 style={s.subtitle}>Authorized Student IDs</h3>
+            <h3 style={s.subtitle}>Authorized students</h3>
             <span style={s.countText}>{filteredIds.length} of {ids.length} students</span>
           </div>
           {ids.length > 0 && (
@@ -182,6 +185,7 @@ export default function ClassListTab({ department, coordinatorId }) {
                 </tr>
               </thead>
               <tbody>
+                {filteredIds.length === 0 && <tr><td colSpan={5} style={s.td}>No matching student IDs.</td></tr>}
                 {filteredIds.map(item => (
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>

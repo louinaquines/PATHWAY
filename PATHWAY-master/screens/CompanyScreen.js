@@ -21,6 +21,7 @@ import StudentLogoutScreen from '../components/StudentLogoutScreen';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
+import PlacementDateField from '../components/PlacementDateField';
 import PreDeploymentStepper from '../components/PreDeploymentStepper';
 import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
 import {
@@ -191,7 +192,10 @@ export default function CompanyScreen({ navigation }) {
       setProposalStatus(status);
       if (status === 'pending_review') setPlacementChangeMode(false);
       if (status === 'draft') Alert.alert('Draft saved', 'You can continue editing your placement details later.');
-      if (status === 'pending_review') Alert.alert('Submitted for review', 'Your coordinator will review this company placement.');
+      if (status === 'pending_review') Alert.alert('Submitted for review', 'Your coordinator will review this company placement. You can return to your dashboard while you wait.', [
+        { text: 'Done', style: 'cancel' },
+        { text: 'Back to dashboard', onPress: () => navigation.replace('StudentDashboard') },
+      ]);
     } catch (error) {
       console.error('Company proposal save error:', error);
       Alert.alert('Unable to save placement', error.message || 'Please check your connection and try again.');
@@ -365,7 +369,7 @@ export default function CompanyScreen({ navigation }) {
               <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Supervisor email" value={form.supervisorEmail} onChangeText={value => updateField('supervisorEmail', value)} editable={showEditor} half={!isNarrow} /><Field label="Supervisor phone" value={form.supervisorPhone} onChangeText={value => updateField('supervisorPhone', value)} editable={showEditor} half={!isNarrow} /></View>
               <Text style={styles.formGroupTitle}>INTERNSHIP DETAILS</Text>
               <Field label="Internship role or department" value={form.internshipRole} onChangeText={value => updateField('internshipRole', value)} editable={showEditor} />
-              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Start date" value={form.startDate} onChangeText={value => updateField('startDate', value)} editable={showEditor} half={!isNarrow} placeholder="YYYY-MM-DD" /><Field label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half={!isNarrow} placeholder="YYYY-MM-DD" /></View>
+              <View style={[styles.row, isNarrow && styles.formColumn]}><PlacementDateField label="Start date" value={form.startDate} onChangeText={value => { updateField('startDate', value); if (form.endDate && form.endDate < value) updateField('endDate', ''); }} editable={showEditor} half={!isNarrow} /><PlacementDateField label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half={!isNarrow} minimumDate={form.startDate} /></View>
               <Field label="Work arrangement or location" value={form.workArrangement} onChangeText={value => updateField('workArrangement', value)} editable={showEditor} />
               <Field label="Additional notes" value={form.notes} onChangeText={value => updateField('notes', value)} editable={showEditor} multiline />
               <View style={[styles.actionRow, isNarrow && styles.actionColumn]}>

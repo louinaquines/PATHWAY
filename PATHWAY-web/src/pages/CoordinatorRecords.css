@@ -1,0 +1,53 @@
+.authorized-roster-page, .registrations-page, .coordinator-analytics-page { padding: 24px !important; background: #f6f8fc !important; min-width: 0; box-sizing: border-box; }
+.authorized-roster-page h2, .registration-intro h2, .coordinator-analytics-page h2 { color: #152238 !important; font-size: 22px !important; font-weight: 700 !important; margin: 0; }
+.authorized-roster-page h3, .registrations-page h3, .coordinator-analytics-page h3 { color: #152238 !important; font-weight: 600 !important; }
+.authorized-roster-page button, .registrations-page button, .coordinator-analytics-page button { min-height: 38px; font: inherit; font-size: 12px; font-weight: 600 !important; border-radius: 9px !important; box-shadow: none !important; cursor: pointer; }
+.authorized-roster-page button:disabled, .registrations-page button:disabled, .coordinator-analytics-page button:disabled { opacity: .55; cursor: not-allowed !important; }
+.authorized-roster-page button:focus-visible, .registrations-page button:focus-visible, .coordinator-analytics-page button:focus-visible, .authorized-roster-page textarea:focus-visible, .authorized-roster-page select:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+.authorized-roster-page { display: grid !important; grid-template-columns: minmax(0, 1fr) 360px; align-content: start; align-items: start; gap: 20px !important; }
+.authorized-roster-page > .roster-import-card { grid-column: 2; grid-row: 1; }
+.authorized-roster-page > .roster-records-card { grid-column: 1; grid-row: 1; }
+.roster-import-card, .roster-records-card { max-width: none !important; min-width: 0; padding: 22px !important; border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
+.roster-import-card > div:first-child p { color: #697991 !important; font-size: 12px !important; line-height: 1.7 !important; margin-top: 8px !important; }
+.roster-import-card > div:first-child > span { background: #eef4fc !important; color: #526985 !important; border: 0 !important; font-size: 10px !important; font-weight: 500 !important; border-radius: 6px !important; }
+.roster-import-card label { color: #526079 !important; font-weight: 500 !important; font-size: 12px !important; margin-top: 8px; }
+.roster-import-card select { padding: 12px; border: 1px solid #dbe3ee; border-radius: 9px; background: #fbfcfe; font: inherit; font-size: 12px; min-width: 0; }
+.roster-import-card input[type="file"] { width: 100%; font-size: 11px; padding: 14px 10px; border: 1px dashed #cbd7e6; border-radius: 10px; background: #f8fafd; box-sizing: border-box; }
+.roster-import-card textarea { border-width: 1px !important; border-color: #dbe3ee !important; background: #fbfcfe !important; min-height: 130px; font-size: 11px !important; }
+.roster-import-card button { background: #075fc9 !important; color: white; border: 0; padding: 10px 14px; }
+.roster-format-help { margin: 0; color: #697991; font-size: 11px; line-height: 1.7; }
+.roster-records-card > div:first-child > div > span { color: #697991 !important; font-weight: 400 !important; }
+.roster-records-card td:first-child span { background: transparent !important; border: none !important; padding: 0 !important; color: #152238 !important; font-weight: 600 !important; }
+.roster-records-card td:last-child { white-space: nowrap; }
+.roster-records-card td:last-child button { margin: 3px; padding: 8px 10px; border: 1px solid #e4eaf3; background: white; color: #526079; }
+.roster-records-card td:last-child button:first-child { color: #b42338 !important; background: white !important; }
+.registration-intro { margin-bottom: 20px; }
+.registration-intro p { margin: 7px 0 0; color: #697991; font-size: 12px; line-height: 1.7; }
+.registration-tabs { display: flex !important; flex-wrap: wrap; gap: 6px !important; background: transparent !important; border: none !important; padding: 0 0 16px !important; border-bottom: 1px solid #e4eaf3 !important; }
+.registration-tabs button { background: transparent !important; color: #697991 !important; border: none !important; padding: 10px 14px !important; }
+.registration-tabs button[aria-pressed="true"] { background: #edf4ff !important; color: #075fc9 !important; }
+.registration-tabs button span:last-child { background: transparent !important; color: inherit !important; border-radius: 5px !important; }
+.registration-student-card { background: white !important; border-color: #e4eaf3 !important; border-radius: 14px !important; box-shadow: none !important; gap: 16px; flex-wrap: wrap; }
+.registration-student-card h3 { font-size: 14px !important; }
+.registration-student-card > div:first-child { min-width: 0; }
+.registration-student-card > div:first-child > div:first-child { background: #eef4fc !important; border: none !important; border-radius: 10px !important; color: #075fc9 !important; }
+.registration-student-card > div:first-child > div:last-child > div { color: #697991 !important; font-size: 12px !important; overflow-wrap: anywhere; }
+.registration-student-card button:first-child { background: #075fc9 !important; }
+.registration-student-card button:last-child { background: white !important; color: #b42338 !important; }
+.coordinator-analytics-page > div:first-child p { color: #697991 !important; line-height: 1.7; font-size: 12px !important; }
+.coordinator-analytics-page > div:first-child > div:last-child { flex-wrap: wrap; }
+.analytics-metrics > div { border-color: #e4eaf3 !important; border-radius: 12px !important; box-shadow: none !important; }
+.analytics-metrics > div > div:first-child { color: #697991 !important; font-size: 11px !important; font-weight: 500 !important; }
+.analytics-metrics > div > div:last-child { color: #152238 !important; font-size: 24px !important; font-weight: 600 !important; }
+.analytics-records { border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
+.analytics-records > div:first-child { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+.analytics-records > div:first-child p { color: #697991 !important; font-size: 12px !important; }
+.roster-records-card th, .analytics-records th { text-transform: none !important; letter-spacing: normal !important; color: #697991 !important; font-size: 12px !important; font-weight: 500 !important; padding: 16px !important; white-space: nowrap; }
+.roster-records-card td, .analytics-records td { color: #34445c !important; padding: 17px 16px !important; }
+.roster-records-card tbody tr:hover, .analytics-records tbody tr:hover { background: #fbfcfe; }
+.analytics-records td:first-child > div { color: #152238 !important; font-size: 13px !important; font-weight: 600 !important; }
+.analytics-records td:first-child > span { color: #697991 !important; font-weight: 400 !important; }
+.analytics-records td:last-child span { border-radius: 6px !important; font-weight: 500 !important; }
+@media (max-width: 1150px) { .authorized-roster-page { grid-template-columns: minmax(0, 1fr) 300px; } }
+@media (max-width: 900px) { .authorized-roster-page { grid-template-columns: 1fr; } .authorized-roster-page > .roster-import-card { grid-column: 1; grid-row: 1; } .authorized-roster-page > .roster-records-card { grid-column: 1; grid-row: 2; } }
+@media (max-width: 520px) { .authorized-roster-page, .registrations-page, .coordinator-analytics-page { padding: 14px !important; } .roster-import-card, .roster-records-card { padding: 16px !important; } }

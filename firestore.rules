@@ -50,6 +50,10 @@ service cloud.firestore {
         && resourceData.department == userRecord().data.department;
     }
 
+    function recordsOpen(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.get('clearanceStatus', '') != 'cleared';
+    }
+
     match /users/{userId} {
       // Users need to read their own profile for role-based routing.
       // Coordinators need to read student profiles for their dashboard queries.
@@ -78,6 +82,7 @@ service cloud.firestore {
           ])
           && request.resource.data.email == resource.data.email)
         || (coordinatorMayReview(resource.data)
+          && recordsOpen(userId)
           && resource.data.role == 'student'
           && request.resource.data.role == 'student'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -103,7 +108,7 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isAdmin()
           || (get(/databases/$(database)/documents/users/$(userId)).data.sectionId is string
             && isCoordinatorForSection(get(/databases/$(database)/documents/users/$(userId)).data.sectionId));
-        allow create: if isOwner(userId)
+        allow create: if recordsOpen(userId) && isOwner(userId)
           && request.resource.data.status in ['draft', 'pending']
           && request.resource.data.rawNotes is string
           && request.resource.data.rawNotes.size() <= 8000
@@ -113,15 +118,15 @@ service cloud.firestore {
           && request.resource.data.hours > 0
           && request.resource.data.hours <= 168
           && request.resource.data.keys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'weekNum', 'weekRange', 'hours', 'status', 'createdAt', 'updatedAt']);
-        allow update: if isAdmin()
+        allow update: if recordsOpen(userId) && (isAdmin()
           || (isOwner(userId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'rawNotes', 'refined', 'weekNum', 'weekRange', 'hours', 'status',
               'createdAt'
             ])
             && resource.data.status == 'draft'
-            && request.resource.data.status in ['draft', 'pending']);
-        allow delete: if isAdmin() || (isOwner(userId) && resource.data.status == 'draft');
+            && request.resource.data.status in ['draft', 'pending']));
+        allow delete: if recordsOpen(userId) && (isAdmin() || (isOwner(userId) && resource.data.status == 'draft'));
       }
     }
 
@@ -163,7 +168,7 @@ service cloud.firestore {
 
     match /companies/{companyId} {
       allow read: if signedIn();
-      // Company directory changes must pass through admin backend endpoints so
+      // Company directory changes must pass through coordinator backend endpoints so
       // capacity counters and audit records stay in sync.
       allow write: if false;
     }

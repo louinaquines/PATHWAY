@@ -7,6 +7,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './CoordinatorRecords.css';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
@@ -150,12 +151,12 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
   ));
 
   return (
-    <div style={s.page}>
+    <div className="coordinator-analytics-page" style={s.page}>
       {/* Top Header */}
       <div style={s.headerRow}>
         <div>
-          <h2 style={s.title}>OJT Cohort Analytics & Progress</h2>
-          <p style={s.sub}>Real-time monitoring of intern hours, attendance trends, risk metrics, and completion milestones.</p>
+          <h2 style={s.title}>Cohort overview</h2>
+          <p style={s.sub}>Student hours, completion, and reported attendance for {selectedSection?.name || 'your assigned sections'}.</p>
         </div>
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
@@ -165,11 +166,11 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
         </div>
       </div>
 
-      {error && <div style={s.errorBox}>{error}</div>}
+      {error && <div role="alert" style={s.errorBox}>{error}</div>}
 
       {/* Metrics Summary Grid */}
       {data && (
-        <div style={s.metricsGrid}>
+        <div className="analytics-metrics" style={s.metricsGrid}>
           <MetricCard label="Total Students" value={data.totalStudents || 0} accent="sky" />
           <MetricCard label="Active Interns" value={data.activeInterns || 0} accent="emerald" />
           <MetricCard label="Completed OJT" value={data.completedInterns || 0} accent="yellow" />
@@ -180,10 +181,10 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       )}
 
       {/* Student Progress Breakdown Table */}
-      <div style={s.tableCard}>
+      <div className="analytics-records" style={s.tableCard}>
         <div style={s.cardHeader}>
           <div>
-            <h3 style={s.cardTitle}>Student Progress & Risk Breakdown</h3>
+            <h3 style={s.cardTitle}>Student progress</h3>
             <p style={s.sub}>{data?.students?.length || 0} intern(s) tracked</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
@@ -225,8 +226,8 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                     <td style={s.td}>
                       <div style={s.attendanceMini}>
                         <span>Rate: <strong>{st.attendanceRate ?? 100}%</strong></span>
-                        {st.lateRate > 0 && <span style={{ color: '#000000' }}>· {st.lateRate}% late</span>}
-                        {st.missedShifts > 0 && <span style={{ color: '#000000' }}>· {st.missedShifts} missed</span>}
+                        {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
+                        {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
                       </div>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>
@@ -246,10 +247,10 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                   </tr>
                 );
               })}
-              {(!data?.students || data.students.length === 0) && (
+              {filteredStudents.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
-                    No student progress records found for this cohort.
+                    {searchQuery ? 'No matching students. Try another name or ID.' : 'No student progress records found for this cohort.'}
                   </td>
                 </tr>
               )}
@@ -261,18 +262,9 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
   );
 }
 
-function MetricCard({ label, value, accent }) {
-  const accentColors = {
-    sky: { border: COLORS.sky500 },
-    yellow: { border: COLORS.yellow500 },
-    emerald: { border: COLORS.emerald500 },
-    rose: { border: COLORS.rose500 },
-    slate: { border: COLORS.slate400 },
-  };
-  const theme = accentColors[accent] || accentColors.sky;
-
+function MetricCard({ label, value }) {
   return (
-    <div style={{ ...s.metricCard, borderLeft: `4px solid ${theme.border}` }}>
+    <div style={s.metricCard}>
       <div style={s.metricLabel}>{label}</div>
       <div style={s.metricValue}>{value}</div>
     </div>

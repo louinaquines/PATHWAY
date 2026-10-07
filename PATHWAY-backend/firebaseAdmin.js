@@ -1,4 +1,4 @@
-if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
+if (process.env.NODE_ENV !== 'production' && process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
 const { applicationDefault, getApp, getApps, initializeApp } = require('firebase-admin/app');
 
 // Uses Application Default Credentials. For local development, set

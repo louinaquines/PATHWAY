@@ -83,7 +83,7 @@ async function main() {
     throw new Error('Refusing to run: this workflow requires the pinned local PATHWAY demo emulators.');
   }
 
-  const seeded = spawnSync(process.execPath, [path.join(__dirname, 'seed-workflow-emulator.js')], {
+  const seeded = process.env.PATHWAY_EMULATOR_RESTORED === '1' ? { status: 0 } : spawnSync(process.execPath, [path.join(__dirname, 'seed-workflow-emulator.js')], {
     cwd: backendDir,
     env: process.env,
     stdio: 'inherit',
@@ -91,6 +91,8 @@ async function main() {
   });
   if (seeded.error) throw seeded.error;
   if (seeded.status !== 0) throw new Error('Could not seed the demo accounts and workflow fixtures.');
+  const stopBackups = require('./emulator-persistence').watch();
+  process.once('exit', stopBackups);
 
   const expoCli = path.join(mobileDir, 'node_modules', 'expo', 'bin', 'cli');
   if (!fs.existsSync(expoCli)) throw new Error('Expo CLI was not found. Install PATHWAY-master dependencies first.');
@@ -112,16 +114,20 @@ async function main() {
   ]) {
     delete expoEnvironment[key];
   }
+  for (const key of Object.keys(expoEnvironment)) {
+    if (key.startsWith('CLOUDINARY_')) delete expoEnvironment[key];
+  }
 
   const backendEnvironment = {
     ...process.env,
     PATHWAY_LOCAL_WORKFLOW: '1',
+    PATHWAY_CLOUDINARY_QA: '1',
     HOST: '127.0.0.1',
     PORT: '3100',
     CORS_ALLOWED_ORIGINS: 'http://localhost:8083,http://127.0.0.1:8083,http://localhost:3001,http://127.0.0.1:3001',
   };
   for (const key of ['ANTHROPIC_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS']) delete backendEnvironment[key];
-  const backend = launch('PATHWAY backend (local emulator mode)', process.execPath, ['server.js'], backendDir, backendEnvironment);
+  const backend = launch('PATHWAY backend (local emulator mode, live reload)', process.execPath, ['--watch', 'server.js'], backendDir, backendEnvironment);
   await waitForBackend(backend);
 
   const web = launch('PATHWAY student app (live reload, Firebase emulator mode)', process.execPath, [
@@ -131,7 +137,7 @@ async function main() {
 
   const portalCli = path.join(portalDir, 'node_modules', 'react-scripts', 'scripts', 'start.js');
   if (!fs.existsSync(portalCli)) throw new Error('Web portal dependencies were not found. Install PATHWAY-web dependencies first.');
-  const portal = launch('PATHWAY staff portal (local emulator mode)', process.execPath, [portalCli], portalDir, {
+  const portalEnvironment = {
     ...process.env,
     BROWSER: 'none', HOST: '127.0.0.1', PORT: '3001',
     REACT_APP_LOCAL_EMULATOR: '1',
@@ -142,17 +148,26 @@ async function main() {
     REACT_APP_FIREBASE_STORAGE_BUCKET: 'demo-pathway-security.appspot.com',
     REACT_APP_FIREBASE_MESSAGING_SENDER_ID: '000000000000',
     REACT_APP_FIREBASE_APP_ID: '1:000000000000:web:demo',
-  });
+  };
+  for (const key of Object.keys(portalEnvironment)) {
+    if (key.startsWith('CLOUDINARY_')) delete portalEnvironment[key];
+  }
+  const portal = launch('PATHWAY staff portal (local emulator mode)', process.execPath, [portalCli], portalDir, portalEnvironment);
   await waitForPort(3001, portal, 'PATHWAY staff portal');
 
   console.log('\nLocal-only test environment is ready. No production Firebase project is used.');
   console.log('Open http://localhost:8083 in this computer’s browser.');
   console.log('Staff portal: http://127.0.0.1:3001 (Auth and Firestore emulators only).');
   console.log('The student app is now served by Expo with Fast Refresh. Save UI files to see changes without restarting Firebase.');
-  console.log('Student: student.emulator@pathway.test / PathwayLocal!2026');
-  console.log('Approved dashboard preview: student.approved@pathway.test / PathwayLocal!2026');
-  console.log('Coordinator: coordinator.emulator@pathway.test / PathwayLocal!2026');
-  console.log('Admin: admin.emulator@pathway.test / PathwayLocal!2026');
+  console.log('The backend also reloads when its source files change; keep this workflow terminal running.');
+  if (process.env.PATHWAY_EMULATOR_RESTORED === '1') {
+    console.log('Saved QA accounts and passwords retained. Use your existing credentials.');
+  } else {
+    console.log('Student: student.emulator@pathway.test / PathwayLocal!2026');
+    console.log('Approved dashboard preview: student.approved@pathway.test / PathwayLocal!2026');
+    console.log('Coordinator: coordinator.emulator@pathway.test / PathwayLocal!2026');
+    console.log('Admin: admin.emulator@pathway.test / PathwayLocal!2026');
+  }
   console.log('In a second PowerShell window, from PATHWAY-backend, use:');
   console.log('  npm run emulator:decision -- placement needs_revision');
   console.log('  npm run emulator:decision -- placement approved');

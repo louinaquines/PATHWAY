@@ -1,0 +1,50 @@
+.coordinator-messages, .evaluation-panel, .clearance-page { padding: 24px !important; background: #f6f8fc !important; min-width: 0; box-sizing: border-box; }
+.coordinator-messages h2, .evaluation-panel h2, .clearance-page h2 { color: #152238 !important; font-weight: 700 !important; font-size: 21px !important; }
+.coordinator-messages button, .evaluation-panel button, .clearance-page button { min-height: 40px; font-family: inherit; font-weight: 600 !important; border-radius: 9px !important; box-shadow: none !important; cursor: pointer; }
+.coordinator-messages button:disabled, .evaluation-panel button:disabled, .clearance-page button:disabled { opacity: .55; cursor: not-allowed; }
+.coordinator-messages button:focus-visible, .evaluation-panel button:focus-visible, .clearance-page button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+.coordinator-messages input:focus-visible, .coordinator-messages textarea:focus-visible, .evaluation-panel input:focus-visible, .evaluation-panel select:focus-visible, .evaluation-panel textarea:focus-visible { outline: 3px solid #c6dcfa; outline-offset: 1px; }
+.coordinator-messages { grid-template-columns: minmax(0, 1fr) !important; align-content: start; }
+.coordinator-messages.has-conversation { grid-template-columns: 320px minmax(0, 1fr) !important; }
+.coordinator-messages > section { border-radius: 18px !important; padding: 22px !important; border-color: #e4eaf3 !important; min-width: 0; background: white !important; }
+.coordinator-messages > section:first-child > p { font-size: 12px; line-height: 1.6; color: #697991 !important; }
+.coordinator-messages > section:first-child > input { min-height: 44px; background: #f6f8fc; border-color: #e4eaf3 !important; font: inherit; font-size: 12px; }
+.coordinator-messages > section:first-child > button { padding: 14px !important; border-color: #e4eaf3 !important; color: #152238; }
+.coordinator-messages > section:first-child > button strong { font-size: 13px; }
+.coordinator-messages > section:first-child > button > div { font-size: 12px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coordinator-messages > section:first-child > div:last-child > strong { font-size: 12px; color: #697991; font-weight: 500; }
+.coordinator-messages > section:last-child:not(:first-child) > h2 { padding-bottom: 18px; border-bottom: 1px solid #edf1f7; font-size: 17px !important; }
+.coordinator-messages > section:last-child:not(:first-child) > div:last-child { border-top: 1px solid #edf1f7; padding-top: 16px; }
+.coordinator-messages textarea { font: inherit; font-size: 13px; min-width: 0; background: #f8fafd; border-color: #e4eaf3 !important; }
+.coordinator-messages > section:last-child > div:last-child > button { background: #075fc9 !important; }
+.coordinator-messages > section:last-child > div:nth-child(2) > div > div { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.evaluation-panel > div { border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
+.evaluation-panel p { color: #697991 !important; font-size: 12px !important; line-height: 1.6; }
+.evaluation-invitation > div:first-child > div:first-child { background: #eef4fc !important; border: none !important; color: #075fc9; }
+.evaluation-panel label { color: #526079 !important; font-weight: 500 !important; font-size: 12px !important; }
+.evaluation-panel input, .evaluation-panel select, .evaluation-panel textarea { min-height: 44px; font: inherit; font-size: 13px !important; border-width: 1px !important; border-color: #dbe3ee !important; background: #fbfcfe !important; }
+.evaluation-invitation form button { background: #075fc9 !important; }
+.evaluation-record { border-color: #e4eaf3 !important; background: white !important; border-radius: 12px !important; }
+.evaluation-record h4 { color: #152238 !important; font-weight: 600 !important; }
+.evaluation-record > div:first-child { gap: 12px; flex-wrap: wrap; }
+.evaluation-record > div:first-child > div { min-width: 0; overflow-wrap: anywhere; }
+.evaluation-record > div:first-child > div > div { color: #697991 !important; font-size: 12px !important; line-height: 1.7; }
+.evaluation-record > div:first-child > span { border: none !important; border-radius: 6px !important; font-weight: 500 !important; }
+.clearance-page > div:first-child p { color: #697991 !important; line-height: 1.6; }
+.clearance-page > div:first-child > div:last-child { flex-wrap: wrap; }
+.clearance-metrics { gap: 12px !important; }
+.clearance-metrics > div { border-color: #e4eaf3 !important; border-radius: 12px !important; box-shadow: none !important; }
+.clearance-metrics > div > div:first-child { color: #697991 !important; font-weight: 500 !important; font-size: 11px !important; }
+.clearance-metrics > div > div:last-child { color: #152238 !important; font-size: 24px !important; font-weight: 600 !important; }
+.clearance-records { border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
+.clearance-records > div:first-child { padding: 18px; margin: 0 !important; border-bottom: 1px solid #edf1f7; flex-wrap: wrap; }
+.clearance-records > div:first-child > span { color: #697991 !important; font-weight: 400 !important; }
+.clearance-records th { text-transform: none !important; letter-spacing: normal !important; color: #697991 !important; font-size: 12px !important; font-weight: 500 !important; white-space: nowrap; padding: 16px !important; }
+.clearance-records td { color: #34445c !important; padding: 18px 16px !important; }
+.clearance-records td:first-child > div { color: #152238 !important; font-size: 13px !important; font-weight: 600 !important; }
+.clearance-records td:first-child > span { color: #697991 !important; font-weight: 400 !important; }
+.clearance-records td > span { border-radius: 6px !important; font-weight: 500 !important; }
+.clearance-records td button { background: #075fc9 !important; }
+.clearance-records tbody tr:hover { background: #fbfcfe; }
+@media (max-width: 1050px) { .coordinator-messages.has-conversation { grid-template-columns: 260px minmax(0, 1fr) !important; } }
+@media (max-width: 760px) { .coordinator-messages, .evaluation-panel, .clearance-page { padding: 14px !important; } .coordinator-messages.has-conversation { grid-template-columns: 1fr !important; } .evaluation-invitation form > div { flex-wrap: wrap; } .evaluation-invitation form > div > div { flex-basis: 100% !important; min-width: 0 !important; } }

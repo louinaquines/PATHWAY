@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
+import './CompanyDirectoryTab.css';
 
-const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true };
+const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
-export default function CompanyDirectoryTab() {
+export default function CompanyDirectoryTab({ readOnly = true }) {
   const [companies, setCompanies] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -18,13 +20,15 @@ export default function CompanyDirectoryTab() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    setLoadFailed(false);
     try {
-      const result = await adminRequest('/admin/companies');
+      const result = await adminRequest(readOnly ? '/admin/companies' : '/coordinator/company-directory');
       setCompanies(result.companies || []);
     } catch (loadError) {
+      setLoadFailed(true);
       setError(loadError.message || 'Could not load the company directory.');
     } finally { setLoading(false); }
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -38,18 +42,23 @@ export default function CompanyDirectoryTab() {
   const editCompany = company => {
     setEditingId(company.id);
     setForm({ name: company.name || '', address: company.address || '', industry: company.industry || '',
-      email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active });
+      email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active,
+      geofenceEnabled: company.geofence?.enabled === true, latitude: String(company.geofence?.latitude ?? ''), longitude: String(company.geofence?.longitude ?? ''), radiusMeters: String(company.geofence?.radiusMeters ?? 150) });
     setNotice('');
     setError('');
   };
 
   const saveCompany = async active => {
+    if (readOnly) return;
     setSaving(true);
     setError('');
     setNotice('');
     try {
-      const payload = { ...form, capacity: Number(form.capacity), active };
-      const result = await adminRequest(editingId ? `/admin/companies/${encodeURIComponent(editingId)}` : '/admin/companies', {
+      const { geofenceEnabled, latitude, longitude, radiusMeters, ...details } = form;
+      const payload = { ...details, capacity: Number(form.capacity), active, geofence: geofenceEnabled
+        ? { enabled: true, latitude: Number(latitude), longitude: Number(longitude), radiusMeters: Number(radiusMeters) }
+        : { enabled: false } };
+      const result = await adminRequest(editingId ? `/coordinator/companies/${encodeURIComponent(editingId)}` : '/coordinator/companies', {
         method: editingId ? 'PATCH' : 'POST', body: JSON.stringify(payload),
       });
       setNotice(editingId ? `${result.company.name} was updated.` : `${result.company.name} was added to the directory.`);
@@ -69,21 +78,22 @@ export default function CompanyDirectoryTab() {
     saveCompany(Boolean(form.active));
   };
 
-  return <div style={styles.page}>
+  return <div className="company-directory-page" style={styles.page}>
     <div style={styles.headingRow}>
       <div>
         <h2 style={styles.heading}>Company directory</h2>
-        <p style={styles.subheading}>Maintain approved placement destinations and their internship capacity. Companies with active placements are retained; deactivate them instead of deleting.</p>
+        <p style={styles.subheading}>{readOnly ? 'Partner companies and available internship slots. Managed by coordinators.' : 'Manage partner companies, contact details, and internship capacity.'}</p>
       </div>
-      <div style={styles.summary}><strong>{companies.length}</strong><span>companies</span></div>
+      <div style={styles.summary}><strong>{loadFailed ? '—' : companies.length}</strong><span>companies</span></div>
     </div>
 
     {error && <div role="alert" style={styles.error}>{error}</div>}
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
-    <div style={styles.layout}>
-      <form onSubmit={onSubmit} style={styles.formCard}>
+    <div className={`company-directory-layout${readOnly ? ' is-readonly' : ''}`} style={styles.layout}>
+      {!readOnly && <form className="company-directory-form" onSubmit={onSubmit} style={styles.formCard}>
         <h3 style={styles.cardTitle}>{editingId ? 'Edit company' : 'Add company'}</h3>
+        <p className="directory-form-help">{editingId ? 'Update contact details and placement availability.' : 'Create a destination for official student placements.'}</p>
         <label style={styles.label}>Company name<input required maxLength={160} value={form.name} onChange={event => setForm(previous => ({ ...previous, name: event.target.value }))} style={styles.input} /></label>
         <label style={styles.label}>Address<input maxLength={300} value={form.address} onChange={event => setForm(previous => ({ ...previous, address: event.target.value }))} style={styles.input} /></label>
         <label style={styles.label}>Industry<input maxLength={120} value={form.industry} onChange={event => setForm(previous => ({ ...previous, industry: event.target.value }))} style={styles.input} /></label>
@@ -93,29 +103,39 @@ export default function CompanyDirectoryTab() {
         </div>
         <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
         {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
+        <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
+        {form.geofenceEnabled && <fieldset style={{ border: '1px solid #dbe5f0', borderRadius: 12, padding: 12 }}>
+          <legend>Company attendance area</legend>
+          <p style={styles.help}>Use verified company coordinates. Both attendance punches must be inside this area.</p>
+          <label style={styles.label}>Latitude<input required type="number" step="any" min="-90" max="90" value={form.latitude} onChange={event => setForm(previous => ({ ...previous, latitude: event.target.value }))} style={styles.input} /></label>
+          <label style={styles.label}>Longitude<input required type="number" step="any" min="-180" max="180" value={form.longitude} onChange={event => setForm(previous => ({ ...previous, longitude: event.target.value }))} style={styles.input} /></label>
+          <label style={styles.label}>Radius (metres)<input required type="number" min="50" max="2000" value={form.radiusMeters} onChange={event => setForm(previous => ({ ...previous, radiusMeters: event.target.value }))} style={styles.input} /></label>
+        </fieldset>}
         <div style={styles.formActions}>
-          <button type="submit" disabled={saving} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add to directory'}</button>
+          <button type="submit" disabled={saving || loading || loadFailed} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add to directory'}</button>
           {editingId && <button type="button" disabled={saving} onClick={resetForm} style={styles.secondaryButton}>Cancel edit</button>}
         </div>
-      </form>
+      </form>}
 
-      <section style={styles.listCard} aria-label="Company records">
+      <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
         <div style={styles.listHeader}>
-          <div><h3 style={styles.cardTitle}>Directory records</h3><p style={styles.help}>Approved placements are counted from official student records.</p></div>
+          <div><h3 style={styles.cardTitle}>Partner companies</h3><p style={styles.help}>Capacity includes placements across all sections.</p></div>
           <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
         </div>
         <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search companies…" aria-label="Search companies" style={{ ...styles.input, margin: '8px 0 12px' }} />
-        {loading ? <p style={styles.empty}>Loading companies…</p> : filteredCompanies.length === 0 ? <p style={styles.empty}>{companies.length ? 'No matching companies.' : 'No companies have been added yet.'}</p> :
+        {loading ? <p style={styles.empty}>Loading companies…</p> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <p style={styles.empty}>{companies.length ? 'No matching companies.' : 'No companies have been added yet.'}</p> :
           <div style={styles.companyList}>{filteredCompanies.map(company => {
             const configured = Number.isSafeInteger(company.capacity);
-            const slots = configured ? `${company.occupiedSlots} / ${company.capacity} placements` : `Capacity not configured · ${company.occupiedSlots} active placement${company.occupiedSlots === 1 ? '' : 's'}`;
-            return <article key={company.id} style={styles.companyRow}>
+            const slots = configured ? `${company.occupiedSlots} / ${company.capacity} placements` : `Capacity not configured — ${company.occupiedSlots} active placement${company.occupiedSlots === 1 ? '' : 's'}`;
+            return <article className="directory-company-card" key={company.id} style={styles.companyRow}>
               <div style={styles.companyMain}>
                 <div style={styles.companyNameLine}><strong>{company.name || 'Unnamed company'}</strong><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></div>
-                <div style={styles.meta}>{[company.industry, company.address].filter(Boolean).join(' · ') || 'No industry or address supplied'}</div>
-                <div style={styles.slots}>{slots}{configured ? ` · ${company.availableSlots} available` : ''}</div>
+                <div style={styles.meta}>{company.industry || 'Industry not provided'}</div>
+                <div style={styles.meta}>{company.address || 'Address not provided'}</div>
+                <div style={styles.meta}>{company.geofence?.enabled ? `Attendance area: ${company.geofence.radiusMeters} m radius` : 'Attendance location check: off'}</div>
+                <div className="directory-capacity" style={styles.slots}><span>{slots}</span>{configured && <span>{company.availableSlots} available</span>}</div>
               </div>
-              <button type="button" onClick={() => editCompany(company)} style={styles.editButton}>Edit</button>
+              {!readOnly && <button type="button" onClick={() => editCompany(company)} style={styles.editButton}>Edit</button>}
             </article>;
           })}</div>}
       </section>

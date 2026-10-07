@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     maxWidth: 760,
     alignSelf: 'center',
     padding: 18,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   // Hours card
   hoursCard: {

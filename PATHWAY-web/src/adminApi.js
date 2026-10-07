@@ -13,7 +13,14 @@ export async function adminRequest(path, options = {}) {
     },
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Request failed');
+  if (!response.ok) {
+    const message = data.error || (response.status === 404
+      ? 'This feature is unavailable on the running backend. Restart the local PATHWAY workflow to load the updated server.'
+      : `Request failed (HTTP ${response.status}). Please try again.`);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 

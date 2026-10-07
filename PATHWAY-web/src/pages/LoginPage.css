@@ -1,0 +1,35 @@
+.staff-login-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 40px 20px; box-sizing: border-box; background: #f5f8fc; color: #0f172a; }
+.staff-login-shell { width: 100%; max-width: 460px; }
+.staff-login-hero { background: #0759b8; color: #fff; padding: 32px 32px 50px; border-radius: 22px 22px 0 0; }
+.staff-login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+.staff-login-brand img { background: #fff; padding: 5px; border-radius: 10px; box-sizing: content-box; }
+.staff-login-brand span { font-size: 14px; font-weight: 700; letter-spacing: .18em; }
+.staff-login-hero .staff-login-eyebrow { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: #d6e8ff; margin: 0 0 9px; }
+.staff-login-hero h1 { font-family: Georgia, 'Times New Roman', serif; font-size: 32px; line-height: 1.2; letter-spacing: -.6px; margin: 0 0 10px; color: #fff; }
+.staff-login-hero > p:last-child { font-size: 13px; line-height: 1.6; margin: 0; color: #e2eeff; }
+.staff-login-panel { position: relative; margin-top: -24px; padding: 30px 32px 25px; background: #fff; border: 1px solid #e4ebf5; border-radius: 24px; box-shadow: 0 8px 26px rgba(15, 50, 90, .06); }
+.staff-login-intro h2 { margin: 0 0 8px; font-size: 23px; font-weight: 700; letter-spacing: -.4px; }
+.staff-login-intro p { margin: 0 0 25px; color: #64748b; font-size: 13px; line-height: 1.6; }
+.staff-login-panel form > label { display: block; color: #475569; font-size: 12px; font-weight: 650; margin-bottom: 8px; }
+.staff-login-input { display: flex; align-items: center; gap: 10px; padding-left: 14px; margin-bottom: 19px; min-height: 52px; border: 1px solid #dce5f1; background: #f8fafc; border-radius: 11px; color: #6880a0; }
+.staff-login-input > svg { flex-shrink: 0; }
+.staff-login-input input { width: 100%; min-width: 0; padding: 15px 12px 15px 0; border: 0; outline: none; box-shadow: none; background: transparent; font: inherit; font-size: 14px; color: #0f172a; box-sizing: border-box; }
+.staff-login-input input::placeholder { color: #8799b0; }
+.staff-login-input:focus-within { border-color: #075fc9; background: #fff; box-shadow: 0 0 0 3px #e7f1ff; }
+.staff-login-visibility { min-width: 56px; min-height: 44px; margin-right: 4px; padding: 8px; border: 0; background: transparent; color: #075fc9; font: inherit; font-size: 12px; font-weight: 650; border-radius: 7px; cursor: pointer; }
+.staff-login-visibility:hover:not(:disabled) { background: #eaf2ff; }
+.staff-login-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; margin-top: 26px; border: 1px solid #075fc9; border-radius: 11px; background: #075fc9; color: #fff; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 3px 8px #075fc91a; transition: background-color 150ms ease; }
+.staff-login-submit:hover:not(:disabled) { background: #064da3; }
+.staff-login-submit:focus-visible, .staff-login-visibility:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.staff-login-submit:disabled { opacity: .65; cursor: wait; }
+.staff-login-visibility:disabled { cursor: not-allowed; }
+.staff-login-help { margin: 20px 0 24px; text-align: center; font-size: 12px; line-height: 1.7; color: #64748b; }
+.staff-login-security { display: flex; align-items: center; justify-content: center; gap: 7px; border-top: 1px solid #edf2f7; padding-top: 18px; color: #64748b; font-size: 10px; line-height: 1.6; }
+.staff-login-security > svg { flex-shrink: 0; }
+.staff-login-footer { text-align: center; margin-top: 22px; color: #64748b; font-size: 11px; }
+.staff-login-error { display: flex; align-items: flex-start; gap: 9px; background: #fff1f2; border: 1px solid #fecdd3; color: #9f1239; border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.6; margin-bottom: 20px; }
+.staff-login-error svg { flex-shrink: 0; margin-top: 2px; }
+.staff-login-spinner { width: 15px; height: 15px; border: 2px solid #ffffff60; border-top-color: #fff; border-radius: 50%; animation: staff-login-spin 800ms linear infinite; }
+@keyframes staff-login-spin { to { transform: rotate(360deg); } }
+@media (max-width: 480px) { .staff-login-page { padding: 24px 16px; } .staff-login-hero { padding: 26px 24px 46px; } .staff-login-panel { padding: 26px 24px 22px; } }
+@media (prefers-reduced-motion: reduce) { .staff-login-submit { transition: none; } .staff-login-spinner { animation: none; } }

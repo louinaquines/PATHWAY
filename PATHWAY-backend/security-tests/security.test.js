@@ -306,6 +306,7 @@ before(async () => {
       CLOUDINARY_API_SECRET: 'emulator-only-not-a-real-secret',
       CLOUDINARY_API_BASE_URL: cloudinaryServerUrl,
       PATHWAY_LOCAL_WORKFLOW: '1', SMTP_HOST: '127.0.0.1',
+      EVALUATION_WEB_URL: 'http://127.0.0.1:3001',
       SMTP_PORT: String(smtpServer.server.address().port),
       SMTP_FROM: 'pathway-test@example.invalid', SMTP_USER: 'pathway-test-user', SMTP_PASSWORD: 'pathway-test-smtp-password-not-real',
     },
@@ -687,6 +688,13 @@ test('admin account activation is authenticated, student-only, and audited with 
 });
 
 test('coordinator clearance is section-scoped, checks eligibility, and atomically notifies and audits', async () => {
+  let originalDeployment;
+  let originalPlacement;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const original = (await getDoc(doc(context.firestore(), 'users', identities.studentA.uid))).data();
+    originalDeployment = original.preDeploymentStatus || 'not_submitted';
+    originalPlacement = original.placementStatus || 'not_started';
+  });
   const path = `/coordinator/students/${identities.studentA.uid}/clearance`;
   const wrongCoordinator = await api(path, identities.coordinatorB, {});
   const student = await api(path, identities.studentA, {});
@@ -695,6 +703,14 @@ test('coordinator clearance is section-scoped, checks eligibility, and atomicall
   assert.equal(student.response.status, 403);
   assert.equal(notReady.response.status, 409);
 
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), { preDeploymentStatus: 'approved', placementStatus: 'approved' });
+  });
+  const missingEvaluation = await api(path, identities.coordinatorA, {});
+  assert.equal(missingEvaluation.response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'evaluations', 'clearance-submitted'), { studentId: identities.studentA.uid, used: true, submittedAt: new Date().toISOString() });
+  });
   const allowed = await api(path, identities.coordinatorA, {});
   assert.equal(allowed.response.status, 200, JSON.stringify(allowed.data));
   assert.equal(allowed.data.clearanceStatus, 'cleared');
@@ -715,6 +731,20 @@ test('coordinator clearance is section-scoped, checks eligibility, and atomicall
   assert.equal(state.profile.clearedBy, identities.coordinatorA.uid);
   assert.equal(state.notifications.size, 1);
   assert.equal(state.logs.size, 1);
+  assert.equal((await api('/create-evaluation-token', identities.coordinatorA, {
+    studentId: identities.studentA.uid, supervisorName: 'Supervisor', supervisorEmail: 'supervisor@pathway.test', companyName: 'Test Company',
+  })).response.status, 409);
+  assert.equal((await api('/attendance/time-in', identities.studentA, {})).response.status, 403);
+  assert.equal((await api(`/coordinator/students/${identities.studentA.uid}/logbook/logbook-pending/decision`, identities.coordinatorA, { status: 'approved' })).response.status, 409);
+  assert.equal((await api(`/coordinator/students/${identities.studentA.uid}/requirements/application_form/decision`, identities.coordinatorA, { status: 'approved' })).response.status, 409);
+  await assertFails(setDoc(doc(clientStore(identities.studentA), 'users', identities.studentA.uid, 'logbook', 'after-clearance'), {
+    rawNotes: 'Locked', refined: 'Locked', hours: 8, status: 'draft', weekNum: 1, weekRange: 'Week 1', createdAt: new Date().toISOString(),
+  }));
+  await assertFails(updateDoc(doc(clientStore(identities.admin), 'users', identities.studentA.uid, 'logbook', 'logbook-pending'), { rawNotes: 'Changed' }));
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), { preDeploymentStatus: originalDeployment, placementStatus: originalPlacement, clearanceStatus: 'not_cleared' });
+    await deleteDoc(doc(context.firestore(), 'evaluations', 'clearance-submitted'));
+  });
 });
 
 test('coordinator section and requirement mutations enforce ownership and create audit records', async () => {
@@ -781,12 +811,19 @@ test('coordinator section and requirement mutations enforce ownership and create
 });
 
 test('attendance requires final approval and records time server-side without replay', async () => {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'companies', 'attendance-fence'), { name: 'QA attendance', geofence: { enabled: true, latitude: 10.3, longitude: 123.9, radiusMeters: 150 } });
+    await updateDoc(doc(context.firestore(), 'users', identities.attendanceStudent.uid), { companyId: 'attendance-fence' });
+  });
+  const location = () => ({ latitude: 10.3, longitude: 123.9, accuracy: 10, timestamp: Date.now() });
   const lockedStudent = await api('/attendance/time-in', identities.studentC, {});
   assert.equal(lockedStudent.response.status, 403);
   const coordinator = await api('/attendance/time-in', identities.coordinatorA, {});
   assert.equal(coordinator.response.status, 403);
 
-  const timeIn = await api('/attendance/time-in', identities.attendanceStudent, {});
+  assert.equal((await api('/attendance/time-in', identities.attendanceStudent, {})).response.status, 422);
+  assert.equal((await api('/attendance/time-in', identities.attendanceStudent, { location: { ...location(), latitude: 10.31 } })).response.status, 422);
+  const timeIn = await api('/attendance/time-in', identities.attendanceStudent, { location: location() });
   assert.equal(timeIn.response.status, 201, JSON.stringify(timeIn.data));
   assert.equal(timeIn.data.status, 'pending');
   assert.ok(timeIn.data.timeIn);
@@ -799,7 +836,8 @@ test('attendance requires final approval and records time server-side without re
     });
   });
 
-  const timeOut = await api('/attendance/time-out', identities.attendanceStudent, {});
+  assert.equal((await api('/attendance/time-out', identities.attendanceStudent, {})).response.status, 422);
+  const timeOut = await api('/attendance/time-out', identities.attendanceStudent, { location: location() });
   assert.equal(timeOut.response.status, 200, JSON.stringify(timeOut.data));
   assert.ok(timeOut.data.hoursToday > 0);
   const duplicateTimeOut = await api('/attendance/time-out', identities.attendanceStudent, {});
@@ -983,6 +1021,18 @@ test('backend rejects unauthenticated, wrong-section, and unauthorized role acti
 
   const foreignRequirement = await api(`/coordinator/students/${identities.studentA.uid}/requirements/application_form/decision`, identities.coordinatorB, { status: 'approved' });
   assert.equal(foreignRequirement.response.status, 403);
+});
+
+test('student messaging gets only the assigned coordinator display identity, never the private profile', async () => {
+  const noAuth = await api('/student/assigned-coordinator', null, {});
+  assert.equal(noAuth.response.status, 401);
+  const staff = await api('/student/assigned-coordinator', identities.coordinatorA, {});
+  assert.equal(staff.response.status, 403);
+  const result = await api('/student/assigned-coordinator', identities.studentA, { coordinatorId: identities.coordinatorB.uid });
+  assert.equal(result.response.status, 200);
+  assert.deepEqual(result.data.coordinator, { id: identities.coordinatorA.uid, name: 'coordinatorA Test' });
+  await assertFails(getDoc(doc(clientStore(identities.studentA), 'users', identities.coordinatorA.uid)));
+  await assertSucceeds(getDocs(query(collection(clientStore(identities.studentA), 'notifications'), where('recipientId', '==', identities.studentA.uid))));
 });
 
 test('messages are created only by the backend for assigned student-coordinator pairs with atomic notifications', async () => {
@@ -1239,7 +1289,7 @@ test('company placement review validates ownership and atomically updates offici
   });
 });
 
-test('company directory is admin-managed, audited, and available to coordinators for assignments', async () => {
+test('company directory is coordinator-managed and admins have read-only oversight', async () => {
   const unauthenticated = await api('/admin/companies', null, undefined, 'GET');
   assert.equal(unauthenticated.response.status, 401);
   const studentDenied = await api('/admin/companies', identities.studentA, undefined, 'GET');
@@ -1248,17 +1298,25 @@ test('company directory is admin-managed, audited, and available to coordinators
   assert.equal(initialDirectory.response.status, 200, JSON.stringify(initialDirectory.data));
   assert.equal(initialDirectory.data.companies.find(company => company.id === 'company-a').occupiedSlots, 1);
 
-  const invalid = await api('/admin/companies', identities.admin, { name: 'Invalid Capacity Co.', capacity: 0, active: true });
+  const adminDenied = await api('/admin/companies', identities.admin, { name: 'Admin Company', capacity: 5, active: true });
+  assert.equal(adminDenied.response.status, 403);
+  const adminEditDenied = await api('/admin/companies/company-a', identities.admin, { name: 'Admin Edit', capacity: 5, active: true }, 'PATCH');
+  assert.equal(adminEditDenied.response.status, 403);
+  const adminCoordinatorDenied = await api('/coordinator/companies', identities.admin, { name: 'Admin Company', capacity: 5, active: true });
+  assert.equal(adminCoordinatorDenied.response.status, 403);
+  const studentCreateDenied = await api('/coordinator/companies', identities.studentA, { name: 'Student Company', capacity: 5, active: true });
+  assert.equal(studentCreateDenied.response.status, 403);
+  const invalid = await api('/coordinator/companies', identities.coordinatorA, { name: 'Invalid Capacity Co.', capacity: 0, active: true });
   assert.equal(invalid.response.status, 400);
-  const created = await api('/admin/companies', identities.admin, {
+  const created = await api('/coordinator/companies', identities.coordinatorA, {
     name: 'New Directory Company', address: '1 Test Road', industry: 'Technology',
     email: 'hello@newcompany.test', phone: '555-0150', capacity: 5, active: true,
   });
   assert.equal(created.response.status, 201, JSON.stringify(created.data));
   assert.equal(created.data.company.availableSlots, 5);
-  const duplicate = await api('/admin/companies', identities.admin, { name: '  NEW   DIRECTORY COMPANY ', capacity: 5, active: true });
+  const duplicate = await api('/coordinator/companies', identities.coordinatorA, { name: '  NEW   DIRECTORY COMPANY ', capacity: 5, active: true });
   assert.equal(duplicate.response.status, 409);
-  const deactivated = await api(`/admin/companies/${created.data.company.id}`, identities.admin, {
+  const deactivated = await api(`/coordinator/companies/${created.data.company.id}`, identities.coordinatorA, {
     name: 'New Directory Company', address: '1 Test Road', industry: 'Technology',
     email: 'hello@newcompany.test', phone: '555-0150', capacity: 5, active: false,
   }, 'PATCH');
@@ -1270,7 +1328,7 @@ test('company directory is admin-managed, audited, and available to coordinators
       role: 'student', placementStatus: 'approved', companyId: created.data.company.id,
     })));
   });
-  const belowOccupancy = await api(`/admin/companies/${created.data.company.id}`, identities.admin, {
+  const belowOccupancy = await api(`/coordinator/companies/${created.data.company.id}`, identities.coordinatorA, {
     name: 'New Directory Company', address: '1 Test Road', industry: 'Technology',
     email: 'hello@newcompany.test', phone: '555-0150', capacity: 1, active: true,
   }, 'PATCH');
@@ -1609,6 +1667,37 @@ test('evaluation links are coordinator-scoped, single-use, and validate complete
   assert.equal(saved.supervisorEmail, 'supervisor@example.test');
   assert.equal(saved.companyName, 'Test Company');
 
+  const emailPath = `/coordinator/evaluations/${created.data.id}/email`;
+  const emailPayload = { token: created.data.token, message: 'Please complete this evaluation.' };
+  const firstMailIndex = smtpMessages.length;
+  const anonymousEmail = await api(emailPath, null, emailPayload);
+  assert.equal(anonymousEmail.response.status, 401);
+  for (const identity of [identities.studentA, identities.admin, identities.coordinatorB]) {
+    const denied = await api(emailPath, identity, emailPayload);
+    assert.equal(denied.response.status, 403);
+  }
+  const wrongEmailToken = await api(emailPath, identities.coordinatorA, { token: 'a'.repeat(64) });
+  assert.equal(wrongEmailToken.response.status, 403);
+  const sent = await api(emailPath, identities.coordinatorA, emailPayload);
+  assert.equal(sent.response.status, 200, JSON.stringify(sent.data));
+  assert.equal(sent.data.emailStatus, 'sent');
+  assert.equal(smtpMessages.length, firstMailIndex + 1);
+
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'evaluations', otherCoordinatorCreated.data.id), { emailStatus: 'delivery_unknown' });
+  });
+  const uncertainRetry = await api(`/coordinator/evaluations/${otherCoordinatorCreated.data.id}/email`, identities.coordinatorB, { token: otherCoordinatorCreated.data.token });
+  assert.equal(uncertainRetry.response.status, 409);
+  assert.equal(smtpMessages.length, firstMailIndex + 1);
+  assert.deepEqual(smtpMessages[firstMailIndex].recipients, ['supervisor@example.test']);
+  assert.match(smtpMessages[firstMailIndex].raw, /PATHWAY supervisor evaluation request/);
+  assert.match(smtpMessages[firstMailIndex].raw, /Please complete this evaluation/);
+  assert.ok(smtpMessages[firstMailIndex].raw.replace(/=\r?\n/g, '').includes(created.data.token));
+  const repeatEmail = await api(emailPath, identities.coordinatorA, emailPayload);
+  assert.equal(repeatEmail.response.status, 200);
+  assert.equal(repeatEmail.data.alreadySent, true);
+  assert.equal(smtpMessages.length, firstMailIndex + 1);
+
   const invalidToken = await api('/evaluation/not-a-token', null, undefined, 'GET');
   assert.equal(invalidToken.response.status, 404);
   const info = await api(`/evaluation/${created.data.token}`, null, undefined, 'GET');
@@ -1644,6 +1733,7 @@ test('evaluation links are coordinator-scoped, single-use, and validate complete
   assert.equal(listed.response.status, 200, JSON.stringify(listed.data));
   assert.equal(listed.data.evaluations.length, 1);
   assert.equal(listed.data.evaluations[0].studentId, identities.studentA.uid);
+  assert.equal(listed.data.evaluations[0].emailStatus, 'sent');
   assert.equal(listed.data.evaluations[0].comments, 'Strong progress and professional conduct.');
 
   let notifications;

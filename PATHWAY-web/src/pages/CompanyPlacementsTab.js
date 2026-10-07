@@ -4,12 +4,16 @@ import { db } from '../firebase';
 import AlertDialog from '../components/AlertDialog';
 import EndorsementDraftDialog from '../components/EndorsementDraftDialog';
 import { adminRequest } from '../adminApi';
+import PlacementCompanies from '../components/PlacementCompanies';
+import './PlacementReviews.css';
 
 const labels = { draft: 'Draft', pending_review: 'Pending review', needs_revision: 'Needs revision', rejected: 'Rejected', approved: 'Approved', superseded: 'Superseded by placement change' };
 
 export default function CompanyPlacementsTab({ department, selectedSection, students = [] }) {
   const [items, setItems] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [assignedStudents, setAssignedStudents] = useState([]);
+  const [workspace, setWorkspace] = useState('reviews');
   const [companySelections, setCompanySelections] = useState({});
   const [finalItems, setFinalItems] = useState([]);
   const [historyItems, setHistoryItems] = useState([]);
@@ -22,7 +26,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [deliveryConfirm, setDeliveryConfirm] = useState(null);
   const [deliveryNotice, setDeliveryNotice] = useState('');
   const [endorsementDraft, setEndorsementDraft] = useState(null);
-  const [reason, setReason] = useState('');
+  const [reasons, setReasons] = useState({});
+  const [reviewStage, setReviewStage] = useState('all');
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
   const [error, setError] = useState('');
 
@@ -31,6 +38,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     setError('');
     try {
       if (!selectedSection?.id) {
+        setCompanies([]);
+        setAssignedStudents([]);
         setItems([]);
         setFinalItems([]);
         setHistoryItems([]);
@@ -39,16 +48,18 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         return;
       }
       const scopedFilters = [where('sectionId', '==', selectedSection.id), where('department', '==', department)];
-      const [snap, finalSnap, endorsementSnap, directory, history] = await Promise.all([
+      const [snap, finalSnap, endorsementSnap, directory, history, studentSnap] = await Promise.all([
         getDocs(query(collection(db, 'companyProposals'), ...scopedFilters)),
         getDocs(query(collection(db, 'finalReviewRequests'), ...scopedFilters)),
         getDocs(query(collection(db, 'endorsements'), ...scopedFilters)),
-        adminRequest('/coordinator/companies'),
+        adminRequest('/coordinator/company-directory'),
         adminRequest(`/coordinator/placement-history?sectionId=${encodeURIComponent(selectedSection.id)}`),
+        getDocs(query(collection(db, 'users'), ...scopedFilters, where('role', '==', 'student'))),
       ]);
       const proposals = snap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => !selectedSection || item.sectionId === selectedSection.id);
       setItems(proposals);
       setCompanies(directory.companies || []);
+      setAssignedStudents(studentSnap.docs.map(item => ({ ...item.data(), id: item.id })));
       setHistoryItems(history.history || []);
       const endorsements = endorsementSnap.docs.map(item => ({ id: item.id, ...item.data() }))
         .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
@@ -60,9 +71,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       console.error('Company placement load error:', loadError);
       setError(loadError.code === 'permission-denied'
         ? 'You do not have permission to view placement requests for this section. Confirm that the deployed Firestore rules are current.'
-        : 'Could not load company placement requests. Check your connection and try again.');
+        : loadError.message || 'Could not load company placement requests. Check your connection and try again.');
       setItems([]);
       setCompanies([]);
+      setAssignedStudents([]);
       setHistoryItems([]);
       setEndorsementItems([]);
       setVerifiedEndorsementItems([]);
@@ -73,9 +85,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setEndorsementDraft(null); }, [selectedSection?.id]);
   useEffect(() => { setDeliveryConfirm(null); setDeliveryNotice(''); }, [selectedSection?.id]);
+  useEffect(() => { setReasons({}); setReviewConfirm(null); setReviewSearch(''); setReviewStatus('all'); }, [selectedSection?.id]);
 
   const review = async (item, status) => {
-    const note = reason.trim();
+    const note = (reasons[`placement:${item.id}`] || '').trim();
     if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this proposal.'); return false; }
     setBusy(item.id);
     try {
@@ -87,7 +100,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       await adminRequest(`/coordinator/company-placements/${encodeURIComponent(item.id)}/decision`, {
         method: 'POST', body: JSON.stringify({ status, reason: note, ...(status === 'approved' ? { companyId } : {}) }),
       });
-      setReason('');
+      setReasons(previous => ({ ...previous, [`placement:${item.id}`]: '' }));
       if (status === 'approved') setEndorsementDraft(null);
       await load();
       return true;
@@ -95,7 +108,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   };
 
   const reviewFinal = async (item, status) => {
-    const note = reason.trim();
+    const note = (reasons[`final:${item.id}`] || '').trim();
     if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this review.'); return false; }
     setBusy(item.id);
     try {
@@ -103,7 +116,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         method: 'POST',
         body: JSON.stringify({ status, reason: note }),
       });
-      setReason(''); await load();
+      setReasons(previous => ({ ...previous, [`final:${item.id}`]: '' })); await load();
       return true;
     } catch (error) { window.alert(error.message || 'Unable to review final request.'); return false; } finally { setBusy(''); }
   };
@@ -155,7 +168,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   };
 
   const requestReviewConfirmation = (item, status, finalReview = false) => {
-    const note = reason.trim();
+    const note = (reasons[`${finalReview ? 'final' : 'placement'}:${item.id}`] || '').trim();
     if ((status === 'needs_revision' || status === 'rejected') && !note) {
       window.alert(finalReview ? 'Enter a reason before returning this review.' : 'Enter a reason before returning this proposal.');
       return;
@@ -169,13 +182,50 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     return currentName || item.studentName || items.find(proposal => proposal.studentId === item.studentId)?.studentName || item.studentId;
   };
 
+  const matchesReview = item => {
+    const term = reviewSearch.trim().toLowerCase();
+    return (!term || [reviewStudentName(item), item.studentId, item.companyName, item.companySnapshot?.companyName, item.supervisorName, item.companySnapshot?.supervisorName].some(value => String(value || '').toLowerCase().includes(term)))
+      && (reviewStatus === 'all' || item.status === reviewStatus);
+  };
+  const sortedReviews = records => [...records].filter(matchesReview).sort((a, b) =>
+    Number(b.status === 'pending_review') - Number(a.status === 'pending_review')
+    || String(b.submittedAt || b.createdAt || '').localeCompare(String(a.submittedAt || a.createdAt || '')));
+  const pendingPlacements = items.filter(item => item.status === 'pending_review').length;
+  const pendingFinalReviews = finalItems.filter(item => item.status === 'pending_review').length;
+
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
-  return <div style={{ padding: 28, overflowY: 'auto', flex: 1 }}>
-    <h2 style={{ marginTop: 0 }}>Company Placements</h2>
-    <p style={{ color: '#64748B' }}>Review placement requests for {selectedSection ? selectedSection.name : 'your assigned sections'}.</p>
+  return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
+    <div className="placement-page-header">
+      <div><h2 style={{ margin: 0 }}>Company Placements</h2>
+      <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Company details, assigned students, and placement reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
+      <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
+    </div>
+    <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
+      <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
+      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews{items.filter(item => item.status === 'pending_review').length ? ` (${items.filter(item => item.status === 'pending_review').length})` : ''}</button>
+    </div>
     {error && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
-    {items.length === 0 && <div style={{ padding: 24, border: '1px solid #E2E8F0', borderRadius: 12 }}>No company placement requests found for this section.</div>}
-    {items.map(item => <article key={item.id} style={{ border: '1px solid #E2E8F0', borderRadius: 14, padding: 18, marginTop: 14, background: '#FFF' }}>
+    {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} companies={companies} students={assignedStudents} sectionName={selectedSection.name} />}
+    {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>
+      <p style={{ margin: '0 0 12px', color: '#475569' }}>Submitted requests appear in Placement Reviews. Students appear under a company after their placement is approved.</p>
+      <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>
+    </div>}
+    {!selectedSection && <p>Select a section to view company placements.</p>}
+    <div className="placement-reviews" hidden={workspace !== 'reviews'}>
+    <div className="review-overview">
+      <div><span>Company requests</span><strong>{pendingPlacements}</strong><small>Awaiting your decision</small><button type="button" onClick={() => { setReviewStage('placement'); setReviewStatus('pending_review'); setReviewSearch(''); }}>Open company queue</button></div>
+      <div><span>Final approvals</span><strong>{pendingFinalReviews}</strong><small>Pre-deployment submissions</small><button type="button" onClick={() => { setReviewStage('final'); setReviewStatus('pending_review'); setReviewSearch(''); }}>Open final approval queue</button></div>
+      <div><span>Endorsement paperwork</span><strong>{endorsementItems.length}</strong><small>Awaiting a verified signed copy</small><button type="button" onClick={() => { setReviewStage('endorsement'); setReviewStatus('all'); setReviewSearch(''); }}>Open endorsements</button></div>
+    </div>
+    <div className="review-toolbar">
+      <label className="review-search">Search reviews<input type="search" value={reviewSearch} onChange={event => setReviewSearch(event.target.value)} placeholder="Student, company, or supervisor" /></label>
+      <label>Status<select value={reviewStatus} onChange={event => setReviewStatus(event.target.value)}><option value="all">All statuses</option>{Object.entries({ ...labels, awaiting_document: 'Awaiting signed copy', signed_copy_verified: 'Signed copy verified' }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    </div>
+    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', 'Endorsements'], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewStatus('all'); }}>{label}</button>)}</div>
+    <section hidden={!['all', 'placement'].includes(reviewStage)}>
+    <div className="review-section-heading"><h3>Company placement requests</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
+    {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}
+    {sortedReviews(items).map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><div><h3 style={{ margin: 0 }}>{item.companyName || 'Unnamed company'}</h3><div style={{ color: '#64748B', marginTop: 4 }}>{item.studentName || item.studentId} · {item.internshipRole || 'Role not specified'}</div></div><strong>{labels[item.status] || item.status}</strong></div>
       <p><b>Address:</b> {item.companyAddress || '—'}<br /><b>Supervisor:</b> {item.supervisorName || '—'} ({item.supervisorEmail || '—'})<br /><b>Schedule:</b> {item.startDate || '—'} to {item.endDate || '—'} · {item.workArrangement || '—'}</p>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
@@ -186,7 +236,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
             onChange={event => setCompanySelections(previous => ({ ...previous, [item.id]: event.target.value }))}
             style={{ display: 'block', width: '100%', maxWidth: 560, marginTop: 6, padding: '10px 12px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff' }}>
             <option value="">Select an active directory company</option>
-            {companies.map(company => {
+            {companies.filter(company => company.active).map(company => {
               const full = company.availableSlots === 0 && company.id !== item.companyId;
               const unavailable = company.capacity === null;
               const slotLabel = unavailable ? 'capacity not configured' : `${company.availableSlots} slot${company.availableSlots === 1 ? '' : 's'} available`;
@@ -196,21 +246,26 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
             })}
           </select>
         </label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved')}>Approve</button><input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for changes or rejection" /><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Reject</button></div>
+        <div className="review-decision"><label>Feedback for this student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>Approve</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Reject</button></div></div>
       </>}
     </article>)}
-    <h3 style={{ marginTop: 30 }}>Final review requests</h3>
-    {finalItems.length === 0 && <div style={{ padding: 24, border: '1px solid #E2E8F0', borderRadius: 12 }}>No final review requests found for this section.</div>}
-    {finalItems.map(item => <article key={item.id} style={{ border: '1px solid #BAE6FD', borderRadius: 14, padding: 18, marginTop: 14, background: '#F0F9FF' }}>
+    </section>
+    <section hidden={!['all', 'final'].includes(reviewStage)}>
+    <div className="review-section-heading"><h3>Final review requests</h3><p>Review the saved submission before granting access to OJT tracking.</p></div>
+    {sortedReviews(finalItems).length === 0 && <div className="review-empty">No final review requests match this view.</div>}
+    {sortedReviews(finalItems).map(item => <article className="review-card" key={item.id}>
       <h3 style={{ margin: 0 }}>Student final review</h3><p><b>Student:</b> {reviewStudentName(item)}<br /><b>Company:</b> {item.companySnapshot?.companyName || '—'}<br /><b>Supervisor:</b> {item.companySnapshot?.supervisorName || '—'}<br /><b>Requirements:</b> {item.requirementSnapshot?.filter(docItem => ['submitted', 'approved'].includes(docItem.status)).length || 0} submitted</p>
       <strong>{labels[item.status] || item.status}</strong>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
-      {item.status === 'pending_review' && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>Approve final review</button><input value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for changes or rejection" /><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Reject</button></div>}
+      <details className="review-documents"><summary>Review document statuses</summary>{(item.requirementSnapshot || []).map((requirement, index) => <div key={requirement.id || index}><span>{requirement.name || requirement.title || requirement.id || 'Requirement'}</span><strong>{requirement.status || 'Not submitted'}</strong></div>)}</details>
+      {item.status === 'pending_review' && <div className="review-decision"><label>Feedback for this student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>Approve final review</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Reject</button></div></div>}
     </article>)}
+    </section>
+    <section hidden={!['all', 'endorsement'].includes(reviewStage)}>
     <h3 style={{ marginTop: 30 }}>Endorsement paperwork to prepare</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Approved placements awaiting a signed endorsement letter. These records are not issued documents or email deliveries.</p>
-    {endorsementItems.length === 0 && <div style={{ padding: 20, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }}>No endorsement paperwork is pending for this section.</div>}
-    {endorsementItems.map(item => <article key={item.id} style={{ border: '1px solid #BAE6FD', borderRadius: 12, padding: 16, marginTop: 10, background: '#fff' }}>
+    {endorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No pending endorsement paperwork matches this view.</div>}
+    {endorsementItems.filter(matchesReview).map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
         <span style={{ color: '#0369A1', fontWeight: 700, fontSize: 13 }}>Awaiting signed letter</span>
@@ -235,8 +290,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <h3 style={{ marginTop: 30 }}>Signed endorsement copies verified</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Only the verified private signed copy can be emailed to the student and official company contact. Email-server acceptance is recorded separately for each recipient.</p>
     {deliveryNotice && <div role="status" style={{ padding: 12, marginBottom: 10, border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF' }}>{deliveryNotice}</div>}
-    {verifiedEndorsementItems.length === 0 && <div style={{ padding: 20, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }}>No signed endorsement copies have been verified for this section.</div>}
-    {verifiedEndorsementItems.map(item => <article key={item.id} style={{ border: '1px solid #A7F3D0', borderRadius: 12, padding: 16, marginTop: 10, background: '#fff' }}>
+    {verifiedEndorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No verified signed copies match this view.</div>}
+    {verifiedEndorsementItems.filter(matchesReview).map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
         <span style={{ color: '#047857', fontWeight: 700, fontSize: 13 }}>Signed copy verified</span>
@@ -257,10 +312,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         {deliveryBusy === item.id ? 'Sending…' : item.deliveryStatus === 'failed' || item.deliveryStatus === 'partial_failed' ? 'Retry failed recipients' : 'Email verified signed copy'}
       </button>}
     </article>)}
+    </section>
+    <section hidden={!['all', 'history'].includes(reviewStage)}>
     <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots for this section.</p>
-    {historyItems.length === 0 && <div style={{ padding: 20, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }}>No approved placement changes recorded yet.</div>}
-    {historyItems.map(item => {
+    {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
+    {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).map(item => {
       const beforeName = item.before?.companyName || 'No previous approved placement';
       const afterName = item.after?.companyName || 'Company not recorded';
       return <article key={item.id} style={{ border: '1px solid #DBEAFE', borderRadius: 12, padding: 16, marginTop: 10, background: '#fff' }}>
@@ -274,6 +331,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         </div>
       </article>;
     })}
+    </section>
+    </div>
     <AlertDialog
       open={Boolean(reviewConfirm)}
       tone={reviewConfirm?.status === 'approved' ? 'warning' : 'danger'}

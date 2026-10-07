@@ -1,5 +1,6 @@
 import React from 'react';
-import { Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
 import PathwayMark from './PathwayMark';
 import { BellIcon, MenuIcon } from './Icons';
@@ -11,6 +12,7 @@ export default function PreDeploymentTopBar({
   hasUnread = false,
 }) {
   return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
     <View style={styles.topBar}>
       <TouchableOpacity
         style={styles.iconButton}
@@ -36,13 +38,15 @@ export default function PreDeploymentTopBar({
         <BellIcon size={20} color={COLORS.primaryDark} hasUnread={hasUnread} />
       </TouchableOpacity>
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { backgroundColor: '#FFFFFF' },
   topBar: {
-    height: Platform.OS === 'ios' ? 94 : 64,
-    paddingTop: Platform.OS === 'ios' ? 44 : 12,
+    height: 64,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
@@ -67,6 +71,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 12,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
   },
 });

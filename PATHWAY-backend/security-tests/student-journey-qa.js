@@ -71,6 +71,32 @@ async function main() {
   const ref = db.doc(`users/${uid}`);
   const profile = (await ref.get()).data();
   assert.equal(profile?.qaFixture, true, 'Only this script’s QA fixtures may be changed.');
+  if (command === 'completion-qa') {
+    assert.equal(profile.preDeploymentStatus, 'approved');
+    const studentToken = await tokenFor(profile.email);
+    const coordinatorToken = await tokenFor('coordinator.emulator@pathway.test');
+    await post(coordinatorToken, `/coordinator/students/${uid}/clearance`, {}, 409);
+    const punch = await post(studentToken, '/attendance/time-in', {}, 201);
+    await post(studentToken, '/attendance/time-in', {}, 409);
+    // Fixture-only clock adjustment tests hour arithmetic without waiting a shift.
+    await ref.collection('attendance').doc(punch.id).update({ timeIn: new Date(Date.now() - 8 * 3600000).toISOString() });
+    const out = await post(studentToken, '/attendance/time-out', {});
+    assert.equal(out.hoursToday, 8);
+    await post(studentToken, '/attendance/time-out', {}, 409);
+    assert.equal((await ref.get()).data().hoursRendered, 8);
+    const journal = ref.collection('logbook').doc('qa-completion');
+    await journal.set({ rawNotes: 'Completed QA testing.', refined: 'Completed QA testing.', weekNum: 1, weekRange: 'QA Week', hours: 8, status: 'pending', createdAt: new Date().toISOString() });
+    await post(coordinatorToken, `/coordinator/students/${uid}/logbook/${journal.id}/decision`, { status: 'approved' });
+    assert.equal((await journal.get()).data().status, 'approved');
+    const evaluation = await post(coordinatorToken, '/create-evaluation-token', { studentId: uid, supervisorName: 'QA Supervisor', supervisorEmail: 'supervisor@pathway.test', companyName: 'Journey QA Host' });
+    await post(null, `/evaluation/${evaluation.token}/submit`, { ratings: {}, comments: 'QA' }, 400);
+    const ratings = { technicalSkills: 4, workQuality: 4, professionalism: 4, communication: 4, attendance: 4 };
+    await post(null, `/evaluation/${evaluation.token}/submit`, { ratings, comments: 'QA fixture evaluation.' });
+    await post(null, `/evaluation/${evaluation.token}/submit`, { ratings, comments: 'Duplicate.' }, 410);
+    await post(coordinatorToken, `/coordinator/students/${uid}/clearance`, {}, 409);
+    console.log('PASS: insufficient-hours clearance blocked; attendance duplicate protection and 8-hour arithmetic; coordinator journal approval; evaluation validation and single-use protection. No real email or student upload was exercised.');
+    return;
+  }
   if (command === 'documents-reviewed') {
     // Cloudinary is intentionally unconfigured in the demo. Model reviewed
     // document metadata here; the multipart upload helper is tested separately.

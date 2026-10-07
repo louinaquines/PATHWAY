@@ -20,6 +20,7 @@ node_modules/
 dist/
 **/dist/
 **/dist-account-qa/
+/PATHWAY-master/dist-security-qa/
 build/
 **/build/
 web-build/
@@ -33,6 +34,8 @@ coverage/
 .firebase/
 **/.firebase/
 .firebase-cache/
+.emulator-data/
+**/.emulator-data/
 **/.firebase-cache/
 .paddlex/
 **/.paddlex/

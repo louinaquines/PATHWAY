@@ -6,6 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/pathway-app-icon.png",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PATHWAY checks your location only when you punch attendance at a company with geofencing enabled."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/pathway-logo-2026-cutout.png",

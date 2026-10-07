@@ -4,6 +4,7 @@ import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './AdminConfiguration.css';
 
 const EMPTY = { name: '', startDate: '', endDate: '', isActive: false };
 
@@ -57,26 +58,27 @@ export default function AcademicTermsTab() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="admin-configuration admin-terms">
       <div style={s.header}>
-        <h2 style={s.title}>Academic Terms & School Years</h2>
-        <p style={s.sub}>Configure academic calendars and activate the current active term for student registration.</p>
+        <h2 style={s.title}>Academic terms</h2>
+        <p style={s.sub}>Manage school-year dates and term availability for new sections.</p>
       </div>
 
-      {error && <div style={s.error}>{error}</div>}
+      {error && <div role="alert" style={s.error}>{error}</div>}
 
-      <form onSubmit={submit} style={s.form}>
+      <form onSubmit={submit} style={s.form} className="admin-configuration-form">
         <div style={s.formHeader}>
           <div style={s.iconWrap}><Icon name="calendar" size={20} label="Academic term" /></div>
           <div>
-            <h3 style={s.formTitle}>{editing ? 'Edit Academic Term' : 'Create New Academic Term'}</h3>
+            <h3 style={s.formTitle}>{editing ? 'Edit term' : 'Create term'}</h3>
             <p style={s.formSub}>Define start and end dates for section rosters.</p>
           </div>
         </div>
 
         <div style={s.field}>
-          <label style={s.label}>Academic Term Name / School Year</label>
+          <label style={s.label} htmlFor="academic-term-name">Term name / school year</label>
           <input
+            id="academic-term-name"
             required
             style={s.input}
             placeholder="e.g. 1st Semester A.Y. 2026–2027"
@@ -85,10 +87,11 @@ export default function AcademicTermsTab() {
           />
         </div>
 
-        <div style={s.row}>
+        <div style={s.row} className="admin-term-date-row">
           <div style={s.field}>
-            <label style={s.label}>Term Start Date</label>
+            <label style={s.label} htmlFor="academic-term-start">Start date</label>
             <input
+              id="academic-term-start"
               required
               style={s.input}
               type="date"
@@ -97,8 +100,9 @@ export default function AcademicTermsTab() {
             />
           </div>
           <div style={s.field}>
-            <label style={s.label}>Term End Date</label>
+            <label style={s.label} htmlFor="academic-term-end">End date</label>
             <input
+              id="academic-term-end"
               required
               style={s.input}
               type="date"
@@ -119,7 +123,7 @@ export default function AcademicTermsTab() {
         </label>
 
         <div style={s.btnRow}>
-          <button style={s.button} disabled={saving}>
+          <button type="submit" className="admin-configuration-save" style={s.button} disabled={saving}>
             {saving ? 'Saving...' : editing ? 'Save Changes' : '+ Create Academic Term'}
           </button>
           {editing && (
@@ -134,11 +138,11 @@ export default function AcademicTermsTab() {
         </div>
       </form>
 
-      <div style={s.listSection}>
+      <div style={s.listSection} className="admin-term-records">
         <h3 style={s.listTitle}>Recorded Academic Terms ({terms.length})</h3>
         <div style={s.termsGrid}>
           {terms.map(term => (
-            <div key={term.id} style={{ ...s.card, ...(term.isActive ? s.cardActive : {}) }}>
+            <div className="admin-term-card" key={term.id} style={{ ...s.card, ...(term.isActive ? s.cardActive : {}) }}>
               <div style={s.cardLeft}>
                 <div style={s.termName}>{term.name}</div>
                 <div style={s.meta}>

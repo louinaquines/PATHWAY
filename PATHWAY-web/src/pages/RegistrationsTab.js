@@ -8,6 +8,7 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import './CoordinatorRecords.css';
 
 export default function RegistrationsTab({ department, sections = [] }) {
   const [pending, setPending]   = useState([]);
@@ -92,9 +93,11 @@ export default function RegistrationsTab({ department, sections = [] }) {
 
   return (
     <div style={r.page} className="registrations-page">
+      <div className="registration-intro"><h2>Student accounts</h2><p>Review account approvals across your assigned sections.</p></div>
       {/* Sub tabs / Filter navigation */}
-      <div style={r.subTabs}>
+      <div className="registration-tabs" style={r.subTabs}>
         <button
+          aria-pressed={tab === 'pending'}
           style={{ ...r.subTab, ...(tab === 'pending' ? r.subTabActive : {}) }}
           onClick={() => setTab('pending')}
         >
@@ -105,6 +108,7 @@ export default function RegistrationsTab({ department, sections = [] }) {
         </button>
 
         <button
+          aria-pressed={tab === 'approved'}
           style={{ ...r.subTab, ...(tab === 'approved' ? r.subTabActive : {}) }}
           onClick={() => setTab('approved')}
         >
@@ -115,6 +119,7 @@ export default function RegistrationsTab({ department, sections = [] }) {
         </button>
 
         <button
+          aria-pressed={tab === 'rejected'}
           style={{ ...r.subTab, ...(tab === 'rejected' ? r.subTabActive : {}) }}
           onClick={() => setTab('rejected')}
         >
@@ -136,14 +141,14 @@ export default function RegistrationsTab({ department, sections = [] }) {
         {filteredList.length === 0 && (
           <div style={r.emptyCard}>
             <div style={r.emptyIcon}><Icon name="users" size={28} label="No registrations" /></div>
-            <h3 style={r.emptyTitle}>No {tab} registrations</h3>
-            <p style={r.emptySub}>There are currently no students in the {tab} registration queue.</p>
+            <h3 style={r.emptyTitle}>{searchQuery ? 'No matching students' : `No ${tab} accounts`}</h3>
+            <p style={r.emptySub}>{searchQuery ? 'Try another student name or ID.' : `There are no students in the ${tab} account queue.`}</p>
           </div>
         )}
 
         <div style={r.cardsGrid}>
           {filteredList.map((student) => (
-            <div key={student.id} style={r.card}>
+            <div className="registration-student-card" key={student.id} style={r.card}>
               <div style={r.cardMain}>
                 <div style={r.avatar}>
                   {student.firstName?.[0] || 'S'}
@@ -155,12 +160,13 @@ export default function RegistrationsTab({ department, sections = [] }) {
                     <span style={r.idBadge}>{student.idNumber || 'No ID'}</span>
                   </div>
                   <div style={r.metaRow}>
-                    <span style={r.metaItem}><Icon name="mail" size={14} /> {student.email}</span>
+                    <span style={r.metaItem}>Username: {student.username || (student.idNumber ? `uclm-${student.idNumber}` : 'Not provided')}</span>
+                    <span style={r.metaItem}>Section: {sections.find(section => section.id === student.sectionId)?.name || 'Unassigned'}</span>
                     <span style={r.metaItem}><Icon name="building" size={14} /> {student.department || department}</span>
                   </div>
                   {student.createdAt && (
                     <div style={r.date}>
-                      Registered: {new Date(student.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      Account created: {new Date(student.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
                   )}
                 </div>

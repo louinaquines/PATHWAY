@@ -81,6 +81,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <AuthHero
@@ -143,6 +144,8 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
               secureTextEntry={!showPassword}
               accessibilityLabel="Password"
               autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={handleLogin}
               editable={!loading}
@@ -291,7 +294,7 @@ const styles = StyleSheet.create({
   inputContainerFocused: {
     borderColor: COLORS.secondary,
     backgroundColor: '#FFFFFF',
-    ...SHADOWS.soft,
+    ...(Platform.OS === 'android' ? {} : SHADOWS.soft),
   },
   inputIcon: {
     marginRight: 8,

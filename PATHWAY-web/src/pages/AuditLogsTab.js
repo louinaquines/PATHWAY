@@ -4,6 +4,7 @@ import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './AdminConfiguration.css';
 
 export default function AuditLogsTab() {
   const [logs, setLogs]         = useState([]);
@@ -34,21 +35,22 @@ export default function AuditLogsTab() {
   }
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="admin-configuration admin-audit">
       <div style={s.headerRow}>
         <div>
-          <h2 style={s.title}>Security & Activity Audit Logs</h2>
+          <h2 style={s.title}>Audit logs</h2>
           <p style={s.sub}>Chronological record of sensitive actions, status modifications, and approvals.</p>
         </div>
         <button style={s.refreshBtn} onClick={loadLogs}><Icon name="refresh" size={15} /> Refresh Logs</button>
       </div>
 
-      {error && <div style={s.error}>{error}</div>}
+      {error && <div role="alert" style={s.error}>{error}</div>}
 
-      <div style={s.card}>
+      <div style={s.card} className="admin-audit-records">
         <div style={s.searchBarRow}>
           <input
             type="text"
+            aria-label="Search audit logs"
             placeholder="Search by action, role, actor ID, or target..."
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -60,7 +62,7 @@ export default function AuditLogsTab() {
         {filteredLogs.length === 0 ? (
           <div style={s.empty}>
             <div style={s.emptyIcon}><Icon name="shield" size={28} label="Audit logs" /></div>
-            <p style={{ margin: 0, color: '#000000' }}>No audit records match your query.</p>
+            <p style={{ margin: 0, color: '#000000' }}>{error ? 'Audit records could not be loaded. Try Refresh Logs.' : logs.length ? 'No audit records match your query.' : 'No audit records yet.'}</p>
           </div>
         ) : (
           <div style={s.tableWrap}>
@@ -110,9 +112,9 @@ export default function AuditLogsTab() {
                       )}
                     </td>
                     <td style={s.td}>
-                      <pre style={s.detailsPre}>
+                      <details className="admin-audit-details"><summary>View details</summary><pre style={s.detailsPre}>
                         {JSON.stringify(log.details || {}, null, 2)}
-                      </pre>
+                      </pre></details>
                     </td>
                   </tr>
                 ))}

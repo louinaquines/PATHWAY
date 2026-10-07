@@ -20,6 +20,7 @@ export async function uploadCloudinaryFile(file, authorization) {
   formData.append('signature', authorization.signature);
   formData.append('public_id', authorization.publicId);
   formData.append('overwrite', 'false');
+  if (authorization.deliveryType === 'authenticated') formData.append('type', 'authenticated');
 
   const response = await fetch(authorization.uploadUrl, { method: 'POST', body: formData });
   const result = await response.json().catch(() => ({}));

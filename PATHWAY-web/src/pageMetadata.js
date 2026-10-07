@@ -2,6 +2,7 @@ const descriptions = {
   login: 'Secure staff access to the PATHWAY OJT management portal.',
   requirements: 'Review and manage student OJT requirements in PATHWAY.',
   sections: 'Manage OJT sections, requirements, and student assignments in PATHWAY.',
+  companies: 'View the PATHWAY partner company directory and internship capacity.',
   logbook: 'Review student OJT logbook submissions in PATHWAY.',
   registrations: 'Review student registrations in PATHWAY.',
   classlist: 'Manage the authorized student roster in PATHWAY.',

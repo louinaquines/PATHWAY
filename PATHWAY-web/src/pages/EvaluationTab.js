@@ -9,12 +9,14 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
 import './EvaluationTab.css';
+import EvaluationFormBuilder, { defaultEvaluationForm } from './EvaluationFormBuilder';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-const EVALUATIONS_PER_PAGE = 2;
+const EVALUATIONS_PER_PAGE = 5;
 
 export default function EvaluationTab({ coordinatorId, selectedSection }) {
   const [students, setStudents]       = useState([]);
+  const [formDefinition, setFormDefinition] = useState(defaultEvaluationForm);
   const [evaluations, setEvaluations] = useState([]);
   const [form, setForm]               = useState({
     studentId: '',
@@ -96,6 +98,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
         },
         body: JSON.stringify({
           ...form,
+          formDefinition,
           studentName: students.find(student => student.id === form.studentId)?.firstName || '',
         }),
       });
@@ -252,12 +255,15 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             </div>
           </div>
 
+          <EvaluationFormBuilder value={formDefinition} onChange={setFormDefinition} disabled={busy} />
+          <div className="evaluation-form-actions">
           <button type="submit" disabled={busy} style={styles.generateBtn}>
             {busy ? 'Please wait…' : 'Prepare Evaluation Email'}
           </button>
-          <button type="button" onClick={checkEmailConnection} disabled={busy} style={{ marginLeft: 12, padding: '14px 18px' }}>
+          <button className="evaluation-connection-button" type="button" onClick={checkEmailConnection} disabled={busy}>
             Check email connection
           </button>
+          </div>
         </form>
 
         {status && (
@@ -287,15 +293,15 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       </div>
 
       {/* Evaluations Log Card */}
-      <div style={styles.card}>
+      <div className="evaluation-records-card" style={styles.card}>
           <div className="evaluation-records-header" style={styles.recordsHeader}>
           <div>
             <h3 style={styles.title}>Submitted & Pending Evaluations</h3>
             <p style={styles.sub}>{evaluations.length} evaluation record(s)</p>
           </div>
-          <div style={styles.recordsActions}>
+          <div className="evaluation-records-actions" style={styles.recordsActions}>
             <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search evaluations" />
-            <div style={styles.recordsUtilityRow}>
+            <div className="evaluation-records-utilities" style={styles.recordsUtilityRow}>
               <PaginationButtonGroup
                 align="right"
                 page={currentPage}
@@ -345,7 +351,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
 
                   <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Accepted by Gmail — inbox delivery not confirmed', sending: 'Sending — awaiting confirmation', authorization_failed: 'Authorization failed — no email sent; manual retry available after correcting credentials', delivery_unknown: 'Delivery uncertain — check mail service before resending', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Not sent'}</p></div>
 
-                  {submitted && (
+                  {item.formDefinition && <p className="evaluation-form-title">{item.formDefinition.title}</p>}
+                  {submitted && item.formDefinition && <div className="evaluation-custom-answers">{item.formDefinition.questions.map(question => <div key={question.id}><strong>{question.label}</strong><p>{item.answers?.[question.id] !== undefined ? `${item.answers[question.id]}${question.type === 'rating' ? '/5' : ''}` : 'Not answered (optional)'}</p></div>)}</div>}
+                  {submitted && !item.formDefinition && (
                     <div style={styles.ratingsSection}>
                       <div style={styles.ratingsRow}>
                         <span style={styles.ratingLabel}>Criteria Scores:</span>

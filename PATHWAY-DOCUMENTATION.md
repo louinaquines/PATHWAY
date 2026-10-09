@@ -2,6 +2,28 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — Coordinator-authored evaluation forms
+
+- Added a coordinator form builder with editable title/instructions, 1–20 rating (1–5) or text questions, required/optional controls, ordering, and removal. Every new invitation snapshots its definition; existing links and submitted evaluations keep the legacy format.
+- Supervisor pages render the saved definition; submissions are validated against those exact questions in the existing single-use transaction. Coordinator records show custom question labels and answers. Existing ownership checks, record locks, email confirmation, and token expiry remain intact.
+- Added three backend validation tests and three frontend builder/submission/legacy tests; all passed, along with the production build. Deploy backend on Render before publishing the new frontend to avoid mixed-version forms.
+
+### 2026-10-10 — Compact evaluation records layout
+
+- Reduced record/card padding and delivery-strip spacing. Search, pagination, and refresh now share a compact wrapping toolbar. Increased records per page from two to five to avoid sparse pages; evaluation data and email behavior are unchanged.
+
+### 2026-10-10 — Message overlay refresh icon
+
+- Replaced the full-width refresh action with a compact, right-aligned icon beside Message alerts. Preserved its accessible label, tooltip, refresh behavior, and loading-disabled state.
+
+### 2026-10-10 — Compact message notification overlay
+
+- Replaced the large Messages alert panel with a compact bell button and unread badge. Clicking opens a native modal dialog with message-only alerts, conversation shortcuts, refresh, Escape/backdrop/close dismissal. Existing message permission errors remain visible; no rules or delivery behavior changed.
+
+### 2026-10-10 — Evaluation connection action layout correction
+
+- Grouped Prepare Evaluation Email and Check email connection in a wrapping action row. The connection check is a compact white secondary button with blue text, rather than a stretched blue button with black text. Styling is scoped to Evaluations; email behavior is unchanged.
+
 ### 2026-10-10 — Separate Messages alerts and Notifications workspace
 
 - Messages now shows message-only unread alerts for students in the selected section, with conversation shortcuts and explicit refresh. No broadcast switch was added to Messages; alerts do not claim an empty inbox when message loading fails.

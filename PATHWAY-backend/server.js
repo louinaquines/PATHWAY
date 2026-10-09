@@ -2401,7 +2401,7 @@ require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireSta
 app.post('/create-evaluation-token', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 20, windowMs: 60 * 60_000, key: request => `evaluation:${request.staff.uid}` })) return;
-  const { studentId, supervisorName, supervisorEmail, companyName } = req.body || {};
+  const { studentId, supervisorName, supervisorEmail, companyName, formDefinition: requestedForm } = req.body || {};
   const cleanSupervisorName = typeof supervisorName === 'string' ? supervisorName.trim() : '';
   const cleanSupervisorEmail = typeof supervisorEmail === 'string' ? supervisorEmail.trim() : '';
   const cleanCompanyName = typeof companyName === 'string' ? companyName.trim() : '';
@@ -2412,6 +2412,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     return res.status(400).json({ error: 'Enter a valid student, supervisor name/email, and company name.' });
   }
   try {
+    const formDefinition = requestedForm === undefined ? null : require('./evaluationForm').validateForm(requestedForm);
     const studentSnap = await adminDb.collection('users').doc(studentId).get();
     if (!studentSnap.exists || studentSnap.data().role !== 'student') return res.status(404).json({ error: 'Student not found' });
     const student = studentSnap.data();
@@ -2426,7 +2427,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     await adminDb.runTransaction(async transaction => {
       const freshStudent = await transaction.get(studentSnap.ref);
       assertRecordsOpen(freshStudent.data());
-      transaction.create(evaluation, { studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
+      transaction.create(evaluation, { ...(formDefinition ? { formDefinition } : {}), studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
     });
     res.set('Cache-Control', 'no-store').json({ id: evaluation.id, token: rawToken, expiresAt });
   } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); console.error(e); res.status(500).json({ error: 'Could not create evaluation link' }); }
@@ -2437,7 +2438,7 @@ app.get('/coordinator-evaluations', requireStaff, async (req, res) => {
     const snap = await adminDb.collection('evaluations').where('createdBy', '==', req.staff.uid).get();
     const evaluations = snap.docs.map(d => {
       const data = d.data();
-      return { id: d.id, studentId: data.studentId, studentName: data.studentName, supervisorName: data.supervisorName, supervisorEmail: data.supervisorEmail, companyName: data.companyName, expiresAt: data.expiresAt, used: data.used, submitted: Boolean(data.submittedAt || data.used), ratings: data.ratings || null, comments: data.comments || '', submittedAt: data.submittedAt || null, emailStatus: data.emailStatus || 'not_sent', emailAcceptedAt: data.emailAcceptedAt || null };
+      return { id: d.id, formDefinition: data.formDefinition || null, answers: data.answers || null, studentId: data.studentId, studentName: data.studentName, supervisorName: data.supervisorName, supervisorEmail: data.supervisorEmail, companyName: data.companyName, expiresAt: data.expiresAt, used: data.used, submitted: Boolean(data.submittedAt || data.used), ratings: data.ratings || null, comments: data.comments || '', submittedAt: data.submittedAt || null, emailStatus: data.emailStatus || 'not_sent', emailAcceptedAt: data.emailAcceptedAt || null };
     });
     res.json({ evaluations });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Could not load evaluations' }); }
@@ -2452,7 +2453,7 @@ app.get('/evaluation/:token', async (req, res) => {
     if (snap.empty) return res.status(404).json({ error: 'Evaluation link is invalid' });
     const data = snap.docs[0].data();
     if (data.used || new Date(data.expiresAt) < new Date()) return res.status(410).json({ error: 'Evaluation link is expired or already submitted' });
-    res.json({ studentName: data.studentName, companyName: data.companyName, supervisorName: data.supervisorName, expiresAt: data.expiresAt });
+    res.json({ formDefinition: data.formDefinition || null, studentName: data.studentName, companyName: data.companyName, supervisorName: data.supervisorName, expiresAt: data.expiresAt });
   } catch (e) { res.status(500).json({ error: 'Could not load evaluation' }); }
 });
 
@@ -2464,9 +2465,6 @@ app.post('/evaluation/:token/submit', async (req, res) => {
   const validRatings = ratings && typeof ratings === 'object' && !Array.isArray(ratings)
     && Object.keys(ratings).length === requiredRatingFields.length
     && requiredRatingFields.every(field => Number.isInteger(ratings[field]) && ratings[field] >= 1 && ratings[field] <= 5);
-  if (!validRatings || typeof comments !== 'string' || !comments.trim() || comments.trim().length > 4000) {
-    return res.status(400).json({ error: 'Complete all five ratings and enter comments up to 4,000 characters.' });
-  }
   try {
     const tokenHash = crypto.createHash('sha256').update(req.params.token).digest('hex');
     const snap = await adminDb.collection('evaluations').where('tokenHash', '==', tokenHash).limit(1).get();
@@ -2483,7 +2481,14 @@ app.post('/evaluation/:token/submit', async (req, res) => {
         throw Object.assign(new Error('Evaluation link is expired or already submitted'), { status: 410 });
       }
       const submittedAt = new Date().toISOString();
-      transaction.update(ref, { ratings, comments: comments.trim(), submittedAt, used: true });
+      let submission;
+      if (data.formDefinition) {
+        submission = { answers: require('./evaluationForm').validateAnswers(data.formDefinition, req.body?.answers) };
+      } else {
+        if (!validRatings || typeof comments !== 'string' || !comments.trim() || comments.trim().length > 4000) throw Object.assign(new Error('Complete all five ratings and enter comments up to 4,000 characters.'), { status: 400 });
+        submission = { ratings, comments: comments.trim() };
+      }
+      transaction.update(ref, { ...submission, submittedAt, used: true });
       transaction.create(notificationRef, { recipientId: data.studentId, title: 'Supervisor evaluation submitted', message: `Your supervisor submitted an evaluation for ${data.companyName}.`, type: 'evaluation', read: false, createdAt: submittedAt });
     });
     res.json({ success: true });

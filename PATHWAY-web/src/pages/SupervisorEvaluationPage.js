@@ -14,6 +14,7 @@ export default function SupervisorEvaluationPage() {
   const [info, setInfo] = useState(null);
   const [ratings, setRatings] = useState({});
   const [comments, setComments] = useState('');
+  const [answers, setAnswers] = useState({});
   const [message, setMessage] = useState('Loading evaluation...');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -45,7 +46,7 @@ export default function SupervisorEvaluationPage() {
       const r = await fetch(`${API}/evaluation/${token}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ratings, comments }),
+        body: JSON.stringify(info.formDefinition ? { answers } : { ratings, comments }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Submission failed');
@@ -84,7 +85,7 @@ export default function SupervisorEvaluationPage() {
             <PathwayLogo style={s.logoImg} />
           </div>
           <div>
-            <h1 style={s.title}>PATHWAY Supervisor Evaluation</h1>
+            <h1 style={s.title}>{info?.formDefinition?.title || 'PATHWAY Supervisor Evaluation'}</h1>
             <p style={s.sub}>OJT Industry Partner Performance Review</p>
           </div>
         </div>
@@ -113,6 +114,14 @@ export default function SupervisorEvaluationPage() {
             </div>
 
             <form onSubmit={submit} style={s.form}>
+              {info.formDefinition ? <>
+                {info.formDefinition.instructions && <p style={{ margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.7 }}>{info.formDefinition.instructions}</p>}
+                {info.formDefinition.questions.map(question => <div key={question.id} style={s.commentGroup}>
+                  <label htmlFor={question.id} style={s.commentLabel}>{question.label} {question.required ? '(required)' : '(optional)'}</label>
+                  {question.type === 'rating' ? <select id={question.id} required={question.required} style={s.select} value={answers[question.id] ?? ''} onChange={e => setAnswers(previous => ({ ...previous, [question.id]: e.target.value === '' ? '' : Number(e.target.value) }))}><option value="">Select rating</option>{[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value}{value === 1 ? ' — Poor' : value === 5 ? ' — Excellent' : ''}</option>)}</select>
+                    : <textarea id={question.id} required={question.required} maxLength={4000} rows={3} style={s.textarea} value={answers[question.id] || ''} onChange={e => setAnswers(previous => ({ ...previous, [question.id]: e.target.value }))} />}
+                </div>)}
+              </> : <>
               <h2 style={s.sectionHeading}>Evaluation Criteria (1 = Poor, 5 = Excellent)</h2>
               
               <div style={s.criteriaList}>
@@ -152,7 +161,7 @@ export default function SupervisorEvaluationPage() {
                   onChange={(e) => setComments(e.target.value)}
                 />
               </div>
-
+              </>}
               <button
                 type="submit"
                 style={{ ...s.button, opacity: submitting ? 0.7 : 1 }}

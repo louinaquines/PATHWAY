@@ -1,0 +1,17 @@
+.notifications-page > [role="tabpanel"] { width: 100%; box-sizing: border-box; box-shadow: none !important; }
+.notifications-page [hidden] { display: none !important; }
+.notification-workspace-header { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: center; width: 100%; color: #172b46; }
+.notification-workspace-header h2 { margin: 0; font-size: 24px; }
+.notification-workspace-header p { margin: 8px 0 0; font-size: 14px; color: #62758e; }
+.notification-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 5px; border: 1px solid #dce5f1; border-radius: 12px; background: #eef3f9; width: min(100%, 460px); box-sizing: border-box; }
+.notification-switch-slider { position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px); background: white; border: 1px solid #cdddf1; border-radius: 8px; box-sizing: border-box; transition: transform 200ms ease; }
+.notification-switch.is-broadcast .notification-switch-slider { transform: translateX(100%); }
+.notification-switch button { position: relative; z-index: 1; padding: 13px 10px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #62758e; cursor: pointer; }
+.notification-switch button[aria-selected="true"] { color: #075fc9; }
+.notification-switch button:focus-visible { outline: 2px solid #075fc9; border-radius: 8px; }
+.notifications-page [role="tabpanel"] > div:first-child { flex-wrap: wrap; gap: 18px; }
+.notifications-page [role="tabpanel"] button { font-family: inherit; }
+.notifications-page [role="tabpanel"] button[style] { text-align: left; }
+.notifications-page [role="tabpanel"] button > div { overflow-wrap: anywhere; }
+@media (max-width: 650px) { .notifications-page { padding: 16px !important; } .notifications-page form > div:nth-child(2) { grid-template-columns: 1fr !important; } }
+@media (prefers-reduced-motion: reduce) { .notification-switch-slider { transition: none; } }

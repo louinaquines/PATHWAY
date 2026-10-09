@@ -7,6 +7,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './NotificationsTab.css';
 
 export default function NotificationsTab({ userId }) {
   const [items, setItems]           = useState([]);
@@ -18,15 +19,19 @@ export default function NotificationsTab({ userId }) {
   const [sending, setSending]       = useState(false);
   const [sendStatus, setSendStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [workspace, setWorkspace] = useState('inbox');
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setLoadError('');
     try {
       const snap = await getDocs(query(collection(db, 'notifications'), where('recipientId', '==', userId)));
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))));
     } catch (e) {
       console.error(e);
+      setLoadError('Could not load notifications. Please try refreshing.');
     } finally {
       setLoading(false);
     }
@@ -67,8 +72,10 @@ export default function NotificationsTab({ userId }) {
 
   const markRead = async item => {
     if (item.read) return;
+    try {
     await updateDoc(doc(db, 'notifications', item.id), { read: true });
     setItems(prev => prev.map(current => current.id === item.id ? { ...current, read: true } : current));
+    } catch (_) { setLoadError('Could not mark this notification as read. Please try again.'); }
   };
 
   const filteredItems = items.filter(item => matchesCoordinatorSearch(searchQuery, item.title, item.message, item.type));
@@ -79,8 +86,15 @@ export default function NotificationsTab({ userId }) {
 
   return (
     <div style={s.page} className="notifications-page">
+      <div className="notification-workspace-header"><div><h2>Announcements & alerts</h2><p>Review your inbox or send an announcement to an assigned section.</p></div>
+        <div className={`notification-switch is-${workspace}`} role="tablist" aria-label="Notification workspace">
+          <span className="notification-switch-slider" aria-hidden="true" />
+          <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
+          <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Broadcast announcement</button>
+        </div>
+      </div>
       {/* Broadcast Announcement Form */}
-      <form style={s.compose} onSubmit={sendAnnouncement}>
+      <form id="notification-broadcast-panel" role="tabpanel" aria-labelledby="notification-broadcast-tab" hidden={workspace !== 'broadcast'} style={s.compose} onSubmit={sendAnnouncement}>
         <div style={s.composeHeader}>
           <div style={s.iconWrap}><Icon name="megaphone" size={22} label="Broadcast announcement" /></div>
           <div>
@@ -148,11 +162,11 @@ export default function NotificationsTab({ userId }) {
       </form>
 
       {/* Notifications Log */}
-      <div style={s.listCard}>
+      <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>
           <div style={s.listHeader}>
           <div>
             <h2 style={s.listTitle}>Coordinator Notification Inbox</h2>
-            <p style={s.sub}>System logs, clearance triggers, and activity alerts.</p>
+            <p style={s.sub}>Your activity alerts. Click a notification to mark it read.</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />
           <button type="button" style={s.refreshBtn} onClick={load}>
@@ -160,7 +174,8 @@ export default function NotificationsTab({ userId }) {
           </button>
         </div>
 
-        {!filteredItems.length ? (
+        {loadError && <p role="alert">{loadError}</p>}
+        {!loadError && !filteredItems.length ? (
           <div style={s.empty}>
             <div style={s.emptyIcon}><Icon name="bell" size={28} label="Notifications" /></div>
             <p style={{ margin: 0, color: '#000000' }}>
@@ -170,7 +185,7 @@ export default function NotificationsTab({ userId }) {
         ) : (
           <div style={s.itemsWrap}>
             {filteredItems.map(item => (
-              <div
+              <button type="button"
                 key={item.id}
                 style={{ ...s.item, ...(item.read ? {} : s.unread) }}
                 onClick={() => markRead(item)}
@@ -185,7 +200,7 @@ export default function NotificationsTab({ userId }) {
                   </span>
                 </div>
                 <div style={s.itemMessage}>{item.message}</div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -200,8 +215,8 @@ const s = {
     overflowY: 'auto',
     padding: 28,
     backgroundColor: COLORS.slate50,
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    display: 'flex',
+    flexDirection: 'column',
     gap: 24,
     alignItems: 'start',
     width: '100%',
@@ -368,7 +383,6 @@ const s = {
     cursor: 'pointer',
   },
   unread: {
-    borderLeft: `4px solid ${COLORS.sky600}`,
     backgroundColor: COLORS.sky50,
   },
   itemHeader: {

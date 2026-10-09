@@ -92,7 +92,21 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     finally { setSending(false); }
   };
 
+  const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
+
   return <div className="messages-workspace">
+    <aside className="messages-alerts" aria-label="Message notifications">
+      <div><strong>Message alerts</strong><p>{error ? 'Message alerts are unavailable until messages can load.' : loading ? 'Checking messages…' : messageAlerts.length ? `${messageAlerts.length} unread message(s) in ${selectedSection?.name || 'this section'}` : 'No unread messages in this section.'}</p></div>
+      <div className="messages-alert-actions">
+        {messageAlerts.slice(-3).reverse().map(message => {
+          const thread = conversations.find(item => item.studentId === message.studentId);
+          return <button type="button" key={message.id} onClick={() => thread && openConversation(thread)}>
+            <strong>{thread?.name || 'Student'}</strong><span>{message.body}</span>
+          </button>;
+        })}
+        <button type="button" onClick={load} disabled={loading}>Refresh messages</button>
+      </div>
+    </aside>
     <section className="messages-sections">
       <header><h2>Sections</h2><p>Your assigned classes</p></header>
       <input type="search" aria-label="Search sections" placeholder="Search sections..." value={sectionSearch} onChange={event => setSectionSearch(event.target.value)} />

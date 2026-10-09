@@ -2,6 +2,12 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — Separate Messages alerts and Notifications workspace
+
+- Messages now shows message-only unread alerts for students in the selected section, with conversation shortcuts and explicit refresh. No broadcast switch was added to Messages; alerts do not claim an empty inbox when message loading fails.
+- Notifications now has an animated Notification inbox / Broadcast announcement tab switch with reduced-motion support. Existing recipient-scoped inbox and assigned-section broadcast flow remain intact; unread cards no longer have a thick left border.
+- Four targeted messaging/notification tests passed. No Firestore permission changes or broadcast to real students were performed during implementation. The reported deployed messaging permission error remains a separate verification item.
+
 ### 2026-10-10 — Evaluation-only visual polish and Logbook notes visibility
 
 - Evaluations now separates delivery status from submission status, presents scores with readable labels and responsive cards, and displays feedback without forced italics. Other screens' styling is unchanged.

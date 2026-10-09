@@ -1,0 +1,21 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { getDocs } from 'firebase/firestore';
+import { adminRequest } from '../adminApi';
+import NotificationsTab from './NotificationsTab';
+jest.mock('../firebase', () => ({ db: {} }));
+jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
+jest.mock('firebase/firestore', () => ({ collection: jest.fn(), query: jest.fn(), where: jest.fn(), getDocs: jest.fn(), updateDoc: jest.fn(), doc: jest.fn() }));
+test('sliding workspace starts in inbox and preserves broadcast submission', async () => {
+  getDocs.mockResolvedValue({ docs: [{ id: 'section-a', data: () => ({ name: 'Section A', department: 'IT' }) }] });
+  adminRequest.mockResolvedValue({ count: 2 });
+  render(<NotificationsTab userId="coord-a" />);
+  const inbox = await screen.findByRole('tab', { name: /Notification inbox/ });
+  expect(inbox).toHaveAttribute('aria-selected', 'true');
+  expect(screen.queryByRole('button', { name: 'Send Announcement' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: 'Broadcast announcement' }));
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'section-a' } });
+  fireEvent.change(screen.getByPlaceholderText('e.g. MOA Submission Deadline Extension'), { target: { value: 'Deadline' } });
+  fireEvent.change(screen.getByPlaceholderText('Type your message to the enrolled students...'), { target: { value: 'Test announcement' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send Announcement' }));
+  await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/announcements', { method: 'POST', body: JSON.stringify({ sectionId: 'section-a', title: 'Deadline', message: 'Test announcement' }) }));
+});

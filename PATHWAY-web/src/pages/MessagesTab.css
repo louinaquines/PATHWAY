@@ -1,4 +1,10 @@
 .messages-workspace { display: grid; grid-template-columns: 210px 280px minmax(0, 1fr); flex: 1; gap: 16px; padding: 24px; min-height: 0; min-width: 0; overflow: auto; background: #f6f8fc; box-sizing: border-box; }
+.messages-alerts { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 20px; border: 1px solid #e4eaf3; border-radius: 14px; background: white; color: #152238; }
+.messages-alerts p { margin: 5px 0 0; color: #697991; font-size: 13px; }
+.messages-alert-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.messages-alert-actions button { border: 1px solid #dbe5f2; border-radius: 9px; padding: 10px 14px; background: #f8fbff; color: #075fc9; cursor: pointer; text-align: left; }
+.messages-alert-actions button span { display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #52647d; margin-top: 4px; }
+@media (max-width: 750px) { .messages-alerts { flex-direction: column; align-items: stretch; } }
 .messages-workspace > section { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid #e4eaf3; border-radius: 18px; background: white; overflow: hidden; }
 .messages-workspace header { padding: 20px 18px; border-bottom: 1px solid #edf1f7; }
 .messages-workspace h2 { font-size: 17px; color: #152238; margin: 0; font-weight: 650; }

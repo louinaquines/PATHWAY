@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { validEmail, endorsementMailer } = require('./endorsementMail');
+const { evaluationEmailHtml } = require('./evaluationEmailTemplate');
 
 function installEvaluationMail({ app, db, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction }) {
   app.post('/coordinator/email-connection', requireStaff, async (req, res) => {
@@ -59,6 +60,7 @@ function installEvaluationMail({ app, db, requireStaff, coordinatorOwnsStudent, 
         const result = await mailer.transport.sendMail({
           from: mailer.from, to: evaluation.supervisorEmail,
           messageId: `<evaluation-${ref.id}@pathway.invalid>`, subject: 'PATHWAY supervisor evaluation request',
+          html: evaluationEmailHtml(evaluation, message, `${webUrl.origin}/evaluate?token=${token}`),
           text: `Dear ${evaluation.supervisorName},\n\nPlease complete the internship evaluation for ${evaluation.studentName} at ${evaluation.companyName}.\n\n${message.trim() ? `${message.trim()}\n\n` : ''}Secure evaluation link:\n${webUrl.origin}/evaluate?token=${token}\n\nThis link expires on ${evaluation.expiresAt} and can be submitted once. Please do not forward it.\n\nPATHWAY OJT coordinator`,
         });
         accepted = Array.isArray(result.accepted) && result.accepted.some(address => address.toLowerCase() === evaluation.supervisorEmail.toLowerCase());

@@ -2,6 +2,11 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — PATHWAY-branded evaluation invitation email
+
+- Added an email-safe blue/white HTML invitation with PATHWAY wordmark, student/company details, coordinator note, secure Open Evaluation action, and readable Philippine-time expiry. All dynamic content is escaped. Plain-text fallback remains; no tracking pixels or remote images were added.
+- Gmail MIME transport now includes the authored HTML alongside plain text. Existing sent emails are unchanged; the template applies to future sends after backend deployment.
+
 ### 2026-10-10 — Coordinator-authored evaluation forms
 
 - Added a coordinator form builder with editable title/instructions, 1–20 rating (1–5) or text questions, required/optional controls, ordering, and removal. Every new invitation snapshots its definition; existing links and submitted evaluations keep the legacy format.

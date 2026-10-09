@@ -39,7 +39,7 @@ function createGmailMailer(env, fetcher = fetch) {
       if (options.from !== from || typeof options.to !== 'string' || options.to.length > 254 || !MAILBOX.test(options.to)
         || options.cc || options.bcc || options.raw || options.envelope || options.headers
         || (options.attachments || []).some(item => !Buffer.isBuffer(item.content) || item.path || item.href)) throw safeError('GMAIL_MESSAGE');
-      const mime = await new MailComposer({ from, to: options.to, subject: options.subject, text: options.text,
+      const mime = await new MailComposer({ from, to: options.to, subject: options.subject, text: options.text, html: options.html,
         messageId: options.messageId, attachments: options.attachments,
         disableFileAccess: true, disableUrlAccess: true }).compile().build();
       const bearer = await token();

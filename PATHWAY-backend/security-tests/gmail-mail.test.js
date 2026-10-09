@@ -27,6 +27,15 @@ test('Gmail composes MIME bytes and sends via HTTPS, with cached send-only token
   await m.transport.sendMail(mail);
   assert.equal(s.calls.filter(c => c.url.includes('oauth2')).length, 1);
 });
+test('HTML invitations retain a plain-text MIME fallback', async () => {
+  const s = stub();
+  await createGmailMailer(env, s.fetcher).transport.sendMail({ ...mail, html: '<h1>PATHWAY</h1>' });
+  const raw = Buffer.from(JSON.parse(s.calls[1].options.body).raw, 'base64url').toString();
+  assert.match(raw, /multipart\/alternative/);
+  assert.match(raw, /text\/plain/);
+  assert.match(raw, /text\/html/);
+  assert.match(raw, /<h1>PATHWAY<\/h1>/);
+});
 test('failures do not resend and do not disclose provider responses or credentials', async () => {
   for (const options of [{ sendOk: false }, { failSend: true }]) {
     const s = stub(options); const m = createGmailMailer(env, s.fetcher);

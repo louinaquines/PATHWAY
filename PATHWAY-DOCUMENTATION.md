@@ -2,6 +2,22 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — Coordinator email wording
+
+- Changed the invitation note heading to Message from coordinator. Applies to future emails after backend deployment; previously received emails are unchanged.
+
+### 2026-10-10 — Evaluation summary placement
+
+- Grouped the selected form title and question count beneath Create evaluation in the top-right header, removing the extra summary row above the email actions.
+
+### 2026-10-10 — Evaluation header action placement
+
+- Moved Create evaluation to the top-right of the Request an evaluation header, with wrapping on narrow screens. The form summary and modal behavior are unchanged.
+
+### 2026-10-10 — Create evaluation overlay
+
+- Moved the question builder into a scrollable native modal opened by Create evaluation. Save applies the edited draft; Cancel, Escape, and backdrop dismissal leave the current form unchanged. A compact summary remains on the invitation screen. Scoped button colors prevent unreadable labels.
+
 ### 2026-10-10 — PATHWAY-branded evaluation invitation email
 
 - Added an email-safe blue/white HTML invitation with PATHWAY wordmark, student/company details, coordinator note, secure Open Evaluation action, and readable Philippine-time expiry. All dynamic content is escaped. Plain-text fallback remains; no tracking pixels or remote images were added.

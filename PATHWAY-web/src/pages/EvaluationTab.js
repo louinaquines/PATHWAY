@@ -8,6 +8,7 @@ import PaginationButtonGroup from '../components/PaginationButtonGroup';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
+import './EvaluationTab.css';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const EVALUATIONS_PER_PAGE = 2;
@@ -61,6 +62,20 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       .catch(error => setStatus(error.message))
       .finally(() => setLoading(false));
   }, [coordinatorId, loadEvaluations, selectedSection]);
+
+  const checkEmailConnection = async () => {
+    setBusy(true);
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch(`${API}/coordinator/email-connection`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not verify email connection.');
+      setStatus(data.message);
+    } catch (error) { setStatus(error.message); }
+    finally { setBusy(false); }
+  };
 
   const createLink = async event => {
     event.preventDefault();
@@ -240,6 +255,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
           <button type="submit" disabled={busy} style={styles.generateBtn}>
             {busy ? 'Please wait…' : 'Prepare Evaluation Email'}
           </button>
+          <button type="button" onClick={checkEmailConnection} disabled={busy} style={{ marginLeft: 12, padding: '14px 18px' }}>
+            Check email connection
+          </button>
         </form>
 
         {status && (
@@ -270,7 +288,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
 
       {/* Evaluations Log Card */}
       <div style={styles.card}>
-          <div style={styles.recordsHeader}>
+          <div className="evaluation-records-header" style={styles.recordsHeader}>
           <div>
             <h3 style={styles.title}>Submitted & Pending Evaluations</h3>
             <p style={styles.sub}>{evaluations.length} evaluation record(s)</p>
@@ -325,7 +343,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                     </span>
                   </div>
 
-                  <p style={styles.sub}>Email: {({ sent: 'Sent — accepted by email server', sending: 'Sending / awaiting confirmation', delivery_unknown: 'Delivery uncertain — check mail service before resending', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Not sent'}</p>
+                  <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Accepted by Gmail — inbox delivery not confirmed', sending: 'Sending — awaiting confirmation', authorization_failed: 'Authorization failed — no email sent; manual retry available after correcting credentials', delivery_unknown: 'Delivery uncertain — check mail service before resending', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Not sent'}</p></div>
 
                   {submitted && (
                     <div style={styles.ratingsSection}>
@@ -334,14 +352,14 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                         <div style={styles.ratingPills}>
                           {item.ratings && Object.entries(item.ratings).map(([k, v]) => (
                             <span key={k} style={styles.ratingChip}>
-                              {k.replace(/([A-Z])/g, ' $1')}: <strong>{v}/5</strong>
+                              <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, letter => letter.toUpperCase())}</span> <strong>{v}/5</strong>
                             </span>
                           ))}
                         </div>
                       </div>
                       {item.comments && (
                         <div style={styles.commentsWrap}>
-                          <strong>Supervisor Feedback:</strong> "{item.comments}"
+                          <strong>Supervisor feedback</strong><p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.comments}</p>
                         </div>
                       )}
                     </div>
@@ -521,6 +539,8 @@ const styles = {
     fontWeight: 600,
   },
   recordsHeader: {
+    gap: 24,
+    flexWrap: 'wrap',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -535,6 +555,7 @@ const styles = {
     flex: '0 1 460px',
   },
   recordsUtilityRow: {
+    flexWrap: 'wrap',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -605,15 +626,19 @@ const styles = {
     color: '#000000',
   },
   ratingPills: {
-    display: 'flex',
-    gap: 6,
-    flexWrap: 'wrap',
+    display: 'grid',
+    width: '100%',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: 10,
   },
   ratingChip: {
-    fontSize: 11,
+    fontSize: 13,
     backgroundColor: COLORS.slate50,
     border: `1px solid ${COLORS.slate300}`,
-    padding: '2px 8px',
+    padding: '12px 14px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 12,
     borderRadius: THEME.radius.sm,
     color: '#000000',
   },
@@ -624,7 +649,7 @@ const styles = {
     padding: 10,
     borderRadius: THEME.radius.sm,
     border: `1px solid ${COLORS.slate200}`,
-    fontStyle: 'italic',
+    fontStyle: 'normal',
   },
   empty: {
     padding: 40,

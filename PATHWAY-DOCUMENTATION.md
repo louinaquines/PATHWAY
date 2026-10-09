@@ -2,6 +2,18 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — Gmail authorization diagnostics and safe retry
+
+- Added a rate-limited coordinator-only email connection check. It refreshes Gmail authorization without sending a message and returns no credentials or provider response bodies.
+- New Gmail failures with GMAIL_AUTH are recorded as authorization_failed and permit an explicit manual retry; accepted, in-progress, and uncertain delivery states remain protected from duplicate sends. Historical delivery_unknown records are not automatically unlocked.
+- Staff Evaluations includes Check email connection. Connection-check unit coverage and Gmail/production regressions passed; no real email is sent by these tests.
+
+### 2026-10-10 — Staff Firebase Hosting published
+
+- Owner authenticated Firebase CLI as pathwaysystem4@gmail.com. Published only Hosting to project pathway-57400 using firebase.staff-hosting.json; Firebase confirmed release completion at https://pathway-57400.web.app. No database rules, backend, billing activation or emulator reset was included.
+- The prepared Vite artifact uses the real Firebase project, disables local emulators, and targets https://pathway-backend-49a9.onrender.com. Backend production acceptance remains pending Render origin configuration, deployment of commit 3976279, and end-to-end checks.
+- Render EVALUATION_WEB_URL and CORS_ALLOWED_ORIGINS should use the exact origin https://pathway-57400.web.app, not the /evaluate path.
+
 ### 2026-10-10 — Scoped Gmail deployment commit preparation
 
 - Owner authorized committing and pushing deployment changes. The selected scope is Gmail HTTPS runtime integration, Docker packaging, production configuration validation, its regression tests, and deployment documentation; unrelated mobile and staff migration edits remain uncommitted.

@@ -2,6 +2,12 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-10 — Evaluation-only visual polish and Logbook notes visibility
+
+- Evaluations now separates delivery status from submission status, presents scores with readable labels and responsive cards, and displays feedback without forced italics. Other screens' styling is unchanged.
+- Removed the Original notes disclosure and subtitle reference from coordinator Logbook review. Stored notes and export behavior are preserved; no student records were deleted.
+- Frontend regression suite passed 50/50 before the small Logbook visibility change; production build passed. Backend updates require a manual Render deployment because auto-deploy is disabled.
+
 ### 2026-10-10 — Gmail authorization diagnostics and safe retry
 
 - Added a rate-limited coordinator-only email connection check. It refreshes Gmail authorization without sending a message and returns no credentials or provider response bodies.

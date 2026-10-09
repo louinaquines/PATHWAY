@@ -200,7 +200,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       <div className="logbook-detail" style={t.col3}>
         <div className="logbook-panel-header logbook-detail-header" style={t.colHeader}>
           <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Weekly journals'}
-          <p>{selectedStudent ? 'Review weekly work, reported hours, and original notes.' : 'Select a student to view their submissions.'}</p>
+          <p>{selectedStudent ? 'Review weekly reports and reported hours.' : 'Select a student to view their submissions.'}</p>
           </div>
           {selectedStudent && <button type="button" className="logbook-export" disabled={exporting} onClick={exportStudentRecords}><Icon name="download" size={16} />{exporting ? 'Exporting…' : 'Export Data'}</button>}
         </div>
@@ -257,12 +257,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               <div style={t.entryLabel}>Weekly report</div>
               <div style={t.entryText}>{entry.refined || 'No refined content.'}</div>
 
-              {entry.rawNotes && (
-                <details style={t.detailsWrap}>
-                  <summary style={t.rawToggle}>Original notes</summary>
-                  <div style={t.rawNotesBox}>{entry.rawNotes}</div>
-                </details>
-              )}
               {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Revision needed</strong><span>{entry.reviewReason}</span></p>}
 
               {entry.status === 'pending' && (

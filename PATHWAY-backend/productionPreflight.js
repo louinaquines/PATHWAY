@@ -18,12 +18,15 @@ function validateProduction(env) {
       return url.protocol !== 'https:' || url.origin !== origin || ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || Boolean(url.username || url.password);
     } catch { return true; }
   })) errors.push('CORS origins must be exact HTTPS origins without credentials, paths, or loopback hosts.');
-  for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USER', 'SMTP_PASSWORD']) {
+  const provider = String(env.MAIL_PROVIDER || 'smtp').trim();
+  if (!['smtp', 'gmail'].includes(provider)) errors.push('MAIL_PROVIDER must be smtp or gmail.');
+  if (provider === 'gmail') errors.push(...require('./gmailMail').gmailConfigErrors(env));
+  for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', ...(provider === 'smtp' ? ['SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USER', 'SMTP_PASSWORD'] : [])]) {
     if (!String(env[key] || '').trim()) errors.push(`Configure ${key}.`);
   }
   const port = Number(env.SMTP_PORT);
-  if (env.SMTP_PORT && (!Number.isInteger(port) || port < 1 || port > 65535)) errors.push('SMTP_PORT must be a valid TCP port.');
-  if (['localhost', '127.0.0.1', '::1'].includes(env.SMTP_HOST)) errors.push('SMTP_HOST must not be a local test server.');
+  if (provider === 'smtp' && env.SMTP_PORT && (!Number.isInteger(port) || port < 1 || port > 65535)) errors.push('SMTP_PORT must be a valid TCP port.');
+  if (provider === 'smtp' && ['localhost', '127.0.0.1', '::1'].includes(env.SMTP_HOST)) errors.push('SMTP_HOST must not be a local test server.');
   try {
     const url = new URL(env.EVALUATION_WEB_URL);
     const host = url.hostname.toLowerCase();

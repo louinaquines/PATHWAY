@@ -9,6 +9,9 @@ function validEmail(value) {
 }
 
 function endorsementMailer(env = process.env) {
+  const provider = String(env.MAIL_PROVIDER || 'smtp').trim();
+  if (provider === 'gmail') return require('./gmailMail').createGmailMailer(env);
+  if (provider !== 'smtp') return null;
   const host = String(env.SMTP_HOST || '').trim();
   const port = Number(env.SMTP_PORT || 0);
   const from = String(env.SMTP_FROM || '').trim();

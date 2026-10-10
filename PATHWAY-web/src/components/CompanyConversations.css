@@ -1,0 +1,26 @@
+.company-conversations { margin-top:24px; padding:24px; border:1px solid #e1e8f2; border-radius:16px; background:#fff; color:#203047; }
+.company-conversations header,.company-mail-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.company-conversations h3,.company-conversations h4 { margin:0; }
+.company-conversations p { font-size:13px; line-height:1.6; color:#607087; }
+.company-conversations button,.company-conversations select { padding:10px 12px; border:1px solid #d6e0ed; border-radius:9px; background:#fff; color:#075fc9; font:inherit; font-size:13px; }
+.company-conversations button:disabled { opacity:.5; }
+.company-conversations button:focus-visible,.company-conversations select:focus-visible { outline:3px solid #87b9f6; outline-offset:2px; }
+.company-conversations label { display:grid; gap:8px; font-size:13px; }
+.company-conversations article { margin-top:14px; padding:18px; border:1px solid #e1e8f2; border-radius:12px; overflow-wrap:anywhere; }
+.company-mail-meta { font-size:13px; margin-bottom:10px; }
+.company-mail-meta time,.company-mail-updated { font-size:12px; color:#607087; }
+.company-mail-body { white-space:pre-wrap; }
+.company-mail-empty,.company-mail-attachment { padding:14px; background:#f7f9fc; border-radius:10px; }
+.company-conversations [role=alert] { color:#ad243a; }
+.company-mail-composer { margin-top:20px; padding:18px; border:1px solid #d6e0ed; border-radius:12px; background:#fff; }
+.company-mail-compose-header,.company-mail-compose-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+.company-mail-compose-header { margin-bottom:16px; font-size:13px; }
+.company-mail-compose-header span,.company-mail-compose-footer small { color:#607087; font-size:12px; }
+.company-mail-composer textarea { box-sizing:border-box; width:100%; margin:8px 0 12px; padding:12px; resize:vertical; min-height:100px; max-height:360px; border:1px solid #d6e0ed; border-radius:9px; background:#fff; color:#203047; font:inherit; font-size:14px; line-height:1.6; }
+.company-mail-composer textarea:focus-visible { outline:3px solid #87b9f6; outline-offset:2px; }
+.company-mail-compose-footer button { background:#075fc9; color:#fff; border-color:#075fc9; }
+.company-mail-send-status { padding:12px; border-radius:9px; background:#f7f9fc; }
+@media(max-width:600px) { .company-conversations { padding:16px; } .company-conversations select { width:100%; min-width:0; } }
+.company-mail-discovery { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; }
+.company-mail-discovery label { flex: 1 1 240px; }
+.company-mail-discovery small { flex-basis: 100%; color: #64748b; }

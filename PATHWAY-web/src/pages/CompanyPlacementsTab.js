@@ -5,6 +5,7 @@ import AlertDialog from '../components/AlertDialog';
 import EndorsementDraftDialog from '../components/EndorsementDraftDialog';
 import { adminRequest } from '../adminApi';
 import PlacementCompanies from '../components/PlacementCompanies';
+import CompanyConversations from '../components/CompanyConversations';
 import './PlacementReviews.css';
 
 const labels = { draft: 'Draft', pending_review: 'Pending review', needs_revision: 'Needs revision', rejected: 'Rejected', approved: 'Approved', superseded: 'Superseded by placement change' };
@@ -195,6 +196,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
+    <CompanyConversations sectionId={selectedSection?.id} />
     <div className="placement-page-header">
       <div><h2 style={{ margin: 0 }}>Company Placements</h2>
       <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Company details, assigned students, and placement reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>

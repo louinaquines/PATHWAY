@@ -2438,7 +2438,9 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
 const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
 const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
-installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox });
+const companySender = require('./companyMailSender').createCompanySender(process.env);
+installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender });
+require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
   inbox: companyInbox, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });
 

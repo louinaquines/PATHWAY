@@ -118,7 +118,7 @@ function createCompanyInbox(env, fetcher = fetch) {
   };
 }
 
-function installCompanyInbox({ app, db, requireStaff, coordinatorSection, allowRate, inbox = null }) {
+function installCompanyInbox({ app, db, requireStaff, coordinatorSection, allowRate, inbox = null, sender = null }) {
   app.get('/coordinator/sections/:sectionId/company-conversations', requireStaff, async (req, res) => {
     try {
       if (!ID.test(req.params.sectionId || '')) return res.status(400).json({ error: 'Invalid section.' });
@@ -157,7 +157,9 @@ function installCompanyInbox({ app, db, requireStaff, coordinatorSection, allowR
       const currentStudent = await db.collection('users').doc(record.studentId).get();
       if (!currentStudent.exists || currentStudent.data().sectionId !== req.params.sectionId || currentStudent.data().department !== req.staff.data.department) return res.status(403).json({ error: 'Assigned students only.' });
       res.set('Cache-Control', 'private, no-store');
-      return res.json({ ...thread, studentId: record.studentId, refreshedAt: new Date().toISOString() });
+      const canReply = !!sender && sender.ownerId === req.staff.uid && record.sendEnabled === true
+        && record.sourceMailbox === inbox.mailbox && !!record.replyTo && !!record.replyMessageId && !!record.replySubject;
+      return res.json({ ...thread, studentId: record.studentId, canReply, replyTo: canReply ? record.replyTo : null, refreshedAt: new Date().toISOString() });
     } catch (error) { return res.status(error.status || 502).json({ error: error.status ? error.message : 'Could not refresh the company conversation.' }); }
   });
 }

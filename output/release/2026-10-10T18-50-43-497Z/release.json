@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-10-10T18:50:43.499Z",
+  "release": {
+    "name": "projects/pathway-57400/releases/cloud.firestore",
+    "rulesetName": "projects/pathway-57400/rulesets/0417bf40-fd52-478c-b896-a3312e5cd9e0",
+    "createTime": "2026-08-29T16:08:35.062297Z",
+    "updateTime": "2026-10-10T16:36:14.188506Z"
+  },
+  "files": [
+    {
+      "savedAs": "deployed-0.rules",
+      "name": "firestore.messages-only.rules",
+      "sha256": "e9f1ddd4516097d0fb1e7cc096e5810d2d1c74166aae4bc28b822021e1498fc0"
+    }
+  ]
+}

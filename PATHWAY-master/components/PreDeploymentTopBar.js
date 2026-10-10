@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SHADOWS } from '../theme';
@@ -9,8 +12,36 @@ import { BellIcon, MenuIcon } from './Icons';
 export default function PreDeploymentTopBar({
   onMenuPress,
   onNotificationsPress,
-  hasUnread = false,
+  hasUnread,
 }) {
+  const [liveHasUnread, setLiveHasUnread] = useState(false);
+  useEffect(() => {
+    let stopNotifications;
+    let generation = 0;
+    const stopAuth = onAuthStateChanged(auth, user => {
+      const currentGeneration = ++generation;
+      stopNotifications?.();
+      setLiveHasUnread(false);
+      if (!user) return;
+      stopNotifications = onSnapshot(
+        query(collection(db, 'notifications'), where('recipientId', '==', user.uid)),
+        snapshot => {
+          if (generation === currentGeneration) {
+            setLiveHasUnread(snapshot.docs.some(item => !item.data().read));
+          }
+        },
+        () => {
+          if (generation === currentGeneration) setLiveHasUnread(false);
+        },
+      );
+    });
+    return () => {
+      generation += 1;
+      stopAuth();
+      stopNotifications?.();
+    };
+  }, []);
+  const showUnread = hasUnread ?? liveHasUnread;
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
     <View style={styles.topBar}>
@@ -33,9 +64,9 @@ export default function PreDeploymentTopBar({
         onPress={onNotificationsPress}
         activeOpacity={0.75}
         accessibilityRole="button"
-        accessibilityLabel="Open notifications"
+        accessibilityLabel={showUnread ? 'Open notifications, unread updates' : 'Open notifications'}
       >
-        <BellIcon size={20} color={COLORS.primaryDark} hasUnread={hasUnread} />
+        <BellIcon size={20} color={COLORS.primaryDark} hasUnread={showUnread} />
       </TouchableOpacity>
     </View>
     </SafeAreaView>

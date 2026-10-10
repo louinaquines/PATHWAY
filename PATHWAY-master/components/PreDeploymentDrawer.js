@@ -108,7 +108,7 @@ export default function PreDeploymentDrawer({
               <Text style={[styles.stepTitle, activeRoute === 'StudentDashboard' && styles.stepTitleActive]}>
                 Dashboard
               </Text>
-              <Text style={styles.stepDescription}>View your progress summary</Text>
+              <Text style={styles.stepDescription}>View application status</Text>
             </View>
             {activeRoute === 'StudentDashboard' ? (
               <View style={styles.currentBadge}>
@@ -121,8 +121,8 @@ export default function PreDeploymentDrawer({
 
           <View style={styles.headingBlock}>
             <Text style={styles.eyebrow}>PRE-DEPLOYMENT</Text>
-            <Text style={styles.heading}>Your setup</Text>
-            <Text style={styles.subheading}>Move between your onboarding steps.</Text>
+            <Text style={styles.heading}>Application steps</Text>
+            <Text style={styles.subheading}>Select a step.</Text>
           </View>
 
           <View style={styles.stepList}>

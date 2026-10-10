@@ -120,6 +120,13 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'weekNum', 'weekRange', 'hours', 'status', 'createdAt', 'updatedAt']);
         allow update: if recordsOpen(userId) && (isAdmin()
           || (isOwner(userId)
+            && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'hours', 'status'])
+            && request.resource.data.rawNotes is string && request.resource.data.rawNotes.size() <= 8000
+            && request.resource.data.refined is string && request.resource.data.refined.size() <= 8000
+            && request.resource.data.aiRefined is bool
+            && request.resource.data.hours is number && request.resource.data.hours > 0 && request.resource.data.hours <= 168)
+          || (isOwner(userId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'rawNotes', 'refined', 'weekNum', 'weekRange', 'hours', 'status',
               'createdAt'

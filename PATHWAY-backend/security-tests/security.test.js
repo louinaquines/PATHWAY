@@ -430,6 +430,15 @@ test('endorsement preparation records are participant-readable and server-owned'
 
 test('logbook writes preserve student ownership and placement proposal writes require the backend', async () => {
   const studentStore = clientStore(identities.studentA);
+  await testEnv.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', identities.studentA.uid, 'logbook', 'revision-check'), {
+    rawNotes: 'Original', refined: 'Original', aiRefined: false, hours: 4, status: 'rejected', weekNum: 5, weekRange: 'Oct 5 – Oct 11', createdAt: '2026-10-10T00:00:00Z', reviewedBy: identities.coordinatorA.uid,
+  }));
+  const revisionRef = doc(studentStore, 'users', identities.studentA.uid, 'logbook', 'revision-check');
+  await assertFails(updateDoc(revisionRef, { status: 'pending', weekNum: 6 }));
+  await assertFails(updateDoc(revisionRef, { status: 'approved' }));
+  await assertSucceeds(updateDoc(revisionRef, { rawNotes: 'Revised', refined: 'Revised', aiRefined: true, hours: 5, status: 'pending' }));
+  assert.equal((await getDoc(revisionRef)).data().weekNum, 5);
+  await assertFails(updateDoc(revisionRef, { rawNotes: 'Overwrite pending', status: 'pending' }));
   await assertSucceeds(getDoc(doc(studentStore, 'users', identities.studentA.uid, 'logbook', 'logbook-pending')));
   await assertFails(getDoc(doc(studentStore, 'users', identities.studentB.uid, 'logbook', 'logbook-foreign')));
   await assertSucceeds(setDoc(doc(studentStore, 'users', identities.studentA.uid, 'logbook', 'own-draft'), {
@@ -711,6 +720,34 @@ test('coordinator clearance is section-scoped, checks eligibility, and atomicall
   await testEnv.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'evaluations', 'clearance-submitted'), { studentId: identities.studentA.uid, used: true, submittedAt: new Date().toISOString() });
   });
+  // Verify each eligibility gate independently, including fractional hours just
+  // below completion. Failed decisions must not create clearance side effects.
+  let eligibleProfile;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    eligibleProfile = (await getDoc(doc(context.firestore(), 'users', identities.studentA.uid))).data();
+  });
+  const requiredHours = Number(eligibleProfile.hoursRequired || 486);
+  for (const deficit of [
+    { accountApproved: false },
+    { requirementsStatus: 'submitted' },
+    { preDeploymentStatus: 'pending_review' },
+    { placementStatus: 'pending_review' },
+    { hoursRendered: requiredHours - 0.01 },
+  ]) {
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), deficit);
+    });
+    const denied = await api(path, identities.coordinatorA, {});
+    assert.equal(denied.response.status, 409, JSON.stringify({ deficit, result: denied.data }));
+    await testEnv.withSecurityRulesDisabled(async context => {
+      const store = context.firestore();
+      const profile = (await getDoc(doc(store, 'users', identities.studentA.uid))).data();
+      assert.notEqual(profile.clearanceStatus, 'cleared');
+      assert.equal((await getDocs(query(collection(store, 'auditLogs'), where('targetId', '==', identities.studentA.uid), where('action', '==', 'clearance.updated')))).size, 0);
+      const restored = Object.fromEntries(Object.keys(deficit).map(key => [key, eligibleProfile[key]]));
+      await updateDoc(doc(store, 'users', identities.studentA.uid), restored);
+    });
+  }
   const allowed = await api(path, identities.coordinatorA, {});
   assert.equal(allowed.response.status, 200, JSON.stringify(allowed.data));
   assert.equal(allowed.data.clearanceStatus, 'cleared');
@@ -1189,6 +1226,29 @@ test('provisioned accounts require password replacement, preserve reimports, and
   assert.equal(recovery.response.status, 200);
   student.token = recovery.data.idToken;
   assert.equal((await api('/auth/profile', student, {})).data.profile.passwordChangeRequired, true);
+  assert.equal((await api('/attendance/time-in', student, {})).response.status, 403);
+  const recoveredPassword = 'RecoveredSecurePass123!';
+  const completedRecovery = await api('/student/change-password', student, {
+    currentPassword: reset.data.temporaryPassword, newPassword: recoveredPassword, apiKey: 'emulator-test-api-key',
+  });
+  assert.equal(completedRecovery.response.status, 200, JSON.stringify(completedRecovery.data));
+  assert.equal(completedRecovery.data.signInAgain, true);
+  assert.notEqual((await login(reset.data.temporaryPassword)).response.status, 200);
+  assert.notEqual((await login('UC@24228132')).response.status, 200);
+  const recoveredLogin = await login(recoveredPassword);
+  assert.equal(recoveredLogin.response.status, 200);
+  student.token = recoveredLogin.data.idToken;
+  assert.equal((await api('/auth/profile', student, {})).data.profile.passwordChangeRequired, false);
+  await assertFails(getDoc(doc(readyStore, 'users', student.uid)));
+  let recoveredEpoch;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    recoveredEpoch = (await getDoc(doc(context.firestore(), 'users', student.uid))).data().passwordEpoch;
+  });
+  const recoveredStore = testEnv.authenticatedContext(student.uid, { passwordEpoch: recoveredEpoch }).firestore();
+  await assertSucceeds(getDoc(doc(recoveredStore, 'users', student.uid)));
+  const recoveryReimport = await api('/coordinator/provision-students', identities.coordinatorA, payload);
+  assert.equal(recoveryReimport.data.outcomes[0].status, 'unchanged');
+  assert.equal((await login(recoveredPassword)).response.status, 200);
 });
 
 test('assigned pending registrations are restricted to their owning coordinator', async () => {

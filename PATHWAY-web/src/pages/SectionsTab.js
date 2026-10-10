@@ -62,7 +62,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     onSectionChange?.(section);
     setView('students');
     try {
-      const snap = await getDocs(query(collection(db, 'users'), where('sectionId', '==', section.id)));
+      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', section.department), where('sectionId', '==', section.id)));
       setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
@@ -73,7 +73,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     if (!sharedSection) return;
     setSelected(sharedSection);
     let cancelled = false;
-    getDocs(query(collection(db, 'users'), where('sectionId', '==', sharedSection.id)))
+    getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', sharedSection.department), where('sectionId', '==', sharedSection.id)))
       .then(snap => { if (!cancelled) setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
       .catch(console.error);
     return () => { cancelled = true; };

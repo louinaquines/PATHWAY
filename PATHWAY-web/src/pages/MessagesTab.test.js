@@ -12,6 +12,22 @@ jest.mock('firebase/firestore', () => ({
 
 beforeEach(() => jest.clearAllMocks());
 
+test('message notification button opens and closes the overlay', async () => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
+  getDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [] });
+  render(<MessagesTab selectedSection={{ id: 'a', name: 'Section A' }} />);
+  await screen.findByText('No students in this section.');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Message notifications' }));
+  expect(screen.getByRole('dialog', { name: 'Message notifications' })).toBeInTheDocument();
+  expect(screen.getByText('No unread messages in this section.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Refresh messages' })).toHaveClass('messages-alert-refresh');
+  expect(screen.getByRole('button', { name: 'Refresh messages' })).toHaveTextContent('');
+  fireEvent.click(screen.getByRole('button', { name: 'Close message notifications' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
 test('sections and students are separate and section selection uses the shared selector', async () => {
   getDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [{ id: 'avery', data: () => ({ firstName: 'Avery', lastName: 'Student', idNumber: '1234' }) }] });
   const onSectionChange = jest.fn();
@@ -34,11 +50,18 @@ test('starts a conversation with the selected student and sends a reply', async 
   adminRequest.mockResolvedValueOnce({ messageId: 'msg-1', conversationId: 'avery__coordinator-1', createdAt: '2026-10-07T01:00:00Z' });
   render(<MessagesTab selectedSection={{ id: 'a', name: 'Section A' }} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Avery Student' }));
+  expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveAttribute('placeholder', 'Write a message...');
   fireEvent.change(screen.getByRole('textbox', { name: 'Message reply' }), { target: { value: 'Please submit your weekly report.' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+  const reply = screen.getByRole('textbox', { name: 'Message reply' });
+  fireEvent.keyDown(reply, { key: 'Enter', shiftKey: true });
+  fireEvent.keyDown(reply, { key: 'Enter', isComposing: true });
+  fireEvent.keyDown(reply, { key: 'Enter', repeat: true });
+  expect(adminRequest).not.toHaveBeenCalled();
+  fireEvent.keyDown(reply, { key: 'Enter' });
   await waitFor(() => expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveValue(''));
   expect(adminRequest).toHaveBeenCalledWith('/messages', { method: 'POST', body: JSON.stringify({ recipientId: 'avery', body: 'Please submit your weekly report.' }) });
   expect(screen.getByRole('log', { name: 'Conversation' })).toHaveTextContent('Please submit your weekly report.');
+  expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveAttribute('placeholder', 'Write a reply...');
 });
 
 test('changing sections closes the old conversation and clears its reply draft', async () => {
@@ -51,13 +74,13 @@ test('changing sections closes the old conversation and clears its reply draft',
   const { rerender } = render(<MessagesTab selectedSection={{ id: 'section-a', name: 'Section A' }} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Avery Student' }));
   expect(where).toHaveBeenCalledWith('role', '==', 'student');
-  fireEvent.change(screen.getByPlaceholderText('Write a reply...'), { target: { value: 'Reply intended for Avery' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message reply' }), { target: { value: 'Reply intended for Avery' } });
 
   rerender(<MessagesTab selectedSection={{ id: 'section-b', name: 'Section B' }} />);
   const taylor = await screen.findByRole('button', { name: 'Taylor Student' });
-  await waitFor(() => expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Message reply' })).not.toBeInTheDocument());
   expect(screen.queryByRole('heading', { name: 'Avery Student' })).not.toBeInTheDocument();
   fireEvent.click(taylor);
-  expect(screen.getByPlaceholderText('Write a reply...')).toHaveValue('');
+  expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveValue('');
   expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
 });

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { BackHandler, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -7,7 +7,7 @@ import { auth, db } from '../firebaseConfig';
 import { COLORS, RADIUS, SHADOWS, SPACE, TYPE } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
-import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, SearchIcon } from '../components/Icons';
+import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, CloseIcon, SearchIcon } from '../components/Icons';
 import { postBackend } from '../services/backendApi';
 import { getStudentNotificationsEnabled } from '../services/studentPreferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ const displayName = item => item.senderName || item.senderRole || item.fromName 
 
 export default function NotificationsScreen({ navigation, route }) {
   const [items, setItems] = useState([]);
+  const [announcement, setAnnouncement] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [conversations, setConversations] = useState([]);
   const [coordinator, setCoordinator] = useState(null);
@@ -39,6 +40,19 @@ export default function NotificationsScreen({ navigation, route }) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardOverlap, setKeyboardOverlap] = useState(0);
+  const chatRootRef = useRef(null);
+  const keyboardTopRef = useRef(null);
+  const measureKeyboardOverlap = useCallback(() => {
+    if (Platform.OS !== 'android') return;
+    const keyboardTop = keyboardTopRef.current;
+    if (keyboardTop == null) { setKeyboardOverlap(0); return; }
+    chatRootRef.current?.measureInWindow((x, y, width, height) => {
+      if (keyboardTopRef.current !== keyboardTop) return;
+      // Only reserve what Android has not already removed via window resizing.
+      setKeyboardOverlap(Math.max(0, y + height - keyboardTop));
+    });
+  }, []);
   const chatScrollRef = useRef(null);
   const [noticePage, setNoticePage] = useState({ cursor: null, hasMore: false });
   const [unreadNotices, setUnreadNotices] = useState(0);
@@ -62,15 +76,32 @@ export default function NotificationsScreen({ navigation, route }) {
     chatPosition.current = { height: 0, offset: 0, prepend: null, follow: true };
   }, [conversation?.id]);
 
+  const latestMessage = conversation?.messages?.at(-1);
   useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => {
+    if (!latestMessage || latestMessage.senderId !== uid || !chatPosition.current.follow) return undefined;
+    // A short thread can keep the same content height; do not rely solely on
+    // onContentSizeChange to bring a newly sent bubble into view.
+    const frame = requestAnimationFrame(() => {
+      if (!chatPosition.current.prepend) chatScrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [latestMessage?.id, uid]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', event => {
+      keyboardTopRef.current = event.endCoordinates.screenY;
+      measureKeyboardOverlap();
       setKeyboardVisible(true);
       chatPosition.current.follow = true;
       chatScrollRef.current?.scrollToEnd({ animated: true });
     });
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      keyboardTopRef.current = null;
+      setKeyboardOverlap(0);
+      setKeyboardVisible(false);
+    });
     return () => { show.remove(); hide.remove(); };
-  }, []);
+  }, [measureKeyboardOverlap]);
 
   const load = useCallback(async () => {
     const request = ++listRequest.current;
@@ -126,12 +157,23 @@ export default function NotificationsScreen({ navigation, route }) {
   }, [conversation]);
 
   const markRead = async item => {
+    if (item.type === 'announcement') { setAnnouncement(item); return; }
+    await saveNotificationRead(item);
+  };
+
+  const saveNotificationRead = async item => {
     if (item.read) return;
     try {
       await updateDoc(doc(db, 'notifications', item.id), { read: true });
       setItems(prev => prev.map(current => current.id === item.id ? { ...current, read: true } : current));
       setUnreadNotices(value => Math.max(0, value - 1));
     } catch (error) { console.error('Mark read error:', error); }
+  };
+
+  const closeAnnouncement = () => {
+    const opened = announcement;
+    setAnnouncement(null);
+    if (opened) saveNotificationRead(opened);
   };
 
   const markConversationRead = async conversationItem => {
@@ -210,9 +252,10 @@ export default function NotificationsScreen({ navigation, route }) {
       if (activeChat.current !== sendingChat) { load(); return; }
       const newMessage = { ...payload, conversationId: result.conversationId, id: result.messageId, createdAt: result.createdAt };
       activeChat.current = result.conversationId;
+      chatPosition.current.prepend = null;
+      chatPosition.current.follow = true;
       setConversation(previous => previous ? { ...previous, id: result.conversationId, conversationId: result.conversationId, legacy: false, messages: [...previous.messages, newMessage] } : previous);
       setDraft('');
-      chatPosition.current.follow = true;
       load();
     } catch (error) {
       console.error('Send message error:', error);
@@ -233,7 +276,7 @@ export default function NotificationsScreen({ navigation, route }) {
   if (loading) return <StudentScreenSkeleton variant="inbox" />;
 
   if (conversation) return (
-    <View style={styles.container}>
+    <View ref={chatRootRef} collapsable={false} onLayout={measureKeyboardOverlap} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
         <MotionTouchableOpacity onPress={() => { activeChat.current = null; setConversation(null); }} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
@@ -241,11 +284,15 @@ export default function NotificationsScreen({ navigation, route }) {
           <View style={styles.avatarSmall}><Text style={styles.avatarText}>{conversation.name.slice(0, 1).toUpperCase()}</Text></View>
           <View style={styles.headerIdentityCopy}>
             <Text style={styles.chatTitle} numberOfLines={1}>{conversation.name}</Text>
-            <Text style={styles.headerSubtitle}>Your OJT coordinator</Text>
+            <Text style={styles.headerSubtitle}>OJT coordinator</Text>
           </View>
         </View>
       </View>
-      <KeyboardAvoidingView style={styles.chatArea} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView
+        style={[styles.chatArea, Platform.OS === 'android' && { paddingBottom: keyboardOverlap }]}
+        enabled={Platform.OS === 'ios'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView ref={chatScrollRef} style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" scrollEventThrottle={16} onScroll={event => { chatPosition.current.offset = event.nativeEvent.contentOffset.y; }} onContentSizeChange={(_, height) => {
           const position = chatPosition.current;
           if (position.prepend) {
@@ -259,7 +306,7 @@ export default function NotificationsScreen({ navigation, route }) {
         }} onLayout={() => { if (keyboardVisible && !chatPosition.current.prepend) chatScrollRef.current?.scrollToEnd({ animated: false }); }}>
           <LoadMore label="Load older messages" hasMore={conversation.hasMore} loading={olderBusy || chatBusy} error={chatError} onPress={() => loadChat(conversation, { older: !!conversation.cursor })} />
           {chatBusy && <Text style={styles.chatNote}>Loading conversation…</Text>}
-          <Text style={styles.chatNote}>Conversation history</Text>
+          <Text style={styles.chatNote}>Messages</Text>
           {conversation.messages.map((item, index) => {
             const previous = conversation.messages[index - 1];
             const next = conversation.messages[index + 1];
@@ -298,7 +345,7 @@ export default function NotificationsScreen({ navigation, route }) {
         <MotionTouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
         <View pointerEvents="none" style={[styles.headerHeading, { top: Math.max(insets.top, SPACE.sm) }]}>
           <Text variant="heading" style={styles.title}>Inbox</Text>
-          <Text style={styles.headerSubtitle}>Updates and conversations</Text>
+          <Text style={styles.headerSubtitle}>Messages and notifications</Text>
         </View>
       </View>
       <View style={styles.tabsWrap}>
@@ -320,13 +367,28 @@ export default function NotificationsScreen({ navigation, route }) {
         {tab === 'notifications' ? (!notificationsEnabled ? <EmptyState icon="bell" title="Notifications are off" text="Coordinator updates are paused on this device. Turn them back on in Profile → Settings. Your messages remain available in the Messages tab." /> : filteredNotifications.length ? filteredNotifications.map(item => {
           const unread = !item.read;
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title || 'Notification'}${unread ? ', unread' : ''}. ${item.message || 'No additional details.'}`} style={[styles.notificationCard, unread && styles.notificationUnread]} onPress={() => markRead(item)} activeOpacity={0.88}><View style={styles.notificationIcon}><BellIcon size={18} color={unread ? COLORS.primary : COLORS.textMuted} /></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]} numberOfLines={1}>{item.title || 'Notification'}</Text></View><Text style={styles.message} numberOfLines={2}>{item.message || 'No additional details.'}</Text><Text style={styles.date}>{formatDate(item.createdAt)}</Text></View>{unread && <View style={styles.unreadDot} />}{item.read && <CheckCircleIcon size={15} color={COLORS.textMuted} />}</MotionTouchableOpacity>;
-        }) : <EmptyState icon="bell" title={search ? 'No matching notifications' : 'All caught up'} text={search ? 'Try another search term.' : 'Coordinator updates about your OJT records will appear here.'} />) : (filteredConversations.length ? filteredConversations.map(item => {
+        }) : <EmptyState icon="bell" title={search ? 'No matching notifications' : 'No notifications'} text={search ? 'Try a different search.' : 'No coordinator updates yet.'} />) : (filteredConversations.length ? filteredConversations.map(item => {
           const latest = item.messages[item.messages.length - 1];
           const unread = item.unread;
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => openConversation(item)} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
-        }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages yet'} text={search ? 'Try another search term.' : 'Start a conversation with your assigned coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => { activeChat.current = 'new'; setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [], cursor: null, hasMore: false }); }} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>Start conversation</Text></MotionTouchableOpacity>}</View>)}
+        }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages'} text={search ? 'Try a different search.' : 'Send a message to your coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => { activeChat.current = 'new'; setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [], cursor: null, hasMore: false }); }} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>New message</Text></MotionTouchableOpacity>}</View>)}
         <LoadMore hasMore={tab === 'notifications' && noticePage.hasMore} loading={listBusy} error={listError} onPress={tab === 'notifications' && noticePage.cursor && !listError ? loadMoreNotices : load} />
       </ScrollView>
+      <Modal visible={!!announcement} transparent animationType="fade" onRequestClose={closeAnnouncement}>
+        <View style={[styles.announcementBackdrop, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeAnnouncement} accessibilityRole="button" accessibilityLabel="Close announcement" />
+          <View style={styles.announcementPanel} accessibilityViewIsModal>
+            <View style={styles.announcementHeader}>
+              <View style={styles.rowBody}><Text style={styles.cardTitle}>Announcement</Text><Text style={styles.date}>{formatDate(announcement?.createdAt)}</Text></View>
+              <MotionTouchableOpacity style={styles.headerButton} onPress={closeAnnouncement} accessibilityRole="button" accessibilityLabel="Close announcement"><CloseIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.announcementContent} showsVerticalScrollIndicator>
+              <Text style={styles.announcementTitle}>{announcement?.title || 'Announcement'}</Text>
+              <Text selectable style={styles.announcementMessage}>{announcement?.message || 'No additional details.'}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -336,6 +398,12 @@ function EmptyState({ icon, title, text }) {
 }
 
 const styles = StyleSheet.create({
+  announcementBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.45)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  announcementPanel: { width: '100%', maxWidth: 600, maxHeight: '90%', backgroundColor: COLORS.surface, borderRadius: 22, overflow: 'hidden' },
+  announcementHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
+  announcementContent: { padding: 20, gap: 16 },
+  announcementTitle: { color: COLORS.textPrimary, fontSize: 21, lineHeight: 28, fontWeight: '700' },
+  announcementMessage: { color: COLORS.textSecondary, fontSize: 15, lineHeight: 24 },
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { position: 'relative', backgroundColor: COLORS.surface, paddingBottom: SPACE.sm, paddingHorizontal: SPACE.md, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },

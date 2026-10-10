@@ -1585,6 +1585,7 @@ app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (
           throw Object.assign(new Error('You can only review registrations in your assigned sections.'), { status: 403 });
         }
       }
+      assertRecordsOpen(student);
       if (student.accountApproved === true || student.status === 'approved') throw Object.assign(new Error('This registration has already been approved.'), { status: 409 });
       transaction.update(studentRef, status === 'approved' ? {
         accountApproved: true, status: 'not_submitted', approvedBy: req.staff.uid, approvedAt: now,
@@ -1909,7 +1910,7 @@ const AUDIT_ACTIONS = new Set([
   'endorsement.email_accepted', 'endorsement.email_failed',
   'final_review.submitted', 'final_review.resubmitted', 'roster.updated', 'announcement.sent',
   'academic_term.created', 'academic_term.updated', 'academic_term.activated',
-  'settings.updated',
+  'settings.updated', 'dtr.review_saved',
 ]);
 
 async function recordAudit({ actorId, actorRole, action, targetType, targetId, details = {} }) {
@@ -2439,6 +2440,10 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 });
 
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
+require('./dtrReview').installDtrReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction });
+require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, audit: writeAuditInTransaction });
+require('./reviewAnalysis').installReviewAnalysis({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, coordinatorSection, audit: writeAuditInTransaction });
+require('./companyProfileImport').installCompanyProfileImport({ app, requireStaff, allowRate });
 const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
 const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
 const companySender = require('./companyMailSender').createCompanySender(process.env);
@@ -2504,7 +2509,7 @@ app.get('/evaluation/:token', async (req, res) => {
     if (snap.empty) return res.status(404).json({ error: 'Evaluation link is invalid' });
     const data = snap.docs[0].data();
     if (data.used || new Date(data.expiresAt) < new Date()) return res.status(410).json({ error: 'Evaluation link is expired or already submitted' });
-    res.json({ formDefinition: data.formDefinition || null, studentName: data.studentName, companyName: data.companyName, supervisorName: data.supervisorName, expiresAt: data.expiresAt });
+    res.json({ ...(data.formDefinition ? { formDefinition: data.formDefinition } : {}), studentName: data.studentName, companyName: data.companyName, supervisorName: data.supervisorName, expiresAt: data.expiresAt });
   } catch (e) { res.status(500).json({ error: 'Could not load evaluation' }); }
 });
 
@@ -2555,34 +2560,7 @@ app.post('/refine-logbook', requireUser, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required' });
   if (!allowRate(req, res, { limit: 5, windowMs: 60_000, key: request => `refine:${request.user.uid}` })) return;
   if (typeof notes !== 'string' || !notes.trim() || notes.length > 8000) return res.status(400).json({ error: 'Enter logbook notes up to 8,000 characters.' });
-  if (process.env.PATHWAY_LOCAL_WORKFLOW === '1' || !process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'AI refinement is unavailable in this environment.' });
-  }
-
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type':         'application/json',
-        'x-api-key':            process.env.ANTHROPIC_API_KEY,
-        'anthropic-version':    '2023-06-01',
-      },
-      body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 1000,
-        messages: [{
-          role:    'user',
-          content: `You are an OJT logbook assistant. Rewrite the following student's informal weekly notes into a professional, formal OJT logbook entry. Keep it concise, use past tense, and maintain all the key activities. Do not add information that wasn't mentioned. Return only the refined entry, no preamble.\n\nStudent notes:\n${notes.trim()}`
-        }]
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) return res.status(502).json({ error: 'AI refinement is temporarily unavailable.' });
-    return res.json({ refined: data.content?.[0]?.text || '' });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'AI request failed' });
-  }
+  return res.status(503).json({ error: 'Automatic rewriting is disabled. Submit your original notes; coordinator review checks do not rewrite them.' });
 });
 
 

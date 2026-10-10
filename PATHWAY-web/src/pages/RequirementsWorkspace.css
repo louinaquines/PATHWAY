@@ -95,6 +95,11 @@
 .requirements-document > div:first-child > div:last-child { min-width: 0; overflow-wrap: anywhere; }
 .requirements-document button, .requirements-document a { min-height: 36px; }
 .requirements-workspace button:disabled { opacity: .55; cursor: wait; }
+.requirement-file-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.requirements-document .requirement-file-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 7px 12px; border: 1px solid #d8e4f1; border-radius: 9px; background: #fff; color: #075fbd; font: inherit; font-size: 13px; font-weight: 600; line-height: 20px; white-space: nowrap; cursor: pointer; }
+.requirements-document .requirement-file-action:hover:not(:disabled) { background: #f0f6ff; border-color: #aac9ed; }
+.requirements-document .requirement-file-action:focus-visible { outline: 2px solid #0866cf; outline-offset: 3px; }
+.requirements-document .requirement-file-action svg { flex-shrink: 0; }
 @media (max-width: 1250px) {
   .requirements-workspace { gap: 10px; padding: 16px; }
   .requirements-workspace .requirements-sections { width: 170px !important; }

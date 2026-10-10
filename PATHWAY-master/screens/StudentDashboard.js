@@ -18,11 +18,12 @@ import {
 import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import * as DocumentPicker from 'expo-document-picker';
 import { auth, db } from '../firebaseConfig';
+import { studentHours } from '../services/studentHours';
 import { requestBackend, postBackend } from '../services/backendApi';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { punchAttendance } from '../services/attendanceLocation';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
-import { nextPreDeploymentAction } from '../services/preDeploymentStatus';
+import { nextPreDeploymentAction, hasCompletedPreDeployment } from '../services/preDeploymentStatus';
 import { getStudentNotificationsEnabled, setStudentNotificationsEnabled } from '../services/studentPreferences';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
@@ -199,7 +200,7 @@ export default function StudentDashboard({ navigation }) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const studentUid = auth.currentUser?.uid;
-  const approvedForOjt = student?.accountApproved === true && student?.preDeploymentStatus === 'approved';
+  const approvedForOjt = hasCompletedPreDeployment(student);
   const approvalWelcomeKey = approvedForOjt && studentUid
     ? `pathway:approval-welcome:v1:${studentUid}:${student.placementProposalId || 'initial'}` : null;
   const [welcomeCheckedKey, setWelcomeCheckedKey] = useState(null);
@@ -279,7 +280,7 @@ export default function StudentDashboard({ navigation }) {
       }
       const profile = user.data();
       setStudent(profile);
-      if (profile.preDeploymentStatus !== 'approved') {
+      if (!hasCompletedPreDeployment(profile)) {
         loadPreDeploymentSummary(uid, profile)
           .then(summary => {
             if (summaryRequestRef.current === summaryRequestId) setPreDeploymentSummary(summary);
@@ -328,8 +329,7 @@ export default function StudentDashboard({ navigation }) {
   }, [settingsVisible]);
 
   const metrics = useMemo(() => {
-    const rendered = Number(student?.hoursRendered || 0);
-    const required = Number(student?.hoursRequired || 486);
+    const { rendered, required } = studentHours(student);
     const verified = attendance.filter(item => item.status === 'verified').length;
     return {
       rendered,
@@ -398,7 +398,7 @@ export default function StudentDashboard({ navigation }) {
   if (approvalWelcomeKey && welcomeCheckedKey !== approvalWelcomeKey) return <StudentScreenSkeleton variant="dashboard" />;
   if (approvedForOjt && showApprovalWelcome) return <ApprovalWelcome onComplete={finishApprovalWelcome} />;
 
-  if (!student?.accountApproved || student.preDeploymentStatus !== 'approved') {
+  if (!hasCompletedPreDeployment(student)) {
     const next = nextPreDeploymentAction(student || {}, preDeploymentSummary);
     return (
       <Gate
@@ -473,7 +473,7 @@ export default function StudentDashboard({ navigation }) {
         {loading && student ? (
           <View style={styles.refreshStatus} accessibilityLiveRegion="polite">
             <ActivityIndicator size="small" color={COLORS.secondary} />
-            <Text style={styles.refreshStatusText}>Updating your workspace</Text>
+            <Text style={styles.refreshStatusText}>Updating...</Text>
           </View>
         ) : null}
         {loadError && student ? (
@@ -639,7 +639,7 @@ function DashboardLoadError({ message, onRetry, onLogout }) {
       </View>
       <View style={styles.dashboardErrorScreen}>
         <View style={styles.errorIconCircle}><AlertCircleIcon size={25} color={COLORS.dangerDark} /></View>
-        <Text variant="heading" style={styles.dashboardErrorTitle}>We couldn’t load your workspace</Text>
+        <Text variant="heading" style={styles.dashboardErrorTitle}>Could not load your dashboard</Text>
         <Text style={styles.dashboardErrorDescription}>{message}</Text>
         <MotionTouchableOpacity onPress={onRetry} style={styles.errorRetryButton} accessibilityRole="button">
           <RefreshIcon size={17} color="#FFFFFF" />
@@ -841,7 +841,7 @@ function Gate({
             <View style={styles.gateWelcomeCopy}>
               <Text style={styles.gateEyebrow}>STUDENT DASHBOARD</Text>
               <Text variant="heading" style={styles.gateWelcomeTitle}>Welcome, {firstName}</Text>
-              <Text style={styles.gateWelcomeSub}>Your pre-deployment progress, at a glance.</Text>
+              <Text style={styles.gateWelcomeSub}>Check your application status.</Text>
             </View>
             <View style={styles.gateAvatar} accessibilityLabel={`${firstName}'s profile`}>
               <Text style={styles.gateAvatarText}>{initials(student)}</Text>
@@ -884,7 +884,7 @@ function Gate({
             <View style={styles.gateSummaryHeadingRow}>
               <View>
                 <Text style={styles.gateSummarySectionTitle}>Application summary</Text>
-                <Text style={styles.gateSummarySectionSub}>A snapshot of your saved PATHWAY record.</Text>
+                <Text style={styles.gateSummarySectionSub}>Your saved application details.</Text>
               </View>
               {student?.idNumber ? <Text style={styles.gateStudentId}>ID · {student.idNumber}</Text> : null}
             </View>
@@ -943,7 +943,7 @@ function HomePanel({ student, metrics, recent, width, go }) {
     >
       <View style={styles.homeWelcome}>
         <View style={styles.homeWelcomeCopy}>
-          <Text style={styles.homeEyebrow}>YOUR OJT AT A GLANCE</Text>
+          <Text style={styles.homeEyebrow}>OJT SUMMARY</Text>
           <Text variant="heading" style={styles.greeting}>Welcome, {student?.firstName || 'Student'}</Text>
           <Text style={styles.profileDepartment}>{student?.department || student?.course || 'OJT Student'}</Text>
         </View>
@@ -972,7 +972,7 @@ function HomePanel({ student, metrics, recent, width, go }) {
 
       <View style={styles.homeStatsStrip}>
         <View style={styles.homeStatCell}>
-          <Text style={styles.homeStatLabel}>ATTENDANCE</Text>
+          <Text style={styles.homeStatLabel}>VERIFIED RECORDS</Text>
           <Text style={styles.homeStatValue}>{metrics.attendancePercent === null ? '—' : `${metrics.attendancePercent}%`}</Text>
           <Text style={styles.homeStatHint}>verified shifts</Text>
         </View>
@@ -992,7 +992,7 @@ function HomePanel({ student, metrics, recent, width, go }) {
         <View style={styles.homePlacementMark}><BuildingIcon size={18} color={COLORS.primary} /></View>
         <View style={styles.homePlacementCopy}>
           <Text style={styles.companyName}>{student?.company || 'Company not assigned yet'}</Text>
-          <Text style={styles.detailText} numberOfLines={2}>{student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'Official placement details will appear after coordinator approval.'}</Text>
+          <Text style={styles.detailText} numberOfLines={2}>{student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'No approved placement.'}</Text>
         </View>
         <View style={[styles.homePlacementStatus, student?.company ? styles.homePlacementConfirmed : styles.homePlacementPending]}>
           <View style={[styles.homePlacementDot, student?.company ? styles.homePlacementDotConfirmed : styles.homePlacementDotPending]} />
@@ -1021,7 +1021,7 @@ function HomePanel({ student, metrics, recent, width, go }) {
             <View style={styles.activityEmptyIcon}><CalendarIcon size={17} color={COLORS.secondary} /></View>
             <View style={styles.activityEmptyCopy}>
               <Text style={styles.activityEmptyTitle}>No recent activity</Text>
-              <Text style={styles.emptyText}>Attendance, logbook, and coordinator updates will appear here.</Text>
+              <Text style={styles.emptyText}>No attendance, reports, or updates yet.</Text>
             </View>
           </View>
         )}
@@ -1140,7 +1140,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
       {/* ── Page header ── */}
       <View style={styles.logsPageHeader}>
         <Text variant="heading" style={styles.pageTitle}>Logs</Text>
-        <Text style={styles.pageSub}>Daily attendance and weekly logbook in one place.</Text>
+        <Text style={styles.pageSub}>Record attendance and weekly reports.</Text>
       </View>
 
       {/* ── Logs-only hours ledger: linear meter, distinct from the Home ring ── */}
@@ -1148,7 +1148,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
         <View style={styles.logsAccumulationHeader}>
           <View style={styles.logsAccumulationLabelGroup}>
             <View style={styles.logsAccumulationIcon}><ClockIcon size={15} color={COLORS.primaryDark} /></View>
-            <Text style={styles.logsAccumulationLabel}>OJT ACCUMULATION</Text>
+            <Text style={styles.logsAccumulationLabel}>OJT HOURS</Text>
           </View>
           <View style={styles.logsAccumulationPercent}>
             <Text style={styles.logsAccumulationPercentValue}>{progressPercent}%</Text>
@@ -1158,7 +1158,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
 
         <View>
           <View style={styles.logsAccumulationValueRow}>
-            <Text variant="heading" style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}</Text>
             <Text style={styles.logsAccumulationUnit}>hours logged</Text>
           </View>
           <Text style={styles.logsAccumulationSubline}>of {metrics.required} required hours</Text>
@@ -1248,7 +1248,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
 
         {/* Punch buttons */}
         {!selectedIsToday ? (
-          selectedLog ? <View style={styles.selectedDayStatus}><Text style={styles.selectedDayStatusText}>{selectedLog.status === 'verified' ? 'Attendance verified' : 'Attendance pending coordinator review'}</Text></View> : <Text style={styles.selectedDayEmpty}>No logs recorded for this day.</Text>
+          selectedLog ? <View style={styles.selectedDayStatus}><Text style={styles.selectedDayStatusText}>{selectedLog.status === 'verified' ? 'Attendance verified' : 'Attendance under review'}</Text></View> : <Text style={styles.selectedDayEmpty}>No attendance for this date.</Text>
         ) : attLoading ? (
           <ActivityIndicator color={COLORS.secondary} style={{ marginTop: 12 }} />
         ) : !hasTimeIn ? (
@@ -1258,7 +1258,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
           >
             {saving
               ? <ActivityIndicator color={COLORS.primary} size="small" />
-              : <><CheckCircleIcon size={18} color={COLORS.secondary} /><Text style={styles.attPunchText}>Punch Time In</Text></>}
+              : <><CheckCircleIcon size={18} color={COLORS.secondary} /><Text style={styles.attPunchText}>Time in</Text></>}
           </MotionTouchableOpacity>
         ) : !hasTimeOut ? (
           <MotionTouchableOpacity
@@ -1267,7 +1267,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
           >
             {saving
               ? <ActivityIndicator color={COLORS.primary} size="small" />
-              : <><ClockIcon size={18} color={COLORS.primary} /><Text style={styles.attPunchText}>Log Time Out</Text></>}
+              : <><ClockIcon size={18} color={COLORS.primary} /><Text style={styles.attPunchText}>Time out</Text></>}
           </MotionTouchableOpacity>
         ) : (
           <View style={styles.attDoneBox}>
@@ -1291,7 +1291,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
         ) : visibleAttendanceLogs.length === 0 ? (
           <View style={styles.attHistoryEmpty}>
             <View style={styles.attHistoryEmptyIcon}><CalendarIcon size={18} color={COLORS.primary} /></View>
-            <Text style={styles.emptyText}>{selectedIsToday ? 'No previous attendance records yet.' : 'No logs recorded for this day.'}</Text>
+            <Text style={styles.emptyText}>{selectedIsToday ? 'No previous attendance records yet.' : 'No attendance for this date.'}</Text>
           </View>
         ) : visibleAttendanceLogs.map((log, index) => (
           <View key={log.id} style={[styles.attLogRow, index > 0 && styles.attLogRowDivider]}>
@@ -1399,7 +1399,7 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
     <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.progressPageHeader}>
         <Text variant="heading" style={styles.pageTitle}>Progress</Text>
-        <Text style={styles.pageSub}>Your OJT hours, attendance, and requirements at a glance.</Text>
+        <Text style={styles.pageSub}>Check your hours, attendance, and requirements.</Text>
       </View>
 
       <Card style={styles.progressHeroCard}>
@@ -1450,7 +1450,7 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
         <View style={styles.progressInsightCopy}>
           <Text style={styles.progressInsightEyebrow}>CURRENT SNAPSHOT</Text>
           <Text style={styles.progressInsightText}>
-            {metrics.remaining > 0 ? `${metrics.remaining.toFixed(1)} hours remain in your OJT requirement.` : 'You have completed your required OJT hours.'} {attendance.length ? `${verifiedDays} attendance day${verifiedDays === 1 ? '' : 's'} verified.` : 'Log attendance to begin building your verified record.'}
+            {metrics.remaining > 0 ? `${metrics.remaining.toFixed(1)} hours remaining.` : 'Required hours completed.'} {attendance.length ? `${verifiedDays} attendance day${verifiedDays === 1 ? '' : 's'} verified.` : 'Record attendance to track your hours.'}
           </Text>
         </View>
       </View>
@@ -1459,25 +1459,25 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
       <View style={styles.progressRowsPanel}>
         <View style={[styles.progressRecordGroup, styles.progressRecordGroupFirst]}>
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: COLORS.secondaryLight }]}><CalendarIcon size={17} color={COLORS.primary} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Attendance</Text><Text style={styles.progressRecordSub}>{completedDays} completed shifts · {verifiedDays} verified</Text></View><MotionTouchableOpacity onPress={openAttendance} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Details</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
-          <View style={styles.analyticsGrid}><MetricLine label="Attendance days" value={attendance.length} /><MetricLine label="Missing time-outs" value={missingOuts} warning={missingOuts > 0} /></View>
+          <View style={[styles.analyticsGrid, styles.attendanceRecordMetrics]}><MetricLine label="Attendance days" value={attendance.length} /><MetricLine label="Missing time-outs" value={missingOuts} warning={missingOuts > 0} /></View>
         </View>
 
         <View style={styles.progressRecordGroup}>
-          <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: requirementsApproved ? COLORS.successLight : COLORS.warningLight }]}><FileIcon size={17} color={requirementsApproved ? COLORS.successDark : COLORS.warningDark} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Requirements</Text><Text style={styles.progressRecordSub}>{requirementsApproved ? 'All documents approved' : requirementTotal ? `${approvedRequirements} of ${requirementTotal} documents approved` : 'Document status will appear here'}</Text></View><MotionTouchableOpacity onPress={openRequirements} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Open</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
+          <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: requirementsApproved ? COLORS.successLight : COLORS.warningLight }]}><FileIcon size={17} color={requirementsApproved ? COLORS.successDark : COLORS.warningDark} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Requirements</Text><Text style={styles.progressRecordSub}>{requirementsApproved ? 'All documents approved' : requirementTotal ? `${approvedRequirements} of ${requirementTotal} documents approved` : 'No document status'}</Text></View><MotionTouchableOpacity onPress={openRequirements} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Open</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
         </View>
 
         <View style={styles.progressRecordGroup}>
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: COLORS.accentLight }]}><LogbookIcon size={17} color={COLORS.accentDark} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Logbook</Text><Text style={styles.progressRecordSub}>{approvedLogs} approved · {pendingLogs} awaiting review</Text></View><MotionTouchableOpacity onPress={openLogbook} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Open</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
-          <View style={styles.analyticsGrid}><MetricLine label="Total entries" value={logbook.length} /><MetricLine label="Approved entries" value={approvedLogs} /></View>
+          <View style={[styles.analyticsGrid, styles.attendanceRecordMetrics]}><MetricLine label="Total entries" value={logbook.length} /><MetricLine label="Approved entries" value={approvedLogs} /></View>
         </View>
       </View>
 
       <View style={[styles.clearanceNotice, clearanceComplete ? styles.clearanceSuccess : styles.clearancePending]}>
         <CheckCircleIcon size={20} color={clearanceComplete ? COLORS.successDark : COLORS.warningDark} />
-        <View style={styles.statusSummaryCopy}><Text style={[styles.statusSummaryTitle, { color: clearanceComplete ? COLORS.successDark : COLORS.warningDark }]}>{clearanceComplete ? 'Official OJT clearance granted' : 'Clearance not yet complete'}</Text><Text style={styles.statusSummarySub}>{clearanceComplete ? 'Your coordinator has approved your OJT records.' : 'Complete approved requirements and required hours to become eligible.'}</Text></View>
+        <View style={styles.statusSummaryCopy}><Text style={[styles.statusSummaryTitle, { color: clearanceComplete ? COLORS.successDark : COLORS.warningDark }]}>{clearanceComplete ? 'OJT cleared' : 'Clearance pending'}</Text><Text style={styles.statusSummarySub}>{clearanceComplete ? 'Your coordinator has approved your OJT records.' : 'Complete your requirements and required hours.'}</Text></View>
       </View>
 
-      <MotionTouchableOpacity style={styles.outlineAction} onPress={openProgress} accessibilityRole="button"><Text style={styles.outlineActionText}>Open detailed progress screen</Text></MotionTouchableOpacity>
+      <MotionTouchableOpacity style={styles.outlineAction} onPress={openProgress} accessibilityRole="button"><Text style={styles.outlineActionText}>View progress</Text></MotionTouchableOpacity>
     </ScrollView>
   );
 }
@@ -1492,7 +1492,7 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
     <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll]} showsVerticalScrollIndicator={false}>
       <View style={styles.progressPageHeader}>
         <Text variant="heading" style={styles.pageTitle}>Profile</Text>
-        <Text style={styles.pageSub}>Your student record and official placement.</Text>
+        <Text style={styles.pageSub}>Student and placement details.</Text>
       </View>
 
       <Card style={styles.profileIdentityCard}>
@@ -1523,7 +1523,7 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         <InfoRow label="Department" value={student?.department || student?.course || '—'} />
         <InfoRow
           label="Required hours"
-          value={`${student?.hoursRequired || 486} hours`}
+          value={`${studentHours(student).required} hours`}
         />
       </Card>
 
@@ -1535,7 +1535,7 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
           <CheckCircleIcon size={15} color={COLORS.primary} />
           <Text style={styles.placementReadOnlyNote}>
             {student?.company
-              ? 'This assignment is managed by your coordinator.'
+              ? 'Contact your coordinator to change these details.'
               : 'Your coordinator will add the official assignment here.'}
           </Text>
         </View>
@@ -1584,7 +1584,7 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
       </MotionTouchableOpacity>
       <View style={styles.settingsPageHeader}>
         <Text variant="heading" style={styles.pageTitle}>Settings</Text>
-        <Text style={styles.pageSub}>Your account and app preferences.</Text>
+        <Text style={styles.pageSub}>Manage your account and notifications.</Text>
       </View>
 
       <Card style={styles.settingsAccountCard}>
@@ -2044,19 +2044,19 @@ const styles = StyleSheet.create({
   logsPageHeader: { gap: 4 },
   logsAccumulationCard: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, ...SHADOWS.soft },
   logsAccumulationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  logsAccumulationLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  logsAccumulationLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   logsAccumulationIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
   logsAccumulationLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
   logsAccumulationPercent: { flexDirection: 'row', alignItems: 'baseline', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.primarySubtle },
   logsAccumulationPercentValue: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '800' },
   logsAccumulationPercentLabel: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' },
-  logsAccumulationValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  logsAccumulationValue: { color: COLORS.textPrimary, fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.8 },
-  logsAccumulationUnit: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  logsAccumulationValueRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logsAccumulationValue: { color: COLORS.textPrimary, fontSize: 32, lineHeight: 40, fontWeight: '700', letterSpacing: -0.5, flexShrink: 1, minWidth: 0 },
+  logsAccumulationUnit: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', flexShrink: 1 },
   logsAccumulationSubline: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
   logsAccumulationTrack: { width: '100%', height: 8, borderRadius: 4, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
   logsAccumulationFill: { height: '100%', borderRadius: 4, backgroundColor: COLORS.primary },
-  logsAccumulationFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
+  logsAccumulationFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
   logsAccumulationRemaining: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' },
   logsAccumulationGoal: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600' },
   calendarCard: { padding: 16 },
@@ -2190,6 +2190,7 @@ const styles = StyleSheet.create({
   progressRowsPanel: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 15, paddingHorizontal: 14, ...SHADOWS.soft },
   progressRecordGroup: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
   progressRecordGroupFirst: { borderTopWidth: 0 },
+  attendanceRecordMetrics: { marginTop: 12 },
   progressRecordHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressRecordIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   progressRecordCopy: { flex: 1, minWidth: 0 },

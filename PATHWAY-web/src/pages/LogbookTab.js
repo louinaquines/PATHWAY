@@ -8,6 +8,8 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import SubmissionNotifications from '../components/SubmissionNotifications';
+import JournalKeywordSettings from '../components/JournalKeywordSettings';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
@@ -27,6 +29,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [attendanceError, setAttendanceError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [analysis, setAnalysis] = useState(null);
+  const [analysisError, setAnalysisError] = useState('');
+  useEffect(() => {
+    let active = true; setAnalysis(null); setAnalysisError('');
+    if (selectedStudent?.id) adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)
+      .then(data => { if (active) setAnalysis(data); }).catch(failure => { if (active) setAnalysisError(failure.message); });
+    return () => { active = false; };
+  }, [selectedStudent?.id, entries]);
   const exportStudentRecords = async () => {
     if (!selectedStudent || !selectedSection || exporting) return;
     const student = selectedStudent;
@@ -202,7 +212,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Weekly journals'}
           <p>{selectedStudent ? 'Review weekly reports and reported hours.' : 'Select a student to view their submissions.'}</p>
           </div>
-          {selectedStudent && <button type="button" className="logbook-export" disabled={exporting} onClick={exportStudentRecords}><Icon name="download" size={16} />{exporting ? 'Exporting…' : 'Export Data'}</button>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {selectedStudent && <button type="button" className="logbook-export" disabled={exporting} onClick={exportStudentRecords}><Icon name="download" size={16} />{exporting ? 'Exporting…' : 'Export Data'}</button>}
+            <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => { setRecordView('journals'); fetchEntries(student); }} />
+          </div>
         </div>
 
         <div className="logbook-detail-content" style={t.entriesScroll}>
@@ -226,6 +239,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </div>
           )}
 
+          {selectedStudent && recordView === 'journals' && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
+            try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }
+            catch (failure) { setAnalysisError(failure.message); }
+          }} />}
+          {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weekly completeness</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
           {selectedStudent && recordView === 'journals' && entries.length === 0 && (
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="clipboard" size={28} label="No entries" /></div>
@@ -255,7 +273,15 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               </div>
 
               <div style={t.entryLabel}>Weekly report</div>
-              <div style={t.entryText}>{entry.refined || 'No refined content.'}</div>
+              <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
+              {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
+              {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Journal review checks · rules and keywords</summary>
+                {item.findings.map(finding => <p key={finding}>{finding}</p>)}
+                {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
+                {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
+                {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
+                <p>{item.limitation}</p>{analysis.truncated && <p>Checks cover the latest 100 entries only.</p>}
+              </details>)}
 
               {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Revision needed</strong><span>{entry.reviewReason}</span></p>}
 

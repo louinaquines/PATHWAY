@@ -395,7 +395,7 @@ export default function RequirementsScreen({ navigation }) {
             </View>
           </View>
           <Text variant="heading" style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow]}>Document Submission</Text>
-          <Text style={styles.headerDescription}>Your required forms, all in one place.</Text>
+          <Text style={styles.headerDescription}>Upload your required documents.</Text>
         </View>
 
         <PreDeploymentStepper
@@ -432,9 +432,9 @@ export default function RequirementsScreen({ navigation }) {
             </View>
           <Text style={styles.checklistFootnote}>
               {requiredCount === 0
-                ? 'No required documents have been assigned yet.'
+                ? 'No requirements assigned.'
                 : receivedCount === requiredCount
-                  ? 'All required documents are with your coordinator.'
+                  ? 'Your documents are under review.'
                   : `${approvedCount} approved${inReviewCount ? ` · ${inReviewCount} in review` : ''} · ${Math.max(requiredCount - receivedCount, 0)} to submit`}
             </Text>
           </View>
@@ -442,7 +442,7 @@ export default function RequirementsScreen({ navigation }) {
         <View style={styles.documentsHeading}>
             <View>
               <Text style={styles.documentsTitle}>Your documents</Text>
-              <Text style={styles.documentsSubtitle}>Tap an item to upload or review its status.</Text>
+              <Text style={styles.documentsSubtitle}>Select a document to upload or check its status.</Text>
             </View>
             <Text style={styles.documentsCount}>{requirements.length} items</Text>
           </View>
@@ -530,7 +530,7 @@ export default function RequirementsScreen({ navigation }) {
                 {expandedRequirementId === docItem.id && isUploading && (
                   <View style={styles.uploadingBox}>
                     <ActivityIndicator size="small" color={COLORS.secondary} />
-                    <Text style={styles.uploadingText}>Uploading file to secure vault...</Text>
+                    <Text style={styles.uploadingText}>Uploading...</Text>
                   </View>
                 )}
 
@@ -638,7 +638,7 @@ export default function RequirementsScreen({ navigation }) {
             accessibilityRole="button"
             accessibilityLabel="Continue to company selection"
           >
-            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to Company Selection →</Text>
+            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company placement</Text>
           </MotionTouchableOpacity>
         </View>
         </>}

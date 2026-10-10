@@ -1,0 +1,8 @@
+.submission-notifications.messages-workspace { display: block; flex: none; padding: 0; overflow: visible; background: transparent; width: auto; }
+.submission-notifications .messages-alert-toolbar { margin: 0; }
+.submission-notifications.messages-workspace .messages-alert-trigger { position: relative; width: 40px; height: 40px; padding: 0; justify-content: center; flex-shrink: 0; border-radius: 11px; }
+.submission-notifications .submission-unread-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #ef4444; border: 2px solid white; }
+.submission-notifications { flex-shrink: 0 !important; }
+.submission-notifications .notification-from { display: flex !important; align-items: center; gap: 8px; }
+.submission-notifications .messages-alert-dialog-header h2 { margin: 0; font-size: 20px; }
+.submission-notifications .messages-alert-dialog-header p { margin: 6px 0 0; color: #697991; font-size: 12px; }

@@ -1,0 +1,188 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userRecord() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && userRecord().data.role == 'admin';
+    }
+
+    function isCoordinator() {
+      return signedIn() && userRecord().data.role == 'coordinator';
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isCoordinatorForDepartment(department) {
+      return isCoordinator() && userRecord().data.department == department;
+    }
+
+    match /companies/{companyId} {
+      allow read: if messageAccessReady();
+      allow write: if false;
+    }
+
+    function coordinatorMayReadPlacement(data) {
+      return isCoordinator()
+        && data.sectionId is string
+        && data.department == userRecord().data.department
+        && get(/databases/$(database)/documents/sections/$(data.sectionId)).data.coordinatorId == request.auth.uid
+        && get(/databases/$(database)/documents/sections/$(data.sectionId)).data.department == userRecord().data.department;
+    }
+
+    match /companyProposals/{proposalId} {
+      allow read: if messageAccessReady() && (resource.data.studentId == request.auth.uid || coordinatorMayReadPlacement(resource.data));
+      allow write: if false;
+    }
+
+    match /finalReviewRequests/{requestId} {
+      allow read: if messageAccessReady() && (resource.data.studentId == request.auth.uid || coordinatorMayReadPlacement(resource.data));
+      allow write: if false;
+    }
+
+    match /endorsements/{endorsementId} {
+      allow read: if messageAccessReady() && (resource.data.studentId == request.auth.uid || coordinatorMayReadPlacement(resource.data));
+      allow write: if false;
+    }
+
+    match /users/{userId} {
+      // Users need to read their own profile for role-based routing.
+      // Coordinators need to read student profiles for their dashboard queries.
+      allow read: if isOwner(userId) || isCoordinator() || isAdmin();
+
+      // Public client registration may create only a student profile whose ID
+      // matches the authenticated Firebase user and whose role is student.
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'student';
+
+      // Students may update only their own editable profile/submission fields.
+      allow update: if isAdmin()
+        || (isOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'firstName', 'lastName', 'email', 'department', 'idNumber',
+            'requirements', 'requirementsStatus', 'status', 'company',
+            'sectionId', 'hoursRequired', 'hoursRendered'
+          ]))
+        || (isCoordinatorForDepartment(resource.data.department)
+          && resource.data.role == 'student'
+          && request.resource.data.role == 'student'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'accountApproved', 'status', 'approvedBy', 'approvedAt',
+            'rejectedBy', 'rejectedAt', 'requirementsStatus', 'sectionId',
+            'hoursRequired', 'company', 'requirements', 'clearanceStatus',
+            'clearedBy', 'clearedAt'
+          ]));
+
+      allow delete: if isAdmin();
+
+      match /attendance/{attendanceId} {
+        allow read, create, update: if isOwner(userId) || isCoordinator() || isAdmin();
+        allow delete: if isAdmin() || isOwner(userId);
+      }
+
+      match /logbook/{entryId} {
+        allow read, create: if isOwner(userId) || isCoordinator() || isAdmin();
+        allow update: if isAdmin()
+          || (isOwner(userId) && messageAccessReady()
+            && userRecord().data.get('clearanceStatus', '') != 'cleared'
+            && resource.data.status == 'rejected'
+            && request.resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'hours', 'status'])
+            && request.resource.data.rawNotes is string && request.resource.data.rawNotes.size() <= 8000
+            && request.resource.data.refined is string && request.resource.data.refined.size() <= 8000
+            && request.resource.data.aiRefined is bool
+            && request.resource.data.hours is number && request.resource.data.hours > 0 && request.resource.data.hours <= 168)
+          || (isOwner(userId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'rawNotes', 'refined', 'weekNum', 'weekRange', 'hours', 'status',
+              'createdAt'
+            ]))
+          || (isCoordinator()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'reviewedBy', 'reviewedAt'
+            ]));
+        allow delete: if isAdmin() || isOwner(userId);
+      }
+    }
+
+    match /studentRoster/{studentId} {
+      // A newly authenticated student may verify only the exact ID entered.
+      allow get: if signedIn();
+      allow list: if isCoordinator() || isAdmin();
+      allow create, update: if isAdmin()
+        || (isCoordinator()
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.department == userRecord().data.department);
+      allow delete: if isAdmin()
+        || (isCoordinator() && resource.data.createdBy == request.auth.uid);
+    }
+
+    match /notifications/{notificationId} {
+      allow read, update: if signedIn() && resource.data.recipientId == request.auth.uid;
+      allow create: if isAdmin() || (isCoordinator() && request.resource.data.recipientId is string);
+      allow delete: if isAdmin() || (signedIn() && resource.data.recipientId == request.auth.uid);
+    }
+
+    function messageAccessReady() {
+      let profile = userRecord().data;
+      return signedIn() && (profile.role != 'student' || (
+        profile.get('passwordChangeRequired', false) == false
+        && (profile.get('passwordEpoch', '') == ''
+          || request.auth.token.get('passwordEpoch', '') == profile.passwordEpoch)));
+    }
+
+    match /messages/{messageId} {
+      allow read: if messageAccessReady() && request.auth.uid in resource.data.participantIds;
+      allow create, delete: if false;
+      allow update: if messageAccessReady()
+        && request.auth.uid in resource.data.participantIds
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+    }
+
+    // These collections are managed through authenticated backend endpoints.
+    // Coordinators may read schedule settings for analytics, but only Admin SDK
+    // operations may write them or create/read audit records.
+    match /systemSettings/{settingId} {
+      allow read: if isAdmin() || isCoordinator();
+      allow write: if false;
+    }
+
+    match /academicTerms/{termId} {
+      allow read: if isAdmin() || isCoordinator();
+      allow write: if false;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /sections/{sectionId} {
+      allow read: if signedIn();
+      allow create: if isAdmin()
+        || (isCoordinator() && request.resource.data.coordinatorId == request.auth.uid);
+      allow update, delete: if isAdmin()
+        || (isCoordinator() && resource.data.coordinatorId == request.auth.uid);
+
+      match /requirements/{requirementId} {
+        allow read: if isAdmin()
+          || (isCoordinator() && get(/databases/$(database)/documents/sections/$(sectionId)).data.coordinatorId == request.auth.uid)
+          || (isOwner(request.auth.uid)
+            && userRecord().data.sectionId == sectionId);
+        allow write: if isAdmin()
+          || (isCoordinator() && get(/databases/$(database)/documents/sections/$(sectionId)).data.coordinatorId == request.auth.uid);
+      }
+    }
+  }
+}

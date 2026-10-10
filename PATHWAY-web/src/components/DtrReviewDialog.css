@@ -1,0 +1,27 @@
+.dtr-review { width: min(860px, 94vw); max-height: 90dvh; box-sizing: border-box; border: 1px solid #dce5ef; border-radius: 20px; padding: 0; background: white; color: #172b46; }
+.dtr-review::backdrop { background: #10223b88; }
+.dtr-review header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 24px; border-bottom: 1px solid #e7edf5; }
+.dtr-review h2 { margin: 0; font-size: 20px; }
+.dtr-review p { color: #52657b; line-height: 1.5; }
+.dtr-review form { padding: 20px 24px; }
+.dtr-review button { padding: 10px 16px; border: 1px solid #dce5ef; border-radius: 10px; background: white; color: #075fbd; cursor: pointer; }
+.dtr-review button[type=submit] { background: #075fbd; color: white; }
+.dtr-review button:disabled { opacity: .55; cursor: default; }
+.dtr-review input { min-width: 0; width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #dce5ef; border-radius: 8px; font: inherit; }
+.dtr-review input[type=month] { width: auto; margin: 0 0 12px 12px; }
+.dtr-grid { overflow-x: auto; margin: 12px 0 20px; }
+.dtr-grid table { border-collapse: collapse; width: 100%; min-width: 580px; }
+.dtr-grid th, .dtr-grid td { padding: 6px; text-align: left; border-bottom: 1px solid #e7edf5; }
+.dtr-review article { padding: 12px 0; border-bottom: 1px solid #e7edf5; }
+.dtr-review [role=alert] { color: #b42318; }
+.dtr-import { display: block; font-weight: 600; }
+.dtr-import input { display: block; margin-top: 8px; }
+.dtr-import-info { margin: 12px 0; padding: 12px; background: #f6f8fb; border-radius: 10px; }
+.dtr-import-info input[type=checkbox] { width: auto; margin-right: 8px; }
+.dtr-copy-controls { display: flex; gap: 8px; }
+.dtr-copy-controls button[aria-pressed=true] { background: #eaf3ff; border-color: #075fbd; }
+.dtr-scan-layout { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.dtr-scan-layout select { padding: 8px; border: 1px solid #dce5ef; border-radius: 8px; background: white; color: #172b46; }
+.dtr-scan-image { display: block; max-width: 100%; max-height: 600px; object-fit: contain; margin: 12px auto; }
+.dtr-ocr-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-size: 13px; }
+.dtr-import-info details { margin: 12px 0; }

@@ -16,6 +16,15 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [website, setWebsite] = useState('');
+  const [profilePreview, setProfilePreview] = useState(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const previewWebsite = async () => {
+    setPreviewBusy(true); setError(''); setProfilePreview(null);
+    try { const result = await adminRequest('/coordinator/company-profile-preview', { method: 'POST', body: JSON.stringify({ url: website }) }); setProfilePreview(result.preview); }
+    catch (failure) { setError(failure.message); }
+    finally { setPreviewBusy(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +88,16 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   };
 
   return <div className="company-directory-page" style={styles.page}>
+    {!readOnly && <section className="company-import-card" aria-label="Import company suggestions">
+      <h3>Import from a public website</h3><p>Preview suggested details, then check them before adding them to the form. Nothing is saved automatically.</p>
+      <div className="company-import-controls"><label>Company website<input type="url" placeholder="https://company.example" value={website} disabled={previewBusy} onChange={event => { setWebsite(event.target.value); setProfilePreview(null); }} /></label>
+        <button type="button" disabled={previewBusy || !website.trim()} onClick={previewWebsite}>{previewBusy ? 'Reading website…' : 'Preview details'}</button></div>
+      {profilePreview && <div className="company-import-preview"><strong>{profilePreview.name || 'Company name not found'}</strong><p>{profilePreview.description || 'Description not found.'}</p>
+        <dl><dt>Email</dt><dd>{profilePreview.email || 'Not found'}</dd><dt>Phone</dt><dd>{profilePreview.phone || 'Not found'}</dd></dl>
+        <a href={profilePreview.sourceUrl} target="_blank" rel="noopener noreferrer">View source website</a><p>{profilePreview.warning}</p>
+        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); }}>Use suggestions in form</button>
+      </div>}
+    </section>}
     <div style={styles.headingRow}>
       <div>
         <h2 style={styles.heading}>Company directory</h2>

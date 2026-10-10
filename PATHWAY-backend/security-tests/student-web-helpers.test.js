@@ -13,6 +13,49 @@ function loadHelper(name, globals, exportName) {
 const authorization = { apiKey: 'test', timestamp: 123, signature: 'signed', publicId: 'test/doc', uploadUrl: 'https://upload.invalid', intentId: 'intent' };
 const response = () => ({ ok: true, json: async () => ({ secure_url: 'https://asset.invalid/doc', public_id: 'test/doc', signature: 'result', version: 1 }) });
 
+test('student hours use attendance credit, numeric values and consistent fallback', () => {
+  const hours = loadHelper('studentHours', {}, 'studentHours');
+  assert.equal(hours({ hoursRendered: '120', hoursRequired: '540', journalHours: 165 }).rendered, 120);
+  assert.equal(hours({}).required, 486);
+  assert.equal(hours({ hoursRendered: 'bad', hoursRequired: -1 }).rendered, 0);
+  assert.equal(hours({ hoursRequired: -1 }).required, 486);
+});
+
+test('Android and iOS private uploads preserve file descriptors and authenticated signed fields', async () => {
+  for (const OS of ['android', 'ios']) {
+    const fields = new Map();
+    class NativeFormData { append(key, value) { fields.set(key, value); } }
+    const upload = loadHelper('cloudinaryUpload', { Platform: { OS }, FormData: NativeFormData,
+      fetch: async (url, options) => {
+        assert.equal(url, authorization.uploadUrl);
+        assert.equal(options.method, 'POST');
+        return response();
+      } });
+    const result = await upload({ uri: 'file:///synthetic.pdf', mimeType: 'application/pdf', name: 'synthetic.pdf' }, { ...authorization, deliveryType: 'authenticated' });
+    assert.equal(fields.get('file').uri, 'file:///synthetic.pdf');
+    assert.equal(fields.get('file').type, 'application/pdf');
+    assert.equal(fields.get('file').name, 'synthetic.pdf');
+    assert.equal(fields.get('type'), 'authenticated');
+    assert.equal(fields.get('overwrite'), 'false');
+    assert.equal(fields.get('signature'), authorization.signature);
+    assert.equal(fields.get('public_id'), authorization.publicId);
+    assert.equal(fields.get('timestamp'), String(authorization.timestamp));
+    assert.equal(result.intentId, authorization.intentId);
+    assert.equal(result.signature, 'result');
+    assert.equal(Object.hasOwn(result, 'fileUrl'), false);
+  }
+});
+
+test('successful HTTP uploads with incomplete provider receipts cannot be finalized', async () => {
+  for (const missing of ['secure_url', 'public_id', 'signature', 'version']) {
+    const receipt = await response().json();
+    delete receipt[missing];
+    const upload = loadHelper('cloudinaryUpload', { Platform: { OS: 'web' }, FormData,
+      fetch: async () => ({ ok: true, json: async () => receipt }) });
+    await assert.rejects(upload({ file: new Blob(['synthetic']), name: 'synthetic.pdf' }, authorization), /could not be uploaded/);
+  }
+});
+
 test('attendance history count matches displayed previous shifts and selected dates', () => {
   const helper = loadHelper('attendanceHistory', {}, '({ attendanceHistoryForDate, attendanceRecordCountLabel })');
   const today = '2026-10-08';
@@ -58,7 +101,8 @@ test('calendar dates round-trip locally without UTC shifting or invalid dates', 
 });
 
 test('first-login password gate takes precedence over student dashboard approval', () => {
-  const destination = loadHelper('authDestination', {}, 'destinationForProfile');
+  const hasCompletedPreDeployment = loadHelper('preDeploymentStatus', {}, 'hasCompletedPreDeployment');
+  const destination = loadHelper('authDestination', { hasCompletedPreDeployment }, 'destinationForProfile');
   for (const accountApproved of [false, true]) {
     assert.equal(destination({ role: 'student', passwordChangeRequired: true, accountApproved, requirementsStatus: 'approved', preDeploymentStatus: 'approved' }), 'ChangePassword');
   }
@@ -66,6 +110,8 @@ test('first-login password gate takes precedence over student dashboard approval
   assert.equal(destination({ role: 'student', passwordChangeRequired: false, accountApproved: true, requirementsStatus: 'approved' }), 'StudentDashboard');
   assert.equal(destination({ role: 'student', accountApproved: false }), 'StudentDashboard');
   assert.equal(destination(null), null);
+  assert.equal(destination({ role: 'student', accountApproved: true, requirementsStatus: 'not_submitted', clearanceStatus: 'cleared' }), 'StudentDashboard');
+  assert.equal(destination({ role: 'student', accountApproved: true, passwordChangeRequired: true, clearanceStatus: 'cleared' }), 'ChangePassword');
 });
 
 test('web document upload sends actual selected file bytes, name, and signed fields', async () => {

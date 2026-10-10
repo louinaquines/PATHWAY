@@ -1,7 +1,5 @@
 // src/pages/AnalyticsTab.js
-import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
@@ -9,10 +7,9 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorRecords.css';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
 function csvEscape(v) {
-  return `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const text = String(v ?? '');
+  return `"${(/^[\s]*[=+@-]/.test(text) ? "'" + text : text).replace(/"/g, '""')}"`;
 }
 
 export default function AnalyticsTab({ coordinatorId, selectedSection }) {
@@ -20,100 +17,40 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
+  const [saving, setSaving] = useState(false);
+  const requestRevision = useRef(0);
 
   const loadData = useCallback(async () => {
-    if (!coordinatorId) return;
+    const revision = ++requestRevision.current;
+    if (!coordinatorId) { setData(null); setLoading(false); return; }
     setLoading(true);
     setError('');
+    // Never substitute fabricated fallback metrics when the authenticated API fails.
     try {
-      const token = await auth.currentUser?.getIdToken();
-      let analyticsPayload = null;
-      if (token) {
-        try {
-          analyticsPayload = await adminRequest('/admin/analytics');
-        } catch (adminError) {
-          console.warn('Admin analytics route not accessible. Trying coordinator analytics...');
-          try {
-            const res = await fetch(`${API}/coordinator-analytics`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) analyticsPayload = await res.json();
-          } catch (backendError) {
-            console.warn('Analytics backend is unavailable. Falling back to Firestore metrics.', backendError);
-          }
-        }
-      }
-
-      if (analyticsPayload) {
-        const scopedStudents = selectedSection
-          ? (analyticsPayload.students || []).filter(student => student.section === selectedSection.name)
-          : [];
-        const scopedHours = scopedStudents.reduce((sum, student) => sum + (Number(student.hoursRendered) || 0), 0);
-        setData({
-          ...analyticsPayload,
-          totalStudents: scopedStudents.length,
-          activeInterns: scopedStudents.filter(student => student.status !== 'Registration pending').length,
-          completedInterns: scopedStudents.filter(student => student.status === 'Completed').length,
-          atRiskStudents: scopedStudents.filter(student => student.status === 'High Risk' || student.status === 'Medium Risk').length,
-          totalHoursLogged: scopedHours,
-          averageHours: scopedStudents.length ? (scopedHours / scopedStudents.length).toFixed(1) : 0,
-          students: scopedStudents,
-        });
-      } else {
-        const secSnap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
-        const sections = secSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(section => !selectedSection || section.id === selectedSection.id);
-        const studentsNested = await Promise.all(sections.map(async s => {
-          const stSnap = await getDocs(query(collection(db, 'users'), where('sectionId', '==', s.id)));
-          return stSnap.docs.map(d => ({ id: d.id, sectionName: s.name, ...d.data() }));
-        }));
-        const allStudents = studentsNested.flat();
-        const totalHours = allStudents.reduce((sum, s) => sum + (Number(s.hoursRendered) || 0), 0);
-        setData({
-          totalStudents: allStudents.length,
-          activeInterns: allStudents.filter(s => s.accountApproved).length,
-          completedInterns: allStudents.filter(s => s.clearanceStatus === 'cleared').length,
-          atRiskStudents: allStudents.filter(s => {
-            const required = Number(s.hoursRequired || 486);
-            const rendered = Number(s.hoursRendered || 0);
-            return s.accountApproved && rendered < required * 0.25;
-          }).length,
-          totalHoursLogged: totalHours,
-          averageHours: allStudents.length ? (totalHours / allStudents.length).toFixed(1) : 0,
-          students: allStudents.map(s => {
-            const required = Number(s.hoursRequired || 486);
-            const rendered = Number(s.hoursRendered || 0);
-            const percent = Math.min(100, Math.round((rendered / required) * 100));
-            return {
-              id: s.id,
-              name: `${s.firstName || ''} ${s.lastName || ''}`.trim() || 'Unnamed',
-              idNumber: s.idNumber || '—',
-              section: s.sectionName || '—',
-              department: s.department || '—',
-              companyName: s.companyName || '—',
-              hoursRendered: rendered,
-              hoursRequired: required,
-              completionPercentage: percent,
-              attendanceRate: 100,
-              onTimeRate: 100,
-              lateRate: 0,
-              missedShifts: 0,
-              status: s.clearanceStatus === 'cleared' ? 'Completed' : percent < 25 ? 'High Risk' : percent < 60 ? 'Moderate' : 'On Track',
-            };
-          }),
-        });
-      }
-    } catch (e) {
-      console.error(e);
-      setError('Could not load analytics. Make sure the server is reachable.');
-    } finally {
-      setLoading(false);
-    }
+      if (!selectedSection?.id) { setData(null); return; }
+      const payload = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics`);
+      if (revision !== requestRevision.current) return;
+      setData(payload);
+      if (payload.schedule) setSchedule(payload.schedule);
+      else setSchedule({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
+    } catch (failure) { if (revision === requestRevision.current) { setData(null); setError(failure.message); } }
+    finally { if (revision === requestRevision.current) setLoading(false); }
+    return;
   }, [coordinatorId, selectedSection]);
 
   useEffect(() => {
     loadData();
+    return () => { requestRevision.current++; };
   }, [loadData]);
+  const saveSchedule = async event => {
+    event.preventDefault(); setSaving(true); setError('');
+    try {
+      await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule }) });
+      await loadData();
+    } catch (failure) { setError(failure.message); }
+    finally { setSaving(false); }
+  };
 
   const exportCsv = () => {
     if (!data?.students) return;
@@ -167,6 +104,14 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       </div>
 
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
+      {selectedSection?.id && <form onSubmit={saveSchedule} style={s.tableCard}>
+        <h3>Work schedule and completion deadline</h3>
+        <p>Section-wide schedule, Philippine time. Today is excluded from attendance rates. Exceptions are non-working dates. Projections use the last 28 days and are not guarantees.</p>
+        {['startDate', 'deadline', 'startTime'].map(field => <label key={field} style={{ marginRight: 16 }}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}
+        <div>{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day} style={{ marginRight: 12 }}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
+        <label>Exceptions (YYYY-MM-DD, comma-separated) <input value={schedule.exceptions.join(',')} onChange={event => setSchedule(current => ({ ...current, exceptions: event.target.value.split(',').map(value => value.trim()).filter(Boolean) }))} /></label>
+        <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
+      </form>}
 
       {/* Metrics Summary Grid */}
       {data && (
@@ -174,7 +119,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
           <MetricCard label="Total Students" value={data.totalStudents || 0} accent="sky" />
           <MetricCard label="Active Interns" value={data.activeInterns || 0} accent="emerald" />
           <MetricCard label="Completed OJT" value={data.completedInterns || 0} accent="yellow" />
-          <MetricCard label="At-Risk Interns" value={data.atRiskStudents || 0} accent="rose" />
+          <MetricCard label="At-Risk Interns" value={data.atRiskStudents ?? 'Unavailable'} accent="rose" />
           <MetricCard label="Total Hours Rendered" value={`${data.totalHoursLogged || 0} hrs`} accent="slate" />
           <MetricCard label="Cohort Average" value={`${data.averageHours || 0} hrs`} accent="sky" />
         </div>
@@ -225,9 +170,11 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                     </td>
                     <td style={s.td}>
                       <div style={s.attendanceMini}>
-                        <span>Rate: <strong>{st.attendanceRate ?? 100}%</strong></span>
+                        <span>Rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
+                        <span>{st.projectedCompletion ? `Estimated completion: ${st.projectedCompletion}` : 'Completion estimate unavailable'}</span>
+                        {(st.reasons || []).map(reason => <small key={reason} style={{ display: 'block' }}>{reason}</small>)}
                       </div>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>

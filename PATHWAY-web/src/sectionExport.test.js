@@ -15,6 +15,18 @@ test('empty checklist has no misleading completion percentage', () => {
   expect(sectionExportRows({}, [], []).summary).toEqual([]);
 });
 
+test('updated coordinator checklist names appear in both Excel sheets after serialization', async () => {
+  const checklist = [{ id: 'custom', name: 'Coordinator-added Safety Certificate' }, { id: 'new', label: 'Renamed Resume' }];
+  const workbook = await buildSectionWorkbook({}, [{ requirements: { custom: { status: 'approved' }, removed: { status: 'approved' } } }], checklist);
+  const restored = new workbook.constructor();
+  await restored.xlsx.load(await workbook.xlsx.writeBuffer());
+  expect(restored.getWorksheet('Student summary').getCell('K1').value).toBe(checklist[0].name);
+  expect(restored.getWorksheet('Requirements').getCell('D2').value).toBe(checklist[0].name);
+  expect(restored.getWorksheet('Requirements').getCell('D3').value).toBe('Renamed Resume');
+  expect(restored.getWorksheet('Student summary').getCell('J2').value).toBe(0.5);
+  expect(restored.getWorksheet('Student summary').getCell('L2').value).toBe('Not submitted');
+}, 15000);
+
 test('creates a valid Excel workbook with identifiers and user text preserved safely', async () => {
   const workbook = await buildSectionWorkbook({ name: 'Test section' }, [{ idNumber: '00123', firstName: '=1+1', requirements: { a: { status: 'approved' } } }], [{ id: 'a', label: 'Application' }]);
   const buffer = await workbook.xlsx.writeBuffer();

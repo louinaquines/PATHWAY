@@ -9,7 +9,8 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
 import './EvaluationTab.css';
-import EvaluationFormBuilder, { defaultEvaluationForm } from './EvaluationFormBuilder';
+import { defaultEvaluationForm } from './EvaluationFormBuilder';
+import EvaluationBuilderDialog from './EvaluationBuilderDialog';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const EVALUATIONS_PER_PAGE = 5;
@@ -17,6 +18,7 @@ const EVALUATIONS_PER_PAGE = 5;
 export default function EvaluationTab({ coordinatorId, selectedSection }) {
   const [students, setStudents]       = useState([]);
   const [formDefinition, setFormDefinition] = useState(defaultEvaluationForm);
+  const [builderOpen, setBuilderOpen] = useState(false);
   const [evaluations, setEvaluations] = useState([]);
   const [form, setForm]               = useState({
     studentId: '',
@@ -185,7 +187,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     <div style={styles.panel} className="evaluation-panel">
       {/* Generator Card */}
       <div className="evaluation-invitation" style={styles.card}>
-        <div style={styles.cardHeader}>
+        <div className="evaluation-invitation-header" style={styles.cardHeader}>
           <div style={styles.iconWrap}><Icon name="star" size={22} label="Supervisor evaluation" /></div>
           <div>
             <h2 style={styles.title}>Request an evaluation</h2>
@@ -193,6 +195,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
               Send a secure evaluation invitation directly to the supervisor's email.
             </p>
           </div>
+          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)}>Create evaluation</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
         </div>
 
         <form onSubmit={createLink} style={styles.form}>
@@ -255,7 +258,6 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             </div>
           </div>
 
-          <EvaluationFormBuilder value={formDefinition} onChange={setFormDefinition} disabled={busy} />
           <div className="evaluation-form-actions">
           <button type="submit" disabled={busy} style={styles.generateBtn}>
             {busy ? 'Please wait…' : 'Prepare Evaluation Email'}
@@ -292,6 +294,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
         )}
       </div>
 
+      {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
       {/* Evaluations Log Card */}
       <div className="evaluation-records-card" style={styles.card}>
           <div className="evaluation-records-header" style={styles.recordsHeader}>

@@ -127,7 +127,11 @@ async function main() {
     CORS_ALLOWED_ORIGINS: 'http://localhost:8083,http://127.0.0.1:8083,http://localhost:3001,http://127.0.0.1:3001',
   };
   for (const key of ['ANTHROPIC_API_KEY', 'GOOGLE_APPLICATION_CREDENTIALS']) delete backendEnvironment[key];
-  const backend = launch('PATHWAY backend (local emulator mode, live reload)', process.execPath, ['--watch', 'server.js'], backendDir, backendEnvironment);
+  // Keep the demo API stable: Node's dependency watcher was repeatedly
+  // restarting the server and dropping in-flight requests on this Windows setup.
+  // Backend edits take effect after an intentional workflow restart; frontend
+  // Fast Refresh remains independent and does not require this watcher.
+  const backend = launch('PATHWAY backend (stable local emulator mode)', process.execPath, ['server.js'], backendDir, backendEnvironment);
   await waitForBackend(backend);
 
   const web = launch('PATHWAY student app (live reload, Firebase emulator mode)', process.execPath, [
@@ -135,7 +139,7 @@ async function main() {
   ], mobileDir, expoEnvironment);
   await waitForPort(8083, web, 'PATHWAY local web app');
 
-  const portalCli = path.join(portalDir, 'node_modules', 'react-scripts', 'scripts', 'start.js');
+  const portalCli = path.join(portalDir, 'node_modules', 'vite', 'bin', 'vite.js');
   if (!fs.existsSync(portalCli)) throw new Error('Web portal dependencies were not found. Install PATHWAY-web dependencies first.');
   const portalEnvironment = {
     ...process.env,
@@ -152,14 +156,14 @@ async function main() {
   for (const key of Object.keys(portalEnvironment)) {
     if (key.startsWith('CLOUDINARY_')) delete portalEnvironment[key];
   }
-  const portal = launch('PATHWAY staff portal (local emulator mode)', process.execPath, [portalCli], portalDir, portalEnvironment);
+  const portal = launch('PATHWAY staff portal (local emulator mode)', process.execPath, [portalCli, '--host', '127.0.0.1', '--port', '3001', '--strictPort'], portalDir, portalEnvironment);
   await waitForPort(3001, portal, 'PATHWAY staff portal');
 
   console.log('\nLocal-only test environment is ready. No production Firebase project is used.');
   console.log('Open http://localhost:8083 in this computer’s browser.');
   console.log('Staff portal: http://127.0.0.1:3001 (Auth and Firestore emulators only).');
   console.log('The student app is now served by Expo with Fast Refresh. Save UI files to see changes without restarting Firebase.');
-  console.log('The backend also reloads when its source files change; keep this workflow terminal running.');
+  console.log('The backend stays running during file changes. Restart the workflow intentionally after backend edits; keep this terminal running during demos.');
   if (process.env.PATHWAY_EMULATOR_RESTORED === '1') {
     console.log('Saved QA accounts and passwords retained. Use your existing credentials.');
   } else {

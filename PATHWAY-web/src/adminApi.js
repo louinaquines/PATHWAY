@@ -2,19 +2,38 @@ import { auth } from './firebase';
 
 export const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+async function authenticatedFetch(path, options = {}) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Please sign in again.');
+  const send = async forceRefresh => {
+    const token = await user.getIdToken(forceRefresh);
+    if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
+    return fetch(`${API}${path}`, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
+    });
+  };
+  let response = await send(false);
+  // These API routes reject authentication before performing any mutation.
+  // Never replay network failures, permission denials, or server errors.
+  if (response.status === 401) {
+    try { response = await send(true); }
+    catch { throw new Error('Your session could not be refreshed. Please sign in again.'); }
+  }
+  return response;
+}
+
 export async function adminRequest(path, options = {}) {
-  const token = await auth.currentUser.getIdToken();
-  const response = await fetch(`${API}${path}`, {
+  const response = await authenticatedFetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
     },
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = data.error || (response.status === 404
+    const message = response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || (response.status === 404
       ? 'This feature is unavailable on the running backend. Restart the local PATHWAY workflow to load the updated server.'
       : `Request failed (HTTP ${response.status}). Please try again.`);
     const error = new Error(message);
@@ -24,17 +43,19 @@ export async function adminRequest(path, options = {}) {
   return data;
 }
 
-export async function adminDownload(path, fileName = 'document') {
+export async function adminDocumentBlob(path) {
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in again.');
-  const response = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${await user.getIdToken()}` },
-  });
+  const response = await authenticatedFetch(path);
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || 'Could not download this document.');
+    throw new Error(response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || 'Could not download this document.');
   }
-  const objectUrl = URL.createObjectURL(await response.blob());
+  return response.blob();
+}
+
+export async function adminDownload(path, fileName = 'document') {
+  const objectUrl = URL.createObjectURL(await adminDocumentBlob(path));
   const link = document.createElement('a');
   link.href = objectUrl;
   link.download = String(fileName || 'document').replace(/[\\/\r\n]/g, '_').slice(0, 180);

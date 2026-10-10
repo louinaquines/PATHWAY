@@ -2,6 +2,199 @@
 
 ## Project Documentation and Change Log
 
+### 2026-10-11 — Rejection reason focus fix
+
+- AlertDialog now sets initial Cancel focus only when opened, rather than rerunning it when inline callbacks change during typing. Escape handling retains current callbacks/busy checks; closing restores the previous connected focused element.
+- Two regression tests passed: typing a complete reason retains textarea focus across state updates; Escape invokes the latest callback without moving focus. No review decisions or student records were changed by these tests.
+
+### 2026-10-11 — Requirement file-action styling
+
+- Replaced the mismatched View document button and oversized download text with a compact matching View/Download button pair, consistent SVG icons, 36px minimum height, 13px text, 8px spacing and keyboard-focus styling. Actions wrap on narrow cards. Approval controls and authenticated document handling are unchanged.
+
+### 2026-10-11 — Secure coordinator document preview
+
+- Added View document beside the existing download action. The white preview overlay supports PDF, PNG, JPEG and WebP identified by file signatures, not filename extensions. Unsupported formats including Word remain download-only; HTML/SVG are not embedded.
+- Preview fetches through the existing authenticated, section-scoped backend route, renders a temporary typed blob URL and releases it on close/unmount. Native modal supplies focus containment and Escape closing; an X SVG close action and separate Download action are provided.
+- Production build passed with the explicit production backend endpoint verified in its bundle. Preview/helper tests passed 9/9, covering PDF display, format restrictions, access denial and URL cleanup. Physical browser preview acceptance is separate from these automated checks.
+
+### 2026-10-10 — Coordinator document download repair
+
+- Ordinary requirement links now use the authenticated backend download route instead of direct Cloudinary CDN links. Older server-verified uploads resolve their asset ID through the authenticated provider metadata API, with cloud, student/requirement namespace, version, format and size validation. Endorsement delivery and coordinator section authorization are preserved; no public-delivery setting was enabled.
+- Released scoped commit e4b60fc88610798982267d803aa9acec46f7b142; Render showed Deploy succeeded | Live. Security suite passed 36/36, including ordinary-document access, foreign-coordinator denial and mismatched-version rejection. Website production build passed and Hosting release completed.
+- Live verification exposed a malformed local backend address in the first website build. Rebuilt with explicit production REACT_APP_BACKEND_URL, checked the generated bundle contains the production endpoint and excludes the malformed localhost endpoint, then redeployed Hosting.
+- Coordinator downloaded Dexter's existing Maria-tang-an.pdf through the updated route. Download saved to the owner's Downloads folder for verification; requirement remains Pending and no approvals or visibility settings were changed.
+
+### 2026-10-10 — Assigned pending-account approval fix
+
+- Coordinator registration decisions now accept pending students already assigned to that coordinator's section. Department equality and section owner/department checks are enforced within the same transaction; missing/invalid/foreign sections remain denied. Unassigned same-department registrations retain their existing approval path, approved-account replay is rejected, and cleared records stay locked.
+- Added isolated regression coverage for assigned pending approval, cross-department and same-department foreign-section denial, repeat approval and preservation of section/placement/pre-deployment state. No direct Firebase overrides or production student changes were made.
+- Released only the registration ownership guard and its new regression test as 809a0a3633b8f5e2944799f6f47a93dc9ecc0a04; unrelated server/test edits remain local. Render showed Deploy succeeded | Live for this exact commit. Local full security suite passed 36/36, including anonymous/student-role denial assertions.
+- Approved Dexter's explicitly authorized test account through the coordinator Registrations screen after deployment. Pending Approvals became 0 and Approved Students became 2; Dexter appeared Approved in BSIT 4G. Evidence: dexter-account-approved-qa.png. Document, placement and final-review approvals were not changed. Physical-phone upload acceptance is still pending. The previously local cleared-record guard was not included in this isolated release.
+
+### 2026-10-10 — Student upload-client verification
+
+- Reviewed RequirementsScreen's sequence: request server upload intent, send selected file through uploadCloudinaryFile, finalize through authenticated requirement PUT, and update visible state only after backend success.
+- Added regression checks using the actual upload helper for Android/iOS native descriptors and authenticated delivery/signature/public-ID/timestamp fields. Incomplete successful-HTTP provider receipts are rejected rather than returned for finalization. Student helper suite passed 16/16.
+- These are helper-level tests with mocked native FormData/provider responses, not physical-device file picker, network transfer or deployed app acceptance. Earlier live Cloudinary provider test and deployed-backend health evidence are separate. No app behavior, deployment or production records changed in this step.
+- Next acceptance requires a small synthetic PDF upload from an eligible pre-deployment student on the owner's phone. An already approved/locked requirement must not be overwritten or an approved student's workflow reset merely to run this test.
+
+### 2026-10-10 — Real Cloudinary private-delivery verification
+
+- Render release completed after owner sign-in: manually deployed exact commit e0707fa8032dd90bdfa4534f5de51e3264517dc2. Deploy dep-db544fnavr4c73fd4s1g showed Deploy succeeded | Live (44.1 seconds). Public /healthz returned 200/status ok; anonymous /requirements/endorsement_letter/download returned 401/Authentication required. Saved confirmation screenshot cloudinary-deployment-qa.png. No Firestore rules or production student records changed. Full app upload/finalization acceptance remains separate from this deployment/health check.
+
+- Release preparation: committed and pushed only cloudinaryUploads.js and its two regression tests as e0707fa (Accept verified Cloudinary raw-file extensions) to origin/main. Other local changes remain uncommitted. Render dashboard redirects to login in the accessible browser, so manual deployment and deployed app acceptance are pending owner sign-in. Git push is not evidence of a completed Render deployment.
+
+- Owner authorized one synthetic provider check. Used only dedicated QA credentials and a 76-byte synthetic PDF; no Firebase/student records were accessed or changed. Two sequential test assets were created (initial diagnosis, corrected retest) and each was deleted by its unique public ID in cleanup. No existing assets were removed.
+- Real Cloudinary authenticated raw upload and response signature verification passed. Anonymous CDN delivery and unsigned asset-download API access returned HTTP 401. The existing backend signed-download helper returned byte-for-byte identical content.
+- Live raw-resource metadata omitted format, revealing that backend validation would reject raw PDFs. Fixed validation to infer a supported extension only from the exact verified expected public ID for raw assets; image/profile handling and identity/version/delivery-type/size checks remain intact. Two focused regression tests passed, including unsupported/missing extension, public delivery, identity/version mismatch and image/profile rejection.
+- Corrected live provider retest passed. This verifies provider behavior plus local helper compatibility, not the deployed app's end-to-end upload/finalization flow. Backend fix remains local; no deployment performed. Cloudinary API reference: https://cloudinary.com/documentation/image_upload_api_reference.
+
+### 2026-10-10 — Upload and private-download acceptance recheck
+
+- Fresh isolated Auth/Firestore security suite passed 35/35, including server-signed, student-scoped single-use upload authorization and protected endorsement downloads. Anonymous access, wrong roles, another student's missing asset and cross-section coordinator access were denied; authorized owner/assigned coordinator received expected bytes. Private/no-store, nosniff, attachment naming and success audit records passed.
+- Dedicated Cloudinary QA configuration is present (verified without printing credentials); configuration isolation tests passed 3/3. The provider in the security suite is a local stub, not live Cloudinary, and these results do not close real-provider acceptance.
+- No live upload, live download, production record mutation or deployment was performed. Next gate requires owner authorization to create one small synthetic authenticated file in the dedicated Cloudinary test account and test its private delivery; no real student document is needed.
+
+### 2026-10-10 — Mobile dependency security patches
+
+- Follow-up: scoped xcode's UUID dependency to 11.1.1 after confirming its only UUID call uses CommonJS v4 without a supplied buffer. Actual Xcode project ID generation passed 1,000 unique 24-character uppercase hexadecimal IDs; Expo compatibility passed again. Audit now reports 28 findings (23 high, 5 moderate), down from 35. Remaining braces, image-size, node-forge and sprintf-js dependency findings remain open; no forced Expo/React Native migration was performed. This does not establish iOS native-build acceptance.
+
+- Scoped Firestore's Node dependency to @grpc/grpc-js 1.14.6 and Expo Metro configuration's PostCSS to 8.5.29. Expo 54 and React Native 0.81.5 remain unchanged.
+- npm install --ignore-scripts completed; audit decreased from 40 to 35 findings (23 high, 12 moderate). Remaining dependency findings are not resolved by this change.
+- Online Expo dependency compatibility check passed. Android production JavaScript/Hermes export passed (1,053 modules); this is not a native APK build or physical-device verification.
+- No website/backend deployment or production student data changes were made for these mobile patches. Physical-phone smoke testing after Expo restart remains required.
+
+### 2026-10-10 — Rejected journal resubmission
+
+- Rejected student logbook cards now provide Edit and resubmit. The form loads existing notes/hours and displays the original week. A transaction updates that document to pending while retaining week number/range, creation date and review history; it refuses stale/non-rejected or cleared records instead of creating a new week.
+- Editing notes clears stale AI output; submission validates weekly hours and report length. Close is disabled while saving.
+- Added a narrow rejected-to-pending update branch to production-baseline and hardened rules, including aiRefined. Existing production-baseline grants remain unchanged; this is not a full hardened-rules cutover.
+- Verified JSX, production-baseline transaction resubmission and 35/35 hardened backend/security tests, including week-change and forged-approval rejection. Deployed production-baseline rules. Physical-phone UI/resubmission verification remains pending after Expo reload; no existing entries were edited by this code change.
+
+### 2026-10-10 — Clarified journal hours
+
+- Renamed Logbook's Hours logged metric to Reported journal hours. It still sums all journal entries, including pending/rejected entries, and remains separate from attendance-based OJT progress. No hour totals or student records changed.
+
+### 2026-10-10 — Authorized approved-state test override
+
+- At the user's explicit request, set test-only Janeil Formoso's accountApproved=true and status/requirementsStatus/placementStatus/preDeploymentStatus=approved. Clearance remains not_cleared.
+- Saved prior approval values in qaApprovalOverride for recovery. No attendance, journals, evaluations, placement proposals or final-review records were changed. This is a test-profile override, not proof of a completed approval workflow.
+
+### 2026-10-10 — Authorized test clearance reset
+
+- User identified Janeil Formoso as test-only and authorized resetting clearance. Changed only clearance to not_cleared, removed active clearedAt/clearedBy metadata and retained the prior values in qaClearanceReset with timestamp/reason for recovery.
+- Attendance, journals, evaluations and existing approval fields were not changed. Legacy profile lacks explicit placementStatus/preDeploymentStatus approval; reset does not create those approvals or claim complete dashboard eligibility.
+
+### 2026-10-10 — Login regression and automated logbook verification
+
+- Fixed the isolated login-routing test setup to load its imported pre-deployment helper, without changing application routing. Added legacy-cleared account and password-gate precedence assertions.
+- Student helper/feedback tests passed 17/17; isolated Firebase backend/security tests passed 35/35, including logbook ownership, forged-approval rejection, assigned-coordinator approval/rejection, notification creation and audit records.
+- No production student entries, attendance records or approvals changed. These checks do not replace physical-phone logbook rendering or live attendance display verification.
+
+### 2026-10-10 — Student announcement reader
+
+- Announcement notifications open a white, scrollable overlay with the full title, timestamp and selectable message. Other notification and conversation behavior is unchanged.
+- Top-right SVG X, backdrop dismissal and Android Back close the overlay and save the notification as read using the existing notification update. Opening alone does not mark it read; already-read announcements remain reopenable.
+- Inbox JSX syntax checked. Physical-phone layout and read persistence still require verification after Expo reload.
+- Live BSIT 4G broadcast test reported success for two students; user confirmed receipt on the student phone.
+
+### 2026-10-10 — Four-column message notifications
+
+- Separated message previews into their own column. White overlay now displays Message, From, Section, Time in the requested order, with responsive column widths and two-line message previews.
+
+### 2026-10-10 — Message notifications column layout
+
+- White notification overlay now uses aligned From, Section, and Time columns. Sender includes message preview/unread dot; section reflects the selected student section scope. Rows still open conversations. Column sizing adapts to mobile widths.
+
+### 2026-10-10 — White notification overlay background
+
+- Retained the redesigned message overlay layout while changing its header, body, icon/close surfaces, and message previews to white with dark readable text and blue accents.
+
+### 2026-10-10 — Message overlay second visual redesign
+
+- Distinct navy/blue header with chat icon, section label, unread-count summary tile, and separate white notification cards on a pale background. Each card shows sender, timestamp, two-line preview, unread dot and Open conversation cue. Mobile sizing and existing modal/read behavior retained. Four Messages tests passed.
+
+### 2026-10-10 — Modern coordinator message notification overlay
+
+- Replaced oversized blue alert cards with compact avatar/message/timestamp rows, unread dots and count, neutral separators, hover/focus states, rounded dialog and soft blurred backdrop. Shows all unread messages newest-first rather than only three. Conversation opening/read behavior retained. User confirmed auto-scroll and unread notification acceptance on current Android phone.
+
+### 2026-10-10 — Progress attendance metric spacing
+
+- Added a scoped 12px gap between the Attendance heading/details row and Attendance days metrics in Progress → Your records. Other analytics grids unchanged.
+- Applied the same gap between Logbook and Total entries for consistency.
+
+### 2026-10-10 — Remove duplicate Attendance shift card
+
+- Removed Today's shift and its punch buttons from the standalone Attendance screen; the Logs screen remains the place to time in/out. Attendance still displays hours progress and previous shifts. No stored attendance records changed.
+
+### 2026-10-10 — Current Attendance loading layout
+
+- Attendance skeleton now uses a light header, intro, hours-progress card/meter, and content-card placeholders instead of the old blue header and generic two-stat layout. Attendance behavior unchanged.
+
+### 2026-10-10 — Current Logbook loading layout
+
+- Replaced the legacy dark-blue Logbook skeleton header with a light header and dark status-bar text. Added intro and three-metric summary placeholders before report-card placeholders to match the current screen. Other variants unchanged.
+
+### 2026-10-10 — Plain-language approved student screens
+
+- Simplified Home, Logs, Progress, Profile/Settings, Inbox, and Logbook headings, descriptions, empty states, and selected alerts. Retained standard labels, user-entered messages, actual status meanings, support information, and workflow logic. Student screen syntax checks passed; reload Expo Go to review.
+
+### 2026-10-10 — Plain-language student pre-deployment copy
+
+- Simplified student application dashboard/menu, requirements, company placement, final review, approval, and next-action messages. Replaced promotional/vague phrases (workspace snapshots, onboarding, documentation package, secure vault) with standard application, document, upload, review, and approval wording. Workflow conditions and saved data remain unchanged.
+
+### 2026-10-10 — Mobile Logs hours card layout
+
+- Fixed rendered-hours split across lines: use body-number typography, one-line shrink-to-fit, flexible number/unit layout, and compact OJT HOURS label. Footer can wrap safely at narrow widths/large text sizes. Hours calculations and attendance actions unchanged; phone screenshot verification pending reload.
+
+### 2026-10-10 — Student sent-message scrolling and phone acceptance
+
+- Sending now sets follow intent before updating messages, clears older-page anchor intent, and schedules scrolling on latest outgoing message ID changes rather than depending only on content height changes. Existing content-size scrolling remains for final bubble layout.
+- User confirmed multiline composer visibility, sending, repeated keyboard open/close, and alternate Android navigation mode on current phone. App configuration explicitly locks portrait, so landscape is unsupported rather than a keyboard failure. Other devices/iOS remain untested.
+
+### 2026-10-10 — Measured Android inbox keyboard overlap
+
+- User screenshot confirmed partial input/Send occlusion after the initial offset attempt. Replaced Android KeyboardAvoidingView height handling with screen-space measurement of the chat root bottom against keyboard screenY; reserves only actual overlap, accounting for OS window resize without double keyboard-height padding. Recalculates on root layout and keyboard show, clears on hide. iOS padding behavior retained. Physical Android acceptance pending.
+
+### 2026-10-10 — Android student chat keyboard spacing
+
+- Student conversation keyboard avoidance now accounts for Android's top safe-area offset and retains bottom safe-area spacing while the keyboard is open, instead of dropping to a fixed 12px. This targets partial composer/Send overlap in edge-to-edge Expo Go. Physical phone verification remains required; reload Expo Go and test keyboard opening/closing and multiline typing.
+
+### 2026-10-10 — Inbox loading visual consistency
+
+- Inbox skeleton now uses the light header/dark status-bar text instead of the legacy blue header, with segmented-tab and search placeholders matching the current inbox layout. Other skeleton variants remain unchanged. Reload Expo Go for the update.
+
+### 2026-10-10 — Production student inbox indexes
+
+- Production index inventory was empty. Created the seven existing firestore.indexes.json definitions for student notifications and messages via additive index-create operations (no deletions, data changes, or rule changes). Inbox depends on these ordered/filtered backend queries. Index build completion and physical Android acceptance must be checked before claiming the inbox works.
+
+### 2026-10-10 — Legacy cleared student dashboard routing
+
+- Read-only inspection found the legacy cleared profile has accountApproved and approved requirements but lacks placementStatus/preDeploymentStatus. Dashboard now recognizes existing clearance as completed pre-deployment, avoids unnecessary pre-deployment summary reads, and opens the student dashboard. No records, approvals, permissions, or backend clearance locks changed.
+- Messages reception confirmed by user. Physical Android dashboard verification pending Expo reload.
+
+### 2026-10-10 — Student placement loading repair
+
+- Follow-up: own-student finalReviewRequests read rule added and emulator-tested (unscoped reads and client writes denied). Company loading now logs the exact failing read and Firebase project without secrets. Persistent Android company denial is not yet confirmed resolved; request the new collection-specific diagnostic before further permission changes.
+
+- Added narrowly scoped production reads for the company directory and the signed-in student's own company proposals, retaining password readiness checks and denying client writes. Existing production rules remain unchanged otherwise.
+- CompanyScreen preserves approved profile status, suppresses editing after failed loading or clearance, offers a retry, and provides cleared students a dashboard return action. Backend clearance locks remain intact.
+- Emulator assertions passed for own-proposal reads, foreign/unscoped denial, anonymous denial, password gate, and write denial; CompanyScreen JSX syntax passed. Physical Android acceptance remains pending; reload Expo Go to pick up screen changes.
+
+### 2026-10-10 — Message composer placeholder
+
+- Empty conversations show Write a message; existing threads show Write a reply. Removed the visible keyboard shortcut hint while preserving Enter-to-send and Shift+Enter newline behavior.
+
+### 2026-10-10 — Enter-to-send messaging
+
+- Coordinator message composer sends on Enter; Shift + Enter keeps newline behavior. IME composition and held-key repeats do not trigger sending; existing empty-message and sending guards remain intact.
+
+### 2026-10-10 — Production Messages permission repair
+
+- Read the active production rules and confirmed the messages collection had no access rule. Prepared firestore.messages-only.rules from that exact deployed baseline, adding only participant-scoped reads and recipient-only read acknowledgments; create/delete remain backend-only. Password-change and password-epoch gates apply to student message access.
+- The exact scoped patch passed isolated participant query, outsider/anonymous denial, client-create denial, immutable body, recipient acknowledgment, and first-login gate tests. Full local security suite passed 35/35 after retaining the legacy evaluation GET response shape. No production documents were created, changed, or deleted.
+- Other production rules are an older, more permissive baseline and still need a separate security cutover review. Do not treat this scoped fix as deploying the full local hardened rules. Browser/phone message delivery acceptance remains to be confirmed.
+
 ### 2026-10-10 — Coordinator email wording
 
 - Changed the invitation note heading to Message from coordinator. Applies to future emails after backend deployment; previously received emails are unchanged.
@@ -1830,3 +2023,19 @@ Owner consent follow-up: helper completed successfully; saved client configurati
 - Verification: Vite production build passed (696 transformed modules); configuration tests passed 3/3; existing staff tests passed 16 suites / 50 tests. Temporary preview returned HTTP 200 for Login, Coordinator, Admin, supervisor evaluation, favicon, manifest and both HTML-linked built assets, then was stopped. These HTTP checks do not execute browser JavaScript or authenticate a user.
 - Remaining warnings: large main/ExcelJS chunks and the existing React act test warning. CRA remains installed, so its dependency findings are not removed; install still reported 103 total findings. No audit reduction or complete migration is claimed.
 - Cutover gates: actual browser login/role routing, emulator configuration and refresh/HMR, Excel downloads and deep-link reloads, existing launcher compatibility, then independent test-runner migration and CRA removal with fresh audit/regression/build checks. Backend CORS currently permits the accepted demo portal on 3001, not the staged 3002 server; authenticated staged API acceptance must use an explicitly approved local configuration. No production deployment, demo restart/data changes or manuscript edits performed.
+# Targeted dependency security review — October 10, 2026
+
+- Website Hosting release completed October 10: deployed build-vite via firebase.staff-hosting.json, Hosting only. Local Sections roster verified at two students. Live authenticated coordinator portal and Sections BSIT 4G verified at two students, matching Logbook. Backend, Firestore rules and production records unchanged. Prior tests: 21 suites/59 tests passed; production build passed; production-only dependency audit zero findings. Mobile/development-tool advisories and broader security readiness remain open.
+
+- Sections roster fix: both student-loading paths now constrain role=student, section department and sectionId, matching the coordinator's rule-compatible roster query. Previously the sectionId-only query was denied and left a misleading zero-student list. Two regression tests cover shared selection and section-click loading. Firestore permissions were not weakened; no production records or deployment changed.
+
+- Optimized-build browser QA: separate `PATHWAY-web/build-qa` output (Vite production mode, demo emulator configuration) served on loopback 3002; deployment build-vite not overwritten. Coordinator login, authenticated deep-link reload, Sections/Logbook/Messages navigation, attendance read, sign-out and admin role route passed. Section and student XLSX downloads completed and reopened successfully. Sections displayed zero enrolled students while Logbook and section export contained two: discrepancy remains open. Local API acceptance on port 3002 is not claimed (existing backend CORS permits 3001). No production deployment or records changed. Saved emulator environment restored rather than reseeded.
+
+- Local browser acceptance after dependency updates passed on existing emulator portal 127.0.0.1:3001: coordinator login, authenticated reload, Sections/Logbook/Messages/Evaluations navigation, sign-out and admin login/role routing. Browser downloaded section and student XLSX files; ExcelJS reopened both successfully. Section file contains Student summary/Requirements/Export information; student file contains populated, separate Attendance/Weekly Journals sheets. This validates the local development portal, not hosted production or a browser session against the production build. No emails, announcements, student record edits or production deployment performed.
+
+- Follow-up: upgraded website react-router-dom to pinned 7.18.4 and scoped ExcelJS's UUID override to 11.1.1 (retains CommonJS v4 API). Website production-only audit now reports zero findings; full installed audit retains 34 findings (29 high, 5 moderate), including development dependencies. Production build passed with existing large-chunk warnings. Added test-only Node TextEncoder/TextDecoder globals because jsdom lacks the browser APIs needed by Router 7. Browser/hosted acceptance remains pending; no deployment or mobile package changes.
+
+- Website: scoped override pins Firestore's Node gRPC dependency to 1.14.6, replacing 1.9.16 without downgrading Firebase or changing Router/ExcelJS APIs. Production-only npm audit reduced from 8 findings (4 high, 4 moderate) to 4 moderate, zero high/critical. Full installed dependency audit still reports 38 findings, including development dependencies; this is not complete security sign-off.
+- Verification: six website regression suites passed, 20/20 tests (login, clearance, coordinator records, placements, student exports and section exports). Production Vite build passed; large bundle warnings remain. No hosting deployment performed.
+- Mobile: left Expo 54 / React Native 0.81 unchanged. Local Expo compatibility-map check passed with an offline-validation warning. Non-forced audit-fix dry run made no changes and retained 40 findings; major upgrades/downgrades suggested by npm were not applied.
+- Local emulator restore rehearsal passed: four Auth accounts, approved profile, company/geofence and one attendance record. This does not verify production backup schedules or production recovery.

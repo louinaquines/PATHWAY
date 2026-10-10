@@ -8,6 +8,7 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './NotificationsTab.css';
+import AnnouncementEmailDelivery from '../components/AnnouncementEmailDelivery';
 
 export default function NotificationsTab({ userId }) {
   const [items, setItems]           = useState([]);
@@ -21,6 +22,10 @@ export default function NotificationsTab({ userId }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [workspace, setWorkspace] = useState('inbox');
   const [loadError, setLoadError] = useState('');
+  const [announcementId, setAnnouncementId] = useState('');
+  useEffect(() => {
+    try { setAnnouncementId(sessionStorage.getItem(`pathway-last-announcement:${userId}`) || ''); } catch {}
+  }, [userId]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -61,6 +66,8 @@ export default function NotificationsTab({ userId }) {
       });
       setTitle('');
       setMessage('');
+      setAnnouncementId(result.announcementId || '');
+      try { if (result.announcementId) sessionStorage.setItem(`pathway-last-announcement:${userId}`, result.announcementId); } catch {}
       setSendStatus(`Announcement broadcasted to ${result.count} student(s) in the section.`);
     } catch (e) {
       console.error(e);
@@ -160,6 +167,7 @@ export default function NotificationsTab({ userId }) {
           )}
         </div>
       </form>
+      {workspace === 'broadcast' && announcementId && <AnnouncementEmailDelivery announcementId={announcementId} />}
 
       {/* Notifications Log */}
       <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>

@@ -56,3 +56,10 @@
 @media (max-width: 1250px) { .logbook-workspace { padding: 16px; gap: 10px; } .logbook-workspace .logbook-sections { width: 170px !important; } .logbook-workspace .logbook-students { width: 210px !important; } }
 @media (max-width: 900px) { .logbook-workspace { flex-wrap: wrap; overflow-y: auto !important; align-content: flex-start; } .logbook-workspace .logbook-sections, .logbook-workspace .logbook-students { width: calc(50% - 5px) !important; max-height: 320px; } .logbook-workspace .logbook-detail { flex: 0 0 100% !important; overflow: visible !important; } }
 @media (max-width: 520px) { .logbook-workspace { padding: 12px; } .logbook-workspace .logbook-sections, .logbook-workspace .logbook-students { width: 100% !important; } }
+.journal-check-settings { margin: 16px 24px; padding: 16px; background: #fff; border: 1px solid #dce5f2; border-radius: 14px; color: #34445c; }
+.journal-check-settings summary { cursor: pointer; font-weight: 600; color: #075fc9; }
+.journal-check-settings p { font-size: 13px; line-height: 1.6; }
+.journal-check-settings label { display: block; font-size: 13px; }
+.journal-check-settings textarea { display: block; box-sizing: border-box; width: 100%; margin: 8px 0 12px; padding: 12px; border: 1px solid #cbd9ed; border-radius: 10px; font: inherit; resize: vertical; }
+.journal-check-settings button { padding: 10px 16px; background: #075fc9; color: white; border: 0; border-radius: 10px; cursor: pointer; }
+.journal-check-settings button:disabled { opacity: .55; }

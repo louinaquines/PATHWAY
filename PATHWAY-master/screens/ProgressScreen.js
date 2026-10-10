@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { doc, getDoc, getDocs, collection, query, orderBy } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
+import { studentHours } from '../services/studentHours';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
@@ -59,8 +60,7 @@ export default function ProgressScreen({ navigation }) {
     return <StudentScreenSkeleton variant="progress" />;
   }
 
-  const hoursRendered = student?.hoursRendered || 0;
-  const hoursRequired = student?.hoursRequired || 540;
+  const { rendered: hoursRendered, required: hoursRequired } = studentHours(student);
   const progress = Math.min(hoursRendered / hoursRequired, 1);
   const hoursRemaining = Math.max(hoursRequired - hoursRendered, 0);
 

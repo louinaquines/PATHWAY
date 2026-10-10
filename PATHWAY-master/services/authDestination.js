@@ -1,3 +1,5 @@
+import { hasCompletedPreDeployment } from './preDeploymentStatus';
+
 export function destinationForProfile(profile) {
   switch (profile?.role) {
     case 'admin': return 'AdminDashboard';
@@ -6,7 +8,7 @@ export function destinationForProfile(profile) {
     case 'student':
       if (profile.passwordChangeRequired) return 'ChangePassword';
       if (profile.accountApproved &&
-        (profile.requirementsStatus === 'approved' || profile.preDeploymentStatus === 'approved')) {
+        (profile.requirementsStatus === 'approved' || hasCompletedPreDeployment(profile))) {
         return 'StudentDashboard';
       }
       return profile.accountApproved ? 'Requirements' : 'StudentDashboard';

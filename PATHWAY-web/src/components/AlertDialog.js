@@ -24,7 +24,13 @@ export default function AlertDialog({
 
   useEffect(() => {
     if (!open) return undefined;
+    const previousFocus = document.activeElement;
     cancelRef.current?.focus();
+    return () => { if (previousFocus?.isConnected) previousFocus.focus(); };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
     const handleKeyDown = event => {
       if (event.key === 'Escape' && !busy) onCancel?.();
     };

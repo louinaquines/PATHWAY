@@ -202,7 +202,7 @@ export default function ReviewScreen({ navigation }) {
       });
       Alert.alert(
         'Submitted for Coordinator Review',
-        'Your pre-deployment documentation package was successfully submitted.',
+        'Your application was submitted for final review.',
         [{ text: 'View Approval Status', onPress: () => navigation.replace('Approval') }]
       );
     } catch (error) {
@@ -243,18 +243,18 @@ export default function ReviewScreen({ navigation }) {
             ? 'Action needed'
             : 'Ready';
   const statusDescription = requestPending
-    ? 'Your package is with the coordinator. Check the next step for its decision.'
+    ? 'Your application is under review. Check Step 4 for updates.'
     : requestApproved
-      ? 'Your final review has been approved. Continue to view your approval details.'
+      ? 'Your final review is approved. Continue to Step 4.'
       : requestNeedsChanges
-        ? 'Review the coordinator feedback, update anything needed, then resubmit.'
+        ? 'Read the comments, make changes, and resubmit.'
         : requestSuperseded
-          ? 'A placement change replaced the previous review. Check the latest details before resubmitting.'
+          ? 'Your placement changed. Check your details and resubmit.'
           : missing.length > 0
-            ? 'Complete the items below before sending your package for final review.'
+            ? 'Complete the items below before submitting.'
             : !companyApproved
-              ? 'Your company placement must be approved before you can submit this package.'
-              : 'Everything is ready. Submit your package for coordinator review.';
+              ? 'Your company placement needs approval before submission.'
+              : 'Your details are complete. Submit for final review.';
   const statusTone = requestApproved
     ? 'success'
     : requestNeedsChanges || requestSuperseded
@@ -288,7 +288,7 @@ export default function ReviewScreen({ navigation }) {
         <View style={styles.pageHeading}>
           <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 3</Text>
           <Text variant="heading" style={styles.heading}>Final Review</Text>
-          <Text style={styles.pageDescription}>Check your documents and placement details before sending your package for approval.</Text>
+          <Text style={styles.pageDescription}>Check your documents and placement before submitting.</Text>
         </View>
 
         <PreDeploymentStepper
@@ -334,7 +334,7 @@ export default function ReviewScreen({ navigation }) {
               <AlertCircleIcon size={18} color={COLORS.warningDark} />
               <Text style={styles.blockersTitle}>A few things to complete</Text>
             </View>
-            <Text style={styles.blockersDescription}>You can submit once these items are resolved:</Text>
+            <Text style={styles.blockersDescription}>Complete these items first:</Text>
             {blockingItems.map((item, index) => (
               <View key={`${item}-${index}`} style={styles.blockerRow}>
                 <View style={styles.blockerDot} />
@@ -375,7 +375,7 @@ export default function ReviewScreen({ navigation }) {
           {requirements.length === 0 ? (
             <View style={styles.emptyDocuments}>
               <FileIcon size={20} color={COLORS.textMuted} />
-              <Text style={styles.emptyDocumentsText}>Your document checklist hasn’t been set up yet.</Text>
+              <Text style={styles.emptyDocumentsText}>No requirements assigned.</Text>
             </View>
           ) : requirements.map(item => {
             const itemApproved = item.status === 'approved';

@@ -17,7 +17,14 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const alertsDialog = useRef(null);
   const loadVersion = useRef(0);
+
+  useEffect(() => {
+    if (alertsOpen) alertsDialog.current?.showModal();
+    else alertsDialog.current?.close();
+  }, [alertsOpen]);
 
   const load = useCallback(async () => {
     if (!coordinatorId) return;
@@ -95,18 +102,31 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
   return <div className="messages-workspace">
-    <aside className="messages-alerts" aria-label="Message notifications">
-      <div><strong>Message alerts</strong><p>{error ? 'Message alerts are unavailable until messages can load.' : loading ? 'Checking messages…' : messageAlerts.length ? `${messageAlerts.length} unread message(s) in ${selectedSection?.name || 'this section'}` : 'No unread messages in this section.'}</p></div>
-      <div className="messages-alert-actions">
-        {messageAlerts.slice(-3).reverse().map(message => {
+    <div className="messages-alert-toolbar">
+      <button className="messages-alert-trigger" type="button" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Message notifications
+        {messageAlerts.length > 0 && <span className="messages-alert-count">{messageAlerts.length}</span>}
+      </button>
+    </div>
+    <dialog ref={alertsDialog} className="messages-alert-dialog" aria-labelledby="message-alert-title" onCancel={() => setAlertsOpen(false)} onClose={() => setAlertsOpen(false)} onClick={event => { if (event.target === event.currentTarget) setAlertsOpen(false); }}>
+      <header className="messages-alert-dialog-header"><div className="notification-hero"><span className="notification-hero-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z" /><path d="M7 10h10M7 14h6" /></svg></span><div><span className="notification-eyebrow">STUDENT MESSAGES</span><h2 id="message-alert-title">Message notifications</h2><p>{selectedSection?.name || 'Current section'}</p></div></div><button type="button" className="messages-close" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}>✕</button></header>
+      <div className="messages-alert-dialog-body">
+      <div className="messages-alert-summary"><strong><span className="notification-total">{messageAlerts.length}</span><span>Unread messages<small>Newest first</small></span></strong><button className="messages-alert-refresh" type="button" aria-label="Refresh messages" title="Refresh messages" onClick={load} disabled={loading}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg></button></div>
+      <p>{error ? 'Message alerts are unavailable until messages can load.' : loading ? 'Checking messages…' : messageAlerts.length ? `${messageAlerts.length} unread message(s) in ${selectedSection?.name || 'this section'}` : 'No unread messages in this section.'}</p>
+      <div className="notification-column-labels" aria-hidden="true"><span>Message</span><span>From</span><span>Section</span><span>Time</span></div>
+      <div className="messages-alert-actions notification-columns">
+        {[...messageAlerts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(message => {
           const thread = conversations.find(item => item.studentId === message.studentId);
-          return <button type="button" key={message.id} onClick={() => thread && openConversation(thread)}>
-            <strong>{thread?.name || 'Student'}</strong><span>{message.body}</span>
+          return <button type="button" key={message.id} onClick={() => { if (thread) { openConversation(thread); setAlertsOpen(false); } }}>
+            <span className="notification-message">{message.body}</span>
+            <span className="notification-from"><span className="messages-alert-row-heading"><strong>{thread?.name || message.senderName || 'Student'}</strong><i className="messages-alert-dot" aria-label="Unread" /></span></span>
+            <span className="notification-section">{selectedSection?.name || '—'}</span>
+            <time className="notification-time">{formatDate(message.createdAt)}</time>
           </button>;
         })}
-        <button type="button" onClick={load} disabled={loading}>Refresh messages</button>
       </div>
-    </aside>
+      </div>
+    </dialog>
     <section className="messages-sections">
       <header><h2>Sections</h2><p>Your assigned classes</p></header>
       <input type="search" aria-label="Search sections" placeholder="Search sections..." value={sectionSearch} onChange={event => setSectionSearch(event.target.value)} />
@@ -149,7 +169,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
           {!selected.messages.length && <div className="messages-welcome"><h3>Start the conversation</h3><p>Send a message to {selected.name} about their OJT progress.</p></div>}
           {selected.messages.map(message => <div key={message.id} className={`messages-bubble-row${message.senderId === coordinatorId ? ' is-outgoing' : ''}`}><div className="messages-bubble"><div>{message.body}</div><small>{formatDate(message.createdAt)}</small></div></div>)}
         </div>
-        <div className="messages-composer"><textarea aria-label="Message reply" value={draft} onChange={event => setDraft(event.target.value)} placeholder="Write a reply..." rows={2} /><button type="button" onClick={send} disabled={!draft.trim() || sending}>{sending ? 'Sending...' : 'Send'}</button></div>
+        <div className="messages-composer"><textarea aria-label="Message reply" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); if (!event.repeat) send(); } }} placeholder={selected.messages.length ? 'Write a reply...' : 'Write a message...'} rows={2} /><button type="button" onClick={send} disabled={!draft.trim() || sending}>{sending ? 'Sending...' : 'Send'}</button></div>
       </> : <div className="messages-welcome"><h2>Your conversations</h2><p>Choose a section, then a student to read or send messages.</p></div>}
     </section>
   </div>;

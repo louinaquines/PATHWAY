@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import CompanyConversations from './CompanyConversations';
 import { adminRequest } from '../adminApi';
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
+jest.mock('./ReviewedMailAttachment', () => () => null);
 beforeEach(() => { jest.clearAllMocks(); sessionStorage.clear(); });
 
 test('sends only text and request ID to the approved conversation', async () => {

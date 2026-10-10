@@ -14,7 +14,6 @@ import { MotionTouchableOpacity, useReducedMotion } from '../components/Motion';
 import { ArrowRightIcon, BellIcon, CalendarIcon, ChatBubbleIcon, CheckCircleIcon, ClockIcon, FileIcon } from '../components/Icons';
 import { markOnboardingCompleted } from '../services/onboardingStorage';
 import { AppText as Text } from '../components/AppText';
-import PathwayWatermark from '../components/PathwayWatermark';
 import PathwayMark from '../components/PathwayMark';
 
 const PAGES = [
@@ -92,7 +91,6 @@ export default function OnboardingScreen({ navigation }) {
         bounces={false}
       >
         <View style={styles.header}>
-          <PathwayWatermark size={160} opacity={0.035} style={{ right: -54, top: -61 }} />
           <View style={styles.wordmark}>
             <PathwayMark size={38} decorative />
             <Text style={styles.brandName}>PATHWAY</Text>

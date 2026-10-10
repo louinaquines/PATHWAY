@@ -76,6 +76,8 @@ export default function CompanyScreen({ navigation }) {
   const { loggingOut, logout } = useStudentLogout(navigation);
   const [showNotifications, setShowNotifications] = useState(false);
   const [placementChangeMode, setPlacementChangeMode] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const uid = auth?.currentUser?.uid;
 
@@ -103,14 +105,20 @@ export default function CompanyScreen({ navigation }) {
   const loadCompanyData = async () => {
     if (!uid) return;
     setLoading(true);
+    setLoadFailed(false);
     try {
+      const read = (label, promise) => promise.catch(error => {
+        console.error(`Company read failed: ${label} (project ${db.app.options.projectId})`, error.code);
+        throw error;
+      });
       const [userSnap, companySnap, proposalSnap] = await Promise.all([
-        getDoc(doc(db, 'users', uid)),
-        getDocs(collection(db, 'companies')),
-        getDocs(query(collection(db, 'companyProposals'), where('studentId', '==', uid))),
+        read('profile', getDoc(doc(db, 'users', uid))),
+        read('directory', getDocs(collection(db, 'companies'))),
+        read('own proposals', getDocs(query(collection(db, 'companyProposals'), where('studentId', '==', uid)))),
       ]);
 
       const userData = userSnap.data() || {};
+      setCleared(userData.clearanceStatus === 'cleared');
       setRequirementsEligible(userData.requirementsStatus === 'approved');
       const requirementValues = Object.values(userData.requirements || {});
       setRequirementsComplete(requirementValues.length > 0 && requirementValues.every(item => ['submitted', 'approved'].includes(item?.status)));
@@ -121,15 +129,17 @@ export default function CompanyScreen({ navigation }) {
 
       if (latest) {
         setProposalId(latest.id);
-        setProposalStatus(latest.status || 'draft');
+        setProposalStatus(userData.placementStatus === 'approved' ? 'approved' : latest.status || 'draft');
         setReviewReason(latest.reviewReason || '');
         setForm({ ...EMPTY_FORM, ...latest });
       } else if (userSnap.exists() && userData.company) {
+        setProposalStatus(userData.placementStatus || 'not_started');
         setForm(previous => ({ ...previous, companyName: userData.company }));
       }
     } catch (error) {
+      setLoadFailed(true);
       console.error('Company data error:', error);
-      Alert.alert('Unable to load companies', 'Please check your connection and try again.');
+      Alert.alert('Unable to load companies', 'Placement data could not load. Retry before editing or submitting a placement.');
     } finally {
       setLoading(false);
     }
@@ -177,6 +187,7 @@ export default function CompanyScreen({ navigation }) {
   };
 
   const saveProposal = async (status) => {
+    if (cleared || loadFailed || loading) return;
     if (status === 'pending_review' && !validateSubmission()) return;
     if (proposalStatus === 'approved') return;
 
@@ -191,8 +202,8 @@ export default function CompanyScreen({ navigation }) {
       setProposalId(saved.id);
       setProposalStatus(status);
       if (status === 'pending_review') setPlacementChangeMode(false);
-      if (status === 'draft') Alert.alert('Draft saved', 'You can continue editing your placement details later.');
-      if (status === 'pending_review') Alert.alert('Submitted for review', 'Your coordinator will review this company placement. You can return to your dashboard while you wait.', [
+      if (status === 'draft') Alert.alert('Draft saved', 'You can edit it later.');
+      if (status === 'pending_review') Alert.alert('Submitted', 'Your company placement is under review.', [
         { text: 'Done', style: 'cancel' },
         { text: 'Back to dashboard', onPress: () => navigation.replace('StudentDashboard') },
       ]);
@@ -207,6 +218,7 @@ export default function CompanyScreen({ navigation }) {
   const handleLogout = logout;
 
   const startPlacementChange = () => {
+    if (cleared || loadFailed) return;
     const { id, status, createdAt, updatedAt, reviewReason: previousReason, studentId, studentName, department, sectionId, ...draft } = form;
     setProposalId(null);
     setProposalStatus('draft');
@@ -216,17 +228,17 @@ export default function CompanyScreen({ navigation }) {
   };
 
   const canEdit = ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
-  const showEditor = canEdit || placementChangeMode;
+  const showEditor = !cleared && !loadFailed && (canEdit || placementChangeMode);
   const placementApproved = proposalStatus === 'approved';
   const placementNeedsAttention = ['needs_revision', 'rejected'].includes(proposalStatus);
   const placementUnderReview = proposalStatus === 'pending_review';
   const placementStatusMessage = {
-    not_started: 'Choose a company or propose a new placement to get started.',
-    draft: 'Your placement details are saved. Finish them and submit when ready.',
-    pending_review: 'Your request is with your coordinator. You can review it here while you wait.',
-    approved: 'Your company placement has been confirmed.',
-    needs_revision: 'Review the coordinator note, update your details, then resubmit.',
-    rejected: 'Update your placement details and submit them again for review.',
+    not_started: 'Select a company and enter your placement details.',
+    draft: 'Draft saved. Complete the details and submit.',
+    pending_review: 'Your company placement is under review.',
+    approved: 'Your company placement is approved.',
+    needs_revision: 'Read the comments, update your details, and resubmit.',
+    rejected: 'Update your placement details and resubmit.',
   }[proposalStatus] || 'Your placement status will appear here.';
 
   if (loggingOut) {
@@ -249,7 +261,7 @@ export default function CompanyScreen({ navigation }) {
         <View style={styles.pageHeading}>
           <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 2</Text>
           <Text variant="heading" style={styles.heading}>Company Placement</Text>
-          <Text style={styles.pageDescription}>Choose where you’ll complete your OJT and submit the placement details for coordinator review.</Text>
+          <Text style={styles.pageDescription}>Enter your company and supervisor details.</Text>
         </View>
 
         <PreDeploymentStepper
@@ -263,6 +275,8 @@ export default function CompanyScreen({ navigation }) {
         />
 
         <View style={styles.statusCard}>
+          {loadFailed && <TouchableOpacity accessibilityRole="button" onPress={loadCompanyData}><Text style={styles.secondaryButtonText}>Retry loading placement</Text></TouchableOpacity>}
+          {cleared && <TouchableOpacity accessibilityRole="button" onPress={() => navigation.replace('StudentDashboard')}><Text style={styles.secondaryButtonText}>OJT cleared — records are read-only. Back to dashboard</Text></TouchableOpacity>}
           <View style={styles.statusHeadingRow}>
             <View style={[
               styles.statusIcon,
@@ -309,7 +323,7 @@ export default function CompanyScreen({ navigation }) {
             <View style={styles.pendingIcon}><FileIcon size={18} color={COLORS.warningDark} /></View>
             <View style={styles.pendingCopy}>
               <Text style={styles.sectionTitle}>What happens next</Text>
-              <Text style={styles.pendingText}>Your coordinator will review the company and placement details. You can’t resubmit until they respond.</Text>
+              <Text style={styles.pendingText}>Wait for your coordinator’s review before resubmitting.</Text>
             </View>
           </View>
         )}
@@ -321,7 +335,7 @@ export default function CompanyScreen({ navigation }) {
                 <View style={styles.sectionIcon}><SearchIcon size={18} color={COLORS.primary} /></View>
                 <View style={styles.flex}>
                   <Text style={styles.sectionTitle}>Find a company</Text>
-                  <Text style={styles.sectionDescription}>Search the directory, or enter a new company below.</Text>
+                  <Text style={styles.sectionDescription}>Select a listed company or enter another company.</Text>
                 </View>
               </View>
               <View style={styles.searchBarContainer}>
@@ -347,7 +361,7 @@ export default function CompanyScreen({ navigation }) {
                   <ArrowRightIcon size={16} color={COLORS.primary} />
                 </TouchableOpacity>
               ))}
-              {search.trim() !== '' && filteredCompanies.length === 0 && <Text style={styles.emptyText}>No active company found. You can propose a new company below.</Text>}
+              {search.trim() !== '' && filteredCompanies.length === 0 && <Text style={styles.emptyText}>No companies found. Enter company details below.</Text>}
             </View>
 
             <View style={styles.card}>
@@ -355,7 +369,7 @@ export default function CompanyScreen({ navigation }) {
                 <View style={styles.sectionIcon}><BuildingIcon size={18} color={COLORS.primary} /></View>
                 <View style={styles.flex}>
                   <Text style={styles.sectionTitle}>{form.companyId ? 'Selected company' : 'Company details'}</Text>
-                  <Text style={styles.sectionDescription}>{form.companyId ? 'Confirm the directory details and add your placement information.' : 'Propose a company and provide the details for coordinator review.'}</Text>
+                  <Text style={styles.sectionDescription}>{form.companyId ? 'Check the company details and complete the form.' : 'Complete the form for coordinator review.'}</Text>
                 </View>
               </View>
               <Text style={styles.formGroupTitle}>COMPANY</Text>
@@ -386,7 +400,7 @@ export default function CompanyScreen({ navigation }) {
               <View style={styles.approvedIcon}><CheckCircleIcon size={22} color={COLORS.successDark} /></View>
               <View style={styles.flex}>
                 <Text style={styles.approvedTitle}>Placement approved</Text>
-                <Text style={styles.approvedText}>You’re ready to continue to the final review step.</Text>
+                <Text style={styles.approvedText}>Continue to Step 3: Final review.</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -399,9 +413,9 @@ export default function CompanyScreen({ navigation }) {
               <Text style={styles.reviewStepBtnText}>Continue to final review</Text>
               <ArrowRightIcon size={17} color={COLORS.textOnPrimary} />
             </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" style={styles.changeRequestBtn} onPress={startPlacementChange} activeOpacity={0.85}>
+            {!cleared && <TouchableOpacity accessibilityRole="button" style={styles.changeRequestBtn} onPress={startPlacementChange} activeOpacity={0.85}>
               <Text style={styles.secondaryButtonText}>Request placement change</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
           </View>
         )}
       </ScrollView>

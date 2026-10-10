@@ -1,0 +1,14 @@
+diff --git a/PATHWAY-backend/server.js b/PATHWAY-backend/server.js
+--- a/PATHWAY-backend/server.js
++++ b/PATHWAY-backend/server.js
+@@ -2438,0 +2439,5 @@
++const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
++const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
++installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox });
++require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
++  inbox: companyInbox, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });
+diff --git a/PATHWAY-backend/Dockerfile b/PATHWAY-backend/Dockerfile
+--- a/PATHWAY-backend/Dockerfile
++++ b/PATHWAY-backend/Dockerfile
+@@ -10,0 +11,1 @@
++COPY companyMailInbox.js localCompanyInbox.js companyTestLink.js ./

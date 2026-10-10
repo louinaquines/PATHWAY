@@ -24,3 +24,6 @@
 .company-mail-discovery { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; }
 .company-mail-discovery label { flex: 1 1 240px; }
 .company-mail-discovery small { flex-basis: 100%; color: #64748b; }
+.company-mail-attachment-review { margin:12px 0; padding:14px; border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; }
+.company-mail-attachment-review canvas { max-width:100%; height:auto; }
+.company-mail-attachment-review label { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }

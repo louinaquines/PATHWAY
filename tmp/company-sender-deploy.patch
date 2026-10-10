@@ -1,0 +1,18 @@
+diff --git a/PATHWAY-backend/server.js b/PATHWAY-backend/server.js
+--- a/PATHWAY-backend/server.js
++++ b/PATHWAY-backend/server.js
+@@ -2441,3 +2441,5 @@
+ const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
+-installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox });
++const companySender = require('./companyMailSender').createCompanySender(process.env);
++installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender });
++require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
+ require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
+diff --git a/PATHWAY-backend/Dockerfile b/PATHWAY-backend/Dockerfile
+--- a/PATHWAY-backend/Dockerfile
++++ b/PATHWAY-backend/Dockerfile
+@@ -11,3 +11,4 @@
+ COPY companyMailInbox.js localCompanyInbox.js companyTestLink.js ./
++COPY companyMailSender.js companyMailReplies.js ./
+ 
+ USER node

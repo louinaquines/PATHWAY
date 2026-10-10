@@ -1,0 +1,1 @@
+{"firestore":{"rules":"firestore.messages-only.rules"},"emulators":{"firestore":{"host":"127.0.0.1","port":8280},"hub":{"port":4690},"logging":{"port":4790},"ui":{"enabled":false}}}

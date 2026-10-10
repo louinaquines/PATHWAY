@@ -12,6 +12,7 @@ import { collection, getDocs, query, orderBy, doc, where, getCountFromServer } f
 import { readRecordPage, mergeRecords } from '../services/recordPagination';
 import LoadMore from '../components/LoadMore';
 import { auth, db } from '../firebaseConfig';
+import { studentHours } from '../services/studentHours';
 import { punchAttendance } from '../services/attendanceLocation';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { COLORS, RADIUS } from '../theme';
@@ -137,8 +138,7 @@ export default function AttendanceScreen({ navigation }) {
     }
   };
 
-  const hoursRendered = Number(userData?.hoursRendered || 0);
-  const hoursRequired = Number(userData?.hoursRequired) > 0 ? Number(userData.hoursRequired) : 486;
+  const { rendered: hoursRendered, required: hoursRequired } = studentHours(userData);
   const progress = Math.min(hoursRendered / hoursRequired, 1);
   const todayStr = manilaDateKey();
   const hasTimedIn = today?.date === todayStr && today?.timeIn;
@@ -201,89 +201,6 @@ export default function AttendanceScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Today's Punch Card */}
-        <View style={styles.todayCard}>
-          <View style={styles.todayHeader}>
-            <View style={styles.todayTag}>
-              <ClockIcon size={17} color={COLORS.primary} />
-              <Text style={styles.todayTagText}>Today's shift</Text>
-            </View>
-            <Text style={styles.todayDate}>{formatDate(new Date().toISOString())}</Text>
-          </View>
-
-          <View style={styles.timeRow}>
-            <View style={styles.timeBox}>
-              <Text style={styles.timeLabel}>Time In</Text>
-              <Text style={styles.timeValue}>
-                {hasTimedIn ? formatTime(today.timeIn) : '--:--'}
-              </Text>
-            </View>
-
-            <View style={styles.timeDivider} />
-
-            <View style={styles.timeBox}>
-              <Text style={styles.timeLabel}>Time Out</Text>
-              <Text style={styles.timeValue}>
-                {hasTimedOut ? formatTime(today.timeOut) : '--:--'}
-              </Text>
-            </View>
-
-            <View style={styles.timeDivider} />
-
-            <View style={styles.timeBox}>
-              <Text style={styles.timeLabel}>Duration</Text>
-              <Text style={[styles.timeValue, { color: COLORS.secondary }]}>
-                {hasTimedOut ? `${Number(today.hoursToday || 0).toFixed(2)}h` : '--'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Action Button: Time In / Time Out */}
-          {!hasTimedIn && (
-            <MotionTouchableOpacity
-              style={[styles.actionBtn, styles.timeInBtn, saving && { opacity: 0.6 }]}
-              onPress={handleTimeIn}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <View style={styles.btnContent}>
-                  <CheckCircleIcon size={18} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Time in</Text>
-                </View>
-              )}
-            </MotionTouchableOpacity>
-          )}
-
-          {hasTimedIn && !hasTimedOut && (
-            <MotionTouchableOpacity
-              style={[styles.actionBtn, styles.timeOutBtn, saving && { opacity: 0.6 }]}
-              onPress={handleTimeOut}
-              disabled={saving}
-              activeOpacity={0.85}
-            >
-              {saving ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <View style={styles.btnContent}>
-                  <ClockIcon size={18} color="#FFFFFF" />
-                  <Text style={styles.actionBtnText}>Time out</Text>
-                </View>
-              )}
-            </MotionTouchableOpacity>
-          )}
-
-          {hasTimedOut && (
-            <View style={styles.doneBox}>
-              <CheckCircleIcon size={20} color={COLORS.successDark} />
-              <Text style={styles.doneText}>
-                Shift completed. {Number(today.hoursToday || 0).toFixed(2)} hours recorded.
-              </Text>
-            </View>
-          )}
-        </View>
 
         {/* Attendance History Section */}
         <View style={styles.sectionHeaderRow}>

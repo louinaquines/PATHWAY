@@ -6,6 +6,7 @@ import { adminRequest } from '../adminApi';
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
 jest.mock('../components/EndorsementDraftDialog', () => () => null);
+jest.mock('../components/ReviewedMailAttachment', () => () => null);
 jest.mock('firebase/firestore', () => ({ collection: jest.fn(), query: jest.fn(), where: jest.fn(), getDocs: jest.fn() }));
 
 const snapshot = records => ({ docs: records.map(record => ({ id: record.id, data: () => record })) });

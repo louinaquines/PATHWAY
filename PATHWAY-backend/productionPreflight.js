@@ -37,7 +37,7 @@ function validateProduction(env) {
       || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')
       || /^[\d.]+$/.test(host) || host.includes(':')) throw new Error('Invalid URL');
   } catch (_) { errors.push('Configure EVALUATION_WEB_URL as a public HTTPS site origin without credentials, paths, query or fragment.'); }
-  if (!env.ANTHROPIC_API_KEY) warnings.push('AI refinement will be unavailable without ANTHROPIC_API_KEY.');
+  // Journal review uses local rules; no paid rewriting service is required.
   warnings.push('Verify attached service identity/ADC permissions, staging delivery, backups, and rollback separately.');
   return { errors, warnings };
 }

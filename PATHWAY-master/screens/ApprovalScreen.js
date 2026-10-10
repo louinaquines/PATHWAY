@@ -81,12 +81,12 @@ export default function ApprovalScreen({ navigation }) {
     not_submitted: 'Review not yet submitted',
   };
   const statusMessages = {
-    approved: 'Your pre-deployment requirements and company placement are approved. You are cleared to begin logging your OJT hours.',
-    pending_review: 'Your coordinator is reviewing your pre-deployment documents and company placement details.',
-    needs_revision: 'Please review the coordinator notes below, update your submission in Step 3, and submit it again.',
-    rejected: 'Your coordinator did not approve this application. Check the notes below for further instructions.',
-    superseded: 'Your approved company placement changed. Submit a new final review for the updated placement.',
-    not_submitted: 'Submit your Final Review in Step 3 before checking the coordinator approval status.',
+    approved: 'Your application is approved. You can now record your OJT hours.',
+    pending_review: 'Your coordinator is reviewing your application.',
+    needs_revision: 'Read the comments below. Update Step 3 and resubmit.',
+    rejected: 'Your application was rejected. Read the coordinator’s comments.',
+    superseded: 'Your placement changed. Submit a new final review.',
+    not_submitted: 'Complete and submit Step 3 first.',
   };
   const statusLabels = {
     approved: 'CLEARED',
@@ -124,7 +124,7 @@ export default function ApprovalScreen({ navigation }) {
             </View>
           </View>
           <Text variant="heading" style={styles.heading}>Approval &amp; Clearance</Text>
-          <Text style={styles.pageDescription}>Track your coordinator’s final decision and what to do next.</Text>
+          <Text style={styles.pageDescription}>Check your application status.</Text>
         </View>
 
         <PreDeploymentStepper

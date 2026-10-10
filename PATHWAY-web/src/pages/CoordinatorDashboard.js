@@ -14,6 +14,7 @@ import ClearanceTab from './ClearanceTab';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
+import SubmissionNotifications from '../components/SubmissionNotifications';
 import { collection, getDocs, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
@@ -23,6 +24,8 @@ import { setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
+import DtrReviewDialog from '../components/DtrReviewDialog';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
 import { downloadSectionExcel } from '../sectionExport';
@@ -67,6 +70,8 @@ export default function CoordinatorDashboard() {
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const [rejectionModal, setRejectionModal] = useState(null); // { studentId, reqId }
   const [downloadingRequirement, setDownloadingRequirement] = useState('');
+  const [documentPreview, setDocumentPreview] = useState(null);
+  const [dtrStudent, setDtrStudent] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [sectionRequirements, setSectionRequirements] = useState([]);
   const [coordDept, setCoordDept] = useState('');
@@ -252,6 +257,8 @@ export default function CoordinatorDashboard() {
 
   return (
     <div style={s.page} className="coordinator-page">
+      {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
+      {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
@@ -393,7 +400,7 @@ export default function CoordinatorDashboard() {
             />
           </div>
         ) : (
-          <div style={s.contentWrapper}>
+          <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
             {activeTab === 'requirements' && (
               <div className="requirements-workspace" style={s.threeCol}>
                 {/* Column 1: Sections */}
@@ -461,9 +468,12 @@ export default function CoordinatorDashboard() {
 
                 {/* Column 3: Requirements */}
                 <div className="requirements-detail" style={s.col3}>
-                  <div style={s.colHeader}>
-                    {selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Document review'}
+                  <div style={{ ...s.colHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                    <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Document review'}
                     <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
+                    </div>
+                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} onOpen={setSelectedStudent} />
+                    {selectedStudent && <button type="button" className="btn-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare DTR</button>}
                   </div>
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>
@@ -516,16 +526,19 @@ export default function CoordinatorDashboard() {
                                           </div>
                                         )}
                                         {req?.cloudinaryPublicId && req?.cloudinaryVersion ? (
-                                          <button
+                                          <div className="requirement-file-actions"><button type="button" className="requirement-file-action"
+                                            onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(id)}/download`, fileName: req.fileName, sectionId: selectedSection.id, requirementId: id })}>
+                                            <Icon name="expand" size={16} /> View
+                                          </button><button
                                             type="button"
                                             disabled={downloadingRequirement === `${selectedStudent.id}:${id}`}
                                             onClick={() => handleDownloadRequirement(selectedStudent.id, id, req.fileName)}
                                             title={req.fileName || 'Signed endorsement letter'}
                                             aria-label={`Download private copy: ${req.fileName || 'signed endorsement letter'}`}
-                                            style={{ border: 0, background: 'transparent', color: COLORS.sky700, padding: '4px 0', marginTop: 4, fontWeight: 700, cursor: downloadingRequirement === `${selectedStudent.id}:${id}` ? 'wait' : 'pointer' }}
+                                            className="requirement-file-action"
                                           >
-                                            <><Icon name="paperclip" size={13} /> {downloadingRequirement === `${selectedStudent.id}:${id}` ? 'Downloading protected copy…' : 'Download private copy'}</>
-                                          </button>
+                                            <Icon name="download" size={16} /> {downloadingRequirement === `${selectedStudent.id}:${id}` ? 'Downloading…' : 'Download'}
+                                          </button></div>
                                         ) : req?.fileUrl && (
                                           <span style={s.fileLink}>Please upload this document again to enable secure download.</span>
                                         )}

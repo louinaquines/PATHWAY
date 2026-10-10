@@ -5,12 +5,12 @@ import { useReducedMotion } from './Motion';
 
 const VARIANTS = {
   dashboard: { profile: true, stats: true, cards: 3, darkHeader: false },
-  inbox: { profile: false, stats: false, cards: 5, darkHeader: true },
+  inbox: { profile: false, stats: false, cards: 5, darkHeader: false },
   progress: { profile: false, stats: true, cards: 4, darkHeader: true },
   requirements: { profile: false, stats: false, cards: 5, darkHeader: false },
   placement: { profile: false, stats: false, cards: 4, darkHeader: false },
-  attendance: { profile: false, stats: true, cards: 3, darkHeader: true },
-  logbook: { profile: false, stats: false, cards: 4, darkHeader: true },
+  attendance: { profile: false, stats: false, cards: 2, darkHeader: false },
+  logbook: { profile: false, stats: false, cards: 3, darkHeader: false },
   review: { profile: false, stats: false, cards: 4, darkHeader: false },
 };
 
@@ -48,7 +48,42 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
         <Block pulse={pulse} style={[styles.headerTitle, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
         <Block pulse={pulse} style={[styles.headerAction, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
       </View>
+      {variant === 'inbox' && (
+        <View style={styles.inboxControls}>
+          <View style={styles.inboxTabs}>
+            <Block pulse={pulse} style={{ flex: 1, height: 36 }} />
+            <Block pulse={pulse} style={{ flex: 1, height: 36 }} />
+          </View>
+          <Block pulse={pulse} style={{ height: 44, width: '100%' }} />
+        </View>
+      )}
       <View style={[styles.body, variant === 'dashboard' && styles.dashboardBody]}>
+        {(variant === 'logbook' || variant === 'attendance') && (
+          <View style={{ gap: 16 }}>
+            <View style={{ gap: 8 }}>
+              <Block pulse={pulse} style={{ width: 100, height: 10 }} />
+              <Block pulse={pulse} style={{ width: '55%', height: 24 }} />
+              <Block pulse={pulse} style={{ width: '90%', height: 12 }} />
+            </View>
+            <View style={[styles.card, { gap: 14 }]}>
+              <Block pulse={pulse} style={{ width: 120, height: 10 }} />
+              {variant === 'attendance' ? (
+                <View style={{ gap: 12 }}>
+                  <Block pulse={pulse} style={{ width: '55%', height: 34 }} />
+                  <Block pulse={pulse} style={{ width: '100%', height: 8 }} />
+                  <Block pulse={pulse} style={{ width: '65%', height: 12 }} />
+                </View>
+              ) : <View style={{ flexDirection: 'row', gap: 16 }}>
+                {[0, 1, 2].map(key => (
+                  <View key={key} style={{ flex: 1, gap: 8 }}>
+                    <Block pulse={pulse} style={{ width: '60%', height: 24 }} />
+                    <Block pulse={pulse} style={{ width: '85%', height: 10 }} />
+                  </View>
+                ))}
+              </View>}
+            </View>
+          </View>
+        )}
         {variant === 'dashboard' ? (
           <View style={styles.dashboardSkeleton}>
             <View style={styles.welcomeSkeleton}>
@@ -178,6 +213,8 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
 }
 
 const styles = StyleSheet.create({
+  inboxControls: { backgroundColor: COLORS.surface, paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
+  inboxTabs: { flexDirection: 'row', gap: 8, padding: 4, borderRadius: 16, backgroundColor: COLORS.surfaceMuted },
   screen: { flex: 1, backgroundColor: COLORS.background },
   header: {
     minHeight: 62,

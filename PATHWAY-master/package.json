@@ -28,5 +28,16 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "^0.21.0"
   },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    },
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.6"
+    },
+    "@expo/metro-config": {
+      "postcss": "8.5.29"
+    }
+  },
   "private": true
 }

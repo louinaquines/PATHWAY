@@ -11,8 +11,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { collection, addDoc, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
+import { collection, addDoc, doc, runTransaction, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
 import { readRecordPage, mergeRecords } from '../services/recordPagination';
+import { logbookLoadErrorMessage } from '../services/logbookLoadError';
 import LoadMore from '../components/LoadMore';
 import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
@@ -125,7 +126,7 @@ function ReviewStatusCard({ summary }) {
 }
 
 // ─── Log entry card ───────────────────────────────────────────────────────────
-function LogEntryCard({ entry, isExpanded, onToggle }) {
+function LogEntryCard({ entry, isExpanded, onToggle, onRevise }) {
   const config = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
   const preview = (entry.refined || entry.rawNotes || '').slice(0, 90);
 
@@ -191,6 +192,12 @@ function LogEntryCard({ entry, isExpanded, onToggle }) {
         )}
 
         {/* Bottom row: expand toggle */}
+        {entry.status === 'rejected' && (
+          <MotionTouchableOpacity onPress={event => { event.stopPropagation(); onRevise(entry); }} accessibilityRole="button" accessibilityLabel={`Edit and resubmit Week ${entry.weekNum}`} style={styles.reviseButton}>
+            <Text style={styles.reviseButtonText}>Edit and resubmit</Text>
+            <ArrowRightIcon size={16} color={COLORS.primary} />
+          </MotionTouchableOpacity>
+        )}
         <View style={styles.entryFooter}>
           <Text style={styles.expandToggleText}>
             {isExpanded ? 'Show less' : 'Read report'}
@@ -209,6 +216,7 @@ export default function LogbookScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [modal, setModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
   const [rawNotes, setRawNotes] = useState('');
   const [hours, setHours] = useState('');
   const [refining, setRefining] = useState(false);
@@ -240,7 +248,7 @@ export default function LogbookScreen({ navigation }) {
       setSummary({ count: count.data().count, hours: hours.data().hours || 0, pending: pending.data().count, approved: approved.data().count, rejected: rejected.data().count });
     } catch (e) {
       console.error('Fetch logbook entries error:', e);
-      setLoadError('Your logbook entries could not be loaded. Check your connection and try again.');
+      setLoadError(logbookLoadErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -258,63 +266,78 @@ export default function LogbookScreen({ navigation }) {
     finally { setLoadingMore(false); }
   };
 
-  const refineWithAI = async () => {
+  const checkNotes = () => {
     if (!rawNotes.trim()) {
-      Alert.alert('Nothing to refine', 'Write your weekly notes first.');
+      Alert.alert('No notes yet', 'Write your weekly notes first.');
       return;
     }
-    setRefining(true);
-    try {
-      const data = await postBackend('/refine-logbook', { notes: rawNotes });
-      setRefined(data.refined || '');
-    } catch (e) {
-      Alert.alert('AI Refinement', 'Could not connect to AI. You may submit your original notes directly.');
-    } finally {
-      setRefining(false);
-    }
+    const warnings = [];
+    if (rawNotes.trim().split(/\s+/).length < 20) warnings.push('Check that your activities and learning are described.');
+    if (!Number.isFinite(Number(hours)) || Number(hours) <= 0 || Number(hours) > 168) warnings.push('Enter weekly hours from 1 to 168.');
+    Alert.alert('Notes checklist', (warnings.length ? warnings.join('\n\n') : 'No basic warnings found.') + '\n\nCheck your week, activities, learning and hours before submitting. Your notes are not rewritten or approved.');
   };
 
   const handleSubmit = async () => {
+    if (saving || refining) return;
     if (!rawNotes.trim()) {
-      Alert.alert('Missing Notes', 'Write your weekly work notes before submitting.');
+      Alert.alert('Notes required', 'Enter your weekly notes before submitting.');
       return;
     }
-    if (!hours || isNaN(hours) || +hours <= 0) {
-      Alert.alert('Invalid Hours', 'Enter the valid number of hours completed this week.');
+    if (!hours || !Number.isFinite(+hours) || +hours <= 0 || +hours > 168) {
+      Alert.alert('Invalid hours', 'Enter weekly hours greater than 0 and no more than 168.');
+      return;
+    }
+    if (rawNotes.trim().length > 8000 || refined.trim().length > 8000) {
+      Alert.alert('Report too long', 'Keep your report within 8,000 characters.');
       return;
     }
     setSaving(true);
     try {
-      const weekNum = summary.count + 1;
       const entryText = refined.trim() || rawNotes.trim();
-      await addDoc(collection(db, 'users', uid, 'logbook'), {
-        weekNum,
+      const content = { rawNotes: rawNotes.trim(), refined: entryText, aiRefined: Boolean(refined.trim()), hours: +hours, status: 'pending' };
+      if (editingEntry) {
+        await runTransaction(db, async transaction => {
+          const entryRef = doc(db, 'users', uid, 'logbook', editingEntry.id);
+          const [profile, current] = await Promise.all([transaction.get(doc(db, 'users', uid)), transaction.get(entryRef)]);
+          if (profile.data()?.clearanceStatus === 'cleared') throw new Error('Cleared OJT records are locked.');
+          if (!current.exists() || current.data().status !== 'rejected') throw new Error('This entry is no longer available for revision. Reopen Logbook to refresh it.');
+          transaction.update(entryRef, content);
+        });
+      } else await addDoc(collection(db, 'users', uid, 'logbook'), {
+        ...content,
+        weekNum: summary.count + 1,
         weekRange: getWeekRange(new Date()),
-        rawNotes: rawNotes.trim(),
-        refined: entryText,
-        aiRefined: Boolean(refined.trim()),
-        hours: +hours,
-        status: 'pending',
         createdAt: new Date().toISOString(),
       });
       setModal(false);
-      showStudentSuccess('Logbook submitted', 'Your entry was saved and is ready for coordinator review.');
+      showStudentSuccess(editingEntry ? 'Logbook resubmitted' : 'Logbook submitted', 'Your entry was saved and is ready for coordinator review.');
+      setEditingEntry(null);
       setRawNotes('');
       setHours('');
       setRefined('');
       fetchEntries();
     } catch (e) {
-      Alert.alert('Error', 'Failed to submit logbook entry. Try again.');
+      Alert.alert('Could not submit', e.message || 'Failed to submit logbook entry. Try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const closeModal = () => {
+    if (saving) return;
+    setEditingEntry(null);
     setModal(false);
     setRawNotes('');
     setHours('');
     setRefined('');
+  };
+
+  const reviseEntry = entry => {
+    setEditingEntry(entry);
+    setRawNotes(entry.rawNotes || entry.refined || '');
+    setHours(String(entry.hours || ''));
+    setRefined(entry.aiRefined ? entry.refined || '' : '');
+    setModal(true);
   };
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -362,7 +385,7 @@ export default function LogbookScreen({ navigation }) {
         <View style={styles.pageIntro}>
           <Text style={styles.pageEyebrow}>WEEKLY JOURNAL</Text>
           <Text variant="heading" style={styles.pageTitle}>Your logbook</Text>
-          <Text style={styles.pageSubtitle}>Record your work and track each report through coordinator review.</Text>
+          <Text style={styles.pageSubtitle}>Submit weekly reports and check their status.</Text>
         </View>
 
         {loadError ? (
@@ -392,7 +415,7 @@ export default function LogbookScreen({ navigation }) {
               <Text style={styles.statValue}>
                 {Number(summary.hours).toFixed(1).replace(/\.0$/, '')}
               </Text>
-              <Text style={styles.statLabel}>Hours logged</Text>
+              <Text style={styles.statLabel}>Reported journal hours</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
@@ -443,6 +466,7 @@ export default function LogbookScreen({ navigation }) {
             entry={entry}
             isExpanded={expanded === entry.id}
             onToggle={() => setExpanded(expanded === entry.id ? null : entry.id)}
+            onRevise={reviseEntry}
           />
         ))}
         <LoadMore onPress={loadMoreEntries} loading={loadingMore} hasMore={pageState.hasMore} error={pageError} />
@@ -460,7 +484,7 @@ export default function LogbookScreen({ navigation }) {
           </View>
           <View style={styles.dtrNotice}>
             <InfoIcon size={16} color={COLORS.textMuted} />
-            <Text style={styles.dtrNoticeText}>DTR file upload and automated verification aren’t available yet. Record your daily attendance in the Logs screen.</Text>
+            <Text style={styles.dtrNoticeText}>DTR uploads are not available. Record attendance in Logs.</Text>
           </View>
           <MotionTouchableOpacity
             style={styles.attendanceBtn}
@@ -493,7 +517,7 @@ export default function LogbookScreen({ navigation }) {
             {/* Modal header */}
             <View style={styles.modalHeader}>
               <View>
-                <Text style={styles.modalTitle}>New Weekly Entry</Text>
+                <Text style={styles.modalTitle}>{editingEntry ? `Revise Week ${editingEntry.weekNum}` : 'New Weekly Entry'}</Text>
                 <Text style={styles.modalWeek}>
                   Week {summary.count + 1}  ·  {getWeekRange(new Date())}
                 </Text>
@@ -528,7 +552,7 @@ export default function LogbookScreen({ navigation }) {
                   placeholder="Describe what you accomplished this week (e.g. Configured database, attended stand-up meetings, completed onboarding)..."
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={rawNotes}
-                  onChangeText={setRawNotes}
+                  onChangeText={value => { setRawNotes(value); setRefined(''); }}
                   multiline
                   textAlignVertical="top"
                 />
@@ -537,7 +561,7 @@ export default function LogbookScreen({ navigation }) {
               {/* AI Refine button */}
               <TouchableOpacity
                 style={[styles.refineBtn, refining && { opacity: 0.6 }]}
-                onPress={refineWithAI}
+                onPress={checkNotes}
                 disabled={refining || saving}
                 activeOpacity={0.85}
               >
@@ -546,7 +570,7 @@ export default function LogbookScreen({ navigation }) {
                 ) : (
                   <>
                     <SparklesIcon size={15} color={COLORS.accent} />
-                    <Text style={styles.refineBtnText}>Polish with AI Assistant</Text>
+                    <Text style={styles.refineBtnText}>Check notes</Text>
                     <Text style={styles.refineOptional}>(Optional)</Text>
                   </>
                 )}
@@ -557,7 +581,7 @@ export default function LogbookScreen({ navigation }) {
                 <View style={styles.refinedBox}>
                   <View style={styles.refinedHeaderRow}>
                     <SparklesIcon size={13} color={COLORS.successDark} />
-                    <Text style={styles.refinedLabel}>AI POLISHED VERSION</Text>
+                    <Text style={styles.refinedLabel}>SAVED REVISED TEXT</Text>
                   </View>
                   <Text style={styles.refinedText}>{refined}</Text>
                 </View>
@@ -587,7 +611,7 @@ export default function LogbookScreen({ navigation }) {
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                      <Text style={styles.submitBtnText}>Submit Log</Text>
+                      <Text style={styles.submitBtnText}>{editingEntry ? 'Resubmit entry' : 'Submit Log'}</Text>
                       <ArrowRightIcon size={15} color="#fff" />
                     </>
                   )}
@@ -605,6 +629,8 @@ export default function LogbookScreen({ navigation }) {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  reviseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, marginTop: 12, borderRadius: 12, backgroundColor: COLORS.primaryLight },
+  reviseButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

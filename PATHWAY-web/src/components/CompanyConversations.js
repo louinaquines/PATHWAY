@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import './CompanyConversations.css';
+import ReviewedMailAttachment from './ReviewedMailAttachment';
 
 export default function CompanyConversations({ sectionId }) {
   const [list, setList] = useState(null);
@@ -11,6 +12,9 @@ export default function CompanyConversations({ sectionId }) {
   const [error, setError] = useState('');
   const [linking, setLinking] = useState(false);
   const [draft, setDraft] = useState('');
+  const [attachment, setAttachment] = useState(null);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentReset, setAttachmentReset] = useState(0);
   const [studentId, setStudentId] = useState('');
   async function discover(event) {
     event.preventDefault();
@@ -34,7 +38,7 @@ export default function CompanyConversations({ sectionId }) {
   const pendingKey = `pathway-company-reply:${sectionId}:${selected}`;
   const sendGeneration = useRef(0);
   const linkGeneration = useRef(0);
-  useEffect(() => { sendGeneration.current++; setDraft(''); setSending(false); setSendStatus(''); request.current = null; sendLock.current = false;
+  useEffect(() => { sendGeneration.current++; setDraft(''); setAttachment(null); setAttachmentBusy(false); setSending(false); setSendStatus(''); request.current = null; sendLock.current = false;
     try { const pending = sessionStorage.getItem(pendingKey); if (pending) {
       request.current = { requestId: pending }; setSendStatus('A previous send needs a status check before another reply.');
     } } catch { /* storage unavailable; current-page lock still applies */ }
@@ -47,20 +51,20 @@ export default function CompanyConversations({ sectionId }) {
       if (generation !== sendGeneration.current) return;
       if (result.status === 'provider_accepted') {
         try { sessionStorage.removeItem(pendingKey); } catch {}
-        request.current = null; setDraft(''); setSendStatus('Reply accepted by Gmail. Inbox delivery is not confirmed.'); setRevision(value => value + 1);
+        request.current = null; setDraft(''); setAttachment(null); setAttachmentReset(value => value + 1); setSendStatus('Reply accepted by Gmail. Inbox delivery is not confirmed.'); setRevision(value => value + 1);
       } else setSendStatus('Delivery requires review in the mailbox. No second email was sent.');
     } catch { if (generation === sendGeneration.current) setSendStatus('Could not check delivery. Sending remains locked.'); }
     finally { if (generation === sendGeneration.current) setSending(false); }
   }
   async function sendReply(event) {
     event.preventDefault();
-    if (sendLock.current || !thread?.canReply || !draft.trim()) return;
+    if (sendLock.current || attachmentBusy || !thread?.canReply || !draft.trim() || (attachment && !attachment.reviewed)) return;
     const generation = sendGeneration.current;
     const conversation = selected;
     sendLock.current = true; setSending(true); setSendStatus('');
     // Keep the request ID after a failed response. Never generate a new attempt for
     // uncertain delivery; backend returns the existing reservation instead.
-    if (!request.current) request.current = { requestId: window.crypto.randomUUID(), text: draft };
+    if (!request.current) request.current = { requestId: window.crypto.randomUUID(), text: draft, ...(attachment ? { attachment } : {}) };
     try { sessionStorage.setItem(pendingKey, request.current.requestId); } catch {
       setSendStatus('Could not save the send guard. No email was sent.'); request.current = null; sendLock.current = false; setSending(false); return;
     }
@@ -69,7 +73,7 @@ export default function CompanyConversations({ sectionId }) {
         { method: 'POST', body: JSON.stringify(request.current) });
       if (generation !== sendGeneration.current) return;
       if (result.status !== 'provider_accepted') throw new Error('Delivery is not confirmed. Check status before retrying.');
-      setDraft(''); setSendStatus('Reply accepted by Gmail. Inbox delivery is not confirmed.');
+      setDraft(''); setAttachment(null); setAttachmentReset(value => value + 1); setSendStatus('Reply accepted by Gmail. Inbox delivery is not confirmed.');
       try { sessionStorage.removeItem(pendingKey); } catch {}
       request.current = null; setRevision(value => value + 1);
     } catch (failure) {
@@ -141,8 +145,9 @@ export default function CompanyConversations({ sectionId }) {
           <label htmlFor="company-mail-reply">Message</label>
           <textarea id="company-mail-reply" value={draft} maxLength={10000} rows={4} disabled={sending || !!request.current}
             placeholder="Write a reply…" onChange={event => setDraft(event.target.value)} />
-          <div className="company-mail-compose-footer"><small>No attachments. Replies stay in this email conversation.</small>
-            <button type="submit" disabled={sending || !draft.trim() || !!request.current}>{sending ? 'Sending…' : 'Send reply'}</button></div>
+          <ReviewedMailAttachment key={`${sectionId}:${selected}:${attachmentReset}`} value={attachment} onChange={setAttachment} onBusy={setAttachmentBusy} disabled={sending || !!request.current} />
+          <div className="company-mail-compose-footer"><small>Replies stay in this email conversation.</small>
+            <button type="submit" disabled={sending || attachmentBusy || !draft.trim() || !!request.current || (attachment && !attachment.reviewed)}>{sending ? 'Sending…' : 'Send reply'}</button></div>
         </form>}
         {sendStatus && <p role="status" className="company-mail-send-status">{sendStatus}</p>}
         {request.current && <button type="button" disabled={sending} onClick={checkDelivery}>Check delivery status</button>}

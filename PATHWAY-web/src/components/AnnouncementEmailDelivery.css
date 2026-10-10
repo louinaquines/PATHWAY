@@ -1,0 +1,14 @@
+.announcement-email-card { width:100%; box-sizing:border-box; padding:24px; border:1px solid #e2e8f0; border-radius:16px; background:#fff; color:#203047; }
+.announcement-email-card header,.announcement-email-card footer { display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.announcement-email-card h3 { margin:0; font-size:17px; }
+.announcement-email-card p,.announcement-email-card small { color:#64748b; font-size:13px; line-height:1.6; }
+.announcement-email-table { overflow-x:auto; margin:16px 0; }
+.announcement-email-table table { width:100%; border-collapse:collapse; text-align:left; font-size:13px; }
+.announcement-email-table th,.announcement-email-table td { padding:12px; border-bottom:1px solid #e2e8f0; overflow-wrap:anywhere; }
+.announcement-email-table th { background:#f8fafc; color:#475569; }
+.announcement-email-card button { padding:10px 14px; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:#075fc9; font:inherit; font-size:13px; }
+.announcement-email-card footer button { background:#075fc9; color:#fff; border-color:#075fc9; }
+.announcement-email-card button:disabled { opacity:.5; }
+.announcement-email-card :focus-visible { outline:3px solid #87b9f6; outline-offset:2px; }
+.announcement-email-card [role=alert] { color:#ad243a; }
+@media(max-width:600px) { .announcement-email-card { padding:16px; } }

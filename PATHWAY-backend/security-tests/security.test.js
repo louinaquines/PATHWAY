@@ -907,6 +907,18 @@ test('Cloudinary upload authorization is server-signed, student-scoped, and sing
   }, 'PUT');
   assert.equal(finalized.response.status, 200, JSON.stringify(finalized.data));
   assert.equal(finalized.data.fileSize, '0.5 MB');
+  const documentBytes = Buffer.from('%PDF-1.7\nverified ordinary requirement\n%%EOF');
+  asset.asset_id = 'ordinary-document-asset-000001';
+  cloudinaryDownloadAssets.set(asset.asset_id, documentBytes);
+  const downloadPath = `/coordinator/students/${identities.studentA.uid}/requirements/application_form/download`;
+  assert.equal((await api(downloadPath, null, undefined, 'GET')).response.status, 401);
+  assert.equal((await api(downloadPath, identities.coordinatorB, undefined, 'GET')).response.status, 403);
+  const ordinaryDownload = await api(downloadPath, identities.coordinatorA, undefined, 'GET');
+  assert.equal(ordinaryDownload.response.status, 200, JSON.stringify(ordinaryDownload.data));
+  assert.match(ordinaryDownload.response.headers.get('cache-control'), /no-store/);
+  asset.version = version + 1;
+  assert.equal((await api(downloadPath, identities.coordinatorA, undefined, 'GET')).response.status, 404);
+  asset.version = version;
   const replay = await api('/requirements/application_form', identities.studentA, {
     status: 'submitted', intentId: signed.data.intentId, publicId: asset.public_id,
     version, signature: responseSignature, fileName: 'my-application.pdf',

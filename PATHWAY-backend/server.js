@@ -326,20 +326,45 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
 
 async function streamAuthenticatedRequirement(res, { studentId, requirementId, student, actorId, actorRole }) {
   const requirement = student.requirements?.[requirementId];
-  if (requirement?.cloudinaryDeliveryType !== 'authenticated' || !requirement.cloudinaryAssetId
-    || !Number.isSafeInteger(requirement.uploadedBytes) || requirement.uploadedBytes < 1
+  if (!(requirement?.cloudinaryDeliveryType === 'authenticated' && requirement.cloudinaryAssetId)
+    && !(requirement?.cloudinaryPublicId && requirement.cloudinaryVersion)) {
+    return res.status(404).json({ error: 'A verified file is not available for this requirement.' });
+  }
+  if (!Number.isSafeInteger(requirement.uploadedBytes) || requirement.uploadedBytes < 1
     || requirement.uploadedBytes > MAX_UPLOAD_BYTES) {
     return res.status(404).json({ error: 'A private file is not available for this requirement.' });
   }
   const config = cloudinaryConfig();
   if (!config) return res.status(503).json({ error: 'Protected document delivery is not configured.' });
+  const deliveryType = requirement.cloudinaryDeliveryType === 'authenticated' ? 'authenticated' : 'upload';
+  let assetId = requirement.cloudinaryAssetId;
+  if (deliveryType !== 'authenticated' || !assetId) {
+    // Resolve older verified uploads through the provider's authenticated API,
+    // never fetch an arbitrary stored/client URL or relax CDN access controls.
+    const storedUrl = new URL(requirement.fileUrl || '');
+    const prefix = `/${config.cloudName}/`;
+    if (storedUrl.protocol !== 'https:' || storedUrl.hostname !== 'res.cloudinary.com'
+      || !storedUrl.pathname.startsWith(prefix)
+      || !requirement.cloudinaryPublicId.startsWith(`pathway/requirements/${studentId}/${requirementId}-`)) {
+      return res.status(404).json({ error: 'A verified file is not available for this requirement.' });
+    }
+    const resourceType = storedUrl.pathname.slice(prefix.length).split('/')[0];
+    if (!['image', 'raw'].includes(resourceType)) return res.status(404).json({ error: 'Unsupported document resource.' });
+    const asset = await fetchCloudinaryAsset({ ...config, resourceType, publicId: requirement.cloudinaryPublicId, deliveryType });
+    if (!validateAssetMetadata(asset, { cloudName: config.cloudName, expectedPublicId: requirement.cloudinaryPublicId,
+      expectedVersion: requirement.cloudinaryVersion, kind: 'requirement', expectedDeliveryType: deliveryType })
+      || asset.bytes !== requirement.uploadedBytes) {
+      return res.status(404).json({ error: 'Document verification failed.' });
+    }
+    assetId = asset.asset_id;
+  }
   const bytes = await fetchCloudinaryAssetDownload({
-    ...config, assetId: requirement.cloudinaryAssetId, fileName: requirement.fileName,
+    ...config, assetId, fileName: requirement.fileName,
   });
   const safeFileName = String(requirement.fileName || 'endorsement-letter').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 160) || 'endorsement-letter';
   await recordAudit({
     actorId, actorRole, action: 'requirement.downloaded', targetType: 'requirements', targetId: requirementId,
-    details: { studentId, sectionId: student.sectionId || null, deliveryType: 'authenticated' },
+    details: { studentId, sectionId: student.sectionId || null, deliveryType },
   });
   res.set({
     'Cache-Control': 'private, no-store',

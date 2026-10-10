@@ -515,7 +515,7 @@ export default function CoordinatorDashboard() {
                                             <strong style={{ color: '#000000' }}>Reason:</strong> <span style={{ color: '#000000' }}>{req.rejectionReason}</span>
                                           </div>
                                         )}
-                                        {req?.cloudinaryDeliveryType === 'authenticated' && req?.cloudinaryAssetId ? (
+                                        {req?.cloudinaryPublicId && req?.cloudinaryVersion ? (
                                           <button
                                             type="button"
                                             disabled={downloadingRequirement === `${selectedStudent.id}:${id}`}
@@ -527,14 +527,7 @@ export default function CoordinatorDashboard() {
                                             <><Icon name="paperclip" size={13} /> {downloadingRequirement === `${selectedStudent.id}:${id}` ? 'Downloading protected copy…' : 'Download private copy'}</>
                                           </button>
                                         ) : req?.fileUrl && (
-                                          <a
-                                            href={req.fileUrl + '?fl_attachment=true'}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            style={s.fileLink}
-                                          >
-                                            <><Icon name="paperclip" size={13} /> View / Download {req.fileName || 'Attachment'}</>
-                                          </a>
+                                          <span style={s.fileLink}>Please upload this document again to enable secure download.</span>
                                         )}
                                       </div>
                                     </div>

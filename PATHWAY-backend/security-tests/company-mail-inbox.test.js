@@ -47,10 +47,39 @@ test('provider JSON is bounded and provider errors are not exposed', async () =>
 });
 test('authorization is checked before mailbox access', async () => {
   let handler, reads = 0;
-  installCompanyInbox({ app: { get: (_path, _middleware, callback) => { handler = callback; } },
+  installCompanyInbox({ app: { post() {}, get: (_path, _middleware, callback) => { handler = callback; } },
     requireStaff: () => {}, coordinatorSection: async () => { throw Object.assign(new Error('Not assigned'), { status: 403 }); },
     allowRate: () => true, inbox: { ownerId: 'staff', readThread: () => { reads++; } } });
   const response = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
   await handler({ staff: { uid: 'staff' }, params: { sectionId: 'section', conversationId: 'conversation' } }, response);
   assert.equal(response.code, 403); assert.equal(reads, 0);
+});
+
+test('reply ancestry includes both directions but excludes unrelated same-thread mail', () => {
+  const { authorizedMessages } = require('../companyMailInbox');
+  const messages = [
+    { id: 'anchor', rfcMessageId: '<first@company.com>' },
+    { id: 'sent', rfcMessageId: '<second@pathway.invalid>', inReplyTo: '<first@company.com>', from: 'mailbox@example.com', to: 'Company <contact@example.com>' },
+    { id: 'reply', rfcMessageId: '<third@company.com>', references: '<second@pathway.invalid>', from: 'contact@example.com', to: 'mailbox@example.com' },
+    { id: 'unrelated', rfcMessageId: '<other@company.com>', from: 'contact@example.com', to: 'mailbox@example.com' },
+    { id: 'wrong', inReplyTo: '<first@company.com>', from: 'attacker@example.com', to: 'mailbox@example.com' },
+  ];
+  assert.deepEqual(authorizedMessages(messages, 'anchor', 'contact@example.com', 'mailbox@example.com').map(m => m.id), ['anchor', 'sent', 'reply']);
+  assert.deepEqual(authorizedMessages(messages, 'missing', 'contact@example.com', 'mailbox@example.com'), []);
+});
+
+test('placement discovery refuses query injection before accessing Gmail', async () => {
+  let calls = 0;
+  const inbox = createCompanyInbox(env, async () => { calls++; });
+  await assert.rejects(inbox.findPlacementConversations('x@example.com OR from:private@example.com'));
+  assert.equal(calls, 0);
+});
+
+test('placement discovery is disabled by default without mailbox access', async () => {
+  let handler, calls = 0;
+  installCompanyInbox({ app: { get() {}, post: (_p, _a, h) => { handler = h; } },
+    inbox: { ownerId: 'staff', findPlacementConversations() { calls++; } } });
+  const res = { set() {}, status(code) { this.code = code; return this; }, json(data) { this.body = data; } };
+  await handler({ staff: { uid: 'staff' }, params: { sectionId: 's' }, body: { studentId: 'student' } }, res);
+  assert.equal(res.code, 503); assert.equal(calls, 0);
 });

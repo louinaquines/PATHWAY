@@ -14,8 +14,8 @@ function fixture() {
   const db = { collection: name => ({ doc: id => ref(`${name}/${id}`) }), runTransaction: async callback => callback({
     get: r => r.get(), create: (r, data) => records.set(r.path, data),
   }) };
-  let handler, sends = 0, fail = false;
-  installCompanyReplies({ app: { post: (_path, _auth, h) => { handler = h; } }, db, requireStaff() {},
+  let handler, statusHandler, sends = 0, fail = false;
+  installCompanyReplies({ app: { get: (_path, _auth, h) => { statusHandler = h; }, post: (_path, _auth, h) => { handler = h; } }, db, requireStaff() {},
     coordinatorSection: async () => {}, allowRate: () => true,
     sender: { ownerId: 'owner', sendReply: async () => { sends++; if (fail) throw new Error('timeout'); return { status: 'provider_accepted', providerMessageId: 'sent' }; } } });
   async function call(body = { requestId: 'request1', text: 'Test' }) {
@@ -24,11 +24,31 @@ function fixture() {
     await handler({ params: { sectionId: 's', conversationId: 'c' }, staff: { uid: 'owner', data: { department: 'd' } }, body }, res);
     return output;
   }
-  return { call, records, sends: () => sends, fail: () => { fail = true; } };
+  async function status(requestId = 'request1') {
+    const output = { status: 200 };
+    const res = { set() {}, status(code) { output.status = code; return this; }, json(data) { output.body = data; } };
+    await statusHandler({ params: { sectionId: 's', conversationId: 'c', requestId }, staff: { uid: 'owner', data: { department: 'd' } } }, res);
+    return output;
+  }
+  return { call, status, records, sends: () => sends, fail: () => { fail = true; } };
 }
 test('same request returns acceptance without a second send', async () => {
   const f = fixture(); assert.equal((await f.call()).status, 200);
   assert.equal((await f.call()).body.replayed, true); assert.equal(f.sends(), 1);
+});
+
+test('delivery status lookup never resends and rejects reassigned students', async () => {
+  const f = fixture(); await f.call();
+  assert.equal((await f.status()).body.status, 'provider_accepted'); assert.equal(f.sends(), 1);
+  f.records.get('users/student').sectionId = 'other';
+  assert.equal((await f.status()).status, 403); assert.equal(f.sends(), 1);
+});
+
+test('a superseded placement cannot send to the previous company', async () => {
+  const f = fixture(); Object.assign(f.records.get('sections/s/companyConversations/c'), { placementBound: true, proposalId: 'p' });
+  Object.assign(f.records.get('users/student'), { placementStatus: 'approved', placementProposalId: 'other' });
+  f.records.set('companyProposals/p', { status: 'approved', studentId: 'student', sectionId: 's', department: 'd', companyEmail: 'test@example.com' });
+  assert.equal((await f.call()).status, 409); assert.equal(f.sends(), 0);
 });
 test('recipient injection and unapproved mappings cannot send', async () => {
   const f = fixture(); assert.equal((await f.call({ requestId: 'a', text: 'Test', to: 'other@example.com' })).status, 400);

@@ -2439,7 +2439,8 @@ require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireSta
 const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
 const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
 const companySender = require('./companyMailSender').createCompanySender(process.env);
-installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender });
+installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender,
+  discoveryEnabled: process.env.COMPANY_INBOX_PLACEMENT_DISCOVERY_ENABLED === '1' });
 require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
   inbox: companyInbox, sender: companySender, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });

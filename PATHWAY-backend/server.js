@@ -2442,7 +2442,7 @@ const companySender = require('./companyMailSender').createCompanySender(process
 installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender });
 require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
-  inbox: companyInbox, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });
+  inbox: companyInbox, sender: companySender, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });
 
 app.post('/create-evaluation-token', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });

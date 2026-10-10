@@ -1545,7 +1545,17 @@ app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (
       const studentSnap = await transaction.get(studentRef);
       if (!studentSnap.exists || studentSnap.data().role !== 'student') throw Object.assign(new Error('Student registration not found.'), { status: 404 });
       const student = studentSnap.data();
-      if (student.department !== req.staff.data.department || student.sectionId !== '') throw Object.assign(new Error('This registration is outside your assigned department or is already assigned.'), { status: 403 });
+      if (student.department !== req.staff.data.department) throw Object.assign(new Error('This registration is outside your assigned department.'), { status: 403 });
+      if (student.sectionId !== '') {
+        if (typeof student.sectionId !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(student.sectionId)) {
+          throw Object.assign(new Error('This registration has an invalid section assignment.'), { status: 403 });
+        }
+        const section = await transaction.get(adminDb.collection('sections').doc(student.sectionId));
+        if (!section.exists || section.data().coordinatorId !== req.staff.uid
+          || section.data().department !== student.department) {
+          throw Object.assign(new Error('You can only review registrations in your assigned sections.'), { status: 403 });
+        }
+      }
       if (student.accountApproved === true || student.status === 'approved') throw Object.assign(new Error('This registration has already been approved.'), { status: 409 });
       transaction.update(studentRef, status === 'approved' ? {
         accountApproved: true, status: 'not_submitted', approvedBy: req.staff.uid, approvedAt: now,

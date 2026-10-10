@@ -1179,6 +1179,35 @@ test('provisioned accounts require password replacement, preserve reimports, and
   assert.equal((await api('/auth/profile', student, {})).data.profile.passwordChangeRequired, true);
 });
 
+test('assigned pending registrations are restricted to their owning coordinator', async () => {
+  const id = 'qa-assigned-pending';
+  const target = `/coordinator/registrations/${id}/decision`;
+  const profile = { role: 'student', department: 'Department A', sectionId: 'section-a', accountApproved: false, status: 'pending', requirements: {}, placementStatus: 'not_started', preDeploymentStatus: 'not_submitted' };
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'users', id), profile);
+    await setDoc(doc(context.firestore(), 'sections', 'qa-other-owner'), { department: 'Department A', coordinatorId: identities.coordinatorB.uid });
+  });
+  assert.equal((await api(target, null, { status: 'approved' })).response.status, 401);
+  assert.equal((await api(target, identities.studentA, { status: 'approved' })).response.status, 403);
+  assert.equal((await api(target, identities.coordinatorB, { status: 'approved' })).response.status, 403);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', id), { sectionId: 'qa-other-owner' });
+  });
+  assert.equal((await api(target, identities.coordinatorA, { status: 'approved' })).response.status, 403);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', id), { sectionId: 'section-a' });
+  });
+  assert.equal((await api(target, identities.coordinatorA, { status: 'approved' })).response.status, 200);
+  assert.equal((await api(target, identities.coordinatorA, { status: 'approved' })).response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const saved = (await getDoc(doc(context.firestore(), 'users', id))).data();
+    assert.equal(saved.accountApproved, true);
+    assert.equal(saved.sectionId, profile.sectionId);
+    assert.equal(saved.preDeploymentStatus, profile.preDeploymentStatus);
+    assert.equal(saved.placementStatus, profile.placementStatus);
+  });
+});
+
 test('authorized registration, assignment, and requirement review use server-owned writes', async () => {
   const reg = await api(`/coordinator/registrations/${identities.applicant.uid}/decision`, identities.coordinatorA, { status: 'approved' });
   assert.equal(reg.response.status, 200, JSON.stringify(reg.data));

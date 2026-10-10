@@ -6,6 +6,34 @@ const env = { COMPANY_SEND_ENABLED: '1', COMPANY_SEND_OWNER_UID: 'fixture', COMP
 const reply = { to: 'test@example.com', subject: 'Re: Test', text: 'Test reply', threadId: 'thread1', inReplyTo: '<original@example.com>', messageId: '<new@example.com>' };
 const response = data => new Response(JSON.stringify(data), { status: 200 });
 test('disabled sender makes no requests', () => assert.equal(createCompanySender({}), null));
+
+test('reviewed PDF is included as bytes in threaded MIME', async () => {
+  const calls = [];
+  const content = Buffer.from('%PDF-1.4\nTEST ONLY\n%%EOF');
+  const sender = createCompanySender(env, async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1 ? response({ access_token: 'fixture', scope: 'openid email https://www.googleapis.com/auth/gmail.send' })
+      : response({ id: 'sent1', threadId: 'thread1' });
+  });
+  await sender.sendReply({ ...reply, attachment: { filename: 'test-only.pdf', content, contentType: 'application/pdf' } });
+  const mime = Buffer.from(JSON.parse(calls[1].options.body).raw, 'base64url').toString();
+  assert.match(mime, /multipart\/mixed/);
+  assert.match(mime, /filename=test-only.pdf|filename="test-only.pdf"/);
+  assert.ok(mime.includes(content.toString('base64')));
+});
+
+test('announcement creates a standalone message without reply headers', async () => {
+  const calls = [];
+  const sender = createCompanySender(env, async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1 ? response({ access_token: 'fixture', scope: 'openid email https://www.googleapis.com/auth/gmail.send' })
+      : response({ id: 'sent1', threadId: 'newthread' });
+  });
+  assert.equal((await sender.sendAnnouncement({ to: reply.to, subject: 'Test announcement', text: 'TEST ONLY', messageId: reply.messageId })).status, 'provider_accepted');
+  const payload = JSON.parse(calls[1].options.body);
+  assert.equal(payload.threadId, undefined);
+  assert.doesNotMatch(Buffer.from(payload.raw, 'base64url').toString(), /In-Reply-To:|References:/);
+});
 test('threaded MIME and provider acceptance, not delivered status', async () => {
   const calls = [];
   const sender = createCompanySender(env, async (url, options) => {

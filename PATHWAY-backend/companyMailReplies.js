@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { reviewedAttachment } = require('./companyMailAttachment');
 const ID = /^[A-Za-z0-9_-]{1,128}$/;
 function installCompanyReplies({ app, db, requireStaff, coordinatorSection, allowRate, sender }) {
   if (app.get) app.get('/coordinator/sections/:sectionId/company-conversations/:conversationId/replies/:requestId', requireStaff, async (req, res) => {
@@ -25,7 +26,8 @@ function installCompanyReplies({ app, db, requireStaff, coordinatorSection, allo
       res.set('Cache-Control', 'private, no-store');
       if (!ID.test(sectionId || '') || !ID.test(conversationId || '') || !ID.test(req.body?.requestId || '')
         || typeof req.body?.text !== 'string' || !req.body.text.trim() || req.body.text.length > 10000
-        || Object.keys(req.body).some(key => !['requestId', 'text'].includes(key))) return res.status(400).json({ error: 'Provide reply text and a request ID only.' });
+        || Object.keys(req.body).some(key => !['requestId', 'text', 'attachment'].includes(key))) return res.status(400).json({ error: 'Provide reply text, request ID and an optional reviewed PDF only.' });
+      const attachment = reviewedAttachment(req.body.attachment);
       await coordinatorSection(req, sectionId);
       if (!sender || sender.ownerId !== req.staff.uid) return res.status(503).json({ error: 'Company sending is not connected.' });
       if (!allowRate(req, res, { limit: 5, windowMs: 60000, key: r => `company-reply:${r.staff.uid}` })) return;
@@ -35,7 +37,8 @@ function installCompanyReplies({ app, db, requireStaff, coordinatorSection, allo
       if (!initial || initial.coordinatorId !== req.staff.uid || initial.sectionId !== sectionId || !ID.test(initial.studentId || '')) return res.status(404).json({ error: 'Conversation not found.' });
       const studentRef = db.collection('users').doc(initial.studentId);
       const attemptId = crypto.createHash('sha256').update(`${req.staff.uid}:${req.body.requestId}`).digest('hex');
-      const hash = crypto.createHash('sha256').update(req.body.text).digest('hex');
+      const hash = crypto.createHash('sha256').update(JSON.stringify({ text: req.body.text,
+        attachment: attachment ? { sha256: attachment.sha256, filename: attachment.filename } : null })).digest('hex');
       attemptRef = conversationRef.collection('replyAttempts').doc(attemptId);
       const result = await db.runTransaction(async tx => {
         const [section, student, conversation, attempt] = await Promise.all([tx.get(sectionRef), tx.get(studentRef), tx.get(conversationRef), tx.get(attemptRef)]);
@@ -61,14 +64,15 @@ function installCompanyReplies({ app, db, requireStaff, coordinatorSection, allo
           return { existing: attempt.data() };
         }
         const messageId = `<${attemptId}@pathway.invalid>`;
-        tx.create(attemptRef, { status: 'sending', textHash: hash, coordinatorId: req.staff.uid, messageId, createdAt: new Date().toISOString() });
+        tx.create(attemptRef, { status: 'sending', textHash: hash, coordinatorId: req.staff.uid, messageId,
+          ...(attachment ? { attachmentName: attachment.filename, attachmentHash: attachment.sha256 } : {}), createdAt: new Date().toISOString() });
         return { record, messageId };
       });
       if (result.existing) return res.status(result.existing.status === 'provider_accepted' ? 200 : 409)
         .json({ status: result.existing.status, replayed: true, error: result.existing.status === 'provider_accepted' ? undefined : 'Delivery requires review; no second email was sent.' });
       reserved = true;
       const outcome = await sender.sendReply({ to: result.record.replyTo, subject: result.record.replySubject,
-        text: req.body.text, threadId: result.record.providerThreadId, inReplyTo: result.record.replyMessageId, messageId: result.messageId });
+        text: req.body.text, threadId: result.record.providerThreadId, inReplyTo: result.record.replyMessageId, messageId: result.messageId, attachment });
       await attemptRef.update({ ...outcome, completedAt: new Date().toISOString() });
       return res.json(outcome);
     } catch (error) {

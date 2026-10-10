@@ -14,16 +14,19 @@ function createCompanySender(env, fetcher = fetch) {
     || env.COMPANY_SEND_MAILBOX !== 'pathwaysystem4@gmail.com'
     || !env.COMPANY_SEND_CLIENT_ID || !env.COMPANY_SEND_CLIENT_SECRET || !env.COMPANY_SEND_REFRESH_TOKEN) return null;
   const fail = code => Object.assign(new Error('Company email delivery is not confirmed. Do not retry until the delivery status is checked.'), { code });
-  return { ownerId: env.COMPANY_SEND_OWNER_UID,
-    async sendReply({ to, subject, text, threadId, inReplyTo, messageId }) {
+  async function send({ to, subject, text, threadId, inReplyTo, messageId, attachment = null }, threaded) {
       const messageIdPattern = /^<[A-Za-z0-9._+=-]+@[A-Za-z0-9.-]+>$/;
-      if (!ADDRESS.test(to || '') || (to || '').length > 254 || !ID.test(threadId || '')
-        || !messageIdPattern.test(inReplyTo || '') || !messageIdPattern.test(messageId || '')
+      if (!ADDRESS.test(to || '') || (to || '').length > 254 || (threaded && (!ID.test(threadId || '')
+        || !messageIdPattern.test(inReplyTo || ''))) || !messageIdPattern.test(messageId || '')
         || typeof subject !== 'string' || subject.length > 250 || /[\r\n]/.test(subject)
         || typeof text !== 'string' || !text.trim() || text.length > 10000) throw fail('INVALID_REPLY');
-      // No attachments, HTML, caller-supplied headers, or arbitrary From address.
+      if (attachment && (!Buffer.isBuffer(attachment.content) || attachment.content.length > 512 * 1024
+        || attachment.contentType !== 'application/pdf' || !/^[A-Za-z0-9 _().-]{1,100}\.pdf$/i.test(attachment.filename))) throw fail('INVALID_REPLY');
+      // Only bounded, human-reviewed byte attachments; never paths/URLs or HTML.
       const mime = await new MailComposer({ from: env.COMPANY_SEND_MAILBOX, to, subject, text,
-        messageId, inReplyTo, references: inReplyTo, disableFileAccess: true, disableUrlAccess: true }).compile().build();
+        messageId, ...(threaded ? { inReplyTo, references: inReplyTo } : {}),
+        attachments: attachment ? [{ filename: attachment.filename, content: attachment.content, contentType: 'application/pdf' }] : [],
+        disableFileAccess: true, disableUrlAccess: true }).compile().build();
       let token;
       try {
         token = await boundedJson(await fetcher('https://oauth2.googleapis.com/token', {
@@ -38,12 +41,14 @@ function createCompanySender(env, fetcher = fetch) {
         const result = await boundedJson(await fetcher('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
           method: 'POST', redirect: 'error', signal: AbortSignal.timeout(20000),
           headers: { Authorization: `Bearer ${token.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ threadId, raw: mime.toString('base64url') }),
+          body: JSON.stringify({ ...(threaded ? { threadId } : {}), raw: mime.toString('base64url') }),
         }), 16000);
-        if (!ID.test(result.id || '') || result.threadId !== threadId) throw fail('DELIVERY_UNKNOWN');
-        return { status: 'provider_accepted', providerMessageId: result.id, threadId };
+        if (!ID.test(result.id || '') || (threaded && result.threadId !== threadId)) throw fail('DELIVERY_UNKNOWN');
+        return { status: 'provider_accepted', providerMessageId: result.id, ...(threaded ? { threadId } : {}) };
       } catch { throw fail('DELIVERY_UNKNOWN'); }
-    },
+    }
+  return { ownerId: env.COMPANY_SEND_OWNER_UID, mailbox: env.COMPANY_SEND_MAILBOX,
+    sendReply: options => send(options, true), sendAnnouncement: options => send(options, false),
   };
 }
 module.exports = { createCompanySender, validSenderScopes };

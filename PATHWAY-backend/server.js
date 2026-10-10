@@ -1836,6 +1836,7 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
   const now = new Date().toISOString();
   try {
     let recipientCount = 0;
+    const announcementRef = adminDb.collection('announcements').doc();
     await adminDb.runTransaction(async transaction => {
       const [sectionSnap, coordinatorSnap, studentQuerySnap] = await Promise.all([
         transaction.get(sectionRef), transaction.get(coordinatorRef), transaction.get(studentsQuery),
@@ -1849,6 +1850,8 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
         && item.data().department === coordinatorSnap.data().department);
       if (students.length > 450) throw Object.assign(new Error('This section exceeds the safe one-request announcement limit.'), { status: 413 });
       recipientCount = students.length;
+      transaction.create(announcementRef, { coordinatorId: req.staff.uid, sectionId, title: cleanTitle, message: cleanMessage,
+        createdAt: now, emailRecipients: Object.fromEntries(students.map(student => [student.id, require('./announcementEmail').initialRecipient(student.data())])) });
       for (const student of students) {
         transaction.create(adminDb.collection('notifications').doc(), {
           recipientId: student.id, senderId: req.staff.uid, senderRole: 'coordinator',
@@ -1860,7 +1863,7 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
         targetType: 'sections', targetId: sectionId, details: { recipients: recipientCount },
       });
     });
-    return res.json({ success: true, count: recipientCount });
+    return res.json({ success: true, count: recipientCount, announcementId: announcementRef.id });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error(error);
@@ -2439,6 +2442,7 @@ require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireSta
 const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
 const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
 const companySender = require('./companyMailSender').createCompanySender(process.env);
+require('./announcementEmail').installAnnouncementEmail({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender,
   discoveryEnabled: process.env.COMPANY_INBOX_PLACEMENT_DISCOVERY_ENABLED === '1' });
 require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });

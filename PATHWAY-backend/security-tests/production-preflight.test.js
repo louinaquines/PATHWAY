@@ -11,6 +11,13 @@ const configured = {
   EVALUATION_WEB_URL: 'https://staff.example.test',
 };
 test('explicit nonlocal production configuration passes structural validation', () => assert.deepEqual(validateProduction(configured).errors, []));
+
+test('local Expo browser exception accepts only the explicit test origin', () => {
+  assert.deepEqual(validateProduction({ ...configured, CORS_LOCAL_TEST_ORIGIN: 'http://localhost:8082' }).errors, []);
+  for (const origin of ['*', 'http://localhost:8081', 'http://localhost:8082/path', 'https://untrusted.example']) {
+    assert.ok(validateProduction({ ...configured, CORS_LOCAL_TEST_ORIGIN: origin }).errors.some(message => message.includes('CORS_LOCAL_TEST_ORIGIN')));
+  }
+});
 test('rejects emulator flags, demo projects and unsafe origins without exposing values', () => {
   const result = validateProduction({ ...configured, GOOGLE_CLOUD_PROJECT: 'demo-pathway-security', FIRESTORE_EMULATOR_HOST: 'private-secret-marker', CORS_ALLOWED_ORIGINS: 'http://localhost:3001' });
   assert.equal(result.errors.length, 3);

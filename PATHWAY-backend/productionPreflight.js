@@ -12,6 +12,9 @@ function validateProduction(env) {
   if (!env.GOOGLE_CLOUD_PROJECT || env.GOOGLE_CLOUD_PROJECT.startsWith('demo-')) errors.push('Set GOOGLE_CLOUD_PROJECT to the real deployment project.');
   const origins = String(env.CORS_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean);
   if (!origins.length) errors.push('Explicit CORS_ALLOWED_ORIGINS is required.');
+  if (env.CORS_LOCAL_TEST_ORIGIN && env.CORS_LOCAL_TEST_ORIGIN !== 'http://localhost:8082') {
+    errors.push('CORS_LOCAL_TEST_ORIGIN must be exactly http://localhost:8082 or unset.');
+  }
   if (origins.some(origin => {
     try {
       const url = new URL(origin);

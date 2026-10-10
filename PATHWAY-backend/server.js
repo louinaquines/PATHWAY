@@ -31,6 +31,10 @@ const app = express();
 if (process.env.K_SERVICE) app.set('trust proxy', 1);
 const allowedOrigins = new Set((process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3001,http://localhost:8081,http://localhost:8082,http://localhost:19006')
   .split(',').map(origin => origin.trim()).filter(Boolean));
+// Explicit opt-in for the local Expo browser test; never accept arbitrary ports.
+if (process.env.CORS_LOCAL_TEST_ORIGIN === 'http://localhost:8082') {
+  allowedOrigins.add(process.env.CORS_LOCAL_TEST_ORIGIN);
+}
 app.use(cors({
   origin(origin, callback) {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);

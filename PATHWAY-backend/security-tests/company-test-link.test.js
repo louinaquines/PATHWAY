@@ -12,12 +12,16 @@ function fixture(options = {}) {
   const snap = path => ({ exists: !!values[path], data: () => values[path] });
   const db = { collection: name => ({ doc: id => ref(`${name}/${id}`) }), runTransaction: async callback => {
     if (options.reassigned) student.sectionId = 'other';
-    await callback({ get: async item => snap(item.path || Object.keys(values).find(k => k.endsWith('/' + item.id)) || `sections/section/companyConversations/${item.id}`), create: (item, value) => { writes++; values[`sections/section/companyConversations/${item.id}`] = value; } });
+    await callback({ get: async item => snap(item.path || Object.keys(values).find(k => k.endsWith('/' + item.id)) || `sections/section/companyConversations/${item.id}`),
+      update: (item, value) => { writes++; const key = `sections/section/companyConversations/${item.id}`; values[key] = { ...values[key], ...value }; },
+      create: (item, value) => { writes++; values[`sections/section/companyConversations/${item.id}`] = value; } });
   } };
   if (options.wrongOwner) owner.email = 'other@test.com';
   installCompanyTestLink({ app: { post: (path, middleware, fn) => { handler = fn; } }, db,
     requireStaff() {}, coordinatorSection: async () => {}, allowRate: () => true,
-    enabled: options.enabled !== false, inbox: { ownerId: 'owner', mailbox: 'pathwaysystem4@gmail.com', findTestConversation: async () => { reads++; return { threadId: 'thread', messageId: 'message' }; } } });
+    enabled: options.enabled !== false, sender: options.sender ? { ownerId: 'owner' } : null,
+    inbox: { ownerId: 'owner', mailbox: 'pathwaysystem4@gmail.com', findTestConversation: async () => { reads++; return { threadId: 'thread', messageId: 'message',
+      replyMetadata: options.metadata ? { replyTo: 'louinaquines@gmail.com', replySubject: 'Re: PATHWAY TEST - company reply', replyMessageId: '<CA=test@mail.gmail.com>' } : null }; } } });
   const res = { statusCode: 200, status(n) { this.statusCode = n; return this; }, set() {}, json(body) { this.body = body; return this; } };
   return { run: async (body = {}) => { await handler({ params: { sectionId: 'section' }, staff: { uid: 'owner' }, body }, res); return res; }, counts: () => ({ writes, reads }) };
 }
@@ -42,4 +46,13 @@ test('wrong coordinator identity is rejected before mailbox access', async () =>
 test('assignment changes during mailbox lookup prevent mapping creation', async () => {
   const f = fixture({ reassigned: true }); assert.equal((await f.run()).statusCode, 403);
   assert.equal(f.counts().writes, 0);
+});
+test('preparation requires configured sender and verified RFC metadata', async () => {
+  const missingSender = fixture(); assert.equal((await missingSender.run({ prepareReply: true })).statusCode, 503);
+  assert.equal(missingSender.counts().reads, 0);
+  const missingMetadata = fixture({ sender: true }); assert.equal((await missingMetadata.run({ prepareReply: true })).statusCode, 502);
+  assert.equal(missingMetadata.counts().writes, 0);
+  const valid = fixture({ sender: true, metadata: true }); await valid.run();
+  const prepared = await valid.run({ prepareReply: true });
+  assert.equal(prepared.body.repliesPrepared, true); assert.equal(prepared.body.emailsSent, false);
 });

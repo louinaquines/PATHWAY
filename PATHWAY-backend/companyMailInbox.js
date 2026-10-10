@@ -87,7 +87,13 @@ function createCompanyInbox(env, fetcher = fetch) {
           if (message.subject === 'PATHWAY TEST - company reply'
             && /(?:^|<)louinaquines@gmail\.com(?:>|$)/i.test(message.from)
             && /(?:^|<)pathwaysystem4@gmail\.com(?:>|$)/i.test(message.to)
-            && message.text.trim().replace(/\.$/, '') === 'This is a test company reply') return { threadId: thread.id, messageId: message.id };
+            && message.text.trim().replace(/\.$/, '') === 'This is a test company reply') {
+            const rfcMessageId = raw.payload?.headers?.find(h => h.name?.toLowerCase() === 'message-id')?.value;
+            return { threadId: thread.id, messageId: message.id,
+              replyMetadata: /^<[A-Za-z0-9._+=-]+@[A-Za-z0-9.-]+>$/.test(rfcMessageId || '') ? {
+                replyTo: 'louinaquines@gmail.com', replySubject: 'Re: PATHWAY TEST - company reply', replyMessageId: rfcMessageId,
+              } : null };
+          }
         }
         throw fail();
       } catch { throw fail(); }

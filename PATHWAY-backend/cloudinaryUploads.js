@@ -73,9 +73,13 @@ function validateAssetMetadata(asset, { cloudName, expectedPublicId, expectedVer
     && (asset.type !== 'authenticated' || typeof asset.asset_id !== 'string' || !/^[A-Za-z0-9_-]{16,80}$/.test(asset.asset_id))) return false;
   if (asset.type && asset.type !== expectedDeliveryType) return false;
   if (!['image', 'raw'].includes(asset.resource_type) || !Number.isSafeInteger(asset.bytes) || asset.bytes < 1 || asset.bytes > 5 * 1024 * 1024) return false;
+  // Cloudinary raw resources may omit format; their verified public ID includes
+  // the file extension. Never infer from a client filename or delivery URL.
+  const rawExtension = asset.resource_type === 'raw' ? /\.([A-Za-z0-9]+)$/.exec(expectedPublicId)?.[1] : '';
+  const format = String(asset.format || rawExtension || '').toLowerCase();
   const validFormat = kind === 'profile'
-    ? asset.resource_type === 'image' && ['jpg', 'jpeg', 'png', 'webp'].includes(String(asset.format).toLowerCase())
-    : ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'].includes(String(asset.format).toLowerCase());
+    ? asset.resource_type === 'image' && ['jpg', 'jpeg', 'png', 'webp'].includes(format)
+    : ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'].includes(format);
   if (!validFormat) return false;
   try {
     const url = new URL(asset.secure_url);

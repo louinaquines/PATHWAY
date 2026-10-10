@@ -8,6 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server.js firebaseAdmin.js cloudinaryUploads.js endorsementMail.js gmailMail.js studentAccounts.js evaluationMail.js evaluationEmailTemplate.js evaluationForm.js studentInbox.js geofence.js localCloudinaryQa.js productionPreflight.js ./
+COPY companyMailInbox.js localCompanyInbox.js companyTestLink.js ./
 
 USER node
 EXPOSE 8080

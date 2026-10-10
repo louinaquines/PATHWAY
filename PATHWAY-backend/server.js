@@ -2436,6 +2436,11 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 });
 
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
+const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');
+const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
+installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox });
+require('./companyTestLink').installCompanyTestLink({ app, db: adminDb, requireStaff, coordinatorSection, allowRate,
+  inbox: companyInbox, enabled: process.env.COMPANY_INBOX_TEST_LINK_ENABLED === '1' });
 
 app.post('/create-evaluation-token', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });

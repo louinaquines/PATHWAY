@@ -38,8 +38,13 @@ function createAnthropicAnalysis(env = process.env, fetcher = fetch) {
         }
       } finally { await reader.cancel().catch(() => {}); }
       const result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      if (result.stop_reason !== 'end_turn' || !Array.isArray(result.content) || result.content.some(block => block.type !== 'text' || typeof block.text !== 'string')) throw fail('AI_OUTPUT');
-      const refined = result.content.map(block => block.text).join('\n').trim();
+      if (result.stop_reason !== 'end_turn' || !Array.isArray(result.content) || result.content.some(block =>
+        !block || (block.type === 'text' ? typeof block.text !== 'string'
+          : block.type === 'thinking' ? typeof block.thinking !== 'string' || typeof block.signature !== 'string'
+            : block.type === 'redacted_thinking' ? typeof block.data !== 'string' : true))) throw fail('AI_OUTPUT');
+      // Current Claude models may include thinking blocks by default. Never
+      // expose or persist those blocks; only final text is advisory output.
+      const refined = result.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
       if (!refined || refined.length > 8000) throw fail('AI_OUTPUT');
       return refined;
     } catch (error) { throw fail(error.code === 'AI_OUTPUT' ? 'AI_OUTPUT' : 'AI_PROVIDER'); }

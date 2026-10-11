@@ -41,6 +41,16 @@ test('truncated, nontext, malformed, empty and oversized output fail closed', as
   const responses = [new Response('invalid'), reply(''), reply('x'.repeat(8001)), new Response(JSON.stringify({ stop_reason: 'max_tokens', content: [{ type: 'text', text: 'partial' }] })), new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'tool_use' }] })), new Response('x'.repeat(32769))];
   for (const response of responses) await assert.rejects(createAnthropicAnalysis(env, async () => response).refine('notes'));
 });
+test('thinking blocks are omitted while final text remains validated', async () => {
+  const content = [{ type: 'thinking', thinking: 'private reasoning', signature: 'synthetic-signature' },
+    { type: 'redacted_thinking', data: 'synthetic-redaction' }, { type: 'text', text: 'I tested the application.' }];
+  const ai = createAnthropicAnalysis(env, async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content })));
+  assert.equal((await ai.refine('notes')).refined, 'I tested the application.');
+  for (const blocks of [[content[0]], [{ type: 'thinking' }], [...content, { type: 'tool_use' }]]) {
+    await assert.rejects(createAnthropicAnalysis(env, async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: blocks }))).refine('notes'), error => error.code === 'AI_OUTPUT');
+  }
+});
+
 test('daily request cap includes failed calls and rejects additional charges', async () => {
   let calls = 0;
   const ai = createAnthropicAnalysis(env, async () => { calls++; return reply(); });

@@ -13,7 +13,7 @@ COPY companyProfileImport.js ./
 COPY companyMailInbox.js ./
 COPY localCompanyInbox.js ./
 COPY companyTestLink.js ./
-COPY companyMailSender.js companyMailReplies.js companyMailAttachment.js announcementEmail.js ./
+COPY companyMailSender.js companyMailReplies.js companyMailAttachment.js announcementEmail.js evaluationOtp.js ./
 
 USER node
 EXPOSE 8080

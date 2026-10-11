@@ -5,6 +5,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { setPageMetadata } from '../pageMetadata';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import './SupervisorVerification.css';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const criteria = ['technicalSkills', 'workQuality', 'professionalism', 'communication', 'attendance'];
@@ -18,6 +19,31 @@ export default function SupervisorEvaluationPage() {
   const [message, setMessage] = useState('Loading evaluation...');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [session, setSession] = useState('');
+  const [code, setCode] = useState('');
+  const [verificationRequired, setVerificationRequired] = useState(false);
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState('');
+  async function verifyEmail(action) {
+    if (verificationBusy) return;
+    setVerificationBusy(true); setMessage('');
+    try {
+      const response = await fetch(`${API}/evaluation/${token}/${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action === 'verify-code' ? { code } : {}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Verification failed.');
+      if (action === 'request-code') setVerificationStatus('Code sent to the supervisor email. It expires in 10 minutes.');
+      else {
+        const formResponse = await fetch(`${API}/evaluation/${token}`, { headers: { 'X-Evaluation-Session': result.session } });
+        const form = await formResponse.json();
+        if (!formResponse.ok || form.verificationRequired) throw new Error(form.error || 'Verification expired.');
+        setSession(result.session); setInfo(form); setVerificationRequired(false); setCode('');
+      }
+    } catch (error) { setMessage(error.message); }
+    finally { setVerificationBusy(false); }
+  }
 
   useEffect(() => {
     setPageMetadata('evaluate');
@@ -32,7 +58,8 @@ export default function SupervisorEvaluationPage() {
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'Invalid or expired link');
-        setInfo(d);
+        if (d.verificationRequired) setVerificationRequired(true);
+        else setInfo(d);
         setMessage('');
       })
       .catch((e) => setMessage(e.message));
@@ -45,11 +72,20 @@ export default function SupervisorEvaluationPage() {
     try {
       const r = await fetch(`${API}/evaluation/${token}/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Evaluation-Session': session },
         body: JSON.stringify(info.formDefinition ? { answers } : { ratings, comments }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Submission failed');
+      if (!r.ok) {
+        if (r.status === 403) {
+          setSession('');
+          setInfo(null);
+          setCode('');
+          setVerificationStatus('');
+          setVerificationRequired(true);
+        }
+        throw new Error(d.error || 'Submission failed');
+      }
       setDone(true);
     } catch (e) {
       setMessage(e.message);
@@ -91,11 +127,24 @@ export default function SupervisorEvaluationPage() {
         </div>
 
         {message && (
-          <div style={message.includes('Loading') ? s.infoBox : s.errorBox}>
+          <div role="alert" style={message.includes('Loading') ? s.infoBox : s.errorBox}>
             {message}
           </div>
         )}
 
+        {verificationRequired && <section className="supervisor-verification" aria-label="Verify supervisor email">
+          <h2>Verify your email</h2>
+          <p>Request a code at the supervisor email assigned to this evaluation. The form stays private until verification.</p>
+          <button className="verification-secondary" type="button" disabled={verificationBusy} onClick={() => verifyEmail('request-code')}>Send verification code</button>
+          {verificationStatus && <p role="status">{verificationStatus}</p>}
+          <form onSubmit={event => { event.preventDefault(); verifyEmail('verify-code'); }}>
+            <label htmlFor="supervisor-otp">Six-digit code</label>
+            <input id="supervisor-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+              onChange={event => setCode(event.target.value.replace(/\D/g, ''))} disabled={verificationBusy} />
+            <button className="verification-primary" type="submit" disabled={verificationBusy || code.length !== 6}>{verificationBusy ? 'Verifying…' : 'Verify and open evaluation'}</button>
+          </form>
+          <small>Wait at least one minute before requesting another code. Five attempts are allowed per code.</small>
+        </section>}
         {info && (
           <>
             <div style={s.infoGrid}>

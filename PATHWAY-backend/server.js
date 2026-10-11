@@ -2500,6 +2500,7 @@ app.get('/coordinator-evaluations', requireStaff, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: 'Could not load evaluations' }); }
 });
 
+require('./evaluationOtp').installEvaluationOtp({ app, db: adminDb, allowRate, mailerFactory: require('./endorsementMail').endorsementMailer });
 app.get('/evaluation/:token', async (req, res) => {
   if (!allowRate(req, res, { limit: 60, windowMs: 10 * 60_000, key: request => `evaluation-read:${request.ip}` })) return;
   if (!/^[a-f0-9]{64}$/.test(req.params.token)) return res.status(404).json({ error: 'Evaluation link is invalid' });
@@ -2509,6 +2510,9 @@ app.get('/evaluation/:token', async (req, res) => {
     if (snap.empty) return res.status(404).json({ error: 'Evaluation link is invalid' });
     const data = snap.docs[0].data();
     if (data.used || new Date(data.expiresAt) < new Date()) return res.status(410).json({ error: 'Evaluation link is expired or already submitted' });
+    res.set('Cache-Control', 'no-store');
+    try { require('./evaluationOtp').sessionValid(data, req.headers['x-evaluation-session']); }
+    catch (error) { if (error.status === 410) return res.status(410).json({ error: error.message }); return res.json({ verificationRequired: true }); }
     res.json({ ...(data.formDefinition ? { formDefinition: data.formDefinition } : {}), studentName: data.studentName, companyName: data.companyName, supervisorName: data.supervisorName, expiresAt: data.expiresAt });
   } catch (e) { res.status(500).json({ error: 'Could not load evaluation' }); }
 });
@@ -2531,6 +2535,7 @@ app.post('/evaluation/:token/submit', async (req, res) => {
       const evaluation = await transaction.get(ref);
       if (!evaluation.exists) throw Object.assign(new Error('Evaluation link is invalid'), { status: 404 });
       const data = evaluation.data();
+      require('./evaluationOtp').sessionValid(data, req.headers['x-evaluation-session']);
       const student = await transaction.get(adminDb.collection('users').doc(data.studentId));
       assertRecordsOpen(student.data());
       if (data.used || new Date(data.expiresAt) < new Date()) {

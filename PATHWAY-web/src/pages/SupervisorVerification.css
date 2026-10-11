@@ -1,0 +1,12 @@
+.supervisor-verification { display:grid; gap:16px; color:#172a43; }
+.supervisor-verification h2 { margin:0; font-size:24px; letter-spacing:-.025em; }
+.supervisor-verification p { margin:0; line-height:1.6; color:#526477; }
+.supervisor-verification form { display:grid; gap:12px; margin-top:8px; }
+.supervisor-verification label { font-size:14px; font-weight:600; }
+.supervisor-verification input { box-sizing:border-box; width:100%; min-width:0; border:1px solid #cbd5e1; border-radius:12px; padding:16px; font-size:24px; letter-spacing:.3em; background:#fff; color:#172a43; }
+.supervisor-verification button { min-height:48px; border-radius:12px; padding:12px 18px; font-weight:600; font-size:14px; cursor:pointer; }
+.verification-secondary { border:1px solid #bdd3ee; color:#075bb7; background:#fff; }
+.verification-primary { border:1px solid #075bb7; color:white; background:#075bb7; }
+.supervisor-verification button:disabled { opacity:.55; cursor:default; }
+.supervisor-verification :is(input,button):focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
+.supervisor-verification small { color:#64748b; line-height:1.6; }

@@ -23,6 +23,7 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      try {
       if (u) {
         const snap = await getDoc(doc(db, 'users', u.uid));
         setRole(snap.exists() ? snap.data().role : null);
@@ -31,26 +32,27 @@ export default function App() {
         setUser(null);
         setRole(null);
       }
-      setLoading(false);
+      } catch {
+        setUser(null);
+        setRole(null);
+      } finally {
+        setLoading(false);
+      }
     });
     return unsub;
   }, []);
-
-  if (loading) {
-    return <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" />;
-  }
 
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/evaluate" element={<SupervisorEvaluationPage />} />
-        <Route path="/coordinator" element={
+        <Route path="/coordinator" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
           <ProtectedRoute user={user} role={role} allowedRoles={['coordinator']}>
             <CoordinatorDashboard />
           </ProtectedRoute>
         } />
-        <Route path="/admin" element={
+        <Route path="/admin" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
           <ProtectedRoute user={user} role={role} allowedRoles={['admin']}>
             <AdminDashboard />
           </ProtectedRoute>

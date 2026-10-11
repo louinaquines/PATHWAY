@@ -2560,12 +2560,19 @@ app.post('/evaluation/:token/submit', async (req, res) => {
   }
 });
 
+const anthropicAnalysis = require('./anthropicAnalysis').createAnthropicAnalysis();
+require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
+require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
+require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 app.post('/refine-logbook', requireUser, async (req, res) => {
   const { notes } = req.body || {};
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required' });
   if (!allowRate(req, res, { limit: 5, windowMs: 60_000, key: request => `refine:${request.user.uid}` })) return;
   if (typeof notes !== 'string' || !notes.trim() || notes.length > 8000) return res.status(400).json({ error: 'Enter logbook notes up to 8,000 characters.' });
-  return res.status(503).json({ error: 'Automatic rewriting is disabled. Submit your original notes; coordinator review checks do not rewrite them.' });
+  res.set('Cache-Control', 'private, no-store');
+  if (req.body?.consent !== true) return res.status(400).json({ error: 'Confirm permission to send these notes to Anthropic for AI assistance.' });
+  try { return res.json(await anthropicAnalysis.refine(notes)); }
+  catch (error) { return res.status(error.status || 503).json({ error: error.message, code: error.code || 'AI_UNAVAILABLE' }); }
 });
 
 

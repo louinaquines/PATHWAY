@@ -527,7 +527,7 @@ export default function CoordinatorDashboard() {
                                         )}
                                         {req?.cloudinaryPublicId && req?.cloudinaryVersion ? (
                                           <div className="requirement-file-actions"><button type="button" className="requirement-file-action"
-                                            onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(id)}/download`, fileName: req.fileName, sectionId: selectedSection.id, requirementId: id })}>
+                                            onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(id)}/download`, fileName: req.fileName, sectionId: selectedSection.id, requirementId: id, studentId: selectedStudent.id })}>
                                             <Icon name="expand" size={16} /> View
                                           </button><button
                                             type="button"

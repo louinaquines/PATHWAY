@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { adminDocumentBlob, adminDownload, adminRequest } from '../adminApi';
 import Icon from './Icons';
 import PdfPreview from './PdfPreview';
+import DocumentAiAssistance from './DocumentAiAssistance';
 import { extractPdfChecks, documentTextChecks } from '../documentTextChecks';
 import './DocumentPreviewDialog.css';
 
@@ -14,7 +15,7 @@ export function previewMime(bytes) {
   return null;
 }
 
-export default function DocumentPreviewDialog({ path, fileName, sectionId, requirementId, onClose }) {
+export default function DocumentPreviewDialog({ path, fileName, sectionId, requirementId, studentId, onClose }) {
   const dialog = useRef(null);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
@@ -93,6 +94,7 @@ export default function DocumentPreviewDialog({ path, fileName, sectionId, requi
       {textChecks && terms.trim() && <aside className="document-review-checks"><strong>Expected text check · current settings</strong>
         {textChecks.missingTerms.length ? <p>Not found: {textChecks.missingTerms.join(', ')}. Review the document manually.</p> : <p>Expected text found. Field values and signatures still require manual inspection.</p>}
       </aside>}
+      {studentId && requirementId && checks?.text?.trim() && <DocumentAiAssistance studentId={studentId} requirementId={requirementId} text={checks.text} sourceVersion={path} />}
       {error ? <p role="alert">{error}</p> : loading ? <p role="status">Loading document…</p> : !preview ? <p>Preview is unavailable for this file. Download it to open it.</p> : preview.mime === 'application/pdf'
         ? <PdfPreview url={preview.url} />
         : <img src={preview.url} alt={fileName || 'Uploaded document'} />}

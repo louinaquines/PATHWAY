@@ -10,6 +10,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import SubmissionNotifications from '../components/SubmissionNotifications';
 import JournalKeywordSettings from '../components/JournalKeywordSettings';
+import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
@@ -274,6 +275,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
               <div style={t.entryLabel}>Weekly report</div>
               <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
+              <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} />
               {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
               {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Journal review checks · rules and keywords</summary>
                 {item.findings.map(finding => <p key={finding}>{finding}</p>)}

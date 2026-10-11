@@ -1,0 +1,16 @@
+.journal-ai { margin-top: 16px; min-width: 0; overflow-wrap: anywhere; border: 1px solid #dce5f2; border-radius: 12px; background: #f8faff; color: #24344e; }
+.journal-ai summary { padding: 14px 16px; cursor: pointer; font-weight: 600; }
+.journal-ai summary span { display: inline-block; margin-left: 10px; font-size: 12px; color: #526681; font-weight: 400; }
+.journal-ai__body { padding: 0 16px 16px; line-height: 1.6; }
+.journal-ai__body label { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; }
+.journal-ai__body input { margin-top: 5px; flex-shrink: 0; }
+.journal-ai__body textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid #c6d7ee; border-radius: 8px; font: inherit; resize: vertical; }
+.journal-ai__body label.journal-ai__excerpt { display: block; margin-bottom: 12px; font-weight: 600; }
+.journal-ai__excerpt textarea { display: block; box-sizing: border-box; margin-top: 6px; font-weight: 400; }
+.journal-ai__body label + label { margin-top: 8px; }
+.journal-ai__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.journal-ai button { padding: 9px 14px; border: 1px solid #c6d7ee; border-radius: 8px; background: white; color: #075cbe; cursor: pointer; font: inherit; }
+.journal-ai button:disabled { opacity: .55; cursor: not-allowed; }
+.journal-ai button:focus-visible, .journal-ai summary:focus-visible { outline: 2px solid #075cbe; outline-offset: 3px; }
+.journal-ai h4 { margin: 18px 0 6px; }
+.journal-ai blockquote { margin: 6px 0 14px; padding: 8px 12px; border-left: 3px solid #b5cbed; background: white; overflow-wrap: anywhere; white-space: pre-wrap; }

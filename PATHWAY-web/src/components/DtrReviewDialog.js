@@ -3,6 +3,7 @@ import { adminRequest, adminDocumentBlob } from '../adminApi';
 import { readDtrSpreadsheet } from '../dtrSpreadsheet';
 import { createDtrOcrJob } from '../dtrOcr';
 import PdfPreview from './PdfPreview';
+import DocumentAiAssistance from './DocumentAiAssistance';
 import './DtrReviewDialog.css';
 
 const fields = ['amArrival', 'amDeparture', 'pmArrival', 'pmDeparture'];
@@ -143,6 +144,7 @@ export default function DtrReviewDialog({ student, onClose }) {
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={busy || importing || !month || (importInfo && !reviewed)}>{busy ? 'Comparing…' : 'Compare attendance'}</button>
       {result && <section aria-label="Comparison results"><h3>Results</h3><p>{result.limitation}</p>
+        <DocumentAiAssistance studentId={student.id} requirementId="dtr" text={importInfo?.extractedText || ''} sourceVersion={sourceVersion} form={{ year: Number(month.split('-')[0]), month: Number(month.split('-')[1]), copies: copies.map(rows => rows.filter(row => row.day <= days).map(row => ({ ...row, needsReview: row.ocrReview && reviewed ? Boolean(row.reviewFields?.length) : row.needsReview }))) }} />
         <label>Review notes <textarea maxLength={2000} value={notes} disabled={busy} onChange={event => { setNotes(event.target.value); saveId.current = crypto.randomUUID(); setSavedMessage(''); }} /></label>
         <button type="button" disabled={busy || importing || !sourceVersion || !reviewed || Boolean(savedMessage)} onClick={saveReview}>Save review</button>
         {!sourceVersion && <p>Import the submitted DTR to save a file-linked review.</p>}

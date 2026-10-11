@@ -5,6 +5,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import AttendanceAiExplanation from '../components/AttendanceAiExplanation';
 import './CoordinatorRecords.css';
 
 function csvEscape(v) {
@@ -175,6 +176,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
                         <span>{st.projectedCompletion ? `Estimated completion: ${st.projectedCompletion}` : 'Completion estimate unavailable'}</span>
                         {(st.reasons || []).map(reason => <small key={reason} style={{ display: 'block' }}>{reason}</small>)}
+                        {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} metricsVersion={JSON.stringify([st.creditedHours, st.risk, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
                       </div>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>

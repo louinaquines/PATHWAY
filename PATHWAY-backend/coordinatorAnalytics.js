@@ -1,4 +1,5 @@
 const { attendanceAnalytics } = require('./attendanceAnalytics');
+const { loadAttendanceMetrics } = require('./attendanceAiReview');
 function validateSchedule(schedule) {
   if (!schedule || typeof schedule !== 'object' || !Array.isArray(schedule.workingDays) || schedule.workingDays.length > 7 || (schedule.exceptions && (!Array.isArray(schedule.exceptions) || schedule.exceptions.length > 366))) throw new Error('Invalid schedule.');
   attendanceAnalytics({ today: schedule?.startDate, creditedHours: 0, requiredHours: 1, schedule });
@@ -30,7 +31,6 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
     try {
       const section = (await coordinatorSection(req, req.params.sectionId)).data();
       const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-      const from = new Date(Date.parse(`${today}T00:00:00Z`) - 28 * 86400000).toISOString().slice(0, 10);
       const snapshot = await db.collection('users').where('sectionId', '==', req.params.sectionId).where('role', '==', 'student').limit(501).get();
       if (snapshot.size > 500) return res.status(422).json({ error: 'Section exceeds the supported analytics limit.' });
       const students = [];
@@ -39,15 +39,8 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
         students.push(...await Promise.all(snapshot.docs.slice(index, index + 10).map(async doc => {
           const student = doc.data();
           if (student.department !== section.department) return null;
-          const records = await doc.ref.collection('attendance').where('date', '>=', from).where('date', '<', today).limit(1001).get();
-          if (records.size > 1000) throw new Error('Attendance record limit exceeded.');
           const required = Number(student.hoursRequired || section.hoursRequired);
-          const rendered = Number(student.hoursRendered ?? 0);
-          const metrics = attendanceAnalytics({ today, creditedHours: rendered, requiredHours: required,
-            schedule: section.attendanceSchedule, records: records.docs.map(item => {
-              const record = item.data();
-              return { ...record, creditedHours: record.timeOut && Number.isFinite(record.hoursToday) ? record.hoursToday : undefined };
-            }) });
+          const metrics = await loadAttendanceMetrics(doc.ref, student, section, today);
           return { id: doc.id, name: `${student.firstName || ''} ${student.lastName || ''}`.trim(), idNumber: student.idNumber || '',
             section: section.name, department: section.department, companyName: student.companyName || student.company || '',
             hoursRendered: metrics.creditedHours, hoursRequired: Number.isFinite(required) ? required : null,

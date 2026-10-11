@@ -1,5 +1,5 @@
 // screens/LogbookScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -221,6 +221,9 @@ export default function LogbookScreen({ navigation }) {
   const [hours, setHours] = useState('');
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState('');
+  const currentDraft = useRef({});
+  currentDraft.current = { rawNotes, editingEntry, modal };
+  const aiInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [pageState, setPageState] = useState({ cursor: null, hasMore: false });
@@ -275,6 +278,26 @@ export default function LogbookScreen({ navigation }) {
     if (rawNotes.trim().split(/\s+/).length < 20) warnings.push('Check that your activities and learning are described.');
     if (!Number.isFinite(Number(hours)) || Number(hours) <= 0 || Number(hours) > 168) warnings.push('Enter weekly hours from 1 to 168.');
     Alert.alert('Notes checklist', (warnings.length ? warnings.join('\n\n') : 'No basic warnings found.') + '\n\nCheck your week, activities, learning and hours before submitting. Your notes are not rewritten or approved.');
+  };
+
+  const requestAiRefinement = () => {
+    if (!rawNotes.trim() || rawNotes.length > 8000) return Alert.alert('Notes required', 'Enter notes up to 8,000 characters first.');
+    if (aiInFlight.current || saving) return;
+    const draft = { rawNotes, editingEntry };
+    Alert.alert('Optional AI assistance', 'These notes will be sent to Anthropic. Remove personal or confidential company information first. AI can make mistakes; review the suggestion before using it. Your original notes are kept.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Send notes', onPress: async () => {
+        if (aiInFlight.current || currentDraft.current.rawNotes !== draft.rawNotes || currentDraft.current.editingEntry !== draft.editingEntry || !currentDraft.current.modal) return;
+        aiInFlight.current = true;
+        setRefining(true);
+        try {
+          const result = await postBackend('/refine-logbook', { notes: draft.rawNotes, consent: true });
+          if (typeof result.refined !== 'string' || !result.refined.trim() || result.refined.length > 8000) throw new Error('No usable AI suggestion returned.');
+          if (currentDraft.current.rawNotes === draft.rawNotes && currentDraft.current.editingEntry === draft.editingEntry && currentDraft.current.modal) setRefined(result.refined);
+        } catch (error) { Alert.alert('AI unavailable', `${error.message}\n\nYou can still use Check notes and submit your original notes.`); }
+        finally { aiInFlight.current = false; setRefining(false); }
+      } },
+    ]);
   };
 
   const handleSubmit = async () => {
@@ -577,13 +600,21 @@ export default function LogbookScreen({ navigation }) {
               </TouchableOpacity>
 
               {/* Refined output */}
+              <TouchableOpacity style={[styles.refineBtn, refining && { opacity: 0.6 }]} onPress={requestAiRefinement} disabled={refining || saving} accessibilityLabel="Request optional AI journal refinement">
+                <SparklesIcon size={15} color={COLORS.accent} />
+                <Text style={styles.refineBtnText}>{refining ? 'Generating suggestion…' : 'Refine with AI'}</Text>
+                <Text style={styles.refineOptional}>(Optional)</Text>
+              </TouchableOpacity>
               {refined ? (
                 <View style={styles.refinedBox}>
                   <View style={styles.refinedHeaderRow}>
                     <SparklesIcon size={13} color={COLORS.successDark} />
-                    <Text style={styles.refinedLabel}>SAVED REVISED TEXT</Text>
+                    <Text style={styles.refinedLabel}>AI SUGGESTION — REVIEW BEFORE SUBMITTING</Text>
                   </View>
                   <Text style={styles.refinedText}>{refined}</Text>
+                  <TouchableOpacity onPress={() => setRefined('')} disabled={saving || refining} accessibilityLabel="Discard AI suggestion and use original notes">
+                    <Text style={styles.refineBtnText}>Discard suggestion — use original notes</Text>
+                  </TouchableOpacity>
                 </View>
               ) : null}
 

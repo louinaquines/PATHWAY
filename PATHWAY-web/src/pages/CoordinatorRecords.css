@@ -36,6 +36,26 @@
 .registration-student-card button:last-child { background: white !important; color: #b42338 !important; }
 .coordinator-analytics-page > div:first-child p { color: #697991 !important; line-height: 1.7; font-size: 12px !important; }
 .coordinator-analytics-page > div:first-child > div:last-child { flex-wrap: wrap; }
+.coordinator-analytics-page > * { flex-shrink: 0; }
+.coordinator-analytics-page .analytics-schedule { overflow: visible !important; }
+.coordinator-analytics-page .analytics-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; }
+.coordinator-analytics-page .analytics-actions svg { display: block; flex-shrink: 0; }
+.coordinator-analytics-page .analytics-actions button:last-child { background: #075fc9 !important; }
+.coordinator-analytics-page .analytics-schedule { padding: 22px; border-color: #e4eaf3 !important; border-radius: 16px !important; box-shadow: none !important; }
+.analytics-schedule h3 { margin: 0 0 8px; font-size: 16px; }
+.analytics-schedule p { margin: 0 0 20px; color: #697991; font-size: 13px; line-height: 1.7; max-width: 960px; }
+.analytics-schedule-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.analytics-schedule > label, .analytics-schedule-fields label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; font-weight: 600; color: #34445c; }
+.analytics-schedule input:not([type="checkbox"]) { min-height: 42px; padding: 8px 12px; border: 1px solid #dbe4f0; border-radius: 10px; font: inherit; color: #243b58; background: #f8faff; box-sizing: border-box; min-width: 0; }
+.analytics-working-days { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.analytics-working-days label { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; background: #f6f8fc; border: 1px solid #e4eaf3; border-radius: 8px; font-size: 12px; color: #34445c; }
+.analytics-working-days input { accent-color: #075fc9; margin: 0; }
+.analytics-schedule button[type="submit"] { margin-top: 16px; padding: 10px 18px; border: 1px solid #075fc9; background: #075fc9; color: white; }
+.analytics-schedule input:focus-visible { outline: 3px solid #b5d6ff; outline-offset: 2px; }
+.analytics-attendance-metrics { display: flex; flex-direction: column; gap: 7px; min-width: 240px; line-height: 1.5; }
+.analytics-attendance-metrics > small { color: #697991; }
+.analytics-attendance-metrics > details { margin-top: 5px; }
+.analytics-metrics > div > .analytics-metric-unavailable { font-size: 18px !important; color: #697991 !important; }
 .analytics-metrics > div { border-color: #e4eaf3 !important; border-radius: 12px !important; box-shadow: none !important; }
 .analytics-metrics > div > div:first-child { color: #697991 !important; font-size: 11px !important; font-weight: 500 !important; }
 .analytics-metrics > div > div:last-child { color: #152238 !important; font-size: 24px !important; font-weight: 600 !important; }

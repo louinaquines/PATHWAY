@@ -15,7 +15,7 @@ test('keeps form private until OTP verification and sends session on submission'
   await screen.findByRole('heading', { name: 'Verify your email' });
   expect(screen.queryByRole('button', { name: 'Submit Official Evaluation' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
-  await screen.findByText(/Code sent to the supervisor email/);
+  await screen.findByText('Check your email for the six-digit code. It expires in 10 minutes.');
   fireEvent.change(screen.getByLabelText('Six-digit code'), { target: { value: '123456' } });
   fireEvent.click(screen.getByRole('button', { name: 'Verify and open evaluation' }));
   await screen.findByRole('heading', { name: 'TEST ONLY evaluation' });

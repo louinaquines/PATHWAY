@@ -1,5 +1,7 @@
 // src/pages/LogbookTab.js
 import { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import DtrReviewDialog from '../components/DtrReviewDialog';
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
@@ -30,6 +32,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [attendanceError, setAttendanceError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
+  const [dtrStudent, setDtrStudent] = useState(null);
+  useEffect(() => { setDtrStudent(null); }, [selectedSection?.id, selectedStudent?.id, recordView]);
   const [analysis, setAnalysis] = useState(null);
   const [analysisError, setAnalysisError] = useState('');
   useEffect(() => {
@@ -214,19 +218,22 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <p>{selectedStudent ? 'Review weekly reports and reported hours.' : 'Select a student to view their submissions.'}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {selectedStudent && <button type="button" className="logbook-export" disabled={exporting} onClick={exportStudentRecords}><Icon name="download" size={16} />{exporting ? 'Exporting…' : 'Export Data'}</button>}
+            {document.getElementById('logbook-header-actions') && createPortal(
+              <button type="button" className="section-export-button" disabled={!selectedStudent || !selectedSection || exporting} onClick={exportStudentRecords} aria-busy={exporting} title={selectedStudent ? 'Download selected student records as an Excel file' : 'Select a student to export'}><Icon name="download" size={18} />{exporting ? 'Exporting…' : 'Export Data'}</button>,
+              document.getElementById('logbook-header-actions'))}
             <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => { setRecordView('journals'); fetchEntries(student); }} />
           </div>
         </div>
 
         <div className="logbook-detail-content" style={t.entriesScroll}>
           {exportError && <p role="alert">{exportError}</p>}
-          {selectedStudent && <div className="logbook-record-switch" role="group" aria-label="Student record type">
+          {selectedStudent && <div className="logbook-record-toolbar"><div className="logbook-record-switch" role="group" aria-label="Student record type">
             <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
             <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Weekly journals</button>
-          </div>}
+          </div>{recordView === 'attendance' && <button type="button" className="logbook-export" onClick={() => setDtrStudent(selectedStudent)}><Icon name="clipboard" size={16} />Compare DTR</button>}</div>}
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
             <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from weekly journal hours.</p>
+            {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
             {attendanceError && <p role="alert">{attendanceError}</p>}
             {!attendanceLoading && !attendanceError && attendance.length === 0 && <p>No attendance records yet.</p>}

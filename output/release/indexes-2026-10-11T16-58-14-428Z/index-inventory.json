@@ -1,0 +1,355 @@
+{
+  "capturedAt": "2026-10-11T16:58:14.429Z",
+  "project": "pathway-57400",
+  "productionWrites": 0,
+  "localSpecSha256": "83796bc97aaee54978727676715213ceff0d239c822c1a3d40f5c6ccbbfd6cce",
+  "indexes": [
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/notifications/indexes/CICAgOjXh4EJ",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "senderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/notifications/indexes/CICAgOi3kJAJ",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/messages/indexes/CICAgJim14AK",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "conversationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/notifications/indexes/CICAgOjXh4EK",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/messages/indexes/CICAgJiUpoMK",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/messages/indexes/CICAgOi3kJAK",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "conversationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    },
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/notifications/indexes/CICAgOjXh4EL",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "senderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "state": "READY",
+      "density": "SPARSE_ALL"
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "name": "projects/pathway-57400/databases/(default)/collectionGroups/__default__/fields/*",
+      "indexConfig": {
+        "indexes": [
+          {
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "*",
+                "order": "ASCENDING"
+              }
+            ],
+            "state": "READY"
+          },
+          {
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "*",
+                "order": "DESCENDING"
+              }
+            ],
+            "state": "READY"
+          },
+          {
+            "queryScope": "COLLECTION",
+            "fields": [
+              {
+                "fieldPath": "*",
+                "arrayConfig": "CONTAINS"
+              }
+            ],
+            "state": "READY"
+          }
+        ]
+      }
+    }
+  ],
+  "checks": [
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "conversationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "participantIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "conversationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "senderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "senderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        }
+      ],
+      "deployedStates": [
+        "READY"
+      ],
+      "ready": true
+    }
+  ]
+}

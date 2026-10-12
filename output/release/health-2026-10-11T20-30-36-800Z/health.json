@@ -1,0 +1,11 @@
+{
+  "capturedAt": "2026-10-11T20:30:36.803Z",
+  "url": "https://pathway-backend-49a9.onrender.com/healthz",
+  "healthy": true,
+  "reason": "ok",
+  "status": 200,
+  "elapsedMs": 385,
+  "livenessOnly": true,
+  "alertSent": false,
+  "productionWrites": 0
+}

@@ -1,0 +1,10 @@
+{
+  "confirmedState": "healthy",
+  "checkedAt": "2026-10-12T17:23:03.583Z",
+  "status": 200,
+  "retryUsed": true,
+  "livenessOnly": true,
+  "lastAttemptAt": "2026-10-12T17:23:03.583Z",
+  "lastAttemptResult": "healthy",
+  "lastAttemptReason": "Network-enabled retry returned HTTP 200 in 175 ms."
+}

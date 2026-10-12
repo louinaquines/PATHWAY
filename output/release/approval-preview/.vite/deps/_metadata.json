@@ -1,0 +1,40 @@
+{
+  "hash": "de8d9733",
+  "configHash": "7f4c660b",
+  "lockfileHash": "e3b0c442",
+  "browserHash": "be7707b2",
+  "optimized": {
+    "react": {
+      "src": "../../../../../PATHWAY-master/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "93ea1515",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../../../../PATHWAY-master/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "ef0903d0",
+      "needsInterop": true
+    },
+    "react-native": {
+      "src": "../../../../../PATHWAY-master/node_modules/react-native-web/dist/index.js",
+      "file": "react-native.js",
+      "fileHash": "194dd5a9",
+      "needsInterop": false
+    },
+    "react/jsx-runtime": {
+      "src": "../../../../../PATHWAY-master/node_modules/react/jsx-runtime.js",
+      "file": "react_jsx-runtime.js",
+      "fileHash": "34550e5d",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-YBCYROR5": {
+      "file": "chunk-YBCYROR5.js"
+    },
+    "chunk-IFMCCQ5F": {
+      "file": "chunk-IFMCCQ5F.js"
+    }
+  }
+}

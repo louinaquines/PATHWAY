@@ -578,6 +578,17 @@ button {
   scrollbar-color: var(--slate-200) transparent;
 }
 
+.coordinator-page .sidebar-nav-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.coordinator-page .sidebar-nav-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .sidebar-nav-scroll::-webkit-scrollbar {
   width: 4px;
 }
@@ -1769,6 +1780,62 @@ button {
   .admin-page .profileFacts {
     grid-template-columns: 1fr !important;
   }
+}
+
+.logbook-record-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.logbook-record-toolbar .logbook-record-switch { margin-bottom: 0; }
+.logbook-record-toolbar .logbook-export { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+.logbook-record-toolbar .logbook-export svg { display: block; }
+
+.sections-workspace .section-detail-meta > span,
+.sections-workspace .section-detail-meta > a,
+.sections-workspace .section-view-toggle > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sections-workspace .section-detail-meta svg,
+.sections-workspace .section-view-toggle svg,
+.sections-workspace .section-list-card button > svg {
+  display: block;
+  flex-shrink: 0;
+}
+.sections-workspace .section-list-card button:has(> svg) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.coordinator-page .requirements-topbar {
+  min-height: 88px;
+  gap: 16px;
+}
+.coordinator-page .requirements-topbar .topbarLeft { min-width: 0; gap: 16px !important; }
+.coordinator-page .requirements-topbar .coordinator-header-title { min-width: 0; }
+.coordinator-page .requirements-topbar h1 { color: #15243b !important; font-size: 21px !important; letter-spacing: -.4px; }
+.coordinator-page .requirements-header-description { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+.coordinator-page .requirements-topbar .sectionPickerLabel { gap: 8px !important; color: #64748b !important; }
+.coordinator-page .requirements-topbar .sectionPicker {
+  height: 44px;
+  min-width: 190px;
+  border: 1px solid #dbe4f0 !important;
+  border-radius: 12px !important;
+  background-color: #f8faff !important;
+  color: #243b58 !important;
+  font-family: inherit;
+  font-weight: 600;
+  padding: 0 14px !important;
+  cursor: pointer;
+}
+.coordinator-page .requirements-topbar .sectionPicker:focus-visible { outline: 3px solid #b5d6ff; outline-offset: 2px; }
+.coordinator-page .requirements-topbar .section-export-button { min-height: 44px; border-radius: 12px; margin-left: 0; padding: 11px 18px; box-shadow: none; }
+@media (max-width: 1100px) {
+  .coordinator-page .requirements-topbar .sectionPickerLabel { margin-left: 0 !important; }
+}
+@media (max-width: 680px) {
+  .coordinator-page .requirements-topbar .coordinator-header-title { width: 100%; }
+  .coordinator-page .requirements-topbar .sectionPickerLabel { width: 100%; }
+  .coordinator-page .requirements-topbar .sectionPicker { flex: 1; min-width: 0; }
 }
 
 .coordinator-page .section-export-button {

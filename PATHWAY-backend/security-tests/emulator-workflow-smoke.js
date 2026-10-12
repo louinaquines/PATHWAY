@@ -78,7 +78,7 @@ async function main() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${await studentClient.auth.currentUser.getIdToken(true)}`,
       },
-      body: JSON.stringify({ notes: 'Local emulator AI isolation check.' }),
+      body: JSON.stringify({ notes: 'Local emulator AI isolation check.', consent: true }),
     });
     assert.equal(aiResponse.status, 503, 'AI refinement must not make external API calls in local workflow mode.');
 

@@ -12,7 +12,7 @@ const {
   connectAuthEmulator, createUserWithEmailAndPassword, getAuth,
 } = require('firebase/auth');
 const {
-  collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, addDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, query, where, orderBy, limit, setDoc, updateDoc, addDoc, deleteDoc,
 } = require('firebase/firestore');
 const { signParams } = require('../cloudinaryUploads');
 
@@ -316,7 +316,7 @@ before(async () => {
   backend.stdout.on('data', chunk => { backendOutput += chunk.toString(); });
   backend.stderr.on('data', chunk => { backendOutput += chunk.toString(); });
   const baseUrl = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     if (backend.exitCode !== null) throw new Error(`Backend exited during test startup:\n${backendOutput}`);
     try {
@@ -429,6 +429,12 @@ test('endorsement preparation records are participant-readable and server-owned'
 });
 
 test('logbook writes preserve student ownership and placement proposal writes require the backend', async () => {
+  let journalOriginal;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    journalOriginal = (await getDoc(doc(context.firestore(), 'users', identities.studentA.uid))).data();
+    await setDoc(doc(context.firestore(), 'companies', 'journal-company'), { name: 'TEST ONLY Journal Company', active: true });
+    await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), { placementStatus: 'approved', preDeploymentStatus: 'approved', companyId: 'journal-company' });
+  });
   const studentStore = clientStore(identities.studentA);
   await testEnv.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', identities.studentA.uid, 'logbook', 'revision-check'), {
     rawNotes: 'Original', refined: 'Original', aiRefined: false, hours: 4, status: 'rejected', weekNum: 5, weekRange: 'Oct 5 – Oct 11', createdAt: '2026-10-10T00:00:00Z', reviewedBy: identities.coordinatorA.uid,
@@ -464,6 +470,7 @@ test('logbook writes preserve student ownership and placement proposal writes re
     studentId: identities.studentA.uid, department: 'Department B', sectionId: 'section-b',
     companyName: 'Forged Company', status: 'pending_review',
   }));
+  await testEnv.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', identities.studentA.uid), journalOriginal));
   await assertFails(updateDoc(doc(studentStore, 'companyProposals', 'proposal-a'), {
     status: 'pending_review', companyName: 'Updated Proposal', updatedAt: new Date().toISOString(),
   }));
@@ -583,8 +590,54 @@ test('admin configuration and audit collections have role-specific client read b
   await assertFails(setDoc(doc(coordinatorStore, 'sections', 'section-a', 'requirements', 'client-requirement'), { label: 'Bypass audit' }));
 });
 
-async function api(pathname, identity, body, method = 'POST') {
-  const headers = { 'Content-Type': 'application/json' };
+test('release query shapes allow scoped student and coordinator pages but deny outsiders', async () => {
+  const student = clientStore(identities.studentA);
+  const coordinator = clientStore(identities.coordinatorA);
+  const foreign = clientStore(identities.coordinatorB);
+  const anonymous = testEnv.unauthenticatedContext().firestore();
+  const studentQueries = store => [
+    query(collection(store, 'notifications'), where('recipientId', '==', identities.studentA.uid), orderBy('createdAt', 'desc'), limit(15)),
+    query(collection(store, 'messages'), where('participantIds', 'array-contains', identities.studentA.uid), orderBy('createdAt', 'desc'), limit(15)),
+    query(collection(store, 'messages'), where('participantIds', 'array-contains', identities.studentA.uid), where('conversationId', '==', 'conversation-a'), orderBy('createdAt', 'desc'), limit(20)),
+    query(collection(store, 'users', identities.studentA.uid, 'attendance'), where('date', '<', '2026-10-12'), orderBy('date', 'desc'), limit(10)),
+    query(collection(store, 'users', identities.studentA.uid, 'logbook'), orderBy('createdAt', 'desc'), limit(5)),
+    query(collection(store, 'companyProposals'), where('studentId', '==', identities.studentA.uid)),
+    query(collection(store, 'finalReviewRequests'), where('studentId', '==', identities.studentA.uid)),
+  ];
+  for (const target of studentQueries(student)) await assertSucceeds(getDocs(target));
+  for (const store of [foreign, anonymous]) {
+    for (const target of studentQueries(store)) await assertFails(getDocs(target));
+  }
+  const sectionStudents = store => query(collection(store, 'users'), where('role', '==', 'student'), where('department', '==', 'Department A'), where('sectionId', '==', 'section-a'));
+  const ownedSections = store => query(collection(store, 'sections'), where('coordinatorId', '==', identities.coordinatorA.uid));
+  await assertSucceeds(getDocs(sectionStudents(coordinator)));
+  await assertSucceeds(getDocs(ownedSections(coordinator)));
+  await assertFails(getDocs(sectionStudents(foreign)));
+  await assertFails(getDocs(ownedSections(foreign)));
+  await assertFails(getDocs(sectionStudents(anonymous)));
+  await assertFails(getDocs(query(collection(coordinator, 'users'), where('role', '==', 'student'))));
+});
+
+test('server-owned review and company-mail subcollections deny direct client access', async () => {
+  const paths = [
+    `users/${identities.studentA.uid}/dtrReviews/release-check`,
+    'sections/section-a/reviewChecks/release-check',
+    'sections/section-a/companyConversations/release-check',
+    'sections/section-a/companyConversations/release-check/replyAttempts/release-check',
+  ];
+  await testEnv.withSecurityRulesDisabled(async context => {
+    for (const selected of paths) await setDoc(doc(context.firestore(), selected), { testOnly: true });
+  });
+  const stores = [testEnv.unauthenticatedContext().firestore(), ...Object.values(identities).map(identity => testEnv.authenticatedContext(identity.uid).firestore())];
+  for (const store of stores) for (const selected of paths) {
+    await assertFails(getDoc(doc(store, selected)));
+    await assertFails(setDoc(doc(store, selected), { forged: true }));
+    await assertFails(deleteDoc(doc(store, selected)));
+  }
+});
+
+async function api(pathname, identity, body, method = 'POST', extraHeaders = {}) {
+  const headers = { ...extraHeaders, 'Content-Type': 'application/json' };
   if (identity) headers.Authorization = `Bearer ${identity.token}`;
   const response = await fetch(`${globalThis.backendUrl}${pathname}`, {
     method, headers, body: body === undefined ? undefined : JSON.stringify(body),
@@ -596,6 +649,61 @@ test('backend health endpoint responds without exposing deployment details', asy
   const health = await api('/healthz', null, undefined, 'GET');
   assert.equal(health.response.status, 200);
   assert.deepEqual(health.data, { status: 'ok' });
+});
+
+test('AI refinement requires student auth, valid notes and consent, and stays disabled in emulators', async () => {
+  assert.equal((await api('/refine-logbook', null, { notes: 'Synthetic notes', consent: true })).response.status, 401);
+  assert.equal((await api('/refine-logbook', identities.coordinatorA, { notes: 'Synthetic notes', consent: true })).response.status, 403);
+  assert.equal((await api('/refine-logbook', identities.studentA, { notes: '' })).response.status, 400);
+  assert.equal((await api('/refine-logbook', identities.studentA, { notes: 'Synthetic notes' })).response.status, 400);
+  const isolated = await api('/refine-logbook', identities.studentA, { notes: 'Synthetic notes', consent: true });
+  assert.equal(isolated.response.status, 503);
+  assert.equal(isolated.data.code, 'AI_DISABLED');
+});
+
+test('coordinator attendance AI is authenticated, scoped, consent-gated and disabled in emulators', async () => {
+  const path = `/coordinator/sections/section-a/students/${identities.studentA.uid}/attendance-ai`;
+  assert.equal((await api(path, null, { consent: true })).response.status, 401);
+  assert.equal((await api(path, identities.studentA, { consent: true })).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorB, { consent: true })).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorA, {})).response.status, 400);
+  const before = (await getDoc(doc(clientStore(identities.studentA), 'users', identities.studentA.uid))).data();
+  assert.equal((await api(path, identities.coordinatorA, { consent: true })).response.status, 503);
+  const after = (await getDoc(doc(clientStore(identities.studentA), 'users', identities.studentA.uid))).data();
+  assert.deepEqual(after, before);
+});
+
+test('coordinator journal AI is authenticated, scoped, consent-gated and disabled in emulators', async () => {
+  const path = `/coordinator/students/${identities.studentA.uid}/logbook/logbook-pending/ai-analysis`;
+  assert.equal((await api(path, null, { consent: true })).response.status, 401);
+  assert.equal((await api(path, identities.studentA, { consent: true })).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorB, { consent: true })).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorA, {})).response.status, 400);
+  const isolated = await api(path, identities.coordinatorA, { consent: true });
+  assert.equal(isolated.response.status, 503);
+  assert.equal(isolated.data.code, 'AI_DISABLED');
+});
+
+test('document AI is scoped, review/consent gated and disabled without changing records', async () => {
+  const path = `/coordinator/students/${identities.studentA.uid}/requirements/dtr/ai-assistance`;
+  const body = { text: 'TEST ONLY source', consent: true, reviewed: true };
+  assert.equal((await api(path, null, body)).response.status, 401);
+  assert.equal((await api(path, identities.studentA, body)).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorB, body)).response.status, 403);
+  assert.equal((await api(path, identities.coordinatorA, { ...body, reviewed: false })).response.status, 400);
+  assert.equal((await api(path, identities.coordinatorA, { ...body, consent: false })).response.status, 400);
+  const ref = doc(clientStore(identities.studentA), 'users', identities.studentA.uid);
+  const original = (await getDoc(ref)).data();
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), { requirements: { ...original.requirements, dtr: { fileName: 'TEST-ONLY.pdf' } } });
+  });
+  try {
+    const before = (await getDoc(ref)).data();
+    assert.equal((await api(path, identities.coordinatorA, body)).response.status, 503);
+    assert.deepEqual((await getDoc(ref)).data(), before);
+  } finally {
+    await testEnv.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(), 'users', identities.studentA.uid), { requirements: original.requirements }); });
+  }
 });
 
 test('admin settings and academic-term endpoints enforce role, validation, and server audit ownership', async () => {
@@ -847,6 +955,36 @@ test('coordinator section and requirement mutations enforce ownership and create
   assert.equal(coordinatorCreatedAudit.size, 1);
 });
 
+test('missing and inactive placements deny direct attendance and journal writes without blocking reads', async () => {
+  const identity = identities.studentA;
+  const store = clientStore(identity);
+  let original;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    original = (await getDoc(doc(context.firestore(), 'users', identity.uid))).data();
+    await setDoc(doc(context.firestore(), 'companies', 'eligibility-active'), { name: 'TEST ONLY Active', active: true });
+    await setDoc(doc(context.firestore(), 'companies', 'eligibility-inactive'), { active: false });
+    await setDoc(doc(context.firestore(), 'companies', 'eligibility-status'), { status: 'inactive' });
+    await setDoc(doc(context.firestore(), 'users', identity.uid, 'logbook', 'eligibility-rejected'), { rawNotes: 'TEST ONLY', refined: 'TEST ONLY', aiRefined: false, hours: 1, status: 'rejected' });
+  });
+  const base = { accountApproved: true, placementStatus: 'approved', preDeploymentStatus: 'approved', companyId: 'eligibility-active' };
+  try {
+    for (const change of [{ companyId: '' }, { placementStatus: 'pending' }, { placementStatus: 'rejected' },
+      { companyId: 'eligibility-nonexistent' }, { companyId: 'eligibility-inactive' }, { companyId: 'eligibility-status' },
+      { accountApproved: false }, { preDeploymentStatus: 'pending_review' }]) {
+      await testEnv.withSecurityRulesDisabled(context => updateDoc(doc(context.firestore(), 'users', identity.uid), { ...base, ...change }));
+      assert.equal((await api('/attendance/time-in', identity, {})).response.status, 403);
+      await assertFails(setDoc(doc(store, 'users', identity.uid, 'logbook', 'eligibility-new'), { rawNotes: 'TEST ONLY', refined: 'TEST ONLY', hours: 1, status: 'pending' }));
+      await assertFails(updateDoc(doc(store, 'users', identity.uid, 'logbook', 'eligibility-rejected'), { status: 'pending' }));
+      await assertSucceeds(getDoc(doc(store, 'users', identity.uid, 'logbook', 'eligibility-rejected')));
+    }
+    await testEnv.withSecurityRulesDisabled(context => updateDoc(doc(context.firestore(), 'users', identity.uid), base));
+    await assertSucceeds(setDoc(doc(store, 'users', identity.uid, 'logbook', 'eligibility-new'), { rawNotes: 'TEST ONLY', refined: 'TEST ONLY', hours: 1, status: 'pending' }));
+    await assertSucceeds(updateDoc(doc(store, 'users', identity.uid, 'logbook', 'eligibility-rejected'), { status: 'pending' }));
+  } finally {
+    await testEnv.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', identity.uid), original));
+  }
+});
+
 test('attendance requires final approval and records time server-side without replay', async () => {
   await testEnv.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'companies', 'attendance-fence'), { name: 'QA attendance', geofence: { enabled: true, latitude: 10.3, longitude: 123.9, radiusMeters: 150 } });
@@ -871,6 +1009,7 @@ test('attendance requires final approval and records time server-side without re
     await updateDoc(doc(context.firestore(), 'users', identities.attendanceStudent.uid, 'attendance', timeIn.data.id), {
       timeIn: new Date(Date.now() - 60 * 60_000).toISOString(),
     });
+    await updateDoc(doc(context.firestore(), 'users', identities.attendanceStudent.uid), { placementStatus: 'pending', preDeploymentStatus: 'pending_review', companyId: '' });
   });
 
   assert.equal((await api('/attendance/time-out', identities.attendanceStudent, {})).response.status, 422);
@@ -1803,27 +1942,44 @@ test('evaluation links are coordinator-scoped, single-use, and validate complete
   assert.equal(invalidToken.response.status, 404);
   const info = await api(`/evaluation/${created.data.token}`, null, undefined, 'GET');
   assert.equal(info.response.status, 200, JSON.stringify(info.data));
-  assert.deepEqual(info.data, {
+  assert.deepEqual(info.data, { verificationRequired: true });
+  const unverified = await api(`/evaluation/${created.data.token}/submit`, null, {
+    ratings: { technicalSkills: 5, workQuality: 4, professionalism: 4, communication: 5, attendance: 5 }, comments: 'Unverified',
+  });
+  assert.equal(unverified.response.status, 403);
+  const codeMailIndex = smtpMessages.length;
+  const requested = await api(`/evaluation/${created.data.token}/request-code`, null, {});
+  assert.equal(requested.response.status, 200);
+  assert.equal(smtpMessages.length, codeMailIndex + 1);
+  assert.deepEqual(smtpMessages[codeMailIndex].recipients, ['supervisor@example.test']);
+  const code = smtpMessages[codeMailIndex].raw.match(/Your verification code is (\d{6})/)[1];
+  const verified = await api(`/evaluation/${created.data.token}/verify-code`, null, { code });
+  assert.equal(verified.response.status, 200);
+  const sessionHeaders = { 'x-evaluation-session': verified.data.session };
+  const evaluationApi = (pathname, identity, body, method = 'POST') => api(pathname, identity, body, method, sessionHeaders);
+  const protectedInfo = await evaluationApi(`/evaluation/${created.data.token}`, null, undefined, 'GET');
+  assert.equal(protectedInfo.response.status, 200);
+  assert.deepEqual(protectedInfo.data, {
     studentName: 'Updated Test', companyName: 'Test Company',
     supervisorName: 'Supervisor A', expiresAt: saved.expiresAt,
   });
 
-  const invalidRatings = await api(`/evaluation/${created.data.token}/submit`, null, {
+  const invalidRatings = await evaluationApi(`/evaluation/${created.data.token}/submit`, null, {
     ratings: { notARealCriterion: 5 }, comments: 'Feedback',
   });
   assert.equal(invalidRatings.response.status, 400);
-  const invalidComments = await api(`/evaluation/${created.data.token}/submit`, null, {
+  const invalidComments = await evaluationApi(`/evaluation/${created.data.token}/submit`, null, {
     ratings: { technicalSkills: 5, workQuality: 4, professionalism: 4, communication: 5, attendance: 5 },
     comments: 'x'.repeat(4001),
   });
   assert.equal(invalidComments.response.status, 400);
 
   const validRatings = { technicalSkills: 5, workQuality: 4, professionalism: 4, communication: 5, attendance: 5 };
-  const submitted = await api(`/evaluation/${created.data.token}/submit`, null, {
+  const submitted = await evaluationApi(`/evaluation/${created.data.token}/submit`, null, {
     ratings: validRatings, comments: '  Strong progress and professional conduct.  ',
   });
   assert.equal(submitted.response.status, 200, JSON.stringify(submitted.data));
-  const replay = await api(`/evaluation/${created.data.token}/submit`, null, {
+  const replay = await evaluationApi(`/evaluation/${created.data.token}/submit`, null, {
     ratings: validRatings, comments: 'Second submission',
   });
   assert.equal(replay.response.status, 410);

@@ -1,0 +1,23 @@
+{
+  "database": {
+    "name": "projects/pathway-57400/databases/(default)",
+    "uid": "4574227b-8765-4199-b807-70fcc6744eb6",
+    "createTime": "2026-08-29T16:08:31.209588Z",
+    "updateTime": "2026-08-29T16:08:31.209588Z",
+    "locationId": "asia-east1",
+    "type": "FIRESTORE_NATIVE",
+    "concurrencyMode": "PESSIMISTIC",
+    "versionRetentionPeriod": "3600s",
+    "earliestVersionTime": "2026-10-11T16:02:41.501786Z",
+    "appEngineIntegrationMode": "DISABLED",
+    "keyPrefix": "zde",
+    "pointInTimeRecoveryEnablement": "POINT_IN_TIME_RECOVERY_DISABLED",
+    "deleteProtectionState": "DELETE_PROTECTION_DISABLED",
+    "databaseEdition": "STANDARD",
+    "freeTier": true,
+    "realtimeUpdatesMode": "REALTIME_UPDATES_MODE_ENABLED",
+    "etag": "IIOoluW4spcDMIbS+u2dxpYD"
+  },
+  "backupSchedules": {},
+  "backups": {}
+}

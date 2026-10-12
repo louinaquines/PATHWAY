@@ -1,5 +1,6 @@
 .placement-companies { color: #152238; }
 .placement-page { background: #f6f8fc !important; padding: 24px !important; }
+.placement-page > .company-conversations:first-child { margin-top: 0; margin-bottom: 24px; }
 .placement-page-header h2 { font-size: 24px; font-weight: 700; color: #152238; }
 .placement-page [hidden] { display: none !important; }
 .placement-page > div[hidden], .placement-page > div:not([hidden]) > article { color: #34445c; }

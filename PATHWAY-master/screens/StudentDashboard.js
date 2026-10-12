@@ -21,6 +21,7 @@ import { studentHours } from '../services/studentHours';
 import { requestBackend, postBackend } from '../services/backendApi';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { punchAttendance } from '../services/attendanceLocation';
+import usePlacementEligibility, { PLACEMENT_REQUIRED } from '../services/usePlacementEligibility';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
 import { nextPreDeploymentAction, hasCompletedPreDeployment } from '../services/preDeploymentStatus';
 import { getStudentNotificationsEnabled, setStudentNotificationsEnabled } from '../services/studentPreferences';
@@ -528,6 +529,7 @@ export default function StudentDashboard({ navigation }) {
             onBack={() => setSettingsVisible(false)}
             onLogout={logout}
             onChangePassword={() => navigation.navigate('ChangePassword')}
+            onOpenScreen={name => navigation.navigate(name)}
           />
           : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onRequestPlacementChange={() => navigation.navigate('Company')} />)}
       </Animated.View>
@@ -930,6 +932,7 @@ function CardTitle({ Icon, title, action, onPress }) {
 }
 
 function HomePanel({ student, metrics, recent, width, go }) {
+  const placement = usePlacementEligibility();
   const normalizedProgress = Number.isFinite(metrics.progress)
     ? Math.max(0, Math.min(metrics.progress, 1))
     : 0;
@@ -993,11 +996,11 @@ function HomePanel({ student, metrics, recent, width, go }) {
       <View style={styles.homePlacementRow}>
         <View style={styles.homePlacementMark}><BuildingIcon size={18} color={COLORS.primary} /></View>
         <View style={styles.homePlacementCopy}>
-          <Text style={[styles.homePlacementName, !student?.company && styles.homePlacementPlaceholder]}>{student?.company || 'Company not assigned yet'}</Text>
-          <Text style={styles.homePlacementDetail} numberOfLines={2}>{student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'No approved placement.'}</Text>
+          <Text style={[styles.homePlacementName, !placement.assigned && styles.homePlacementPlaceholder]}>{placement.companyName || 'Company not assigned yet'}</Text>
+          <Text style={styles.homePlacementDetail} numberOfLines={2}>{placement.assigned ? (student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'Approved placement.') : 'No approved placement.'}</Text>
         </View>
-        <View style={[styles.homePlacementStatus, student?.company ? styles.homePlacementConfirmed : styles.homePlacementPending]}>
-          <Text style={[styles.homePlacementStatusText, student?.company ? styles.homePlacementStatusConfirmedText : styles.homePlacementStatusPendingText]}>{student?.company ? 'Confirmed' : 'Pending'}</Text>
+        <View style={[styles.homePlacementStatus, placement.assigned ? styles.homePlacementConfirmed : styles.homePlacementPending]}>
+          <Text style={[styles.homePlacementStatusText, placement.assigned ? styles.homePlacementStatusConfirmedText : styles.homePlacementStatusPendingText]}>{placement.assigned ? 'Confirmed' : 'Pending'}</Text>
         </View>
       </View>
 
@@ -1064,6 +1067,7 @@ function addDays(value, amount) {
 }
 
 function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpdate }) {
+  const { eligible } = usePlacementEligibility();
   const uid = auth.currentUser?.uid;
   const todayStr = localDateKey(new Date());
 
@@ -1254,8 +1258,8 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
           <ActivityIndicator color={COLORS.secondary} style={{ marginTop: 12 }} />
         ) : !hasTimeIn ? (
           <MotionTouchableOpacity
-            style={[styles.attPunchBtn, styles.attPunchIn, saving && { opacity: 0.6 }]}
-            onPress={handleTimeIn} disabled={saving} activeOpacity={0.85}
+            style={[styles.attPunchBtn, styles.attPunchIn, (saving || !eligible) && { opacity: 0.6 }]}
+            onPress={handleTimeIn} disabled={saving || !eligible} activeOpacity={0.85}
           >
             {saving
               ? <ActivityIndicator color={COLORS.primary} size="small" />
@@ -1280,6 +1284,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
         )}
       </Card>
 
+      {!eligible && <Text style={styles.pageSub}>{PLACEMENT_REQUIRED}</Text>}
       {/* ── Attendance History ── */}
       <View style={styles.attSectionRow}>
         <Text style={styles.homeSectionTitle}>Attendance history</Text>
@@ -1574,7 +1579,7 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
   );
 }
 
-function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLoaded, onNotificationsEnabledChange, onBack, onLogout, onChangePassword }) {
+function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLoaded, onNotificationsEnabledChange, onBack, onLogout, onChangePassword, onOpenScreen }) {
   const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
   const approved = Boolean(student?.accountApproved);
   return (
@@ -1637,14 +1642,14 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
             />
           )}
         />
-        <SettingRow Icon={SettingsIcon} title="Appearance" value="System default" />
+        <SettingRow Icon={SettingsIcon} title="Appearance" value="Light" onPress={() => onOpenScreen('Appearance')} />
         {student.username && <MotionTouchableOpacity onPress={onChangePassword} accessibilityRole="button" accessibilityLabel="Change password" style={{ paddingVertical: 16 }}><Text style={{ color: COLORS.primary }}>Change password</Text></MotionTouchableOpacity>}
       </Card>
 
       <Card style={styles.settingsGroupCard}>
         <CardTitle Icon={FileIcon} title="Support and privacy" />
-        <SettingRow Icon={FileIcon} title="Help center" value="PATHWAY support information" />
-        <SettingRow Icon={InfoIcon} title="Privacy" value="Review how your records are used" />
+        <SettingRow Icon={FileIcon} title="Help center" value="PATHWAY support information" onPress={() => onOpenScreen('HelpCenter')} />
+        <SettingRow Icon={InfoIcon} title="Privacy" value="Review how your records are used" onPress={() => onOpenScreen('Privacy')} />
       </Card>
 
       <View style={styles.settingsSignOutGroup}>
@@ -1663,16 +1668,17 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
   );
 }
 
-function SettingRow({ Icon, title, value, trailing }) {
+function SettingRow({ Icon, title, value, trailing, onPress }) {
+  const Row = onPress ? MotionTouchableOpacity : View;
   return (
-    <View style={styles.settingsPreferenceRow}>
+    <Row style={styles.settingsPreferenceRow} onPress={onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? `Open ${title}` : undefined}>
       <View style={styles.settingsPreferenceIcon}><Icon size={16} color={COLORS.secondary} /></View>
       <View style={styles.settingCopy}>
         <Text style={styles.settingTitle}>{title}</Text>
         <Text style={styles.settingValue}>{value}</Text>
       </View>
-      {trailing || null}
-    </View>
+      {trailing || (onPress ? <ChevronRightIcon size={18} color={COLORS.textMuted} /> : null)}
+    </Row>
   );
 }
 
@@ -1849,8 +1855,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.35,
   },
-  homeAvatar: { width: 46, height: 46, borderRadius: 23, overflow: 'hidden', backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  homeAvatarImage: { width: '100%', height: '100%', borderRadius: 23 },
+  homeAvatar: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden', backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  homeAvatarImage: { width: '100%', height: '100%', borderRadius: 30 },
   homeAvatarText: { color: COLORS.primaryDark, fontSize: 15, fontWeight: '700' },
   homeProgressHero: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border, ...SHADOWS.soft },
   homeProgressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },

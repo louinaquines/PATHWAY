@@ -25,7 +25,6 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
-import DtrReviewDialog from '../components/DtrReviewDialog';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
 import { downloadSectionExcel } from '../sectionExport';
@@ -49,6 +48,21 @@ const STATUS_TEXT = {
 };
 
 const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
+const HEADER_DESCRIPTIONS = {
+  requirements: 'Review student documents and submission status.',
+  sections: 'Manage class sections, students, and requirements.',
+  logbook: 'Review student attendance and weekly journals.',
+  placements: 'Review company placements and student assignments.',
+  companies: 'Manage partner companies and available placements.',
+  messages: 'Stay connected with students and company contacts.',
+  registrations: 'Review student registrations and account requests.',
+  classlist: 'Manage your authorized roster and student accounts.',
+  analytics: 'Track OJT progress, attendance, and section performance.',
+  notifications: 'Manage announcements and coordinator updates.',
+  evaluations: 'Review supervisor feedback and student evaluations.',
+  clearance: 'Check completion requirements and clearance readiness.',
+  profile: 'Manage your coordinator profile and account settings.',
+};
 const ACTIVE_TAB_STORAGE_KEY = 'pathway.coordinator.activeTab';
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
@@ -71,7 +85,6 @@ export default function CoordinatorDashboard() {
   const [rejectionModal, setRejectionModal] = useState(null); // { studentId, reqId }
   const [downloadingRequirement, setDownloadingRequirement] = useState('');
   const [documentPreview, setDocumentPreview] = useState(null);
-  const [dtrStudent, setDtrStudent] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [sectionRequirements, setSectionRequirements] = useState([]);
   const [coordDept, setCoordDept] = useState('');
@@ -258,7 +271,6 @@ export default function CoordinatorDashboard() {
   return (
     <div style={s.page} className="coordinator-page">
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
-      {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
@@ -332,9 +344,9 @@ export default function CoordinatorDashboard() {
       {/* Main Container */}
       <main style={s.main}>
         {/* Topbar */}
-        <header style={s.topbar} className="topbar">
+        <header style={s.topbar} className="topbar requirements-topbar">
           <div style={s.topbarLeft} className="topbarLeft">
-            <h1 style={s.pageTitle}>
+            <div className="coordinator-header-title"><h1 style={s.pageTitle}>
               {activeTab === 'requirements' ? 'Requirements Approval' :
                 activeTab === 'sections' ? 'Sections Management' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
@@ -348,7 +360,7 @@ export default function CoordinatorDashboard() {
                             activeTab === 'evaluations' ? 'Supervisor Evaluations' :
                               activeTab === 'clearance' ? 'Clearance Readiness' :
                                 activeTab === 'profile' ? 'Coordinator Profile' : ''}
-            </h1>
+            </h1><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
             {activeTab === 'requirements' && pendingCount > 0 && (
               <span style={s.pendingBadge}>
                 {pendingCount} Pending Review
@@ -364,6 +376,7 @@ export default function CoordinatorDashboard() {
               </label>
             )}
           </div>
+          {activeTab === 'logbook' && <div id="logbook-header-actions" />}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
               type="button"
@@ -473,7 +486,6 @@ export default function CoordinatorDashboard() {
                     <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
                     </div>
                     <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} onOpen={setSelectedStudent} />
-                    {selectedStudent && <button type="button" className="btn-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare DTR</button>}
                   </div>
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>

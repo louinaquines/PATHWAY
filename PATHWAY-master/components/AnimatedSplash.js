@@ -177,7 +177,7 @@ export default function AnimatedSplash({
 
       <Animated.View pointerEvents="none" style={[styles.wordmarkFrame, { top: startTop + logoSize + 18, opacity: wordmarkOpacity, transform: [{ translateY: wordmarkOffset }] }]}>
         <Text style={styles.wordmark}>PATHWAY</Text>
-        <Text style={styles.tagline}>STUDENT OJT PORTAL</Text>
+        <Text style={styles.tagline}>OJT MANAGEMENT</Text>
       </Animated.View>
     </View>
   );
@@ -191,7 +191,7 @@ export function StartupMarkHold() {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.primaryDeep} />
       <PathwayMark size={size} decorative style={styles.holdLogoTile} />
       <Text style={styles.wordmark}>PATHWAY</Text>
-      <Text style={styles.tagline}>STUDENT OJT PORTAL</Text>
+      <Text style={styles.tagline}>OJT MANAGEMENT</Text>
     </View>
   );
 }

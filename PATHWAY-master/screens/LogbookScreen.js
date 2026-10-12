@@ -17,6 +17,7 @@ import LoadMore from '../components/LoadMore';
 import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
+import usePlacementEligibility, { PLACEMENT_REQUIRED } from '../services/usePlacementEligibility';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
@@ -126,7 +127,7 @@ function ReviewStatusCard({ summary }) {
 }
 
 // ─── Log entry card ───────────────────────────────────────────────────────────
-function LogEntryCard({ entry, isExpanded, onToggle, onRevise }) {
+function LogEntryCard({ entry, isExpanded, onToggle, onRevise, eligible }) {
   const config = STATUS_CONFIG[entry.status] || STATUS_CONFIG.pending;
   const preview = (entry.refined || entry.rawNotes || '').slice(0, 90);
 
@@ -193,7 +194,7 @@ function LogEntryCard({ entry, isExpanded, onToggle, onRevise }) {
 
         {/* Bottom row: expand toggle */}
         {entry.status === 'rejected' && (
-          <MotionTouchableOpacity onPress={event => { event.stopPropagation(); onRevise(entry); }} accessibilityRole="button" accessibilityLabel={`Edit and resubmit Week ${entry.weekNum}`} style={styles.reviseButton}>
+          <MotionTouchableOpacity disabled={!eligible} onPress={event => { event.stopPropagation(); onRevise(entry); }} accessibilityRole="button" accessibilityLabel={`Edit and resubmit Week ${entry.weekNum}`} style={styles.reviseButton}>
             <Text style={styles.reviseButtonText}>Edit and resubmit</Text>
             <ArrowRightIcon size={16} color={COLORS.primary} />
           </MotionTouchableOpacity>
@@ -211,6 +212,7 @@ function LogEntryCard({ entry, isExpanded, onToggle, onRevise }) {
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
 export default function LogbookScreen({ navigation }) {
+  const { eligible } = usePlacementEligibility();
   const insets = useSafeAreaInsets();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -284,7 +286,7 @@ export default function LogbookScreen({ navigation }) {
     if (!rawNotes.trim() || rawNotes.length > 8000) return Alert.alert('Notes required', 'Enter notes up to 8,000 characters first.');
     if (aiInFlight.current || saving) return;
     const draft = { rawNotes, editingEntry };
-    Alert.alert('Optional AI assistance', 'These notes will be sent to Anthropic. Remove personal or confidential company information first. AI can make mistakes; review the suggestion before using it. Your original notes are kept.', [
+    Alert.alert('Optional AI assistance', 'These notes will be sent to AI. Remove personal or confidential company information first. AI can make mistakes; review the suggestion before using it. Your original notes are kept.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Send notes', onPress: async () => {
         if (aiInFlight.current || currentDraft.current.rawNotes !== draft.rawNotes || currentDraft.current.editingEntry !== draft.editingEntry || !currentDraft.current.modal) return;
@@ -462,7 +464,7 @@ export default function LogbookScreen({ navigation }) {
             </Text>
             <MotionTouchableOpacity
               style={styles.emptyBtn}
-              onPress={() => setModal(true)}
+              onPress={() => setModal(true)} disabled={!eligible}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Add your first logbook entry"
@@ -481,6 +483,7 @@ export default function LogbookScreen({ navigation }) {
             isExpanded={expanded === entry.id}
             onToggle={() => setExpanded(expanded === entry.id ? null : entry.id)}
             onRevise={reviseEntry}
+            eligible={eligible}
           />
         ))}
         <LoadMore onPress={loadMoreEntries} loading={loadingMore} hasMore={pageState.hasMore} error={pageError} />
@@ -519,14 +522,15 @@ export default function LogbookScreen({ navigation }) {
 
       {/* ── New Log Modal ── */}
       <MotionTouchableOpacity
-        onPress={() => setModal(true)}
-        style={[styles.floatingAddButton, { bottom: 40 + insets.bottom }]}
+        onPress={() => setModal(true)} disabled={!eligible}
+        style={[styles.floatingAddButton, { bottom: 40 + insets.bottom, opacity: eligible ? 1 : 0.5 }]}
         activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="Add new log entry"
       >
         <PlusIcon size={27} color="#FFFFFF" />
       </MotionTouchableOpacity>
+      {!eligible && <Text style={{ color: COLORS.textMuted, padding: 16 }}>{PLACEMENT_REQUIRED}</Text>}
       <Modal visible={modal} transparent animationType="slide" onRequestClose={closeModal}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -606,7 +610,7 @@ export default function LogbookScreen({ navigation }) {
                 {refining ? <ActivityIndicator size="small" color="#2563EB" /> : <SparklesIcon size={20} color="#2563EB" />}
                 <View style={styles.assistCopy}>
                   <Text style={styles.aiRefineTitle}>{refining ? 'Generating suggestion…' : 'Refine with AI'}</Text>
-                  <Text style={styles.assistCaption}>Optional · powered by Anthropic</Text>
+                  <Text style={styles.assistCaption}>Optional · powered by AI</Text>
                 </View>
                 {!refining && <ArrowRightIcon size={18} color="#2563EB" />}
               </TouchableOpacity>
@@ -642,7 +646,7 @@ export default function LogbookScreen({ navigation }) {
                     (saving || !rawNotes.trim() || !hours) && { opacity: 0.45 },
                   ]}
                   onPress={handleSubmit}
-                  disabled={saving || !rawNotes.trim() || !hours}
+                  disabled={saving || !eligible || !rawNotes.trim() || !hours}
                   activeOpacity={0.85}
                 >
                   {saving ? (

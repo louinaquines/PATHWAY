@@ -29,7 +29,7 @@ export default function JournalAiAnalysis({ studentId, entryId, sourceText }) {
     <summary>Optional AI journal review <span>Advisory only</span></summary>
     <div className="journal-ai__body">
       <p>Review completeness, possible competencies and tone cues. This does not grade, approve or change the journal.</p>
-      <label><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.target.checked)} /> I have permission to share this journal text with Anthropic. It may contain confidential information.</label>
+      <label><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.target.checked)} /> I have permission to share this journal text with AI. It may contain confidential information.</label>
       <div className="journal-ai__actions"><button type="button" disabled={!consent || busy} onClick={analyze}>{busy ? 'Reviewing…' : 'Analyze this journal'}</button>{result && <button type="button" onClick={() => setResult(null)}>Discard findings</button>}</div>
       <p role="status" aria-live="polite">{busy ? 'Review in progress. Original notes remain unchanged.' : ''}</p>
       {error && <p role="alert">{error}</p>}

@@ -224,7 +224,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             <div className="section-overview" style={t.detailHeader}>
               <div>
                 <h2 style={t.detailTitle}>{selected.name}</h2>
-                <div style={t.detailSubRow}>
+                <div className="section-detail-meta" style={t.detailSubRow}>
                   <span><Icon name="building" size={14} /> {selected.department}</span>
                   <span><Icon name="clock" size={14} /> {selected.hoursRequired} Hours</span>
                   {selected.messengerLink ? (

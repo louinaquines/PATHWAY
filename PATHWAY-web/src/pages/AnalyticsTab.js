@@ -96,7 +96,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
           <h2 style={s.title}>Cohort overview</h2>
           <p style={s.sub}>Student hours, completion, and reported attendance for {selectedSection?.name || 'your assigned sections'}.</p>
         </div>
-        <div style={s.actions}>
+        <div className="analytics-actions" style={s.actions}>
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
             <Icon name="download" size={15} /> Export CSV Report
@@ -105,11 +105,11 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       </div>
 
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {selectedSection?.id && <form onSubmit={saveSchedule} style={s.tableCard}>
+      {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
         <h3>Work schedule and completion deadline</h3>
         <p>Section-wide schedule, Philippine time. Today is excluded from attendance rates. Exceptions are non-working dates. Projections use the last 28 days and are not guarantees.</p>
-        {['startDate', 'deadline', 'startTime'].map(field => <label key={field} style={{ marginRight: 16 }}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}
-        <div>{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day} style={{ marginRight: 12 }}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
+        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
+        <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
         <label>Exceptions (YYYY-MM-DD, comma-separated) <input value={schedule.exceptions.join(',')} onChange={event => setSchedule(current => ({ ...current, exceptions: event.target.value.split(',').map(value => value.trim()).filter(Boolean) }))} /></label>
         <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
       </form>}
@@ -170,7 +170,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                       </div>
                     </td>
                     <td style={s.td}>
-                      <div style={s.attendanceMini}>
+                      <div className="analytics-attendance-metrics" style={s.attendanceMini}>
                         <span>Rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
@@ -213,9 +213,9 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
 
 function MetricCard({ label, value }) {
   return (
-    <div style={s.metricCard}>
+    <div className="analytics-metric-card" style={s.metricCard}>
       <div style={s.metricLabel}>{label}</div>
-      <div style={s.metricValue}>{value}</div>
+      <div className={value === 'Unavailable' ? 'analytics-metric-unavailable' : undefined} style={s.metricValue}>{value}</div>
     </div>
   );
 }

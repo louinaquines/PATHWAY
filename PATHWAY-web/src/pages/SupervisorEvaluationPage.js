@@ -34,7 +34,7 @@ export default function SupervisorEvaluationPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Verification failed.');
-      if (action === 'request-code') setVerificationStatus('Code sent to the supervisor email. It expires in 10 minutes.');
+      if (action === 'request-code') setVerificationStatus('Check your email for the six-digit code. It expires in 10 minutes.');
       else {
         const formResponse = await fetch(`${API}/evaluation/${token}`, { headers: { 'X-Evaluation-Session': result.session } });
         const form = await formResponse.json();

@@ -30,6 +30,7 @@ import AttendanceScreen from './screens/AttendanceScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import ActivityHistoryScreen from './screens/ActivityHistoryScreen';
+import SettingsInfoScreen from './screens/SettingsInfoScreen';
 
 
 // Placeholder screens — replace these as you build each one
@@ -194,6 +195,9 @@ export default function App() {
         <Stack.Screen name="Progress" component={ProgressWithMotion} />
         <Stack.Screen name="Notifications" component={NotificationsWithMotion} />
         <Stack.Screen name="ActivityHistory" component={ActivityHistoryWithMotion} />
+        <Stack.Screen name="Appearance" component={SettingsInfoScreen} />
+        <Stack.Screen name="HelpCenter" component={SettingsInfoScreen} />
+        <Stack.Screen name="Privacy" component={SettingsInfoScreen} />
 
         </Stack.Navigator>
     </NavigationContainer>

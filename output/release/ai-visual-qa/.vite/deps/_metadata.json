@@ -1,0 +1,31 @@
+{
+  "hash": "1064609c",
+  "configHash": "b724c9b6",
+  "lockfileHash": "e3b0c442",
+  "browserHash": "81fcba91",
+  "optimized": {
+    "react": {
+      "src": "../../../../../PATHWAY-web/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "105dc478",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../../../../PATHWAY-web/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "075e5576",
+      "needsInterop": true
+    },
+    "react/jsx-runtime": {
+      "src": "../../../../../PATHWAY-web/node_modules/react/jsx-runtime.js",
+      "file": "react_jsx-runtime.js",
+      "fileHash": "b953ad27",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-RHFMA4EM": {
+      "file": "chunk-RHFMA4EM.js"
+    }
+  }
+}

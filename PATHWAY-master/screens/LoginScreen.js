@@ -194,7 +194,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
           </MotionTouchableOpacity>
 
           <View style={styles.securityNote}><LockIcon size={15} color={COLORS.textMuted} /><Text style={styles.securityText}>Change your password on your first sign-in.</Text></View>
-          <Text style={styles.formIntro}>Need an account? Contact your OJT coordinator.</Text>
+          <Text style={[styles.formIntro, { textAlign: 'center' }]}>Need an account? Contact your OJT coordinator.</Text>
         </AuthPanel>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -230,8 +230,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   formTitle: { fontSize: 23, fontWeight: '700', color: COLORS.textPrimary },
-  securityNote: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 20, paddingTop: 18, borderTopWidth: 1, borderTopColor: COLORS.border },
-  securityText: { flex: 1, fontSize: 12, lineHeight: 18, color: COLORS.textSecondary },
+  securityNote: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 20, paddingTop: 18, borderTopWidth: 1, borderTopColor: COLORS.border },
+  securityText: { flexShrink: 1, textAlign: 'center', fontSize: 12, lineHeight: 18, color: COLORS.textSecondary },
   authTabActive: {
     flex: 1,
     backgroundColor: COLORS.primaryDark,

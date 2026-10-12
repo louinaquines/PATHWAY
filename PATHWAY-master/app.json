@@ -30,7 +30,7 @@
       }
     },
     "android": {
-      "versionCode": 4,
+      "versionCode": 5,
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.louijay.pathway",
       "adaptiveIcon": {

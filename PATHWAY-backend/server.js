@@ -53,7 +53,9 @@ function allowRate(req, res, { limit, windowMs, key }) {
   const bucketKey = key(req);
   const history = (recentRequests.get(bucketKey) || []).filter(time => now - time < windowMs);
   if (history.length >= limit) {
-    res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+    const retryAfterSeconds = Math.max(1, Math.ceil((history[0] + windowMs - now) / 1000));
+    res.set('Retry-After', String(retryAfterSeconds));
+    res.status(429).json({ error: 'Too many requests. Please try again shortly.', retryAfterSeconds });
     return false;
   }
   history.push(now);
@@ -116,7 +118,7 @@ async function getEditableRequirement(uid, requirementId) {
 
 async function issueCloudinaryIntent(req, res, { kind, requirementId = null }) {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
-  if (!allowRate(req, res, { limit: 12, windowMs: 60 * 60_000, key: request => `cloudinary-intent:${request.user.uid}` })) return;
+  if (!allowRate(req, res, { limit: 30, windowMs: 60 * 60_000, key: request => `cloudinary-intent:${request.user.uid}` })) return;
   if (kind === 'requirement' && !/^[A-Za-z0-9_-]{1,80}$/.test(requirementId || '')) return res.status(400).json({ error: 'Invalid requirement.' });
   const config = cloudinaryConfig();
   if (!config) return res.status(503).json({ error: 'Document uploads are not configured. Contact your administrator.' });

@@ -1886,6 +1886,21 @@ function canTrackAttendance(user) {
     && user.preDeploymentStatus === 'approved';
 }
 
+const PLACEMENT_REQUIRED = 'An approved company placement is required before recording attendance or submitting logbooks.';
+function canCompleteAttendance(user) {
+  return user?.role === 'student' && user.accountApproved === true && user.clearanceStatus !== 'cleared';
+}
+async function assertActivePlacement(transaction, student) {
+  if (!canTrackAttendance(student) || student.placementStatus !== 'approved'
+    || typeof student.companyId !== 'string' || !student.companyId.trim() || student.companyId.includes('/')) {
+    throw Object.assign(new Error(PLACEMENT_REQUIRED), { status: 403 });
+  }
+  const company = await transaction.get(adminDb.collection('companies').doc(student.companyId));
+  if (!company.exists || company.data().active === false || company.data().status === 'inactive') {
+    throw Object.assign(new Error(PLACEMENT_REQUIRED), { status: 403 });
+  }
+}
+
 function assertRecordsOpen(student) {
   if (student?.clearanceStatus === 'cleared') throw Object.assign(new Error('Cleared OJT records are locked.'), { status: 409 });
 }
@@ -2188,9 +2203,11 @@ function parseCompanyPayload(body = {}) {
 }
 
 app.post('/attendance/location-policy', requireUser, async (req, res) => {
-  if (!canTrackAttendance(req.user.data)) return res.status(403).json({ error: 'Attendance is unavailable for this account.' });
+  if (!canCompleteAttendance(req.user.data)) return res.status(403).json({ error: 'Attendance is unavailable for this account.' });
   try {
-    const company = req.user.data.companyId ? await adminDb.collection('companies').doc(req.user.data.companyId).get() : null;
+    const shift = await adminDb.collection('users').doc(req.user.uid).collection('attendance').doc(manilaDateKey()).get();
+    const companyId = shift.exists && !shift.data().timeOut ? (shift.data().companyId || req.user.data.companyId) : req.user.data.companyId;
+    const company = companyId ? await adminDb.collection('companies').doc(companyId).get() : null;
     return res.json({ enabled: company?.data()?.geofence?.enabled === true });
   } catch (_) { return res.status(500).json({ error: 'Could not load attendance location policy.' }); }
 });
@@ -2385,9 +2402,10 @@ app.post('/attendance/time-in', requireUser, async (req, res) => {
     await adminDb.runTransaction(async transaction => {
       const [profile, existing] = await Promise.all([transaction.get(userRef), transaction.get(attendanceRef)]);
       if (!profile.exists || !canTrackAttendance(profile.data())) throw Object.assign(new Error('Your student account is not cleared to log attendance.'), { status: 403 });
+      await assertActivePlacement(transaction, profile.data());
       if (existing.exists) throw Object.assign(new Error('Attendance has already been started for today.'), { status: 409 });
       const locationEvidence = await attendanceLocation(transaction, profile.data(), req.body?.location);
-      transaction.create(attendanceRef, { date, timeIn, timeOut: null, hoursToday: 0, status: 'pending', createdAt: timeIn, timeInLocation: locationEvidence });
+      transaction.create(attendanceRef, { date, timeIn, timeOut: null, hoursToday: 0, status: 'pending', createdAt: timeIn, timeInLocation: locationEvidence, companyId: profile.data().companyId });
       writeAuditInTransaction(transaction, {
         actorId: req.user.uid, actorRole: 'student', action: 'attendance.time_in',
         targetType: 'attendance', targetId: date,
@@ -2403,7 +2421,7 @@ app.post('/attendance/time-in', requireUser, async (req, res) => {
 });
 
 app.post('/attendance/time-out', requireUser, async (req, res) => {
-  if (!canTrackAttendance(req.user.data)) return res.status(403).json({ error: 'Your student account is not cleared to log attendance.' });
+  if (!canCompleteAttendance(req.user.data)) return res.status(403).json({ error: 'Your student account is not cleared to log attendance.' });
   if (!allowRate(req, res, { limit: 10, windowMs: 60_000, key: request => `attendance:${request.user.uid}` })) return;
 
   const date = manilaDateKey();
@@ -2413,7 +2431,7 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
   try {
     const result = await adminDb.runTransaction(async transaction => {
       const [profile, attendance] = await Promise.all([transaction.get(userRef), transaction.get(attendanceRef)]);
-      if (!profile.exists || !canTrackAttendance(profile.data())) throw Object.assign(new Error('Your student account is not cleared to log attendance.'), { status: 403 });
+      if (!profile.exists || !canCompleteAttendance(profile.data())) throw Object.assign(new Error('Your student account is not cleared to log attendance.'), { status: 403 });
       if (!attendance.exists || attendance.data().timeOut) throw Object.assign(new Error('There is no active time-in for today.'), { status: 409 });
       const timeIn = new Date(attendance.data().timeIn).getTime();
       const elapsed = new Date(timeOut).getTime() - timeIn;
@@ -2421,7 +2439,7 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
         throw Object.assign(new Error('Time-out must be after time-in and within 24 hours.'), { status: 400 });
       }
       const hoursToday = Math.round((elapsed / 3_600_000) * 100) / 100;
-      const locationEvidence = await attendanceLocation(transaction, profile.data(), req.body?.location);
+      const locationEvidence = await attendanceLocation(transaction, { ...profile.data(), companyId: attendance.data().companyId || profile.data().companyId }, req.body?.location);
       transaction.update(attendanceRef, { timeOut, hoursToday, status: 'pending', timeOutLocation: locationEvidence });
       transaction.update(userRef, { hoursRendered: FieldValue.increment(hoursToday) });
       writeAuditInTransaction(transaction, {

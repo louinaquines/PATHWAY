@@ -54,6 +54,18 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data.get('clearanceStatus', '') != 'cleared';
     }
 
+    function submissionEligible(userId) {
+      let student = get(/databases/$(database)/documents/users/$(userId)).data;
+      let companyId = student.get('companyId', '');
+      return student.role == 'student' && student.get('accountApproved', false) == true
+        && student.get('preDeploymentStatus', '') == 'approved'
+        && student.get('placementStatus', '') == 'approved'
+        && companyId is string && companyId != ''
+        && exists(/databases/$(database)/documents/companies/$(companyId))
+        && get(/databases/$(database)/documents/companies/$(companyId)).data.get('active', true) != false
+        && get(/databases/$(database)/documents/companies/$(companyId)).data.get('status', '') != 'inactive';
+    }
+
     match /users/{userId} {
       // Users need to read their own profile for role-based routing.
       // Coordinators need to read student profiles for their dashboard queries.
@@ -108,7 +120,7 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isAdmin()
           || (get(/databases/$(database)/documents/users/$(userId)).data.sectionId is string
             && isCoordinatorForSection(get(/databases/$(database)/documents/users/$(userId)).data.sectionId));
-        allow create: if recordsOpen(userId) && isOwner(userId)
+        allow create: if recordsOpen(userId) && isOwner(userId) && submissionEligible(userId)
           && request.resource.data.status in ['draft', 'pending']
           && request.resource.data.rawNotes is string
           && request.resource.data.rawNotes.size() <= 8000
@@ -120,6 +132,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'weekNum', 'weekRange', 'hours', 'status', 'createdAt', 'updatedAt']);
         allow update: if recordsOpen(userId) && (isAdmin()
           || (isOwner(userId)
+            && submissionEligible(userId)
             && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'hours', 'status'])
             && request.resource.data.rawNotes is string && request.resource.data.rawNotes.size() <= 8000
@@ -127,6 +140,7 @@ service cloud.firestore {
             && request.resource.data.aiRefined is bool
             && request.resource.data.hours is number && request.resource.data.hours > 0 && request.resource.data.hours <= 168)
           || (isOwner(userId)
+            && submissionEligible(userId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'rawNotes', 'refined', 'weekNum', 'weekRange', 'hours', 'status',
               'createdAt'

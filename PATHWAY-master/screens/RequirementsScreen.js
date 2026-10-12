@@ -3,16 +3,18 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
   Platform,
   BackHandler,
   useWindowDimensions,
+  Linking,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { auth, db } from '../firebaseConfig';
 import { BACKEND_URL, requestBackend } from '../services/backendApi';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
@@ -22,6 +24,7 @@ import { COLORS, SHADOWS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ScrollView from '../components/RefreshableScrollView';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
@@ -36,6 +39,7 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   ChevronIcon,
+  ChevronLeftIcon,
 } from '../components/Icons';
 
 // Default standard pre-deployment checklist as shown in Storyboard Figure 39
@@ -77,7 +81,8 @@ const DEFAULT_PREDEPLOYMENT_DOCS = [
   },
 ];
 
-export default function RequirementsScreen({ navigation }) {
+export default function RequirementsScreen({ navigation, route }) {
+  const isDocumentHub = route?.name === 'StudentRequirements';
   const { width } = useWindowDimensions();
   const isNarrowScreen = width < 360;
   const isWideScreen = width >= 600;
@@ -91,6 +96,7 @@ export default function RequirementsScreen({ navigation }) {
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
   const [expandedRequirementId, setExpandedRequirementId] = useState(null);
   const [requirementsEligible, setRequirementsEligible] = useState(false);
+  const [canEditRequirements, setCanEditRequirements] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
 
   const currentUser = auth?.currentUser;
@@ -124,6 +130,7 @@ export default function RequirementsScreen({ navigation }) {
 
   const fetchRequirements = async () => {
     setLoading(true);
+    setCanEditRequirements(false);
     try {
       if (!uid) {
         setupDefaultState();
@@ -132,6 +139,7 @@ export default function RequirementsScreen({ navigation }) {
 
       const userSnap = await getDoc(doc(db, 'users', uid));
       const userData = userSnap.data() || {};
+      setCanEditRequirements(userData.accountApproved === true && userData.preDeploymentStatus !== 'approved');
       setRequirementsEligible(userData.requirementsStatus === 'approved');
       const saved = userData.requirements || {};
 
@@ -271,6 +279,64 @@ export default function RequirementsScreen({ navigation }) {
     }
   };
 
+  const handleOpenRequirement = async (docItem) => {
+    if (downloadingId) return;
+    if (Platform.OS === 'android') {
+      setDownloadingId(docItem.id);
+      let temporaryFileUri = null;
+      try {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Please sign in again.');
+        if (!FileSystem.cacheDirectory) throw new Error('Device storage is unavailable.');
+        const safeFileName = String(docItem.fileName || 'document.pdf')
+          .replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 160) || 'document.pdf';
+        const extension = safeFileName.split('.').pop().toLowerCase();
+        const mimeTypes = {
+          pdf: 'application/pdf', doc: 'application/msword',
+          docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+        };
+        temporaryFileUri = `${FileSystem.cacheDirectory}pathway-view-${Date.now()}-${safeFileName}`;
+        const download = await FileSystem.downloadAsync(
+          `${BACKEND_URL}/requirements/${encodeURIComponent(docItem.id)}/download`,
+          temporaryFileUri,
+          { headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: false },
+        );
+        if (download.status < 200 || download.status >= 300) {
+          throw new Error('This document could not be retrieved. Please try again or contact your coordinator.');
+        }
+        const contentUri = await FileSystem.getContentUriAsync(download.uri);
+        try {
+          // Grant only temporary read access; await return before removing the cached copy.
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri, type: mimeTypes[extension] || 'application/octet-stream', flags: 1,
+          });
+        } catch (_) {
+          throw new Error('No compatible file viewer could open this document. Install a PDF or document viewer and try again.');
+        }
+      } catch (error) {
+        Alert.alert('Unable to open file', error.message || 'Please try again.');
+      } finally {
+        if (temporaryFileUri) await FileSystem.deleteAsync(temporaryFileUri, { idempotent: true }).catch(() => {});
+        setDownloadingId(null);
+      }
+      return;
+    }
+    if (docItem.cloudinaryDeliveryType === 'authenticated') {
+      // Keep private assets behind the existing authenticated delivery flow.
+      return handleDownloadProtectedRequirement(docItem);
+    }
+    try {
+      const url = docItem.fileUrl;
+      if (typeof url !== 'string' || !/^https:\/\//i.test(url)) {
+        throw new Error('This document has no available file link.');
+      }
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert('Unable to open file', error.message || 'Please try again.');
+    }
+  };
+
   const handlePickAndUpload = async (docItem) => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -369,12 +435,24 @@ export default function RequirementsScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
-      <PreDeploymentTopBar
+      {isDocumentHub ? (
+        <SafeAreaView edges={['top', 'left', 'right']} style={{ backgroundColor: COLORS.surface }}>
+        <View style={styles.documentHubTopBar}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Back to dashboard">
+            <ChevronLeftIcon size={22} color={COLORS.primary} />
+          </TouchableOpacity>
+          <Text style={styles.documentsTitle}>Requirements</Text>
+          <View style={{ width: 42 }} />
+        </View>
+        </SafeAreaView>
+      ) : <PreDeploymentTopBar
         onMenuPress={() => setShowMenuDrawer(true)}
         onNotificationsPress={() => setShowNotifications(true)}
-      />
+      />}
 
       <ScrollView
+        onRefresh={uploadingId ? undefined : fetchRequirements}
+        skeletonVariant="requirements"
         contentContainerStyle={[
           styles.scrollContent,
           {
@@ -389,16 +467,16 @@ export default function RequirementsScreen({ navigation }) {
         {/* Page introduction */}
         <View style={[styles.headerSection, isNarrowScreen && styles.headerSectionNarrow]}>
           <View style={styles.headerMetaRow}>
-            <Text style={styles.subPipelineLabel}>PRE-DEPLOYMENT</Text>
-            <View style={styles.stageBadge}>
+            <Text style={styles.subPipelineLabel}>{isDocumentHub ? 'YOUR RECORDS' : 'PRE-DEPLOYMENT'}</Text>
+            {!isDocumentHub && <View style={styles.stageBadge}>
               <Text style={styles.stageBadgeText}>STEP 01 / 04</Text>
-            </View>
+            </View>}
           </View>
-          <Text variant="heading" style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow]}>Document Submission</Text>
-          <Text style={styles.headerDescription}>Upload your required documents.</Text>
+          <Text variant="heading" style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow]}>{isDocumentHub ? 'Your requirements' : 'Document Submission'}</Text>
+          <Text style={styles.headerDescription}>{isDocumentHub ? 'View your documents, review status and requested revisions.' : 'Upload your required documents.'}</Text>
         </View>
 
-        <PreDeploymentStepper
+        {!isDocumentHub && <PreDeploymentStepper
           activeStep={1}
           onStepPress={step => {
             if (step === 1) setActiveStep(1);
@@ -406,7 +484,7 @@ export default function RequirementsScreen({ navigation }) {
             if (step === 3) navigation.navigate('Review');
             if (step === 4) navigation.navigate('Approval');
           }}
-        />
+        />}
 
         {activeStep === 1 && <>
           <View style={styles.checklistCard}>
@@ -433,6 +511,8 @@ export default function RequirementsScreen({ navigation }) {
           <Text style={styles.checklistFootnote}>
               {requiredCount === 0
                 ? 'No requirements assigned.'
+                : approvedCount === requiredCount
+                  ? 'All required documents approved.'
                 : receivedCount === requiredCount
                   ? 'Your documents are under review.'
                   : `${approvedCount} approved${inReviewCount ? ` · ${inReviewCount} in review` : ''} · ${Math.max(requiredCount - receivedCount, 0)} to submit`}
@@ -538,6 +618,14 @@ export default function RequirementsScreen({ navigation }) {
                 {expandedRequirementId === docItem.id && !isUploading && isSubmitted && (
                   <>
                     <View style={[styles.uploadedFileRow, isRejected && styles.uploadedFileRowIssue]}>
+                      <TouchableOpacity
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                        onPress={event => { event.stopPropagation(); handleOpenRequirement(docItem); }}
+                        disabled={Boolean(downloadingId)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${docItem.fileName || docItem.label}`}
+                        activeOpacity={0.75}
+                      >
                       <View style={styles.fileIconContainer}>
                         <FileIcon size={22} color={COLORS.primary} />
                       </View>
@@ -549,14 +637,15 @@ export default function RequirementsScreen({ navigation }) {
                           {[docItem.fileSize, docItem.submittedAt && `Uploaded ${new Date(docItem.submittedAt).toLocaleDateString('en-PH')}`].filter(Boolean).join(' · ') || 'File received'}
                         </Text>
                       </View>
-                      <TouchableOpacity
+                      </TouchableOpacity>
+                      {canEditRequirements && docItem.status !== 'approved' && <TouchableOpacity
                         style={styles.trashAction}
-                        onPress={() => handleDelete(docItem)}
+                        onPress={event => { event.stopPropagation(); handleDelete(docItem); }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         activeOpacity={0.7}
                       >
                         <TrashIcon size={18} color="#94A3B8" />
-                      </TouchableOpacity>
+                      </TouchableOpacity>}
                     </View>
                     {docItem.cloudinaryDeliveryType === 'authenticated' && Platform.OS === 'web' && (
                       <TouchableOpacity
@@ -588,7 +677,7 @@ export default function RequirementsScreen({ navigation }) {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    {isRejected && (
+                    {isRejected && canEditRequirements && (
                       <TouchableOpacity
                         style={styles.resubmitButton}
                         onPress={() => handlePickAndUpload(docItem)}
@@ -602,7 +691,7 @@ export default function RequirementsScreen({ navigation }) {
                 )}
 
                 {/* ── State 3: Awaiting Upload ── */}
-                {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && (
+                {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && canEditRequirements && (
                   <>
                     <TouchableOpacity
                       style={styles.dropzoneContainer}
@@ -630,7 +719,7 @@ export default function RequirementsScreen({ navigation }) {
         </View>
 
         {/* ── Footer Navigation / Submit Button ── */}
-        <View style={styles.footerSection}>
+        {!isDocumentHub && <View style={styles.footerSection}>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
             onPress={() => navigation.navigate('Company')}
@@ -640,7 +729,7 @@ export default function RequirementsScreen({ navigation }) {
           >
             <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company placement</Text>
           </MotionTouchableOpacity>
-        </View>
+        </View>}
         </>}
 
         {activeStep === 3 && <View style={styles.comingSoonCard}><AlertCircleIcon size={30} color={COLORS.secondary} /><Text style={styles.comingSoonTitle}>Review step coming soon</Text><Text style={styles.comingSoonText}>The review interface will be added after the company placement workflow is complete.</Text></View>}
@@ -664,6 +753,16 @@ export default function RequirementsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  documentHubTopBar: {
+    height: 64,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

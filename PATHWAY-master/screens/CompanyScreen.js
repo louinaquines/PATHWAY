@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StatusBar,
@@ -250,14 +251,14 @@ export default function CompanyScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
       <PreDeploymentTopBar
         onMenuPress={() => setShowMenuDrawer(true)}
         onNotificationsPress={() => setShowNotifications(true)}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: isNarrow ? 14 : 20 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: isNarrow ? 14 : 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.pageHeading}>
           <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 2</Text>
           <Text variant="heading" style={styles.heading}>Company Placement</Text>
@@ -429,7 +430,7 @@ export default function CompanyScreen({ navigation }) {
         onNavigate={route => navigation.replace(route)}
         onSignOut={handleLogout}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

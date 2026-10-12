@@ -7,7 +7,6 @@ import {
   Image,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   Switch,
   StyleSheet,
@@ -30,6 +29,7 @@ import { AppText as Text } from '../components/AppText';
 import PathwayWatermark from '../components/PathwayWatermark';
 import { MotionTouchableOpacity, useReducedMotion } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ScrollView, { StudentRefreshContext } from '../components/RefreshableScrollView';
 import ApprovalWelcome from '../components/ApprovalWelcome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PathwayMark from '../components/PathwayMark';
@@ -377,7 +377,7 @@ export default function StudentDashboard({ navigation }) {
     navigation,
     student,
     summary: preDeploymentSummary,
-    onRequirementsPress: () => navigation.navigate('Requirements'),
+    onRequirementsPress: () => navigation.navigate('StudentRequirements'),
     onCompanyPress: () => navigation.navigate('Company'),
     onReviewPress: () => navigation.navigate('Review'),
     onApprovalPress: () => navigation.navigate('Approval'),
@@ -469,6 +469,7 @@ export default function StudentDashboard({ navigation }) {
       </View>
 
       {/* Main Tab Panel Content */}
+      <StudentRefreshContext.Provider value={{ reload: load, variant: tab === 'progress' ? 'progress' : tab === 'logs' ? 'logbook' : tab === 'profile' ? 'profile' : 'dashboard' }}>
       <Animated.View style={[styles.content, { opacity: fade }]}>
         {loading && student ? (
           <View style={styles.refreshStatus} accessibilityLiveRegion="polite">
@@ -514,7 +515,7 @@ export default function StudentDashboard({ navigation }) {
             logbook={logbook}
             openAttendance={() => navigation.navigate('LogToday')}
             openLogbook={() => navigation.navigate('Logbook')}
-            openRequirements={() => navigation.navigate('Requirements')}
+            openRequirements={() => navigation.navigate('StudentRequirements')}
             openProgress={() => navigation.navigate('Progress')}
           />
         )}
@@ -530,6 +531,7 @@ export default function StudentDashboard({ navigation }) {
           />
           : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onRequestPlacementChange={() => navigation.navigate('Company')} />)}
       </Animated.View>
+      </StudentRefreshContext.Provider>
 
       {tab !== 'profile' && (
         <View style={[styles.floatingActions, { bottom: 84 + insets.bottom }]} pointerEvents="box-none">
@@ -991,11 +993,10 @@ function HomePanel({ student, metrics, recent, width, go }) {
       <View style={styles.homePlacementRow}>
         <View style={styles.homePlacementMark}><BuildingIcon size={18} color={COLORS.primary} /></View>
         <View style={styles.homePlacementCopy}>
-          <Text style={styles.companyName}>{student?.company || 'Company not assigned yet'}</Text>
-          <Text style={styles.detailText} numberOfLines={2}>{student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'No approved placement.'}</Text>
+          <Text style={[styles.homePlacementName, !student?.company && styles.homePlacementPlaceholder]}>{student?.company || 'Company not assigned yet'}</Text>
+          <Text style={styles.homePlacementDetail} numberOfLines={2}>{student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'No approved placement.'}</Text>
         </View>
         <View style={[styles.homePlacementStatus, student?.company ? styles.homePlacementConfirmed : styles.homePlacementPending]}>
-          <View style={[styles.homePlacementDot, student?.company ? styles.homePlacementDotConfirmed : styles.homePlacementDotPending]} />
           <Text style={[styles.homePlacementStatusText, student?.company ? styles.homePlacementStatusConfirmedText : styles.homePlacementStatusPendingText]}>{student?.company ? 'Confirmed' : 'Pending'}</Text>
         </View>
       </View>
@@ -1135,7 +1136,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
   const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView onRefresh={async () => { await Promise.all([fetchAtt(), onHoursUpdate?.()]); }} skeletonVariant="attendance" contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
       {/* ── Page header ── */}
       <View style={styles.logsPageHeader}>
@@ -1589,8 +1590,10 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
 
       <Card style={styles.settingsAccountCard}>
         <View style={styles.settingsIdentityHeader}>
-          <View style={styles.settingsAvatar} accessibilityLabel={`${fullName} initials`}>
-            <Text style={styles.settingsAvatarText}>{initials(student)}</Text>
+          <View style={styles.settingsAvatar} accessibilityLabel={`${fullName} ${student?.profilePhotoUrl ? 'profile photo' : 'initials'}`}>
+            {student?.profilePhotoUrl
+              ? <Image source={{ uri: student.profilePhotoUrl }} style={styles.settingsAvatarImage} />
+              : <Text style={styles.settingsAvatarText}>{initials(student)}</Text>}
           </View>
           <View style={styles.settingsIdentityCopy}>
             <Text style={styles.settingsName} numberOfLines={1}>{fullName}</Text>
@@ -1869,15 +1872,15 @@ const styles = StyleSheet.create({
   homeStatHint: { color: COLORS.textSecondary, fontSize: 11 },
   homeSectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   homeSectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800', letterSpacing: -0.15 },
-  homePlacementRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: COLORS.surface, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 13, borderWidth: 1, borderColor: COLORS.borderLight },
-  homePlacementMark: { width: 36, height: 36, borderRadius: 11, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  homePlacementRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.surface, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 14, borderWidth: 1, borderColor: COLORS.borderLight },
+  homePlacementMark: { width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
   homePlacementCopy: { flex: 1, minWidth: 0 },
-  homePlacementStatus: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 6, borderRadius: RADIUS.full },
+  homePlacementName: { fontSize: 15, lineHeight: 21, fontWeight: '700', color: COLORS.textPrimary },
+  homePlacementPlaceholder: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  homePlacementDetail: { fontSize: 12, lineHeight: 18, color: COLORS.textMuted, marginTop: 5 },
+  homePlacementStatus: { flexShrink: 0, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   homePlacementConfirmed: { backgroundColor: COLORS.successLight },
   homePlacementPending: { backgroundColor: COLORS.warningLight },
-  homePlacementDot: { width: 6, height: 6, borderRadius: 3 },
-  homePlacementDotConfirmed: { backgroundColor: COLORS.successDark },
-  homePlacementDotPending: { backgroundColor: COLORS.warningDark },
   homePlacementStatusText: { fontSize: 10, fontWeight: '800' },
   homePlacementStatusConfirmedText: { color: COLORS.successDark },
   homePlacementStatusPendingText: { color: COLORS.warningDark },
@@ -2339,6 +2342,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   settingsAvatarText: { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  settingsAvatarImage: { width: '100%', height: '100%', borderRadius: 15 },
   settingsIdentityCopy: { flex: 1, minWidth: 0, gap: 4 },
   settingsName: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '700' },
   settingsEmailLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },

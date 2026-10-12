@@ -182,6 +182,7 @@ export default function App() {
         <Stack.Screen name="Reports" component={Placeholder} />
         <Stack.Screen name="StudentDashboard" component={StudentDashboardWithMotion} />
         <Stack.Screen name="Requirements" component={RequirementsWithMotion} />
+        <Stack.Screen name="StudentRequirements" component={RequirementsWithMotion} />
         <Stack.Screen name="Company" component={CompanyWithMotion} />
         <Stack.Screen name="Review" component={ReviewWithMotion} />
         <Stack.Screen name="Approval" component={ApprovalWithMotion} />

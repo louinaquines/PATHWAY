@@ -1,0 +1,20 @@
+{
+  "cli": { "appVersionSource": "local" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "developmentClient": false,
+      "environment": "preview",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_BACKEND_URL": "https://pathway-backend-49a9.onrender.com",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAUHGTkqqPrdW8T59-5V_PVn2FL-rYTdks",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "pathway-57400.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "pathway-57400",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "pathway-57400.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "893361150085",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:893361150085:web:008621f67f793f58fa71ec"
+      }
+    }
+  }
+}

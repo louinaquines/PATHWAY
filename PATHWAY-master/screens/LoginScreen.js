@@ -74,7 +74,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
 
@@ -193,8 +193,8 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
             )}
           </MotionTouchableOpacity>
 
-          <View style={styles.securityNote}><LockIcon size={15} color={COLORS.textMuted} /><Text style={styles.securityText}>First time here? You’ll set a new password after signing in.</Text></View>
-          <Text style={styles.formIntro}>Need an account? Contact your assigned OJT coordinator.</Text>
+          <View style={styles.securityNote}><LockIcon size={15} color={COLORS.textMuted} /><Text style={styles.securityText}>Change your password on your first sign-in.</Text></View>
+          <Text style={styles.formIntro}>Need an account? Contact your OJT coordinator.</Text>
         </AuthPanel>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -259,11 +259,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.dangerSubtle,
-    borderLeftWidth: 3.5,
-    borderLeftColor: COLORS.danger,
+    borderWidth: 1,
+    borderColor: '#FECACA',
     borderRadius: RADIUS.md,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     marginBottom: 16,
     gap: 8,
   },
@@ -271,6 +271,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: COLORS.dangerDark,
     fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600',
   },
   label: {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import Modal from './BackdropModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerStudentSuccess } from '../services/studentSuccess';
 import { MotionTouchableOpacity, useReducedMotion } from './Motion';

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
@@ -20,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ScrollView from '../components/RefreshableScrollView';
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -169,7 +169,7 @@ export default function AttendanceScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View></SafeAreaView>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+      <ScrollView onRefresh={fetchData} skeletonVariant="attendance" contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
         <View style={styles.pageIntro}><Text style={styles.progressSubHeader}>DAILY ATTENDANCE</Text><Text variant="heading" style={styles.pageTitle}>Your attendance</Text><Text style={styles.pageDescription}>Record your shift and track your OJT hours.</Text></View>
         {/* Hours Progress Hero Card */}
         <View style={styles.progressCard}>

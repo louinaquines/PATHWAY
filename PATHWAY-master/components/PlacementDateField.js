@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Keyboard, Modal, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import Modal from './BackdropModal';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { AppText as Text } from './AppText';
 import { CalendarIcon } from './Icons';

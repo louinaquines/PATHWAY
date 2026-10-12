@@ -23,7 +23,7 @@ export default function ChangePasswordScreen({ navigation }) {
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
-  return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScrollView contentContainerStyle={{ flexGrow: 1, padding: 28, paddingTop: 70, gap: 20, backgroundColor: '#f5f7fb' }} keyboardShouldPersistTaps="handled">
+  return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><ScrollView contentContainerStyle={{ flexGrow: 1, padding: 28, paddingTop: 70, gap: 20, backgroundColor: '#f5f7fb' }} keyboardShouldPersistTaps="handled">
     <Text style={{ fontSize: 26, fontWeight: '700' }}>Secure your account</Text>
     <Text>Replace your coordinator-issued password before accessing student records. After saving, sign in with your new password.</Text>
     <Text>Use 12–128 characters, including letters and numbers.</Text>

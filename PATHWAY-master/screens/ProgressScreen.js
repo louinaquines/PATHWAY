@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   StatusBar,
   TouchableOpacity,
   Platform,
@@ -15,6 +14,7 @@ import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ScrollView from '../components/RefreshableScrollView';
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -118,7 +118,7 @@ export default function ProgressScreen({ navigation }) {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView onRefresh={fetchAll} skeletonVariant="progress" contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hours Progress Hero Card */}
         <View style={styles.hoursCard}>
           <Text style={styles.hoursTitle}>TOTAL OJT HOURS</Text>
@@ -206,7 +206,7 @@ export default function ProgressScreen({ navigation }) {
           <View style={styles.sectionHeaderRow}>
             <View style={styles.sectionTitleLeft}>
               <FileIcon size={18} color={COLORS.secondary} />
-              <Text style={styles.sectionTitle}>Pre-Deployment Requirements</Text>
+              <Text style={[styles.sectionTitle, { flexShrink: 1 }]}>Pre-Deployment Requirements</Text>
             </View>
             <View style={[styles.statusBadge, { backgroundColor: currentReqConfig.bg }]}>
               <currentReqConfig.icon size={12} color={currentReqConfig.text} />
@@ -225,22 +225,8 @@ export default function ProgressScreen({ navigation }) {
 
                 return (
                   <View key={id} style={styles.reqItem}>
-                    <View
-                      style={[
-                        styles.reqDot,
-                        {
-                          backgroundColor: isAppr
-                            ? COLORS.success
-                            : isSub
-                            ? COLORS.warning
-                            : isRej
-                            ? COLORS.danger
-                            : COLORS.textMuted,
-                        },
-                      ]}
-                    />
                     <Text style={styles.reqItemText} numberOfLines={1}>
-                      {id.replace(/_/g, ' ').toUpperCase()}
+                      {id.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())}
                     </Text>
                     <Text
                       style={[
@@ -608,21 +594,15 @@ const styles = StyleSheet.create({
   },
   // Requirements breakdown
   reqBreakdown: {
-    gap: 8,
-    marginTop: 4,
+    marginTop: 12,
   },
   reqItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 6,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
-  },
-  reqDot: {
-    width: 8,
-    height: 8,
-    borderRadius: RADIUS.full,
   },
   reqItemText: {
     flex: 1,

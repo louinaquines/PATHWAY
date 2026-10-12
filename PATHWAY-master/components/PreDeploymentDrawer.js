@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
+import Modal from './BackdropModal';
 import { AppText as Text } from './AppText';
 import PathwayMark from './PathwayMark';
 import {

@@ -8,10 +8,10 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
-  Modal,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import Modal from '../components/BackdropModal';
 import { createUserWithEmailAndPassword, deleteUser, signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
@@ -131,7 +131,7 @@ export default function RegisterScreen({ navigation, startupProgress, startupTra
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
 

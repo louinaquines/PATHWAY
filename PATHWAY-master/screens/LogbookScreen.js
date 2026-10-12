@@ -3,14 +3,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Modal,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Modal from '../components/BackdropModal';
 import { collection, addDoc, doc, runTransaction, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
 import { readRecordPage, mergeRecords } from '../services/recordPagination';
 import { logbookLoadErrorMessage } from '../services/logbookLoadError';
@@ -24,6 +23,7 @@ import { MotionTouchableOpacity } from '../components/Motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import ScrollView from '../components/RefreshableScrollView';
 import {
   ChevronLeftIcon,
   ChevronIcon,
@@ -391,19 +391,10 @@ export default function LogbookScreen({ navigation }) {
           <Text style={styles.headerTitle}>Logbook</Text>
         </View>
 
-        <MotionTouchableOpacity
-          onPress={() => setModal(true)}
-          style={styles.addBtn}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Add new log entry"
-        >
-          <PlusIcon size={15} color="#FFFFFF" />
-          <Text style={styles.addBtnText}>New Log</Text>
-        </MotionTouchableOpacity>
+        <View style={{ width: 42 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+      <ScrollView onRefresh={fetchEntries} skeletonVariant="logbook" contentContainerStyle={[styles.scroll, { paddingBottom: 100 + insets.bottom }]} showsVerticalScrollIndicator={false}>
 
         <View style={styles.pageIntro}>
           <Text style={styles.pageEyebrow}>WEEKLY JOURNAL</Text>
@@ -527,9 +518,18 @@ export default function LogbookScreen({ navigation }) {
       </ScrollView>
 
       {/* ── New Log Modal ── */}
+      <MotionTouchableOpacity
+        onPress={() => setModal(true)}
+        style={[styles.floatingAddButton, { bottom: 40 + insets.bottom }]}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Add new log entry"
+      >
+        <PlusIcon size={27} color="#FFFFFF" />
+      </MotionTouchableOpacity>
       <Modal visible={modal} transparent animationType="slide" onRequestClose={closeModal}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
           <View style={styles.modalSheet}>
@@ -583,7 +583,7 @@ export default function LogbookScreen({ navigation }) {
 
               {/* AI Refine button */}
               <TouchableOpacity
-                style={[styles.refineBtn, refining && { opacity: 0.6 }]}
+                style={[styles.refineBtn, styles.checkNotesBtn, (refining || saving) && { opacity: 0.6 }]}
                 onPress={checkNotes}
                 disabled={refining || saving}
                 activeOpacity={0.85}
@@ -592,28 +592,35 @@ export default function LogbookScreen({ navigation }) {
                   <ActivityIndicator color={COLORS.accentDark} size="small" />
                 ) : (
                   <>
-                    <SparklesIcon size={15} color={COLORS.accent} />
-                    <Text style={styles.refineBtnText}>Check notes</Text>
-                    <Text style={styles.refineOptional}>(Optional)</Text>
+                    <CheckCircleIcon size={20} color="#475569" />
+                    <View style={styles.assistCopy}>
+                      <Text style={styles.checkNotesTitle}>Check notes</Text>
+                      <Text style={styles.assistCaption}>Quick check · no AI request</Text>
+                    </View>
                   </>
                 )}
               </TouchableOpacity>
 
               {/* Refined output */}
-              <TouchableOpacity style={[styles.refineBtn, refining && { opacity: 0.6 }]} onPress={requestAiRefinement} disabled={refining || saving} accessibilityLabel="Request optional AI journal refinement">
-                <SparklesIcon size={15} color={COLORS.accent} />
-                <Text style={styles.refineBtnText}>{refining ? 'Generating suggestion…' : 'Refine with AI'}</Text>
-                <Text style={styles.refineOptional}>(Optional)</Text>
+              <TouchableOpacity style={[styles.refineBtn, styles.aiRefineBtn, (refining || saving) && { opacity: 0.6 }]} onPress={requestAiRefinement} disabled={refining || saving} accessibilityLabel="Request optional AI journal refinement" accessibilityRole="button" accessibilityState={{ disabled: refining || saving, busy: refining }}>
+                {refining ? <ActivityIndicator size="small" color="#2563EB" /> : <SparklesIcon size={20} color="#2563EB" />}
+                <View style={styles.assistCopy}>
+                  <Text style={styles.aiRefineTitle}>{refining ? 'Generating suggestion…' : 'Refine with AI'}</Text>
+                  <Text style={styles.assistCaption}>Optional · powered by Anthropic</Text>
+                </View>
+                {!refining && <ArrowRightIcon size={18} color="#2563EB" />}
               </TouchableOpacity>
               {refined ? (
                 <View style={styles.refinedBox}>
                   <View style={styles.refinedHeaderRow}>
-                    <SparklesIcon size={13} color={COLORS.successDark} />
-                    <Text style={styles.refinedLabel}>AI SUGGESTION — REVIEW BEFORE SUBMITTING</Text>
+                    <SparklesIcon size={18} color="#2563EB" />
+                    <Text style={styles.refinedLabel}>AI suggestion</Text>
                   </View>
+                  <Text style={styles.suggestionHint}>Review for accuracy before submitting. Your original notes are unchanged.</Text>
                   <Text style={styles.refinedText}>{refined}</Text>
-                  <TouchableOpacity onPress={() => setRefined('')} disabled={saving || refining} accessibilityLabel="Discard AI suggestion and use original notes">
-                    <Text style={styles.refineBtnText}>Discard suggestion — use original notes</Text>
+                  <TouchableOpacity style={styles.discardSuggestionBtn} onPress={() => setRefined('')} disabled={saving || refining} accessibilityLabel="Discard AI suggestion and use original notes" accessibilityRole="button">
+                    <CloseIcon size={16} color="#475569" />
+                    <Text style={styles.discardSuggestionText}>Discard suggestion</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -660,6 +667,7 @@ export default function LogbookScreen({ navigation }) {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  floatingAddButton: { position: 'absolute', right: 20, width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.primary, borderWidth: 1, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', zIndex: 4, ...SHADOWS.soft },
   reviseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, marginTop: 12, borderRadius: 12, backgroundColor: COLORS.primaryLight },
   reviseButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
   container: {
@@ -1258,15 +1266,23 @@ const styles = StyleSheet.create({
   refineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    backgroundColor: '#FFFBEB',
+    gap: 12,
+    borderWidth: 1,
     borderRadius: RADIUS.md,
-    paddingVertical: 12,
-    marginTop: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 64,
+    marginTop: 10,
   },
+  checkNotesBtn: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
+  aiRefineBtn: { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+  assistCopy: { flex: 1, gap: 4 },
+  checkNotesTitle: { color: '#334155', fontSize: 14, fontWeight: '700' },
+  aiRefineTitle: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
+  assistCaption: { color: '#64748B', fontSize: 12, lineHeight: 17 },
+  suggestionHint: { color: '#64748B', fontSize: 12, lineHeight: 18, marginBottom: 14 },
+  discardSuggestionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#DBEAFE' },
+  discardSuggestionText: { color: '#475569', fontSize: 13, fontWeight: '600' },
   refineBtnText: {
     color: COLORS.accentDark,
     fontWeight: '800',
@@ -1278,29 +1294,29 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   refinedBox: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F8FBFF',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: '#BFDBFE',
     borderRadius: RADIUS.md,
-    padding: 13,
+    padding: 16,
     marginTop: 12,
   },
   refinedHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 5,
+    gap: 8,
+    marginBottom: 8,
   },
   refinedLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.successDark,
-    letterSpacing: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    flex: 1,
   },
   refinedText: {
-    fontSize: 13,
-    color: '#166534',
-    lineHeight: 19,
+    fontSize: 14,
+    color: '#334155',
+    lineHeight: 22,
   },
 
   // ── Modal action buttons ───────────────────────────────────────────────────────

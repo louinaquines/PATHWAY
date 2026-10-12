@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import Modal from '../components/BackdropModal';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -7,6 +8,7 @@ import { auth, db } from '../firebaseConfig';
 import { COLORS, RADIUS, SHADOWS, SPACE, TYPE } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import RefreshableScrollView from '../components/RefreshableScrollView';
 import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, CloseIcon, SearchIcon } from '../components/Icons';
 import { postBackend } from '../services/backendApi';
 import { getStudentNotificationsEnabled } from '../services/studentPreferences';
@@ -40,19 +42,6 @@ export default function NotificationsScreen({ navigation, route }) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardOverlap, setKeyboardOverlap] = useState(0);
-  const chatRootRef = useRef(null);
-  const keyboardTopRef = useRef(null);
-  const measureKeyboardOverlap = useCallback(() => {
-    if (Platform.OS !== 'android') return;
-    const keyboardTop = keyboardTopRef.current;
-    if (keyboardTop == null) { setKeyboardOverlap(0); return; }
-    chatRootRef.current?.measureInWindow((x, y, width, height) => {
-      if (keyboardTopRef.current !== keyboardTop) return;
-      // Only reserve what Android has not already removed via window resizing.
-      setKeyboardOverlap(Math.max(0, y + height - keyboardTop));
-    });
-  }, []);
   const chatScrollRef = useRef(null);
   const [noticePage, setNoticePage] = useState({ cursor: null, hasMore: false });
   const [unreadNotices, setUnreadNotices] = useState(0);
@@ -89,19 +78,15 @@ export default function NotificationsScreen({ navigation, route }) {
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', event => {
-      keyboardTopRef.current = event.endCoordinates.screenY;
-      measureKeyboardOverlap();
       setKeyboardVisible(true);
       chatPosition.current.follow = true;
       chatScrollRef.current?.scrollToEnd({ animated: true });
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
-      keyboardTopRef.current = null;
-      setKeyboardOverlap(0);
       setKeyboardVisible(false);
     });
     return () => { show.remove(); hide.remove(); };
-  }, [measureKeyboardOverlap]);
+  }, []);
 
   const load = useCallback(async () => {
     const request = ++listRequest.current;
@@ -276,7 +261,7 @@ export default function NotificationsScreen({ navigation, route }) {
   if (loading) return <StudentScreenSkeleton variant="inbox" />;
 
   if (conversation) return (
-    <View ref={chatRootRef} collapsable={false} onLayout={measureKeyboardOverlap} style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
         <MotionTouchableOpacity onPress={() => { activeChat.current = null; setConversation(null); }} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to inbox"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
@@ -288,12 +273,8 @@ export default function NotificationsScreen({ navigation, route }) {
           </View>
         </View>
       </View>
-      <KeyboardAvoidingView
-        style={[styles.chatArea, Platform.OS === 'android' && { paddingBottom: keyboardOverlap }]}
-        enabled={Platform.OS === 'ios'}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView ref={chatScrollRef} style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" scrollEventThrottle={16} onScroll={event => { chatPosition.current.offset = event.nativeEvent.contentOffset.y; }} onContentSizeChange={(_, height) => {
+      <View style={styles.chatArea}>
+        <RefreshableScrollView onRefresh={() => loadChat(conversation, { refresh: true })} skeletonVariant="inbox" ref={chatScrollRef} style={styles.chatViewport} contentContainerStyle={styles.chatScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" scrollEventThrottle={16} onScroll={event => { chatPosition.current.offset = event.nativeEvent.contentOffset.y; }} onContentSizeChange={(_, height) => {
           const position = chatPosition.current;
           if (position.prepend) {
             chatScrollRef.current?.scrollTo({ y: Math.max(0, position.prepend.offset + height - position.prepend.height), animated: false });
@@ -327,15 +308,15 @@ export default function NotificationsScreen({ navigation, route }) {
               </View>
             );
           })}
-        </ScrollView>
+        </RefreshableScrollView>
         <View style={[styles.composerDock, { paddingBottom: keyboardVisible ? 12 : Math.max(12, insets.bottom) }]}>
           <View style={styles.composer}>
             <TextInput value={draft} onChangeText={setDraft} placeholder="Write a message..." placeholderTextColor={COLORS.textMuted} style={styles.composerInput} multiline accessibilityLabel="Write a message" />
             <MotionTouchableOpacity style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]} onPress={sendMessage} disabled={!draft.trim() || sending} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel={sending ? 'Sending message' : 'Send message'}><Text style={styles.sendButtonText}>{sending ? 'Sending' : 'Send'}</Text>{!sending && <ArrowRightIcon size={15} color="#FFFFFF" />}</MotionTouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 
   return (
@@ -363,7 +344,7 @@ export default function NotificationsScreen({ navigation, route }) {
         </View>
       </View>
       <View style={styles.searchWrap}><View style={styles.searchField}><SearchIcon size={17} color={COLORS.textMuted} /><TextInput value={search} onChangeText={setSearch} placeholder={tab === 'messages' ? 'Search conversations' : 'Search notifications'} placeholderTextColor={COLORS.textMuted} style={styles.searchInput} accessibilityLabel={tab === 'messages' ? 'Search conversations' : 'Search notifications'} /></View></View>
-      <ScrollView style={styles.listViewport} contentContainerStyle={[styles.scroll, listIsEmpty && styles.scrollEmpty]} showsVerticalScrollIndicator={false}>
+      <RefreshableScrollView onRefresh={load} skeletonVariant="inbox" style={styles.listViewport} contentContainerStyle={[styles.scroll, listIsEmpty && styles.scrollEmpty]} showsVerticalScrollIndicator={false}>
         {tab === 'notifications' ? (!notificationsEnabled ? <EmptyState icon="bell" title="Notifications are off" text="Coordinator updates are paused on this device. Turn them back on in Profile → Settings. Your messages remain available in the Messages tab." /> : filteredNotifications.length ? filteredNotifications.map(item => {
           const unread = !item.read;
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title || 'Notification'}${unread ? ', unread' : ''}. ${item.message || 'No additional details.'}`} style={[styles.notificationCard, unread && styles.notificationUnread]} onPress={() => markRead(item)} activeOpacity={0.88}><View style={styles.notificationIcon}><BellIcon size={18} color={unread ? COLORS.primary : COLORS.textMuted} /></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]} numberOfLines={1}>{item.title || 'Notification'}</Text></View><Text style={styles.message} numberOfLines={2}>{item.message || 'No additional details.'}</Text><Text style={styles.date}>{formatDate(item.createdAt)}</Text></View>{unread && <View style={styles.unreadDot} />}{item.read && <CheckCircleIcon size={15} color={COLORS.textMuted} />}</MotionTouchableOpacity>;
@@ -373,7 +354,7 @@ export default function NotificationsScreen({ navigation, route }) {
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => openConversation(item)} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
         }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages'} text={search ? 'Try a different search.' : 'Send a message to your coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => { activeChat.current = 'new'; setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [], cursor: null, hasMore: false }); }} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>New message</Text></MotionTouchableOpacity>}</View>)}
         <LoadMore hasMore={tab === 'notifications' && noticePage.hasMore} loading={listBusy} error={listError} onPress={tab === 'notifications' && noticePage.cursor && !listError ? loadMoreNotices : load} />
-      </ScrollView>
+      </RefreshableScrollView>
       <Modal visible={!!announcement} transparent animationType="fade" onRequestClose={closeAnnouncement}>
         <View style={[styles.announcementBackdrop, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={closeAnnouncement} accessibilityRole="button" accessibilityLabel="Close announcement" />
@@ -428,13 +409,13 @@ const styles = StyleSheet.create({
   searchField: { width: '100%', maxWidth: 760, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: SPACE.xs, borderRadius: 14, backgroundColor: COLORS.surfaceMuted, paddingHorizontal: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight },
   searchInput: { flex: 1, minWidth: 0, height: 44, color: COLORS.textPrimary, fontSize: TYPE.bodySmall, paddingVertical: 0 },
   listViewport: { flex: 1, width: '100%' },
-  scroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, gap: SPACE.sm },
+  scroll: { width: '100%', maxWidth: 792, alignSelf: 'center', paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, gap: 6 },
   scrollEmpty: { flexGrow: 1, justifyContent: 'center' },
   notificationCard: { backgroundColor: COLORS.surface, borderRadius: 14, padding: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'flex-start', gap: SPACE.sm },
-  notificationUnread: { backgroundColor: '#F8FAFF', borderColor: COLORS.borderLight },
+  notificationUnread: { backgroundColor: '#DBEAFE', borderColor: '#93C5FD' },
   notificationIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   conversationCard: { backgroundColor: COLORS.surface, borderRadius: 14, paddingHorizontal: SPACE.md, paddingVertical: SPACE.md, borderWidth: 1, borderColor: COLORS.borderLight, flexDirection: 'row', alignItems: 'center', gap: SPACE.sm },
-  unreadCard: { backgroundColor: '#F8FAFF', borderColor: COLORS.borderLight },
+  unreadCard: { backgroundColor: '#DBEAFE', borderColor: '#93C5FD' },
   avatar: { width: 44, height: 44, borderRadius: 15, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: COLORS.primaryDark, fontWeight: '700', fontSize: TYPE.bodySmall },
   rowBody: { flex: 1, minWidth: 0 },

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import Modal from './BackdropModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerStudentDialog } from '../services/studentAlert';
 import { AppText as Text } from './AppText';

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import Modal from './BackdropModal';
 import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { COLORS, RADIUS } from '../theme';

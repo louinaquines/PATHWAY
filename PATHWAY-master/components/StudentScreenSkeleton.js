@@ -4,9 +4,10 @@ import { COLORS, RADIUS } from '../theme';
 import { useReducedMotion } from './Motion';
 
 const VARIANTS = {
+  profile: { profile: true, stats: false, cards: 2, darkHeader: false },
   dashboard: { profile: true, stats: true, cards: 3, darkHeader: false },
   inbox: { profile: false, stats: false, cards: 5, darkHeader: false },
-  progress: { profile: false, stats: true, cards: 4, darkHeader: true },
+  progress: { profile: false, stats: false, cards: 0, darkHeader: false },
   requirements: { profile: false, stats: false, cards: 5, darkHeader: false },
   placement: { profile: false, stats: false, cards: 4, darkHeader: false },
   attendance: { profile: false, stats: false, cards: 2, darkHeader: false },
@@ -84,7 +85,43 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
             </View>
           </View>
         )}
-        {variant === 'dashboard' ? (
+        {variant === 'progress' ? (
+          <View style={{ gap: 16 }}>
+            <View style={[styles.card, { gap: 20, padding: 20 }]}>
+              <Block pulse={pulse} style={{ width: 130, height: 12 }} />
+              <View style={{ flexDirection: 'row', backgroundColor: COLORS.background, borderRadius: 14, paddingVertical: 20 }}>
+                {[0, 1, 2].map(key => (
+                  <View key={key} style={{ flex: 1, alignItems: 'center', gap: 10 }}>
+                    <Block pulse={pulse} style={{ width: '65%', height: 28 }} />
+                    <Block pulse={pulse} style={{ width: '65%', height: 11 }} />
+                  </View>
+                ))}
+              </View>
+              <Block pulse={pulse} style={{ width: '100%', height: 9 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Block pulse={pulse} style={{ width: 100, height: 12 }} />
+                <Block pulse={pulse} style={{ width: 90, height: 12 }} />
+              </View>
+            </View>
+            <View style={[styles.card, { gap: 14, padding: 20 }]}>
+              <Block pulse={pulse} style={{ width: '70%', height: 18 }} />
+              <Block pulse={pulse} style={{ width: '95%', height: 12 }} />
+              <Block pulse={pulse} style={{ width: '75%', height: 12 }} />
+            </View>
+            <View style={[styles.card, { padding: 20 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+                <Block pulse={pulse} style={{ flex: 1, height: 17 }} />
+                <Block pulse={pulse} style={{ width: 70, height: 23, borderRadius: 12 }} />
+              </View>
+              {[0, 1, 2, 3, 4, 5].map(key => (
+                <View key={key} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight }}>
+                  <Block pulse={pulse} style={{ width: '48%', height: 12 }} />
+                  <Block pulse={pulse} style={{ width: 64, height: 12 }} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : variant === 'dashboard' ? (
           <View style={styles.dashboardSkeleton}>
             <View style={styles.welcomeSkeleton}>
               <View style={{ flex: 1, gap: 6 }}>

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
+import SubmissionNotifications, { submissionTime } from '../components/SubmissionNotifications';
+import CoordinatorSearch from '../components/CoordinatorSearch';
 import AlertDialog from '../components/AlertDialog';
 import EndorsementDraftDialog from '../components/EndorsementDraftDialog';
 import { adminRequest } from '../adminApi';
@@ -193,9 +195,24 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     || String(b.submittedAt || b.createdAt || '').localeCompare(String(a.submittedAt || a.createdAt || '')));
   const pendingPlacements = items.filter(item => item.status === 'pending_review').length;
   const pendingFinalReviews = finalItems.filter(item => item.status === 'pending_review').length;
+  const placementNotices = [
+    ...items.filter(item => item.status === 'pending_review').map(item => ({ ...item, stage: 'placement', noticeTitle: 'Company placement awaiting review' })),
+    ...finalItems.filter(item => item.status === 'pending_review').map(item => ({ ...item, stage: 'final', noticeTitle: 'Final approval awaiting review' })),
+    ...endorsementItems.map(item => ({ ...item, stage: 'endorsement', noticeTitle: 'Endorsement awaiting signed copy' })),
+  ].map(item => ({ id: `${item.stage}/${item.id}/${submissionTime(item.submittedAt || item.updatedAt || item.createdAt)}`, stage: item.stage,
+    student: { id: item.studentId, firstName: reviewStudentName(item) },
+    title: `${item.noticeTitle} — ${item.companyName || item.companySnapshot?.companyName || 'Company not provided'}`,
+    createdAt: item.submittedAt || item.updatedAt || item.createdAt }));
 
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
+    {workspace === 'reviews' && <div className="placement-review-top-toolbar">
+      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
+        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
+      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
+        suppliedItems={error ? [] : placementNotices} onRefresh={load}
+        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
+    </div>}
     <CompanyConversations sectionId={selectedSection?.id} />
     <div className="placement-page-header">
       <div><h2 style={{ margin: 0 }}>Company Placements</h2>
@@ -220,7 +237,6 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <div><span>Endorsement paperwork</span><strong>{endorsementItems.length}</strong><small>Awaiting a verified signed copy</small><button type="button" onClick={() => { setReviewStage('endorsement'); setReviewStatus('all'); setReviewSearch(''); }}>Open endorsements</button></div>
     </div>
     <div className="review-toolbar">
-      <label className="review-search">Search reviews<input type="search" value={reviewSearch} onChange={event => setReviewSearch(event.target.value)} placeholder="Student, company, or supervisor" /></label>
       <label>Status<select value={reviewStatus} onChange={event => setReviewStatus(event.target.value)}><option value="all">All statuses</option>{Object.entries({ ...labels, awaiting_document: 'Awaiting signed copy', signed_copy_verified: 'Signed copy verified' }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     </div>
     <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', 'Endorsements'], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewStatus('all'); }}>{label}</button>)}</div>

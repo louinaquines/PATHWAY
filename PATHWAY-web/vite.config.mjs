@@ -5,6 +5,14 @@ export default defineConfig(({ mode }) => {
   // Keep existing public CRA variable names while migrating. Never expose the
   // entire process environment (SMTP/provider secrets belong on the backend).
   const env = loadEnv(mode, process.cwd(), 'REACT_APP_');
+  if (mode === 'production') {
+    let backend;
+    try { backend = new URL(env.REACT_APP_BACKEND_URL); } catch { throw new Error('Production requires a valid REACT_APP_BACKEND_URL.'); }
+    if (backend.protocol !== 'https:' || backend.username || backend.password || backend.port || backend.pathname !== '/' || backend.search || backend.hash
+      || ['localhost', '127.0.0.1', '[::1]'].includes(backend.hostname)) {
+      throw new Error('Production backend must be an HTTPS origin, not localhost or a malformed URL.');
+    }
+  }
   const publicKeys = ['REACT_APP_BACKEND_URL', 'REACT_APP_LOCAL_EMULATOR',
     'REACT_APP_FIREBASE_API_KEY', 'REACT_APP_FIREBASE_AUTH_DOMAIN',
     'REACT_APP_FIREBASE_PROJECT_ID', 'REACT_APP_FIREBASE_STORAGE_BUCKET',

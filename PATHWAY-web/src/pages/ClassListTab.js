@@ -18,6 +18,7 @@ export default function ClassListTab({ department, coordinatorId }) {
   const [resetConfirm, setResetConfirm] = useState(null);
   const [ids, setIds]         = useState([]);
   const [input, setInput]     = useState('');
+  const [student, setStudent] = useState({ idNumber: '', firstName: '', lastName: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [message, setMessage] = useState('');
@@ -52,13 +53,14 @@ export default function ClassListTab({ department, coordinatorId }) {
       .catch(() => setMessage('Could not load your assigned sections.'));
   }, [coordinatorId]);
 
-  const addIds = async () => {
-    const students = input.trim().split(/\r?\n/).filter(Boolean).map(line => {
+  const addIds = async (manual = false) => {
+    if (saving) return;
+    const students = manual ? [{ ...Object.fromEntries(Object.entries(student).map(([key, value]) => [key, value.trim()])), extra: [] }] : input.trim().split(/\r?\n/).filter(Boolean).map(line => {
       const [idNumber, firstName, lastName, ...extra] = line.split(',').map(v => v.trim());
       return { idNumber, firstName, lastName, extra };
     }).filter(row => row.idNumber.toLowerCase() !== 'studentid');
-    if (!sectionId || !students.length || students.some(row => !row.firstName || !row.lastName || row.extra.length)) {
-      setMessage('Select a section and enter one StudentID,FirstName,LastName row per student. Commas inside names are not supported.');
+    if (!sectionId || !students.length || students.some(row => !row.idNumber || !row.firstName || !row.lastName || row.extra.length)) {
+      setMessage(manual ? 'Select a section and enter the student ID, first name, and last name.' : 'Select a section and upload a CSV with StudentID,FirstName,LastName columns. Commas inside CSV names are not supported.');
       return;
     }
     setSaving(true);
@@ -68,7 +70,10 @@ export default function ClassListTab({ department, coordinatorId }) {
         method: 'POST', body: JSON.stringify({ sectionId, students: students.map(({ extra, ...row }) => row) }),
       });
       setOutcomes(result.outcomes);
-      if (result.outcomes.every(row => row.status !== 'failed')) setInput('');
+      if (result.outcomes.every(row => row.status !== 'failed')) {
+        if (manual) setStudent({ idNumber: '', firstName: '', lastName: '' });
+        else setInput('');
+      }
       setMessage(`Import finished: ${result.outcomes.filter(row => row.status === 'created').length} created, ${result.outcomes.filter(row => row.status === 'unchanged').length} unchanged, ${result.outcomes.filter(row => row.status === 'failed').length} failed.`);
       await loadIds();
     } catch (e) {
@@ -119,7 +124,23 @@ export default function ClassListTab({ department, coordinatorId }) {
           <select aria-label="Assigned section" value={sectionId} onChange={e => setSectionId(e.target.value)} disabled={saving}>
             <option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
           </select>
-          <label style={s.label}>Upload a CSV file</label>
+          {[
+            ['idNumber', 'Student ID', 'e.g. 24228132'],
+            ['firstName', 'First name', 'Enter first name'],
+            ['lastName', 'Last name', 'Enter last name'],
+          ].map(([key, label, placeholder]) => (
+            <label key={key} style={s.label}>
+              {label}
+              <input type="text" style={{ ...s.textarea, fontFamily: THEME.fonts.main, marginTop: 8 }}
+                value={student[key]} placeholder={placeholder} disabled={saving}
+                onChange={e => setStudent(previous => ({ ...previous, [key]: e.target.value }))} />
+            </label>
+          ))}
+          <button style={s.addButton} onClick={() => addIds(true)}
+            disabled={saving || !sectionId || Object.values(student).some(value => !value.trim())}>
+            {saving ? 'Provisioning accounts...' : 'Create student account'}
+          </button>
+          <label style={{ ...s.label, marginTop: 16 }}>Bulk import — upload a CSV file</label>
           <p className="roster-format-help">Columns: StudentID, FirstName, LastName. Email addresses are not required.</p>
           <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={async e => {
             const file = e.target.files?.[0];
@@ -127,20 +148,12 @@ export default function ClassListTab({ department, coordinatorId }) {
             if (file.size > 100000) { setMessage('Class list must be under 100 KB.'); return; }
             try { setInput((await file.text()).replace(/^\uFEFF/, '')); } catch { setMessage('Could not read the class list.'); }
           }} />
-          <textarea
-            aria-label="Class list CSV content"
-            style={s.textarea}
-            rows={4}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder={'StudentID,FirstName,LastName\n24228132,Taylor,Student'}
-            disabled={saving}
-          />
+          {input && <p className="roster-format-help">CSV loaded. Review the selected file before importing.</p>}
           <div style={s.formActions}>
             <button
               style={s.addButton}
-              onClick={addIds}
-              disabled={saving || !input.trim()}
+              onClick={() => addIds(false)}
+              disabled={saving || !sectionId || !input.trim()}
             >
               {saving ? 'Provisioning accounts...' : 'Import and create accounts'}
             </button>

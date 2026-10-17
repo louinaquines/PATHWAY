@@ -24,10 +24,10 @@ describe('coordinator decision retries', () => {
     adminRequest.mockImplementation(url => Promise.resolve(url === '/coordinator/company-directory' ? { companies: [] } : { history: [] }));
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
     expect(await screen.findByRole('button', { name: 'Placement Reviews (1)' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/Journey QA/)).toBeVisible();
+    expect(screen.getAllByText(/Journey QA/).some(element => element.closest('article'))).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Companies' }));
     fireEvent.click(screen.getByRole('button', { name: 'Review pending placements (1)' }));
-    expect(screen.getByText(/Journey QA/)).toBeVisible();
+    expect(screen.getAllByText(/Journey QA/).some(element => element.closest('article'))).toBe(true);
   });
 
   test('queue shortcuts, search, and student-specific feedback keep reviews easy to navigate', async () => {

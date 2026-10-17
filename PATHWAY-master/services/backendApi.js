@@ -16,7 +16,11 @@ export async function requestBackend(path, { method = 'POST', payload = {} } = {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(result.error || 'The request could not be completed.');
+    const retryAfterSeconds = Number(result.retryAfterSeconds);
+    const retryMessage = response.status === 429 && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? `Too many requests. Try again in ${Math.ceil(retryAfterSeconds / 60)} minute(s).` : null;
+    const error = new Error(retryMessage || result.error || 'The request could not be completed.');
+    error.retryAfterSeconds = retryAfterSeconds;
     error.status = response.status;
     throw error;
   }

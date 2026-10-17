@@ -17,10 +17,13 @@ test('authorized roster preserves section selection and account provisioning', a
   await screen.findByRole('heading', { name: 'Import class list' });
   await screen.findByRole('option', { name: 'Section A' });
   fireEvent.change(screen.getByRole('combobox', { name: 'Assigned section' }), { target: { value: 'section-a' } });
-  fireEvent.change(screen.getByRole('textbox', { name: 'Class list CSV content' }), { target: { value: '24228132,Taylor,Student' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Import and create accounts' }));
+  fireEvent.change(screen.getByRole('textbox', { name: 'Student ID', exact: true }), { target: { value: '24228132' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), { target: { value: 'Taylor' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Last name' }), { target: { value: 'Student' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Create student account' }));
   await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/provision-students', { method: 'POST', body: JSON.stringify({ sectionId: 'section-a', students: [{ idNumber: '24228132', firstName: 'Taylor', lastName: 'Student' }] }) }));
   expect(await screen.findByRole('list', { name: 'Import results' })).toHaveTextContent('uclm-24228132');
+  expect(screen.getByRole('textbox', { name: 'First name' })).toHaveValue('');
 });
 
 test('registration approval is preserved and account details show section and username', async () => {

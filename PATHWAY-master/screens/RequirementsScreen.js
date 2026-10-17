@@ -416,7 +416,8 @@ export default function RequirementsScreen({ navigation, route }) {
     );
   };
 
-  const requiredRequirements = requirements.filter(item => item.required !== false);
+  const visibleRequirements = isDocumentHub ? requirements : requirements.filter(item => !item.category || /pre|deploy/i.test(item.category));
+  const requiredRequirements = visibleRequirements.filter(item => item.required !== false);
   const requiredCount = requiredRequirements.length;
   const approvedCount = requiredRequirements.filter(item => item.status === 'approved').length;
   const inReviewCount = requiredRequirements.filter(item => item.status === 'submitted').length;
@@ -524,14 +525,14 @@ export default function RequirementsScreen({ navigation, route }) {
               <Text style={styles.documentsTitle}>Your documents</Text>
               <Text style={styles.documentsSubtitle}>Select a document to upload or check its status.</Text>
             </View>
-            <Text style={styles.documentsCount}>{requirements.length} items</Text>
+            <Text style={styles.documentsCount}>{visibleRequirements.length} items</Text>
           </View>
         </>}
 
         {activeStep === 1 && <>
         {/* ── Document List Cards (Figure 39) ── */}
         <View style={styles.docsList}>
-          {requirements.map((docItem) => {
+          {visibleRequirements.map((docItem) => {
             const isUploading = uploadingId === docItem.id;
             const isApproved = docItem.status === 'approved';
             const isRejected = docItem.status === 'rejected' || docItem.status === 'needs_revision';

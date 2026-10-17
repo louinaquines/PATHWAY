@@ -32,6 +32,7 @@ import {
   SearchIcon,
   BuildingIcon,
   ArrowRightIcon,
+  ChevronIcon,
 } from '../components/Icons';
 
 const EMPTY_FORM = {
@@ -385,7 +386,7 @@ export default function CompanyScreen({ navigation }) {
               <Text style={styles.formGroupTitle}>INTERNSHIP DETAILS</Text>
               <Field label="Internship role or department" value={form.internshipRole} onChangeText={value => updateField('internshipRole', value)} editable={showEditor} />
               <View style={[styles.row, isNarrow && styles.formColumn]}><PlacementDateField label="Start date" value={form.startDate} onChangeText={value => { updateField('startDate', value); if (form.endDate && form.endDate < value) updateField('endDate', ''); }} editable={showEditor} half={!isNarrow} /><PlacementDateField label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half={!isNarrow} minimumDate={form.startDate} /></View>
-              <Field label="Work arrangement or location" value={form.workArrangement} onChangeText={value => updateField('workArrangement', value)} editable={showEditor} />
+              <WorkArrangementField value={form.workArrangement} onChange={value => updateField('workArrangement', value)} editable={showEditor && !saving} />
               <Field label="Additional notes" value={form.notes} onChangeText={value => updateField('notes', value)} editable={showEditor} multiline />
               <View style={[styles.actionRow, isNarrow && styles.actionColumn]}>
                 <TouchableOpacity accessibilityRole="button" style={[styles.secondaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('draft')} disabled={saving}><Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save draft'}</Text></TouchableOpacity>
@@ -432,6 +433,35 @@ export default function CompanyScreen({ navigation }) {
       />
     </KeyboardAvoidingView>
   );
+}
+
+function WorkArrangementField({ value, onChange, editable }) {
+  const [open, setOpen] = useState(false);
+  const options = [
+    ['On-site', 'Work at the company location'],
+    ['Remote', 'Work from home or another approved location'],
+    ['Hybrid', 'A mix of on-site and remote work'],
+  ];
+  useEffect(() => { if (!editable) setOpen(false); }, [editable]);
+  return <View style={styles.fieldWrap}>
+    <Text style={styles.label}>Work arrangement</Text>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Work arrangement: ${value || 'Select work arrangement'}`}
+      accessibilityState={{ expanded: open, disabled: !editable }} disabled={!editable}
+      onPress={() => setOpen(previous => !previous)}
+      style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }]}>
+      <Text style={{ flex: 1, color: value ? COLORS.textPrimary : '#64748B' }}>{value || 'Select work arrangement'}</Text>
+      <ChevronIcon size={18} color={COLORS.textSecondary} expanded={open} />
+    </TouchableOpacity>
+    <Text style={styles.sectionDescription}>Choose how you will work. Enter the physical location in Company address.</Text>
+    {open && editable && <View style={{ borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, marginTop: 6, backgroundColor: '#FFF' }}>
+      {options.map(([option, description]) => <TouchableOpacity key={option} accessibilityRole="button"
+        accessibilityState={{ selected: value === option }} onPress={() => { onChange(option); setOpen(false); }}
+        style={{ padding: 12, backgroundColor: value === option ? COLORS.primarySubtle : 'transparent' }}>
+        <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>{option}</Text>
+        <Text style={styles.sectionDescription}>{description}</Text>
+      </TouchableOpacity>)}
+    </View>}
+  </View>;
 }
 
 function Field({ label, value, onChangeText, editable, half, multiline, placeholder }) {

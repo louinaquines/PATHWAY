@@ -14,6 +14,17 @@ test('only received requirements are included and replacements have new identiti
   expect(receivedRequirements(student)[0].title).toBe('new.pdf');
   expect(receivedRequirements(student)[0].id).not.toBe(receivedRequirements({ ...student, requirements: { a: { ...student.requirements.a, submittedAt: '2026-10-11' } } })[0].id);
 });
+
+test('placement notifications use only supplied section reviews and open the selected queue', () => {
+  const item = { id: 'placement/p1/1', stage: 'placement', title: 'Company placement awaiting review — QA Host', student: { id: 's1', firstName: 'Taylor Student' }, createdAt: '2026-10-10' };
+  const onOpen = jest.fn();
+  render(<SubmissionNotifications kind="placements" coordinatorId="c" section={{ id: 'g', name: 'Section A' }} suppliedItems={[item]} onOpen={onOpen} />);
+  expect(onSnapshot).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Placement review notifications' }));
+  fireEvent.click(screen.getByRole('button', { name: /Company placement awaiting review/ }));
+  expect(onOpen).toHaveBeenCalledWith(item.student, item);
+  expect(localStorage.getItem('pathway.received.c.g.placements')).toContain(item.id);
+});
 test('overlay opens submission, acknowledges locally without approving, and closes', () => {
   onSnapshot.mockImplementation((_, success) => { success({ docs: [{ id: 's', data: () => ({ firstName: 'Dexter', requirements: { a: { submittedAt: '2026-10-10', status: 'submitted', fileName: 'replacement.pdf' } } }) }] }); return jest.fn(); });
   const onOpen = jest.fn();

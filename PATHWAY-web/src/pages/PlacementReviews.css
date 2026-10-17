@@ -33,3 +33,23 @@
 .review-documents summary { cursor: pointer; font-weight: 600; color: #075fc9; }
 .review-documents > div { display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid #edf1f7; margin-top: 10px; padding-top: 10px; font-size: 13px; }
 @media(max-width: 700px) { .review-overview { grid-template-columns: 1fr; } .review-card { padding: 18px; } .review-toolbar > label { width: 100%; } .review-actions button { flex: 1; } }
+.placement-review-top-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+.placement-review-top-toolbar .coordinator-search {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  max-width: none;
+  min-height: 50px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #d7e2f1;
+  border-radius: 12px;
+}
+.placement-review-top-toolbar .coordinator-search input { width: 100%; min-width: 0; }
+.placement-review-top-toolbar .submission-notifications { flex: 0 0 auto; }

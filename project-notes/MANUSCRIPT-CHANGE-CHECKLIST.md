@@ -1,7 +1,7 @@
 # Manuscript change checklist: scoring, alerts, and workplace support
 
 Date: 2026-10-21
-Status: scoring and alert proposals approved by the user; implementation pending.
+Status: baseline approved. Attendance backend and UI implemented/reviewed locally, including a browser-found refetch-loop fix with165 UI tests and a stable repeat check. Final whole-change review pending. Other scoring/AI escalation phases remain pending. Nothing here establishes production deployment.
 
 ## Purpose and evidence boundary
 
@@ -56,7 +56,7 @@ Use the last 20 scheduled workdays, excluding today, holidays, approved leave an
 
 Use the highest applicable tier. Require five eligible days for percentage classification; otherwise show Insufficient data. Missing schedules/deadlines cannot silently produce Low. Missing checkout is Needs verification, not an automatic absence. Completed is separate progress status, not a fourth tier.
 
-Completion projections use verified hours from the last 28 calendar days and remaining scheduled workdays. Show assumptions. Code calculates metrics and tiers; Claude can explain but cannot alter them.
+Completion projections use server-credited hours from the previous 28 completed calendar days and remaining scheduled workdays. Existing checkout credits are not proof of coordinator verification; the pending review status is preserved. Show assumptions. Code calculates metrics and tiers; Claude can explain but cannot alter them.
 
 Paper change: specify denominators, exceptions, threshold rationale and insufficient-data states. Do not claim predictive accuracy until evaluated.
 
@@ -130,16 +130,27 @@ No production deployment or preview APK is included in this approval.
 
 These operational details were not settled by approving the baseline:
 
-- Exact daily evaluation time and handling different section shift end times.
-- Treatment of uncertain attendance days in a risk denominator without falsely implying absence or Low risk.
-- Exact projection formula, minimum history and zero-hours cases.
 - Journal criterion examples, partial-credit boundaries and coordinator correction/audit rules.
 - AI model/prompt/schema version, language evaluation and processing consent/privacy requirements.
 - Per-document mandatory-field definitions and OCR reliability rules.
 - DTR rounding, break periods, overnight shifts and handling incomplete comparison records.
-- Notification source/version identifiers, reopening/recovery semantics and worker retry schedule.
+- Source/version identifiers and processing/retry details for later journal, document and DTR notifications.
 
 Record decisions explicitly; do not present them as already defined in the manuscript.
+
+## Attendance decisions now approved and implemented locally
+
+- Daily due time: 00:15 Philippine time, excluding the current date. Before that cutoff the latest previous due context applies. Startup catches up the latest context only. Unresolved overnight punches remain uncertain.
+- Latest20 eligible workdays can extend beyond28 calendar days. Holidays/non-working exceptions and coordinator-managed, versioned excused dates are excluded. This is not a new student leave-request/approval workflow.
+- Uncertain punches prevent percentage classification and reliable recovery; independently established higher triggers may remain. Unknown does not mean Low or absent.
+- Projection: server-credited hours over eligible scheduled days in the prior28 completed calendar days, requiring at least5 eligible days and complete reliable credit coverage. Confirmed absence contributes zero. Zero reliable velocity with remaining work is a projected shortfall, not an invented completion date.
+- Reliable Low/Completed closes an open episode once. Unknown/Needs verification does not. First Medium/High and distinct High escalation notify the current coordinator in-app. Reading is neither acknowledgment nor resolution.
+- Risk state, notice and audit are atomic per student. Source/assignment inputs are read transactionally; deterministic IDs prevent duplicate transitions. Separate durable, rotating retries allow healthy students to progress despite a failing student record. Current assignment, not historical recipient identity, authorizes access.
+- The worker is default-off and hard-pinned to local demo emulators in this phase. Its in-process timer requires an awake host; it is not a production cron or availability guarantee. Release scheduling, packaging, indexes and capacity remain separate gates.
+
+Paper changes: document these as project policy and implementation safeguards, not adviser-provided numerical rules or measured predictive accuracy. Describe Completed separately from Low/Medium/High, distinguish unknown from zero, and explain the limitations of checkout-based credits and projections.
+
+Observed local evidence: backend85/85, focused risk26/26 and separate calculator/input/analytics58/58 passed after the worker fixes; independent review cleared the three worker findings. Coordinator UI159/159 across40 suites and synthetic web build passed; task review approved it. Do not add overlapping counts. The real local synthetic browser walkthrough, repeated on UI commitd947845, exercised read/no duplicate, escalation, uncertain completed totals/no false recovery, recovery and student-only reassignment. Full-server reassignment check returned empty history and403 on an old read for the former coordinator. Whole-change review remains pending. Build chunk/import and emulator/SDK warnings remain documented. This is not evidence of production delivery or validated prediction accuracy; see ATTENDANCE-RISK-LOCAL-ACCEPTANCE.md for conditions and release limits.
 
 ## Revision tracking
 

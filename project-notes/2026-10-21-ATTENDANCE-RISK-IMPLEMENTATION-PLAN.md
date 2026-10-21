@@ -32,7 +32,9 @@
 - `firestore.rules`: generic notifications permit historical recipient reads; do not put protected risk history in that collection without fixing all applicable access paths.
 - Primary checkout has unrelated changes. No product files changed during this planning step.
 
-## Decisions to confirm before execution
+## Operational decisions approved for local implementation
+
+Approved by the user with “proceed” on 2026-10-21. Work is isolated from the parked workplace-support feature and primary checkout.
 
 1. Daily evaluation: propose00:15 Philippine time, assessing dates strictly before the current date. Excluding today prevents premature absence claims; midnight also avoids guessing a universal shift-closing time. Overnight unresolved shifts remain uncertain. Workers catch up once on startup for the latest due date, not a historical alert storm.
 2. Uncertain days: propose no percentage classification when an eligible day has a missing checkout, duplicate or invalid punches. Show Needs verification; retain separately established High triggers such as overdue incomplete totals, without treating uncertain days as absences or sending a recovery notice.
@@ -99,4 +101,4 @@
 
 Task1 owns numerical policy; Task2 authoritative inputs and analytics; Task3 alert consistency/private access; Task4 UI and integration evidence. Every review-focus item maps to a task above. Journal scoring, workplace AI detection, document triage and DTR escalation are later plans, not hidden additions to this phase.
 
-Review the five proposed operational decisions before execution. Retain the previously chosen independent task-review approach unless the user requests otherwise. Choose an isolated workspace at execution time; do not alter the parked support workspace or overwrite the dirty primary checkout.
+The five operational decisions are approved. Use the previously chosen independent task-review approach. Do not alter the parked support workspace or overwrite unrelated primary-checkout changes.

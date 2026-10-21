@@ -79,12 +79,19 @@ function attendanceAnalytics({ creditedHours, requiredHours, records = [], sched
     if (day.state === 'absent') { counts.absentDays++; counts.consecutiveAbsences++; }
     else { counts.consecutiveAbsences = 0; if (day.state === 'uncertain') counts.uncertainDays++; else { counts.attendedDays++; if (day.onTime) onTime++; } }
   }
-  let observedHours = 0;
+  let observedHours = 0, creditCorrection = 0;
   for (const ms of projectionDates) {
     const day = days.get(key(ms));
     if (day.state === 'uncertain') counts.projectionUncertainDays++;
     else if (day.credit === null) counts.projectionMissingCreditDays++;
-    else { observedHours += day.credit; counts.projectionCreditedDays++; }
+    else {
+      // Compensate decimal accumulation before converting credit into whole workdays.
+      const adjusted = day.credit - creditCorrection;
+      const total = observedHours + adjusted;
+      creditCorrection = (total - observedHours) - adjusted;
+      observedHours = total;
+      counts.projectionCreditedDays++;
+    }
   }
   const uncertain = counts.uncertainDays > 0 || counts.projectionUncertainDays > 0;
   const attendanceReady = counts.attendanceEligibleDays >= 5 && counts.uncertainDays === 0;
@@ -113,10 +120,13 @@ function attendanceAnalytics({ creditedHours, requiredHours, records = [], sched
   }
   if (validTotal && validTarget && !completed) {
     if (projectionReady) {
-      const velocity = observedHours / counts.projectionEligibleDays;
-      if (!velocity) { establish('Medium'); reason('ZERO_VELOCITY', 'No credited-hour progress in the observation window.'); }
+      if (observedHours === 0) { establish('Medium'); reason('ZERO_VELOCITY', 'No credited-hour progress in the observation window.'); }
       else {
-        const neededDays = Math.ceil((requiredHours - creditedHours) / velocity);
+        // Divide totals first so a positive subnormal daily average cannot underflow to zero.
+        const days = (requiredHours - creditedHours) / observedHours * counts.projectionEligibleDays;
+        const nearest = Math.round(days);
+        const roundingError = 8 * Number.EPSILON * Math.max(1, Math.abs(days));
+        const neededDays = Math.max(1, Math.ceil(Math.abs(days - nearest) <= roundingError ? nearest : days));
         let scheduledDays = 0, projected = null;
         const horizon = Math.min(now + 3659 * DAY, dateMs('2100-12-31'));
         for (let ms = now; ms <= horizon; ms += DAY) {

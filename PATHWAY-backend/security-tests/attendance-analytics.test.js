@@ -176,3 +176,32 @@ test('uncertain punch breaks a streak without erasing later established absences
   assert.equal(result.riskTier, 'High'); assert.equal(result.observationCounts.consecutiveAbsences, 3);
   assert.equal(result.observationCounts.absentDays, 3);
 });
+test('decimal credit accumulation does not add a day at the completion boundary', () => {
+  const input = fixture(); input.creditedHours = 6; input.requiredHours = 9;
+  input.schedule.deadline = '2026-10-30'; input.records.forEach(item => { item.creditedHours = 0.3; });
+  const before = structuredClone(input), result = attendanceAnalytics(input);
+  assert.equal(result.projectedCompletion, '2026-10-30'); assert.equal(result.riskTier, 'Low');
+  assert.equal(result.dataStatus, 'Ready'); assert.deepEqual(input, before);
+  assert.ok(!result.reasonCodes.some(reason => reason.code === 'PROJECTED_SHORTFALL'));
+});
+test('a real fractional day beyond the decimal boundary still requires the next day', () => {
+  const input = fixture(); input.creditedHours = 6; input.requiredHours = 9.000001;
+  input.schedule.deadline = '2026-10-30'; input.records.forEach(item => { item.creditedHours = 0.3; });
+  const result = attendanceAnalytics(input);
+  assert.equal(result.projectedCompletion, '2026-10-31'); assert.equal(result.riskTier, 'Medium');
+});
+test('positive credit cannot become zero velocity through average underflow', () => {
+  const input = fixture(); input.creditedHours = 0; input.requiredHours = 1;
+  input.records.forEach(item => { item.creditedHours = 0; }); input.records[0].creditedHours = Number.MIN_VALUE;
+  const result = attendanceAnalytics(input);
+  assert.ok(!result.reasonCodes.some(reason => reason.code === 'ZERO_VELOCITY'));
+  assert.ok(result.reasonCodes.some(reason => reason.code === 'PROJECTION_HORIZON'));
+  assert.equal(result.riskTier, null); assert.equal(result.dataStatus, 'Insufficient data');
+});
+test('representable tiny positive credits can still project within the supported horizon', () => {
+  const input = fixture(); input.creditedHours = 0; input.requiredHours = Number.MIN_VALUE;
+  input.records.forEach(item => { item.creditedHours = 0; }); input.records[0].creditedHours = Number.MIN_VALUE;
+  const result = attendanceAnalytics(input);
+  assert.equal(result.projectedCompletion, '2026-11-09'); assert.equal(result.riskTier, 'Low');
+  assert.ok(!result.reasonCodes.some(reason => reason.code === 'ZERO_VELOCITY'));
+});

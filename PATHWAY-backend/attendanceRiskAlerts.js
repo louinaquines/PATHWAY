@@ -30,6 +30,12 @@ function localFirestore(db, env = process.env) {
 function riskAlertsEnabled(db, env = process.env) {
   return env.ATTENDANCE_RISK_ALERTS_ENABLED === '1' && localFirestore(db, env);
 }
+function demoScheduleEnabled(db, env = process.env) {
+  if (env.ATTENDANCE_DEMO_SCHEDULE_ENABLED !== '1' || env.ATTENDANCE_DEMO_PROJECT_ID !== db.projectId
+    || !/^[a-z][a-z0-9-]{5,62}$/.test(db.projectId || '') || !/^[a-f0-9]{64}$/.test(env.ATTENDANCE_SCHEDULE_SECRET || '')) return false;
+  if (env.FIRESTORE_EMULATOR_HOST || env.PATHWAY_LOCAL_WORKFLOW === '1') return localFirestore(db, env);
+  return env.NODE_ENV === 'production' && !/^demo-/.test(db.projectId);
+}
 function projectNotice(snapshot) {
   const n = snapshot.data();
   // Routing references are returned only after current assignment authorization.
@@ -180,24 +186,32 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
     if ([8,'resource-exhausted'].includes(error.code)) return 'RESOURCE_EXHAUSTED';
     return 'EVALUATION_FAILED';
   }
-  async function evaluateStudent(studentId, now) {
+  const leaseLost = () => Object.assign(new Error('Scheduled lease unavailable.'), { code: 'LEASE_LOST' });
+  function assertLease(saved, owner) {
+    if (owner && (saved?.leaseOwner !== owner || Date.parse(saved.leaseUntil) <= new Date(clock()).getTime()
+      || !Number.isFinite(Date.parse(saved.leaseUntil)))) throw leaseLost();
+  }
+  async function evaluateStudent(studentId, now, owner) {
     let failure;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         return await db.runTransaction(async tx => {
           const saved = (await tx.get(checkpoint)).data();
+          assertLease(saved, owner);
           const asOf = dueContext(now, saved), evaluatedAt = new Date(clock()).toISOString();
           const retryRef = retries.doc(studentId);
           const retry = await tx.get(retryRef);
           const snapshot = await tx.get(db.collection('users').doc(studentId));
           const plan = snapshot.exists && snapshot.data().role === 'student' ? await planStudent(tx, snapshot, asOf, evaluatedAt) : null;
           if (dueContext(now, saved) !== asOf) throw contextChanged();
+          assertLease(saved, owner);
           // Student state, notice, audit and retry removal share one fresh transaction.
           writePlan(tx, plan);
           if (retry.exists) tx.delete(retryRef);
           return { asOf };
         }, { maxAttempts: 1 });
       } catch (error) {
+        if (error.code === 'LEASE_LOST') throw error;
         failure = error;
         // Resource failures go to durable rotation immediately; SDK retry resets its backoff to 60s.
         if (!['CONTEXT_CHANGED', 10, 409].includes(error.code)) break;
@@ -206,13 +220,13 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
     const errorCode = failureCode(failure);
     // Failure persistence must succeed before the scan can advance past this student.
     await db.runTransaction(async tx => {
+      if (owner) assertLease((await tx.get(checkpoint)).data(), owner);
       const ref = retries.doc(studentId), previous = (await tx.get(ref)).data();
       tx.set(ref, { studentId, errorCode, attempts: Math.min((previous?.attempts || 0) + 1, Number.MAX_SAFE_INTEGER), updatedAt: new Date(clock()).toISOString() });
     }, { maxAttempts: 2 });
     return { failed: true, errorCode };
   }
-  async function evaluateDueAttendanceRisk({ now = clock(), batchSize = 10 } = {}) {
-    if (!localFirestore(db)) throw new Error('Attendance risk evaluation requires a pinned local demo Firestore emulator.');
+  async function evaluateBatch({ now = clock(), batchSize = 10, owner } = {}) {
     if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 25) throw new Error('batchSize must be 1 through 25.');
     if (running) return { processed: 0, busy: true };
     running = true;
@@ -220,9 +234,10 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
       latestDueContext(now); // Validate the explicit local/manual time before I/O.
       const scan = await db.runTransaction(async tx => {
         const saved = (await tx.get(checkpoint)).data() || {};
+        assertLease(saved, owner);
         let query = db.collection('users').where('role', '==', 'student').orderBy(FieldPath.documentId()).limit(batchSize + 1);
         if (saved.afterId) query = query.startAfter(saved.afterId);
-        const page = await tx.get(query);
+        const page = owner && saved.normalComplete ? { docs: [], size: 0 } : await tx.get(query);
         const retryLimit = Math.min(3, batchSize);
         let retryQuery = retries.orderBy(FieldPath.documentId()).limit(retryLimit + 1);
         if (saved.retryAfterId) retryQuery = retryQuery.startAfter(saved.retryAfterId);
@@ -233,14 +248,15 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
       const ids = [...new Set([...scan.students, ...scan.retryIds])];
       let failed = 0, asOf = dueContext(now, scan.saved);
       for (const id of ids) {
-        const result = await evaluateStudent(id, now);
+        const result = await evaluateStudent(id, now, owner);
         if (result.failed) failed++; else if (result.asOf > asOf) asOf = result.asOf;
       }
       await db.runTransaction(async tx => {
         const current = (await tx.get(checkpoint)).data() || {};
+        assertLease(current, owner);
         // A competing scan may already have advanced; replayed students are idempotent.
         if ((current.scanVersion || 0) !== (scan.saved.scanVersion || 0)) return;
-        tx.set(checkpoint, { afterId: scan.hasMore ? scan.students.at(-1) : null,
+        tx.set(checkpoint, { ...current, afterId: scan.hasMore ? scan.students.at(-1) : null,
           retryAfterId: scan.retryMore ? scan.retryIds.at(-1) : null,
           scanVersion: (current.scanVersion || 0) + 1, asOf: [asOf, dueContext(now, current)].sort().at(-1),
           updatedAt: new Date(clock()).toISOString(), errorCode: failed ? 'STUDENT_EVALUATION_FAILED' : null });
@@ -248,6 +264,54 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
       return { processed: scan.students.length, retried: scan.retryIds.length, failed, hasMore: scan.hasMore, asOf };
     } finally { running = false; }
   }
-  return { evaluateDueAttendanceRisk };
+  async function evaluateDueAttendanceRisk({ now, batchSize } = {}) {
+    if (!localFirestore(db)) throw new Error('Attendance risk evaluation requires a pinned local demo Firestore emulator.');
+    return evaluateBatch({ now, batchSize });
+  }
+  async function evaluateScheduledAttendanceRisk() {
+    if (!demoScheduleEnabled(db)) throw new Error('Demo scheduling is disabled.');
+    const owner = crypto.randomUUID(), now = new Date(clock()), dueDate = latestDueContext(now), hour = now.toISOString().slice(0, 13);
+    const summary = (status, hasMore, pendingRetries, date = dueDate) => ({ status, hasMore, pendingRetries, dueDate: date });
+    const claim = await db.runTransaction(async tx => {
+      const saved = (await tx.get(checkpoint)).data() || {};
+      const pending = !(await tx.get(retries.limit(1))).empty;
+      if (Date.parse(saved.leaseUntil) > now.getTime()) return summary('busy', true, pending);
+      if (saved.scanDay === dueDate && saved.normalComplete && (!pending || saved.lastRetryHour === hour)) {
+        return summary(pending ? 'pending' : 'complete', false, pending);
+      }
+      const calls = saved.rateHour === hour ? saved.rateCalls || 0 : 0;
+      if (calls >= 60) throw Object.assign(new Error('Scheduled rate limit.'), { status: 429 });
+      const reset = saved.scanDay !== dueDate;
+      tx.set(checkpoint, { ...saved, ...(reset ? { afterId: null, retryAfterId: null, normalComplete: false } : {}),
+        scanDay: dueDate, leaseOwner: owner, leaseUntil: new Date(now.getTime() + 600000).toISOString(),
+        lastAttemptAt: now.toISOString(), lastRetryHour: hour, rateHour: hour, rateCalls: calls + 1 });
+      return null;
+    });
+    if (claim) return claim;
+    try {
+      const batch = await evaluateBatch({ now, batchSize: 25, owner });
+      return await db.runTransaction(async tx => {
+        const saved = (await tx.get(checkpoint)).data(); assertLease(saved, owner);
+        const pending = !(await tx.get(retries.limit(1))).empty;
+        const currentDay = latestDueContext(clock());
+        const crossed = currentDay !== dueDate;
+        const normalComplete = !crossed && !batch.hasMore && !batch.busy;
+        const complete = normalComplete && !pending;
+        tx.set(checkpoint, { ...saved, leaseOwner: null, leaseUntil: null, normalComplete,
+          ...(crossed ? { scanDay: currentDay, afterId: null, retryAfterId: null } : {}),
+          ...(normalComplete ? { lastNormalScanAt: new Date(clock()).toISOString() } : {}),
+          ...(complete ? { lastSuccessfulCheckAt: new Date(clock()).toISOString(), successfulDay: dueDate } : {}),
+          pendingRetries: pending, errorCode: pending ? 'STUDENT_EVALUATION_FAILED' : null });
+        return summary(complete ? 'complete' : 'pending', crossed || (!normalComplete && batch.hasMore), pending, currentDay);
+      });
+    } catch (error) {
+      await db.runTransaction(async tx => {
+        const saved = (await tx.get(checkpoint)).data();
+        if (saved?.leaseOwner === owner) tx.set(checkpoint, { ...saved, leaseOwner: null, leaseUntil: null, errorCode: 'EVALUATION_FAILED' });
+      });
+      throw error;
+    }
+  }
+  return { evaluateDueAttendanceRisk, evaluateScheduledAttendanceRisk };
 }
-module.exports = { installAttendanceRiskAlerts, latestDueContext, riskAlertsEnabled };
+module.exports = { installAttendanceRiskAlerts, latestDueContext, riskAlertsEnabled, demoScheduleEnabled };

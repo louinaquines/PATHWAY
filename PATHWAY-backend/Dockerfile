@@ -13,7 +13,7 @@ COPY companyProfileImport.js ./
 COPY anthropicAnalysis.js ./
 COPY journalAiReview.js ./
 COPY attendanceAiReview.js ./
-COPY attendanceExcusedDates.js attendanceRiskAlerts.js ./
+COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
 COPY documentAiReview.js ./
 COPY companyMailInbox.js ./
 COPY localCompanyInbox.js ./

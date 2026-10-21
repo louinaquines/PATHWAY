@@ -15,12 +15,14 @@ const schedule = { startDate: '2026-09-21', deadline: '2027-06-30', workingDays:
 const coordinator = { role: 'coordinator', department: 'IT', accountApproved: true };
 function install(database = db, clock = () => due) {
   const app = express(); app.use(express.json());
+  const requireStaff = (req, res, next) => { req.staff = { uid: req.headers.actor || 'risk-c', role: 'coordinator' }; next(); };
   const result = installAttendanceRiskAlerts({ app, db: database, clock,
-    requireStaff(req, res, next) { req.staff = { uid: req.headers.actor || 'risk-c', role: 'coordinator' }; next(); }, allowRate: () => true,
+    requireStaff, allowRate: () => true,
     audit(tx, event) {
       if (failStudents.has(event.targetId)) throw Object.assign(new Error('PRIVATE student-specific resource failure'), { code: 8 });
       if (failAudit) throw new Error('Synthetic failure with private data'); tx.set(db.collection('auditLogs').doc(), event);
     } });
+  require('../attendanceRiskSchedule').installAttendanceRiskSchedule({ app, db: database, worker: result, clock, requireStaff, allowRate: () => true });
   return { app, ...result };
 }
 before(async () => {
@@ -56,6 +58,147 @@ async function request(url = '', actor = 'risk-c', method = 'GET', body) {
   const response = await fetch(`${origin}/coordinator/attendance-risk-notices${url}`, { method, headers: { actor, 'content-type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   return { status: response.status, body: await response.json() };
 }
+
+async function scheduledDemo(action) {
+  process.env.ATTENDANCE_DEMO_SCHEDULE_ENABLED = '1';
+  process.env.ATTENDANCE_DEMO_PROJECT_ID = db.projectId;
+  process.env.ATTENDANCE_SCHEDULE_SECRET = 'ab'.repeat(32);
+  try { return await action(); } finally {
+    delete process.env.ATTENDANCE_DEMO_SCHEDULE_ENABLED;
+    delete process.env.ATTENDANCE_DEMO_PROJECT_ID;
+    delete process.env.ATTENDANCE_SCHEDULE_SECRET;
+  }
+}
+
+test('scheduled execution is default-off and does not weaken local evaluation guard', async () => {
+  await reset();
+  assert.equal(typeof worker.evaluateScheduledAttendanceRisk, 'function');
+  await assert.rejects(() => worker.evaluateScheduledAttendanceRisk(), /disabled/);
+  assert.equal((await db.doc('attendanceRiskWorker/daily').get()).exists, false);
+});
+
+test('scheduled partial scan resumes after restart, completes once, and restarts from head next day', async () => {
+  await reset();
+  const profile = (await db.doc('users/risk-student').get()).data();
+  for (let i = 0; i < 26; i++) await db.doc(`users/scheduled-${String(i).padStart(2, '0')}`).set(profile);
+  await scheduledDemo(async () => {
+    const first = await worker.evaluateScheduledAttendanceRisk();
+    assert.equal(first.hasMore, true);
+    assert.equal(first.status, 'pending');
+    assert.equal((await db.doc('attendanceRiskWorker/daily').get()).data().lastSuccessfulCheckAt, undefined);
+    const final = await install().evaluateScheduledAttendanceRisk();
+    assert.equal(final.status, 'complete');
+    const count = (await notices()).length;
+    const version = (await db.doc('attendanceRiskWorker/daily').get()).data().scanVersion;
+    await install().evaluateScheduledAttendanceRisk();
+    assert.equal((await db.doc('attendanceRiskWorker/daily').get()).data().scanVersion, version);
+    assert.equal((await notices()).length, count);
+    const next = install(db, () => new Date('2026-10-21T16:15:00Z'));
+    assert.equal((await next.evaluateScheduledAttendanceRisk()).hasMore, true);
+    assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).data().asOf, '2026-10-22');
+  });
+});
+
+test('scheduled failed records remain pending, retry hourly, and cannot advance success', async () => {
+  await reset();
+  await scheduledDemo(async () => {
+    failStudents.add('risk-student');
+    const result = await worker.evaluateScheduledAttendanceRisk();
+    assert.equal(result.pendingRetries, true);
+    assert.equal(result.status, 'pending');
+    assert.equal(result.hasMore, false);
+    assert.equal((await db.doc('attendanceRiskWorker/daily').get()).data().lastSuccessfulCheckAt, undefined);
+    failStudents.clear();
+    assert.equal((await install().evaluateScheduledAttendanceRisk()).status, 'pending');
+    const later = install(db, () => new Date(due.getTime() + 3600000));
+    assert.equal((await later.evaluateScheduledAttendanceRisk()).status, 'complete');
+    assert.equal((await notices()).length, 1);
+  });
+});
+
+test('scheduled lease blocks overlapping workers and expired ownership cannot commit', async () => {
+  await reset();
+  await scheduledDemo(async () => {
+    await db.doc('attendanceRiskWorker/daily').set({ leaseOwner: 'another', leaseUntil: new Date(due.getTime() + 60000).toISOString() });
+    assert.equal((await worker.evaluateScheduledAttendanceRisk()).status, 'busy');
+    assert.equal((await notices()).length, 0);
+    await db.doc('attendanceRiskWorker/daily').update({ leaseUntil: new Date(due.getTime() - 1).toISOString() });
+    assert.equal((await worker.evaluateScheduledAttendanceRisk()).status, 'complete');
+    await reset();
+    const results = await Promise.all([worker.evaluateScheduledAttendanceRisk(), install().evaluateScheduledAttendanceRisk()]);
+    assert.ok(results.some(result => result.status === 'complete'));
+    assert.equal((await notices()).length, 1);
+  });
+});
+
+test('scheduled authenticated requests are bounded by a durable hourly rate counter', async () => {
+  await reset();
+  await scheduledDemo(async () => {
+    await db.doc('attendanceRiskWorker/daily').set({ rateHour: '2026-10-20T16', rateCalls: 60 });
+    await assert.rejects(() => worker.evaluateScheduledAttendanceRisk(), error => error.status === 429);
+    assert.equal((await notices()).length, 0);
+  });
+});
+
+test('scheduled work crossing midnight resets the scan so the new day cannot skip its head', async () => {
+  await reset(); let current = new Date('2026-10-20T16:14:59Z'), crossed = false;
+  const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+    const get = tx.get.bind(tx);
+    tx.get = async target => {
+      const snapshot = await get(target);
+      if (!crossed && target._queryOptions?.collectionId === 'attendance') { crossed = true; current = due; }
+      return snapshot;
+    };
+    return callback(tx);
+  }, options) };
+  await scheduledDemo(async () => {
+    const result = await install(database, () => current).evaluateScheduledAttendanceRisk();
+    assert.equal(result.hasMore, true); assert.equal(result.status, 'pending');
+    const saved = (await db.doc('attendanceRiskWorker/daily').get()).data();
+    assert.equal(saved.normalComplete, false); assert.equal(saved.afterId, null);
+    assert.equal(saved.lastSuccessfulCheckAt, undefined);
+    assert.equal((await install().evaluateScheduledAttendanceRisk()).status, 'complete');
+  });
+});
+
+test('expired lease during source reads cannot write a student state or notice', async () => {
+  await reset(); let current = due, expired = false;
+  const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+    const get = tx.get.bind(tx);
+    tx.get = async target => {
+      const snapshot = await get(target);
+      if (!expired && target._queryOptions?.collectionId === 'attendance') { expired = true; current = new Date(due.getTime() + 600001); }
+      return snapshot;
+    };
+    return callback(tx);
+  }, options) };
+  await scheduledDemo(async () => {
+    await assert.rejects(() => install(database, () => current).evaluateScheduledAttendanceRisk(), /lease/);
+    assert.equal((await notices()).length, 0);
+    assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).exists, false);
+  });
+});
+
+test('coordinator schedule status is fresh-authorized, sanitized and truthful about pending retries', async () => {
+  await reset();
+  async function status(actor = 'risk-c') {
+    const response = await fetch(`${origin}/coordinator/attendance-risk-status`, { headers: { actor } });
+    return { status: response.status, body: await response.json() };
+  }
+  assert.equal((await status()).body.status, 'disabled');
+  for (const actor of ['risk-student', 'risk-admin', 'missing']) assert.equal((await status(actor)).status, 403);
+  await scheduledDemo(async () => {
+    assert.deepEqual((await status()).body, { status: 'pending', dueDate: '2026-10-21', lastAttemptAt: null, lastSuccessfulCheckAt: null });
+    await worker.evaluateScheduledAttendanceRisk();
+    const complete = (await status()).body;
+    assert.equal(complete.status, 'complete'); assert.equal(complete.lastSuccessfulCheckAt, due.toISOString());
+    assert.deepEqual(Object.keys(complete).sort(), ['dueDate', 'lastAttemptAt', 'lastSuccessfulCheckAt', 'status']);
+    await db.doc('attendanceRiskRetries/risk-student').set({ studentId: 'risk-student', errorCode: 'PRIVATE' });
+    assert.equal((await status()).body.status, 'pending');
+    await db.doc('users/risk-c').update({ disabled: true });
+    assert.equal((await status()).status, 403);
+  });
+});
 test('deadline excludes today and uses previous context before 00:15 Manila', () => {
   const { latestDueContext } = require('../attendanceRiskAlerts');
   assert.equal(latestDueContext(new Date('2026-10-20T16:14:59Z')), '2026-10-20');

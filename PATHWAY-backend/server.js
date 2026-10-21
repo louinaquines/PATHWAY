@@ -2465,6 +2465,7 @@ require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb
 require('./attendanceExcusedDates').installAttendanceExcusedDates({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction });
 const { installAttendanceRiskAlerts, riskAlertsEnabled } = require('./attendanceRiskAlerts');
 const attendanceRiskWorker = installAttendanceRiskAlerts({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction });
+require('./attendanceRiskSchedule').installAttendanceRiskSchedule({ app, db: adminDb, worker: attendanceRiskWorker, requireStaff, allowRate });
 if (riskAlertsEnabled(adminDb)) {
   const evaluate = () => attendanceRiskWorker.evaluateDueAttendanceRisk().catch(() => console.error('Attendance risk worker unavailable.'));
   evaluate();

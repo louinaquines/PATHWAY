@@ -8,6 +8,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AttendanceAiExplanation from '../components/AttendanceAiExplanation';
 import AttendanceAccess from '../components/AttendanceAccess';
 import AttendanceExcusedEditor from '../components/AttendanceExcusedEditor';
+import AttendanceCheckStatus from '../components/AttendanceCheckStatus';
 import { attendanceReasonLabels } from '../attendanceRiskLabels';
 import './CoordinatorRecords.css';
 
@@ -118,6 +119,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         </div>
       </div>
 
+      <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
         <h3>Work schedule and completion deadline</h3>

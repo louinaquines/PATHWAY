@@ -15,3 +15,7 @@ The approved due time is00:15 Philippine time, but the bounded worker must conti
 Before production implementation, choose an execution host: an always-running worker, or an external scheduled job that continues bounded processing with durable progress. Selection may require a paid resource or service credentials; neither is authorized by this integration. Keep the existing fail-closed production guard until that design is approved and tested. Production index deployment and container startup verification remain separate gates.
 
 No deployment or preview APK is part of this integration.
+
+## Follow-up: automatic scheduling implementation
+
+The user subsequently selected free hosting, synthetic accounts only, and automatic checks without a manual button. The approved scheduling extension is implemented separately in the attendance-schedule worktree, not yet merged/deployed. It adds a default-off authenticated hosted-demo worker path, a scheduled GitHub trigger with hourly catch-up, bounded durable processing and read-only Analytics status. The existing local emulator worker guard is retained. See AUTOMATIC-ATTENDANCE-CHECKS-ACCEPTANCE.md and 2026-10-21-AUTOMATIC-ATTENDANCE-CHECKS-PLAN.md for current verification and explicit activation gates; the earlier decision-needed section above records the state at original integration time.

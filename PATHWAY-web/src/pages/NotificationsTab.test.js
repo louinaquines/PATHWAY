@@ -34,7 +34,7 @@ test('student transfer clears loaded notices even while the old section remains 
   await screen.findByText('Attendance risk update');
   fireEvent.click(screen.getByRole('button', { name: 'Mark attendance notice read' }));
   const source = onSnapshot.mock.calls.find(([path]) => path === 'users/student');
-  act(() => source[1]({ data: () => ({ role: 'student', sectionId: 'other-section' }) }));
+  act(() => source[2]({ metadata: { fromCache: false }, data: () => ({ role: 'student', sectionId: 'other-section' }) }));
   expect(screen.queryByText('Attendance risk update')).not.toBeInTheDocument();
   await screen.findByText('No attendance notices loaded.');
   await act(async () => finishRead({ records: [{ ...notice, read: true }], hasMore: false, cursor: null }));
@@ -47,7 +47,7 @@ test('permission loss on a loaded student ref clears the list and refetches auth
   render(<NotificationsTab userId="coord-a" />);
   await screen.findByText('Attendance risk update');
   const source = onSnapshot.mock.calls.find(([path]) => path === 'users/student');
-  act(() => source[2]({ code: 'permission-denied' }));
+  act(() => source[3]({ code: 'permission-denied' }));
   expect(screen.queryByText('Attendance risk update')).not.toBeInTheDocument();
   await screen.findByText('No attendance notices loaded.');
   expect(adminRequest).toHaveBeenCalledTimes(2);
@@ -77,6 +77,20 @@ test('ambiguous read failure is not replayed and manual retry uses the same exac
   fireEvent.click(screen.getByRole('button', { name: 'Mark attendance notice read' }));
   await screen.findByText('Read');
   expect(adminRequest.mock.calls[1]).toEqual(adminRequest.mock.calls[2]);
+});
+
+test('loading a later page preserves the server-confirmed read state of retained notices', async () => {
+  adminRequest.mockResolvedValueOnce({ records: [notice], hasMore: true, cursor: 'next' })
+    .mockResolvedValueOnce({ records: [{ ...notice, read: true }], hasMore: false, cursor: null })
+    .mockResolvedValueOnce({ records: [], hasMore: false, cursor: null });
+  render(<NotificationsTab userId="coord-a" />);
+  await screen.findByText('Attendance risk update');
+  fireEvent.click(screen.getByRole('button', { name: 'Mark attendance notice read' }));
+  await screen.findByText('Read');
+  fireEvent.click(screen.getByRole('button', { name: 'Load more attendance notices' }));
+  await waitFor(() => expect(screen.queryByText('Loading attendance notices…')).not.toBeInTheDocument());
+  expect(screen.getByText('Read')).toBeInTheDocument();
+  expect(screen.queryByText('Unread')).not.toBeInTheDocument();
 });
 
 test('pagination keeps a disclosed 100-notice window while still reaching later pages', async () => {

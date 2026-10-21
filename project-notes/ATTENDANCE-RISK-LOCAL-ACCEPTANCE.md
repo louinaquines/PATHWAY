@@ -1,6 +1,6 @@
 # Attendance risk: local verification and release boundary
 
-Date: 2026-10-21. UI refetch-loop fix independently cleared and browser-repeat confirmed; final whole-change review pending. This is not production release acceptance.
+Date: 2026-10-21. Local implementation, verification and whole-change review complete; ready for a local integration decision. This is not production release acceptance.
 
 ## Approved scope
 
@@ -41,8 +41,13 @@ Independent scoped re-review approvedabb8d28: finding addressed, no new blocking
 
 ## Pending
 
-- Final independent whole-change review and full regression checks on its final revision.
 - Integration decision; production rollout approval and target scheduling/index verification remain separate.
+
+## Final local gate
+
+Independent whole-change review of candidate3b548d9 found no Critical/Important blocker in the approved local scope and judged it ready for local integration. Final saved runs passed web165/165 across41 suites, backend85/85 and separate Node58/58. Logs are output/playwright/attendance-final-web.log, attendance-final-backend.log and attendance-final-node.log; no repeat runs were needed after the documentation-only handoff.
+
+Production release is blocked: PATHWAY-backend/Dockerfile omits attendanceExcusedDates.js and attendanceRiskAlerts.js required by the server. Packaging/startup must be fixed and verified before release. Scheduling on an awake/always-running host, capacity, deployed indexes, rollback and production acceptance remain unverified. Live AI/provider behavior, exact DOCX paragraph comparison and parked workplace-support integration were outside this phase. Nothing was merged, pushed or deployed; no APK was built.
 
 ## Evidence limitations
 

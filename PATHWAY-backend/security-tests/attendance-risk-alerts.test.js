@@ -9,14 +9,18 @@ const { initializeTestEnvironment, assertFails } = require('@firebase/rules-unit
 const { doc, getDoc, setDoc } = require('firebase/firestore');
 const { installAttendanceRiskAlerts } = require('../attendanceRiskAlerts');
 let admin, db, env, server, origin, worker, failAudit = false;
+const failStudents = new Set();
 const due = new Date('2026-10-20T16:15:00Z');
 const schedule = { startDate: '2026-09-21', deadline: '2027-06-30', workingDays: [1,2,3,4,5], startTime: '08:00', exceptions: [] };
 const coordinator = { role: 'coordinator', department: 'IT', accountApproved: true };
-function install(database = db) {
+function install(database = db, clock = () => due) {
   const app = express(); app.use(express.json());
-  const result = installAttendanceRiskAlerts({ app, db: database, clock: () => due,
+  const result = installAttendanceRiskAlerts({ app, db: database, clock,
     requireStaff(req, res, next) { req.staff = { uid: req.headers.actor || 'risk-c', role: 'coordinator' }; next(); }, allowRate: () => true,
-    audit(tx, event) { if (failAudit) throw new Error('Synthetic failure with private data'); tx.set(db.collection('auditLogs').doc(), event); } });
+    audit(tx, event) {
+      if (failStudents.has(event.targetId)) throw Object.assign(new Error('PRIVATE student-specific resource failure'), { code: 8 });
+      if (failAudit) throw new Error('Synthetic failure with private data'); tx.set(db.collection('auditLogs').doc(), event);
+    } });
   return { app, ...result };
 }
 before(async () => {
@@ -27,10 +31,11 @@ before(async () => {
 });
 after(async () => { if (server) await new Promise(resolve => server.close(resolve)); if (env) await env.cleanup(); if (admin) await deleteApp(admin); });
 async function reset(tier = 'Medium') {
+  failStudents.clear();
   // Other suites have ended; isolate this suite's scan without deleting their fixtures.
-  const users = await db.collection('users').where('role', '==', 'student').get();
+  const users = await db.collection('users').where('role', '==', 'student').limit(100).get();
   for (const item of users.docs) await item.ref.update({ role: 'risk-test-inactive' });
-  for (const name of ['attendanceRiskStates','attendanceRiskNotices','attendanceRiskWorker']) await db.recursiveDelete(db.collection(name));
+  for (const name of ['attendanceRiskStates','attendanceRiskNotices','attendanceRiskWorker','attendanceRiskRetries']) await db.recursiveDelete(db.collection(name));
   await db.doc('users/risk-c').set(coordinator); await db.doc('users/risk-new').set(coordinator);
   await db.doc('users/risk-admin').set({ ...coordinator, role: 'admin' });
   await db.doc('sections/risk-s').set({ department: 'IT', coordinatorId: 'risk-c', hoursRequired: 500, attendanceSchedule: schedule });
@@ -46,7 +51,7 @@ async function records(tier) {
   for (const date of dates) if (!missing.has(date)) await db.doc(`users/risk-student/attendance/${date}`).set({ date, timeIn: `${date}T08:00:00+08:00`, timeOut: `${date}T17:00:00+08:00`, hoursToday: 8, location: 'SECRET' });
 }
 async function tick(instance = worker, now = due, batchSize = 25) { return instance.evaluateDueAttendanceRisk({ now, batchSize }); }
-async function notices() { return (await db.collection('attendanceRiskNotices').get()).docs.map(d => ({ id: d.id, ...d.data() })); }
+async function notices() { return (await db.collection('attendanceRiskNotices').limit(100).get()).docs.map(d => ({ id: d.id, ...d.data() })); }
 async function request(url = '', actor = 'risk-c', method = 'GET', body) {
   const response = await fetch(`${origin}/coordinator/attendance-risk-notices${url}`, { method, headers: { actor, 'content-type': 'application/json' }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
   return { status: response.status, body: await response.json() };
@@ -98,7 +103,7 @@ test('transfer routes open risk to new coordinator without page opening and revo
   for (const actor of ['risk-student','risk-admin']) assert.equal((await request('', actor)).status, 403);
 });
 test('backend collections deny direct client reads and writes for every role', async () => {
-  for (const uid of ['risk-student','risk-c','risk-admin']) for (const collection of ['attendanceRiskStates','attendanceRiskNotices','attendanceRiskWorker']) {
+  for (const uid of ['risk-student','risk-c','risk-admin']) for (const collection of ['attendanceRiskStates','attendanceRiskNotices','attendanceRiskWorker','attendanceRiskRetries']) {
     const ref = doc(env.authenticatedContext(uid).firestore(), collection, 'private');
     await assertFails(getDoc(ref)); await assertFails(setDoc(ref, { recipientId: uid }));
   }
@@ -113,7 +118,7 @@ test('bounded persisted scan resumes across installer restart and new day withou
 test('audit failure leaves no episode or notice and retries failed student after restart', async () => {
   await reset(); failAudit = true; try { await tick(); } finally { failAudit = false; }
   assert.equal((await notices()).length, 0); assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).exists, false);
-  const checkpoint = (await db.doc('attendanceRiskWorker/daily').get()).data(); assert.equal(checkpoint?.errorCode, 'EVALUATION_FAILED'); assert.equal(JSON.stringify(checkpoint).includes('private data'), false);
+  const retry = (await db.doc('attendanceRiskRetries/risk-student').get()).data(); assert.equal(retry?.errorCode, 'EVALUATION_FAILED'); assert.equal(JSON.stringify(retry).includes('private data'), false);
   await tick(install()); assert.equal((await notices()).length, 1);
 });
 test('local enablement requires exact opt-in and pinned demo emulator; manual evaluation rejects remote DB', async () => {
@@ -165,7 +170,8 @@ test('fresh profile checks after list/read transaction prevent stale response di
 });
 test('midnight context and today records cannot fabricate completed-day absence or credit', async () => {
   await reset('Low');
-  await tick(worker, new Date('2026-10-20T16:14:59Z'));
+  const before = new Date('2026-10-20T16:14:59Z');
+  await tick(install(db, () => before), before);
   assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).data().asOf, '2026-10-20');
   await db.doc('users/risk-student/attendance/today').set({ date: '2026-10-21', timeIn: 'bad', timeOut: null, hoursToday: 999 });
   await tick(); const state = (await db.doc('attendanceRiskStates/risk-student').get()).data();
@@ -183,7 +189,152 @@ test('pagination is opaque actor scoped and advances over denied records even wi
   assert.equal((await request(`?cursor=${first.body.cursor.slice(0,-4)}AAAA`)).status, 400);
   assert.equal((await request('?cursor=student-id')).status, 400);
   const keys = Object.keys(next.body.records[0]).sort();
-  assert.deepEqual(keys, ['asOf','createdAt','dataStatus','id','kind','progressStatus','read','reasonCodes','riskTier','ruleVersion','title']);
+  assert.deepEqual(keys, ['asOf','createdAt','dataStatus','id','kind','progressStatus','read','reasonCodes','riskTier','ruleVersion','sectionId','studentId','title']);
+});
+
+test('two otherwise identical students have actionable authorized routing references without profile leakage', async () => {
+  await reset();
+  const original = (await db.doc('users/risk-student').get()).data();
+  await db.doc('users/risk-twin').set(original);
+  const attendance = await db.collection('users/risk-student/attendance').limit(100).get();
+  for (const item of attendance.docs) await db.doc(`users/risk-twin/attendance/${item.id}`).set(item.data());
+  await tick(); const page = await request(); assert.equal(page.status, 200);
+  assert.deepEqual(page.body.records.map(n => [n.studentId,n.sectionId]).sort(), [['risk-student','risk-s'],['risk-twin','risk-s']]);
+  assert.equal(JSON.stringify(page.body).includes('NEVER EXPOSE'), false); assert.equal(JSON.stringify(page.body).includes('SECRET'), false);
+  const twin = page.body.records.find(n => n.studentId === 'risk-twin');
+  const read = await request(`/${twin.id}/read`, 'risk-c', 'POST', {});
+  assert.equal(read.body.records[0].studentId, 'risk-twin'); assert.equal(read.body.records[0].sectionId, 'risk-s');
+  await db.doc('users/risk-twin').update({ sectionId: 'transferred' });
+  const fresh = await request(); assert.deepEqual(fresh.body.records.map(n => n.studentId), ['risk-student']);
+  assert.equal((await request(`/${twin.id}/read`, 'risk-c', 'POST', {})).status, 403);
+});
+
+test('persistent student failures are durably retried fairly while healthy and later scan IDs progress', async () => {
+  await reset(); const profile = (await db.doc('users/risk-student').get()).data();
+  for (let i = 0; i < 7; i++) await db.doc(`users/risk-student-${String(i).padStart(2,'0')}`).set(profile);
+  failStudents.add('risk-student'); failStudents.add('risk-student-00');
+  try {
+    for (let i = 0; i < 4; i++) await tick(install(), due, 2);
+    const saved = await notices(); assert.equal(saved.length, 6);
+    assert.deepEqual(saved.map(n => n.studentId).sort(), ['risk-student-01','risk-student-02','risk-student-03','risk-student-04','risk-student-05','risk-student-06']);
+    for (let i = 0; i < 4; i++) await tick(install(), due, 2);
+    for (const id of ['risk-student','risk-student-00']) {
+      const retry = (await db.doc(`attendanceRiskRetries/${id}`).get()).data();
+      assert.equal(retry.errorCode, 'RESOURCE_EXHAUSTED'); assert.ok(retry.attempts >= 3);
+      assert.equal(JSON.stringify(retry).includes('PRIVATE'), false);
+      assert.equal((await db.doc(`attendanceRiskStates/${id}`).get()).exists, false);
+    }
+    assert.equal((await notices()).length, 6);
+    failStudents.delete('risk-student-00');
+    for (let i = 0; i < 3; i++) await tick(install(), due, 2);
+    assert.equal((await notices()).length, 7);
+    assert.equal((await db.doc('attendanceRiskRetries/risk-student-00').get()).exists, false);
+    assert.equal((await db.doc('attendanceRiskRetries/risk-student').get()).exists, true);
+  } finally { failStudents.clear(); }
+});
+
+test('Firestore authority/system query failures remain failed work rather than unknown successful states', async () => {
+  for (const code of [7,8,13]) {
+    await reset();
+    const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+      const get = tx.get.bind(tx);
+      tx.get = target => target.path === 'attendanceExcusedDates/risk-student'
+        ? Promise.reject(Object.assign(new Error('PRIVATE system failure'), { code })) : get(target);
+      return callback(tx);
+    }, options) };
+    const result = await tick(install(database));
+    assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).exists, false);
+    assert.equal((await notices()).length, 0); assert.equal(result.failed, 1);
+    const retry = (await db.doc('attendanceRiskRetries/risk-student').get()).data();
+    assert.equal(retry.errorCode, code === 7 ? 'AUTHORIZATION_FAILED' : code === 8 ? 'RESOURCE_EXHAUSTED' : 'EVALUATION_FAILED');
+  }
+});
+
+test('retry cursor rotates beyond a persistent head with more failures than the retry budget', async () => {
+  await reset(); const profile = (await db.doc('users/risk-student').get()).data();
+  for (let i = 0; i < 5; i++) {
+    const id = `retry-student-${i}`;
+    await db.doc(`users/${id}`).set(profile);
+    await db.doc(`attendanceRiskRetries/${id}`).set({ studentId: id, attempts: 1, errorCode: 'RESOURCE_EXHAUSTED', updatedAt: due.toISOString() });
+  }
+  // Keep the normal scan in a healthy tail while retry selection must traverse its own queue.
+  for (let i = 0; i < 8; i++) await db.doc(`users/zz-healthy-${i}`).set(profile);
+  await db.doc('attendanceRiskWorker/daily').set({ afterId: 'risk-student', asOf: '2026-10-21', scanVersion: 0 });
+  failStudents.add('retry-student-0');
+  try {
+    for (let i = 0; i < 5; i++) await tick(install(), due, 1);
+    assert.equal((await db.doc('attendanceRiskRetries/retry-student-0').get()).exists, true);
+    for (let i = 1; i < 5; i++) {
+      assert.equal((await db.doc(`attendanceRiskRetries/retry-student-${i}`).get()).exists, false);
+      assert.equal((await db.doc(`attendanceRiskStates/retry-student-${i}`).get()).data().open, true);
+    }
+    assert.equal((await db.doc('attendanceRiskStates/zz-healthy-4').get()).data().open, true);
+  } finally { failStudents.clear(); }
+});
+
+test('live clock crossing 00:15 during source I/O discards old context before any notice/state write', async () => {
+  await reset(); let current = new Date('2026-10-20T16:14:59Z'), crossed = false;
+  const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+    const get = tx.get.bind(tx);
+    tx.get = async target => {
+      const snapshot = await get(target);
+      if (!crossed && target._queryOptions?.collectionId === 'attendance') { crossed = true; current = due; }
+      return snapshot;
+    };
+    return callback(tx);
+  }, options) };
+  await install(database, () => current).evaluateDueAttendanceRisk(); assert.equal(crossed, true);
+  assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).data().asOf, '2026-10-21');
+  assert.deepEqual((await notices()).map(n => n.asOf), ['2026-10-21']);
+});
+
+test('Firestore retry across 00:15 recomputes context instead of reusing invocation date', async () => {
+  await reset(); let current = new Date('2026-10-20T16:14:59Z'), aborted = false;
+  const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+    const get = tx.get.bind(tx);
+    tx.get = target => {
+      if (!aborted && target._queryOptions?.collectionId === 'attendance') {
+        aborted = true; current = due; throw Object.assign(new Error('Synthetic transaction abort'), { code: 10 });
+      }
+      return get(target);
+    };
+    return callback(tx);
+  }, options) };
+  await install(database, () => current).evaluateDueAttendanceRisk(); assert.equal(aborted, true);
+  assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).data().asOf, '2026-10-21');
+  assert.deepEqual((await notices()).map(n => n.asOf), ['2026-10-21']);
+});
+
+test('historical manual now cannot bypass a newer live clock or persisted due checkpoint', async () => {
+  await reset(); await tick(worker, new Date('2026-10-19T16:15:00Z'));
+  assert.deepEqual((await notices()).map(n => n.asOf), ['2026-10-21']);
+  await reset(); await db.doc('attendanceRiskWorker/daily').set({ afterId: null, asOf: '2026-10-22' });
+  await tick(worker, new Date('2026-10-19T16:15:00Z'));
+  assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).data().asOf, '2026-10-22');
+  assert.deepEqual((await notices()).map(n => n.asOf), ['2026-10-22']);
+});
+
+test('continuously obsolete clock work is bounded, persisted for retry and never emits old notices', async () => {
+  await reset(); let calls = 0;
+  const unstable = install(db, () => { calls++; return new Date(due.getTime() + calls * 86400000); });
+  const result = await unstable.evaluateDueAttendanceRisk({ batchSize: 1 });
+  assert.equal((await notices()).length, 0); assert.equal((await db.doc('attendanceRiskStates/risk-student').get()).exists, false);
+  assert.equal(result.failed, 1); assert.ok(calls < 80);
+  assert.equal((await db.doc('attendanceRiskRetries/risk-student').get()).data().errorCode, 'CONTEXT_CHANGED');
+});
+
+test('crash after student commit before scan advancement replays safely without duplicate notices', async () => {
+  await reset(); let crash = true;
+  const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+    let advances = false; const set = tx.set.bind(tx);
+    tx.set = (ref, data, ...args) => { if (ref.path === 'attendanceRiskWorker/daily' && Object.hasOwn(data, 'afterId')) advances = true; return set(ref, data, ...args); };
+    const result = await callback(tx);
+    if (crash && advances) { crash = false; throw new Error('Synthetic scan checkpoint crash'); }
+    return result;
+  }, options) };
+  await assert.rejects(() => tick(install(database)), /checkpoint crash/);
+  assert.equal((await notices()).length, 1);
+  await tick(install()); assert.equal((await notices()).length, 1);
 });
 test('transaction reads fresh authority and assignment before using source inputs', async () => {
   await reset(); let injected = false;

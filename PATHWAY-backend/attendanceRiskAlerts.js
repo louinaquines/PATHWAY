@@ -4,6 +4,8 @@ const { attendanceAnalytics } = require('./attendanceAnalytics');
 const { loadAttendanceInputs } = require('./attendanceAiReview');
 const { assertAttendanceAccess } = require('./attendanceExcusedDates');
 const RULE = 'attendance-risk-v1';
+const INPUT_ERRORS = new Set(['Invalid excused-date version.', 'Enter at most 366 unique calendar dates.',
+  'Invalid excluded dates.', 'Invalid analytics inputs.', 'Attendance record limit exceeded; coverage unavailable.']);
 const REASONS = new Set(['OVERDUE', 'INVALID_SCHEDULE', 'UNCERTAIN_ATTENDANCE', 'INSUFFICIENT_ATTENDANCE',
   'INSUFFICIENT_CREDIT_HISTORY', 'INVALID_TOTALS', 'ATTENDANCE_BELOW_80', 'ATTENDANCE_BELOW_90',
   'CONSECUTIVE_ABSENCES', 'ZERO_VELOCITY', 'PROJECTION_HORIZON', 'CREDIT_PROJECTION', 'PROJECTED_SHORTFALL', 'SOURCE_UNAVAILABLE']);
@@ -30,14 +32,15 @@ function riskAlertsEnabled(db, env = process.env) {
 }
 function projectNotice(snapshot) {
   const n = snapshot.data();
-  // Explicit response allowlist: no identity, source snapshots or private record fields.
-  return { id: snapshot.id, title: 'Attendance risk update', kind: n.kind, riskTier: n.riskTier,
+  // Routing references are returned only after current assignment authorization.
+  return { id: snapshot.id, studentId: n.studentId, sectionId: n.sectionId, title: 'Attendance risk update', kind: n.kind, riskTier: n.riskTier,
     progressStatus: n.progressStatus, dataStatus: n.dataStatus, reasonCodes: n.reasonCodes.filter(c => REASONS.has(c)),
     ruleVersion: n.ruleVersion, asOf: n.asOf, createdAt: n.createdAt, read: n.read === true };
 }
 function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, clock = () => new Date() }) {
   const states = db.collection('attendanceRiskStates'), notices = db.collection('attendanceRiskNotices');
   const checkpoint = db.collection('attendanceRiskWorker').doc('daily');
+  const retries = db.collection('attendanceRiskRetries');
   const cursorKey = crypto.randomBytes(32);
   let running = false;
   function encodeCursor(actor, after) {
@@ -123,7 +126,8 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
     try {
       loaded = await loadAttendanceInputs(snapshot.ref, student, section, asOf, tx);
       metrics = attendanceAnalytics(loaded.inputs);
-    } catch {
+    } catch (error) {
+      if (error.code !== undefined || !INPUT_ERRORS.has(error.message)) throw error;
       loaded = null;
       metrics = { riskTier: null, progressStatus: 'In progress', dataStatus: 'Unavailable', reasonCodes: [{ code: 'SOURCE_UNAVAILABLE' }], ruleVersion: RULE };
     }
@@ -156,42 +160,92 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
     }
     return { stateRef, state, notice };
   }
+  const contextChanged = () => Object.assign(new Error('Evaluation context changed.'), { code: 'CONTEXT_CHANGED' });
+  function dueContext(now, saved) {
+    return [latestDueContext(now), latestDueContext(clock()), saved?.asOf || ''].sort().at(-1);
+  }
+  function writePlan(tx, plan) {
+    if (!plan) return;
+    tx.set(plan.stateRef, plan.state);
+    audit(tx, { actorId: 'attendance-risk-worker', actorRole: 'system', action: 'attendance.risk_evaluated', targetType: 'attendanceRiskStates', targetId: plan.stateRef.id,
+      details: { asOf: plan.state.asOf, ruleVersion: RULE, episode: plan.state.episode, sequence: plan.state.sequence, errorCode: plan.state.errorCode } });
+    if (plan.notice) {
+      const noticeId = crypto.createHash('sha256').update(`${plan.stateRef.id}:${plan.state.episode}:${plan.state.sequence}`).digest('hex');
+      tx.create(notices.doc(noticeId), plan.notice);
+    }
+  }
+  function failureCode(error) {
+    if (error.code === 'CONTEXT_CHANGED') return 'CONTEXT_CHANGED';
+    if ([7,16,'permission-denied','unauthenticated'].includes(error.code) || error.status === 403) return 'AUTHORIZATION_FAILED';
+    if ([8,'resource-exhausted'].includes(error.code)) return 'RESOURCE_EXHAUSTED';
+    return 'EVALUATION_FAILED';
+  }
+  async function evaluateStudent(studentId, now) {
+    let failure;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await db.runTransaction(async tx => {
+          const saved = (await tx.get(checkpoint)).data();
+          const asOf = dueContext(now, saved), evaluatedAt = new Date(clock()).toISOString();
+          const retryRef = retries.doc(studentId);
+          const retry = await tx.get(retryRef);
+          const snapshot = await tx.get(db.collection('users').doc(studentId));
+          const plan = snapshot.exists && snapshot.data().role === 'student' ? await planStudent(tx, snapshot, asOf, evaluatedAt) : null;
+          if (dueContext(now, saved) !== asOf) throw contextChanged();
+          // Student state, notice, audit and retry removal share one fresh transaction.
+          writePlan(tx, plan);
+          if (retry.exists) tx.delete(retryRef);
+          return { asOf };
+        }, { maxAttempts: 1 });
+      } catch (error) {
+        failure = error;
+        // Resource failures go to durable rotation immediately; SDK retry resets its backoff to 60s.
+        if (!['CONTEXT_CHANGED', 10, 409].includes(error.code)) break;
+      }
+    }
+    const errorCode = failureCode(failure);
+    // Failure persistence must succeed before the scan can advance past this student.
+    await db.runTransaction(async tx => {
+      const ref = retries.doc(studentId), previous = (await tx.get(ref)).data();
+      tx.set(ref, { studentId, errorCode, attempts: Math.min((previous?.attempts || 0) + 1, Number.MAX_SAFE_INTEGER), updatedAt: new Date(clock()).toISOString() });
+    }, { maxAttempts: 2 });
+    return { failed: true, errorCode };
+  }
   async function evaluateDueAttendanceRisk({ now = clock(), batchSize = 10 } = {}) {
     if (!localFirestore(db)) throw new Error('Attendance risk evaluation requires a pinned local demo Firestore emulator.');
     if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 25) throw new Error('batchSize must be 1 through 25.');
     if (running) return { processed: 0, busy: true };
     running = true;
     try {
-      const asOf = latestDueContext(now), evaluatedAt = new Date(now).toISOString();
-      return await db.runTransaction(async tx => {
-        const checkpointSnapshot = await tx.get(checkpoint), saved = checkpointSnapshot.data() || {};
+      latestDueContext(now); // Validate the explicit local/manual time before I/O.
+      const scan = await db.runTransaction(async tx => {
+        const saved = (await tx.get(checkpoint)).data() || {};
         let query = db.collection('users').where('role', '==', 'student').orderBy(FieldPath.documentId()).limit(batchSize + 1);
         if (saved.afterId) query = query.startAfter(saved.afterId);
-        const page = await tx.get(query), selected = page.docs.slice(0,batchSize), plans = [];
-        for (const snapshot of selected) {
-          const plan = await planStudent(tx, snapshot, asOf, evaluatedAt); if (plan) plans.push(plan);
-        }
-        // All source and query reads precede every write; transaction retries recalculate.
-        for (const plan of plans) {
-          tx.set(plan.stateRef, plan.state);
-          audit(tx, { actorId: 'attendance-risk-worker', actorRole: 'system', action: 'attendance.risk_evaluated', targetType: 'attendanceRiskStates', targetId: plan.stateRef.id,
-            details: { asOf, ruleVersion: RULE, episode: plan.state.episode, sequence: plan.state.sequence, errorCode: plan.state.errorCode } });
-          if (plan.notice) {
-            const noticeId = crypto.createHash('sha256').update(`${plan.stateRef.id}:${plan.state.episode}:${plan.state.sequence}`).digest('hex');
-            tx.create(notices.doc(noticeId), plan.notice);
-          }
-        }
-        const hasMore = page.size > batchSize;
-        tx.set(checkpoint, { afterId: hasMore ? selected[selected.length - 1].id : null,
-          asOf: saved.asOf > asOf ? saved.asOf : asOf, updatedAt: evaluatedAt, errorCode: null });
-        return { processed: selected.length, hasMore, asOf };
-      });
-    } catch (error) {
-      // Keep the cursor unchanged: the failed bounded batch is the durable retry queue.
+        const page = await tx.get(query);
+        const retryLimit = Math.min(3, batchSize);
+        let retryQuery = retries.orderBy(FieldPath.documentId()).limit(retryLimit + 1);
+        if (saved.retryAfterId) retryQuery = retryQuery.startAfter(saved.retryAfterId);
+        const retryPage = await tx.get(retryQuery);
+        return { saved, students: page.docs.slice(0,batchSize).map(d => d.id), hasMore: page.size > batchSize,
+          retryIds: retryPage.docs.slice(0,retryLimit).map(d => d.id), retryMore: retryPage.size > retryLimit };
+      }, { maxAttempts: 2 });
+      const ids = [...new Set([...scan.students, ...scan.retryIds])];
+      let failed = 0, asOf = dueContext(now, scan.saved);
+      for (const id of ids) {
+        const result = await evaluateStudent(id, now);
+        if (result.failed) failed++; else if (result.asOf > asOf) asOf = result.asOf;
+      }
       await db.runTransaction(async tx => {
-        await tx.get(checkpoint); tx.set(checkpoint, { errorCode: 'EVALUATION_FAILED' }, { merge: true });
-      });
-      return { processed: 0, retry: true, errorCode: 'EVALUATION_FAILED' };
+        const current = (await tx.get(checkpoint)).data() || {};
+        // A competing scan may already have advanced; replayed students are idempotent.
+        if ((current.scanVersion || 0) !== (scan.saved.scanVersion || 0)) return;
+        tx.set(checkpoint, { afterId: scan.hasMore ? scan.students.at(-1) : null,
+          retryAfterId: scan.retryMore ? scan.retryIds.at(-1) : null,
+          scanVersion: (current.scanVersion || 0) + 1, asOf: [asOf, dueContext(now, current)].sort().at(-1),
+          updatedAt: new Date(clock()).toISOString(), errorCode: failed ? 'STUDENT_EVALUATION_FAILED' : null });
+      }, { maxAttempts: 2 });
+      return { processed: scan.students.length, retried: scan.retryIds.length, failed, hasMore: scan.hasMore, asOf };
     } finally { running = false; }
   }
   return { evaluateDueAttendanceRisk };

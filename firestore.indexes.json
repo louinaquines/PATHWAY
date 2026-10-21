@@ -1,14 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "attendanceRiskNotices", "queryScope": "COLLECTION",
-      "fields": [{ "fieldPath": "recipientId", "order": "ASCENDING" }, { "fieldPath": "__name__", "order": "ASCENDING" }]
-    },
-    {
-      "collectionGroup": "users", "queryScope": "COLLECTION",
-      "fields": [{ "fieldPath": "role", "order": "ASCENDING" }, { "fieldPath": "__name__", "order": "ASCENDING" }]
-    },
-    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

@@ -9,8 +9,15 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './NotificationsTab.css';
 import AnnouncementEmailDelivery from '../components/AnnouncementEmailDelivery';
+import AttendanceRiskNotices from '../components/AttendanceRiskNotices';
+import AttendanceAccess from '../components/AttendanceAccess';
 
-export default function NotificationsTab({ userId }) {
+export default function NotificationsTab({ userId, onOpenAttendanceRisk }) {
+  return <AttendanceAccess key={userId} actorId={userId}>{access => <NotificationsContent userId={userId} onOpenAttendanceRisk={onOpenAttendanceRisk} access={access} />}</AttendanceAccess>;
+}
+
+function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
+  const { isCurrent, onDenied } = access;
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [sections, setSections]     = useState([]);
@@ -33,12 +40,15 @@ export default function NotificationsTab({ userId }) {
     setLoadError('');
     try {
       const snap = await getDocs(query(collection(db, 'notifications'), where('recipientId', '==', userId)));
+      if (!isCurrent()) return;
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))));
     } catch (e) {
+      if (!isCurrent()) return;
+      if (e.code === 'permission-denied') { onDenied(); return; }
       console.error(e);
       setLoadError('Could not load notifications. Please try refreshing.');
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [userId]);
 
@@ -49,7 +59,8 @@ export default function NotificationsTab({ userId }) {
   useEffect(() => {
     if (!userId) return;
     getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', userId)))
-      .then(snap => setSections(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+      .then(snap => { if (isCurrent()) setSections(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
+      .catch(failure => { if (isCurrent()) { if (failure.code === 'permission-denied') onDenied(); else setLoadError('Could not load assigned sections.'); } });
   }, [userId]);
 
   const sendAnnouncement = async e => {
@@ -64,16 +75,19 @@ export default function NotificationsTab({ userId }) {
       const result = await adminRequest('/coordinator/announcements', {
         method: 'POST', body: JSON.stringify({ sectionId, title: title.trim(), message: message.trim() }),
       });
+      if (!isCurrent()) return;
       setTitle('');
       setMessage('');
       setAnnouncementId(result.announcementId || '');
       try { if (result.announcementId) sessionStorage.setItem(`pathway-last-announcement:${userId}`, result.announcementId); } catch {}
       setSendStatus(`Announcement broadcasted to ${result.count} student(s) in the section.`);
     } catch (e) {
+      if (!isCurrent()) return;
+      if ([401,403].includes(e.status)) { onDenied(); return; }
       console.error(e);
       setSendStatus('Could not broadcast the announcement.');
     } finally {
-      setSending(false);
+      if (isCurrent()) setSending(false);
     }
   };
 
@@ -81,8 +95,9 @@ export default function NotificationsTab({ userId }) {
     if (item.read) return;
     try {
     await updateDoc(doc(db, 'notifications', item.id), { read: true });
+    if (!isCurrent()) return;
     setItems(prev => prev.map(current => current.id === item.id ? { ...current, read: true } : current));
-    } catch (_) { setLoadError('Could not mark this notification as read. Please try again.'); }
+    } catch (failure) { if (isCurrent()) { if (failure.code === 'permission-denied') onDenied(); else setLoadError('Could not mark this notification as read. Please try again.'); } }
   };
 
   const filteredItems = items.filter(item => matchesCoordinatorSearch(searchQuery, item.title, item.message, item.type));
@@ -170,6 +185,7 @@ export default function NotificationsTab({ userId }) {
       {workspace === 'broadcast' && announcementId && <AnnouncementEmailDelivery announcementId={announcementId} />}
 
       {/* Notifications Log */}
+      {workspace === 'inbox' && <AttendanceRiskNotices onOpen={onOpenAttendanceRisk} access={access} />}
       <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>
           <div style={s.listHeader}>
           <div>

@@ -71,3 +71,8 @@
 @media (max-width: 1150px) { .authorized-roster-page { grid-template-columns: minmax(0, 1fr) 300px; } }
 @media (max-width: 900px) { .authorized-roster-page { grid-template-columns: 1fr; } .authorized-roster-page > .roster-import-card { grid-column: 1; grid-row: 1; } .authorized-roster-page > .roster-records-card { grid-column: 1; grid-row: 2; } }
 @media (max-width: 520px) { .authorized-roster-page, .registrations-page, .coordinator-analytics-page { padding: 14px !important; } .roster-import-card, .roster-records-card { padding: 16px !important; } }
+.attendance-excused-editor { min-width: 240px; max-width: 420px; padding: 12px; margin-top: 10px; background: #f6f8fc; border: 1px solid #dbe4f0; border-radius: 10px; }
+.attendance-excused-editor label { display: flex; flex-direction: column; gap: 8px; }
+.attendance-excused-editor textarea { width: 100%; min-height: 80px; box-sizing: border-box; resize: vertical; border: 1px solid #dbe4f0; border-radius: 8px; font: inherit; padding: 8px; }
+.attendance-excused-editor button, .analytics-attendance-metrics > button { margin: 6px 6px 0 0; padding: 8px; border: 1px solid #dbe4f0; background: white; color: #075fc9; }
+.attendance-excused-editor textarea:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }

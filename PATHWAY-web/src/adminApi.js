@@ -7,6 +7,7 @@ async function authenticatedFetch(path, options = {}) {
   if (!user) throw new Error('Please sign in again.');
   const send = async forceRefresh => {
     const token = await user.getIdToken(forceRefresh);
+    if (options.signal?.aborted) throw new Error('Request cancelled.');
     if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
     return fetch(`${API}${path}`, {
       ...options,
@@ -24,23 +25,40 @@ async function authenticatedFetch(path, options = {}) {
 }
 
 export async function adminRequest(path, options = {}) {
-  const response = await authenticatedFetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || (response.status === 404
-      ? 'This feature is unavailable on the running backend. Restart the local PATHWAY workflow to load the updated server.'
-      : `Request failed (HTTP ${response.status}). Please try again.`);
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
-  }
-  return data;
+  const { deadlineMs, ...requestOptions } = options;
+  const user = auth.currentUser;
+  const controller = deadlineMs ? new AbortController() : null;
+  let timer;
+  const execute = async () => {
+    const response = await authenticatedFetch(path, {
+      ...requestOptions,
+      ...(controller ? { signal: controller.signal } : {}),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(requestOptions.headers || {}),
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
+    if (!response.ok) {
+      const message = response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || (response.status === 404
+        ? 'This feature is unavailable on the running backend. Restart the local PATHWAY workflow to load the updated server.'
+        : `Request failed (HTTP ${response.status}). Please try again.`);
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  };
+  if (!controller) return execute();
+  try {
+    return await Promise.race([execute(), new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(Object.assign(new Error('Request timed out. Reload to check the current server state before trying again.'), { code: 'DEADLINE_EXCEEDED' }));
+        controller.abort();
+      }, deadlineMs);
+    })]);
+  } finally { clearTimeout(timer); }
 }
 
 export async function adminDocumentBlob(path) {

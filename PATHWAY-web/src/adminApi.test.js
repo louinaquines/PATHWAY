@@ -1,6 +1,43 @@
 import { adminRequest } from './adminApi';
 import { auth } from './firebase';
 
+test.each(['token', 'fetch', 'body'])('optional deadline bounds a stalled %s without replay', async stage => {
+  jest.useFakeTimers();
+  const original = global.fetch;
+  const user = auth.currentUser;
+  const stalled = () => new Promise(() => {});
+  user.getIdToken.mockImplementation(stage === 'token' ? stalled : async () => 'token');
+  global.fetch = jest.fn(stage === 'fetch' ? stalled : async () => ({ ok: true, json: stalled }));
+  try {
+    const result = adminRequest('/test', { method: 'PUT', body: '{}', deadlineMs: 50 });
+    const assertion = expect(result).rejects.toMatchObject({ code: 'DEADLINE_EXCEEDED' });
+    await jest.advanceTimersByTimeAsync(51);
+    await assertion;
+    expect(global.fetch.mock.calls.length).toBe(stage === 'token' ? 0 : 1);
+  } finally { user.getIdToken.mockResolvedValue('test-token'); global.fetch = original; jest.useRealTimers(); }
+});
+
+test('actor change while reading response discards private body', async () => {
+  const original = global.fetch, user = auth.currentUser;
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => { auth.currentUser = null; return { private: true }; } }));
+  try { await expect(adminRequest('/test')).rejects.toThrow('session changed'); }
+  finally { auth.currentUser = user; global.fetch = original; }
+});
+
+test('a token arriving after the deadline cannot start a late mutation', async () => {
+  jest.useFakeTimers();
+  const original = global.fetch, user = auth.currentUser;
+  let finish;
+  user.getIdToken.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  global.fetch = jest.fn();
+  try {
+    const assertion = expect(adminRequest('/test', { method: 'PUT', body: '{}', deadlineMs: 50 })).rejects.toMatchObject({ code: 'DEADLINE_EXCEEDED' });
+    await jest.advanceTimersByTimeAsync(51); await assertion;
+    finish('late-token'); await Promise.resolve(); await Promise.resolve();
+    expect(global.fetch).not.toHaveBeenCalled();
+  } finally { global.fetch = original; jest.useRealTimers(); }
+});
+
 jest.mock('./firebase', () => ({ auth: { currentUser: { getIdToken: jest.fn().mockResolvedValue('test-token') } } }));
 
 test('401 refreshes the token once and retries with the same payload', async () => {

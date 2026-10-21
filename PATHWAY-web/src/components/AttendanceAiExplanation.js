@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import './JournalAiAnalysis.css';
 
-const labels = { creditedHours: 'Credited hours', completionPercentage: 'Completion', attendanceRate: 'Attendance rate', onTimeRate: 'On-time rate', missedShifts: 'Missed shifts', projectedCompletion: 'Estimated completion', risk: 'Calculated risk' };
-export default function AttendanceAiExplanation({ sectionId, studentId, metricsVersion }) {
+const labels = { creditedHours: 'Server-credited hours', completionPercentage: 'Completion', attendanceRate: 'Attendance rate', onTimeRate: 'On-time rate', missedShifts: 'Missed shifts', projectedCompletion: 'Estimated completion', risk: 'Calculated risk (legacy)', riskTier: 'Risk tier', progressStatus: 'Progress status', dataStatus: 'Data status' };
+export default function AttendanceAiExplanation({ sectionId, studentId, metricsVersion, onDenied, isCurrent = () => true }) {
   const [consent, setConsent] = useState(false), [busy, setBusy] = useState(false), [result, setResult] = useState(null), [error, setError] = useState('');
   const generation = useRef(0), inFlight = useRef(false);
   useEffect(() => { generation.current++; setResult(null); setConsent(false); setError(''); return () => { generation.current++; }; }, [sectionId, studentId, metricsVersion]);
@@ -12,9 +12,9 @@ export default function AttendanceAiExplanation({ sectionId, studentId, metricsV
     const version = generation.current;
     inFlight.current = true; setBusy(true); setError('');
     try {
-      const data = await adminRequest(`/coordinator/sections/${encodeURIComponent(sectionId)}/students/${encodeURIComponent(studentId)}/attendance-ai`, { method: 'POST', body: JSON.stringify({ consent: true }) });
-      if (version === generation.current) setResult(data);
-    } catch { if (version === generation.current) setError('AI explanation unavailable. Calculated analytics remain available.'); }
+      const data = await adminRequest(`/coordinator/sections/${encodeURIComponent(sectionId)}/students/${encodeURIComponent(studentId)}/attendance-ai`, { method: 'POST', body: JSON.stringify({ consent: true }), deadlineMs: 15000 });
+      if (version === generation.current && isCurrent()) setResult(data);
+    } catch (failure) { if (version === generation.current && isCurrent()) { setError('AI explanation unavailable. Calculated analytics remain available.'); if ([401,403].includes(failure.status)) onDenied?.(); } }
     finally { inFlight.current = false; setBusy(false); }
   }
   return <details className="journal-ai"><summary>Explain with AI <span>Advisory only</span></summary><div className="journal-ai__body">

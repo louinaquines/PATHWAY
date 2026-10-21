@@ -6,6 +6,9 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AttendanceAiExplanation from '../components/AttendanceAiExplanation';
+import AttendanceAccess from '../components/AttendanceAccess';
+import AttendanceExcusedEditor from '../components/AttendanceExcusedEditor';
+import { attendanceReasonLabels } from '../attendanceRiskLabels';
 import './CoordinatorRecords.css';
 
 function csvEscape(v) {
@@ -13,7 +16,13 @@ function csvEscape(v) {
   return `"${(/^[\s]*[=+@-]/.test(text) ? "'" + text : text).replace(/"/g, '""')}"`;
 }
 
-export default function AnalyticsTab({ coordinatorId, selectedSection }) {
+export default function AnalyticsTab(props) {
+  return <AttendanceAccess key={`${props.coordinatorId}:${props.selectedSection?.id || ''}`} actorId={props.coordinatorId} sectionId={props.selectedSection?.id}>
+    {access => <AnalyticsContent {...props} {...access} />}
+  </AttendanceAccess>;
+}
+
+function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, onDenied, isCurrent }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -21,6 +30,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
   const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
   const [saving, setSaving] = useState(false);
   const requestRevision = useRef(0);
+  const [editing, setEditing] = useState(null);
 
   const loadData = useCallback(async () => {
     const revision = ++requestRevision.current;
@@ -30,32 +40,36 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
     // Never substitute fabricated fallback metrics when the authenticated API fails.
     try {
       if (!selectedSection?.id) { setData(null); return; }
-      const payload = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics`);
-      if (revision !== requestRevision.current) return;
+      const payload = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics`, { deadlineMs: 15000 });
+      if (revision !== requestRevision.current || !isCurrent()) return;
       setData(payload);
       if (payload.schedule) setSchedule(payload.schedule);
       else setSchedule({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
-    } catch (failure) { if (revision === requestRevision.current) { setData(null); setError(failure.message); } }
+    } catch (failure) { if (revision === requestRevision.current && isCurrent()) { setData(null); setEditing(null); setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
     finally { if (revision === requestRevision.current) setLoading(false); }
     return;
-  }, [coordinatorId, selectedSection]);
+  }, [coordinatorId, selectedSection]); // Access lifetime is controlled by the keyed boundary.
 
   useEffect(() => {
     loadData();
     return () => { requestRevision.current++; };
   }, [loadData]);
+  useEffect(() => {
+    if (data && highlightStudentId) document.getElementById(`attendance-student-${highlightStudentId}`)?.scrollIntoView?.({ block: 'center' });
+  }, [data, highlightStudentId]);
   const saveSchedule = async event => {
-    event.preventDefault(); setSaving(true); setError('');
+    event.preventDefault(); if (saving) return; setSaving(true); setError('');
+    const revision = requestRevision.current;
     try {
-      await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule }) });
-      await loadData();
-    } catch (failure) { setError(failure.message); }
-    finally { setSaving(false); }
+      await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule }), deadlineMs: 15000 });
+      if (isCurrent() && revision === requestRevision.current) await loadData();
+    } catch (failure) { if (isCurrent() && revision === requestRevision.current) { setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
+    finally { if (isCurrent()) setSaving(false); }
   };
 
   const exportCsv = () => {
     if (!data?.students) return;
-    const header = ['Student Name', 'ID Number', 'Section', 'Department', 'Company', 'Hours Rendered', 'Hours Required', 'Progress (%)', 'Status'];
+    const header = ['Student Name', 'ID Number', 'Section', 'Department', 'Company', 'Server-credited hours', 'Hours Required', 'Progress (%)', 'Risk tier', 'Progress status', 'Data status'];
     const rows = data.students.map(s => [
       s.name,
       s.idNumber,
@@ -65,7 +79,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       s.hoursRendered,
       s.hoursRequired,
       s.completionPercentage,
-      s.status,
+      s.riskTier ?? 'Unavailable', s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
     ]);
     const csvContent = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -107,7 +121,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
         <h3>Work schedule and completion deadline</h3>
-        <p>Section-wide schedule, Philippine time. Today is excluded from attendance rates. Exceptions are non-working dates. Projections use the last 28 days and are not guarantees.</p>
+        <p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p>
         <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
         <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
         <label>Exceptions (YYYY-MM-DD, comma-separated) <input value={schedule.exceptions.join(',')} onChange={event => setSchedule(current => ({ ...current, exceptions: event.target.value.split(',').map(value => value.trim()).filter(Boolean) }))} /></label>
@@ -117,12 +131,12 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
       {/* Metrics Summary Grid */}
       {data && (
         <div className="analytics-metrics" style={s.metricsGrid}>
-          <MetricCard label="Total Students" value={data.totalStudents || 0} accent="sky" />
-          <MetricCard label="Active Interns" value={data.activeInterns || 0} accent="emerald" />
-          <MetricCard label="Completed OJT" value={data.completedInterns || 0} accent="yellow" />
-          <MetricCard label="At-Risk Interns" value={data.atRiskStudents ?? 'Unavailable'} accent="rose" />
-          <MetricCard label="Total Hours Rendered" value={`${data.totalHoursLogged || 0} hrs`} accent="slate" />
-          <MetricCard label="Cohort Average" value={`${data.averageHours || 0} hrs`} accent="sky" />
+          <MetricCard label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
+          <MetricCard label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
+          <MetricCard label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
+          <MetricCard label="High-risk Interns" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
+          <MetricCard label="Total server-credited hours" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
+          <MetricCard label="Cohort Average" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
         </div>
       )}
 
@@ -131,7 +145,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
         <div style={s.cardHeader}>
           <div>
             <h3 style={s.cardTitle}>Student progress</h3>
-            <p style={s.sub}>{data?.students?.length || 0} intern(s) tracked</p>
+            <p style={s.sub}>{data?.students?.length || 0} intern(s) loaded in this section. Search covers this loaded section only. As of {data?.today || 'unavailable'}.</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
         </div>
@@ -142,7 +156,7 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
               <tr>
                 <th style={s.th}>Student Intern</th>
                 <th style={s.th}>Section</th>
-                <th style={s.th}>Rendered / Target</th>
+                <th style={s.th}>Server-credited / Target</th>
                 <th style={s.th}>Progress Indicator</th>
                 <th style={s.th}>Attendance Metrics</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
@@ -150,23 +164,23 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
             </thead>
             <tbody>
               {filteredStudents.map(st => {
-                const percent = st.completionPercentage || 0;
+                const percent = st.completionPercentage;
                 return (
-                  <tr key={st.id} style={s.tr}>
+                  <tr key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
                     <td style={s.td}>
                       <div style={s.studentName}>{st.name}</div>
                       <span style={s.idCode}>{st.idNumber}</span>
                     </td>
                     <td style={s.td}>{st.section}</td>
                     <td style={s.td}>
-                      <strong>{st.hoursRendered}</strong> / {st.hoursRequired} hrs
+                      <strong>{st.hoursRendered ?? 'Unavailable'}</strong> / {st.hoursRequired ?? 'Unavailable'} hrs
                     </td>
                     <td style={s.td}>
                       <div style={s.progressContainer}>
                         <div style={s.progressBarWrap}>
-                          <div style={{ ...s.progressBar, width: `${percent}%` }} />
+                          <div style={{ ...s.progressBar, width: `${percent == null ? 0 : Math.max(0, Math.min(100, percent))}%` }} />
                         </div>
-                        <span style={s.progressText}>{percent}%</span>
+                        <span style={s.progressText}>{percent == null ? 'Unavailable' : `${percent}%`}</span>
                       </div>
                     </td>
                     <td style={s.td}>
@@ -175,23 +189,24 @@ export default function AnalyticsTab({ coordinatorId, selectedSection }) {
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
                         <span>{st.projectedCompletion ? `Estimated completion: ${st.projectedCompletion}` : 'Completion estimate unavailable'}</span>
-                        {(st.reasons || []).map(reason => <small key={reason} style={{ display: 'block' }}>{reason}</small>)}
-                        {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} metricsVersion={JSON.stringify([st.creditedHours, st.risk, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
+                        {(st.reasonCodes || []).map((reason, index) => <small key={`${reason.code}:${index}`} style={{ display: 'block' }}>{attendanceReasonLabels[reason.code] || reason.code}</small>)}
+                        <small>Observed eligible days: attendance {st.observationCounts?.attendanceEligibleDays ?? 'Unavailable'}; projection {st.observationCounts?.projectionEligibleDays ?? 'Unavailable'}</small>
+                        <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
+                        {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
+                        {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
                       </div>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>
                       <span style={{
                         ...s.statusBadge,
-                        backgroundColor: st.status === 'Completed' ? COLORS.emerald50 :
-                                         st.status === 'High Risk'  ? COLORS.rose50 :
-                                         st.status === 'Moderate'   ? COLORS.yellow100 : COLORS.sky50,
+                        backgroundColor: st.riskTier === 'High' ? COLORS.rose50 : st.riskTier === 'Medium' ? COLORS.yellow100 : COLORS.sky50,
                         color: '#000000',
-                        border: `1px solid ${st.status === 'Completed' ? COLORS.emerald200 :
-                                             st.status === 'High Risk'  ? COLORS.rose200 :
-                                             st.status === 'Moderate'   ? COLORS.yellow300 : COLORS.sky200}`,
+                        border: `1px solid ${COLORS.slate300}`,
                       }}>
-                        {st.status}
+                        Risk: {st.riskTier ?? 'Unavailable'}
                       </span>
+                      <p>Progress: {st.progressStatus ?? 'Unavailable'}</p>
+                      <p>Data: {st.dataStatus ?? 'Unavailable'}</p>
                     </td>
                   </tr>
                 );

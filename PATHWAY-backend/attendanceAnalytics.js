@@ -7,6 +7,24 @@ function dateMs(value) {
   const ms = Date.parse(`${value}T00:00:00Z`);
   return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === value ? ms : null;
 }
+function attendanceWindow(schedule, today, excusedDates = []) {
+  const now = dateMs(today), start = dateMs(schedule?.startDate), deadline = dateMs(schedule?.deadline);
+  const exceptions = schedule?.exceptions ?? [], weekdays = schedule?.workingDays;
+  if (now === null) throw new Error('Invalid today.');
+  for (const dates of [exceptions, excusedDates]) {
+    if (!Array.isArray(dates) || dates.length > 1000 || dates.some(date => dateMs(date) === null)) throw new Error('Invalid excluded dates.');
+  }
+  const clock = /^(\d{2}):(\d{2})$/.exec(schedule?.startTime || '');
+  if (start === null || deadline === null || deadline < start || !Array.isArray(weekdays) || !weekdays.length || weekdays.some(day => !Number.isInteger(day) || day < 0 || day > 6) || !clock || Number(clock[1]) > 23 || Number(clock[2]) > 59) return null;
+  const excluded = new Set([...exceptions, ...excusedDates]);
+  const key = ms => new Date(ms).toISOString().slice(0, 10);
+  const expected = ms => weekdays.includes(new Date(ms).getUTCDay()) && !excluded.has(key(ms));
+  const attendanceDates = [], projectionDates = [];
+  for (let ms = now - DAY; ms >= start && attendanceDates.length < 20; ms -= DAY) if (expected(ms)) attendanceDates.unshift(ms);
+  for (let ms = Math.max(start, now - 28 * DAY); ms < now; ms += DAY) if (expected(ms)) projectionDates.push(ms);
+  return { attendanceDates, projectionDates, expected, key, clock,
+    from: key(Math.min(now, ...attendanceDates, Math.max(start, now - 28 * DAY))) };
+}
 function attendanceAnalytics({ creditedHours, requiredHours, records = [], schedule, today, excusedDates = [] }) {
   const now = dateMs(today);
   if (now === null || !Array.isArray(records) || records.length > 1000 || records.some(record => !record || dateMs(record.date) === null)) throw new Error('Invalid analytics inputs.');
@@ -35,19 +53,11 @@ function attendanceAnalytics({ creditedHours, requiredHours, records = [], sched
   if (deadline !== null && now > deadline && validTotal && validTarget && !completed) {
     result.riskTier = 'High'; reason('OVERDUE', 'Completion deadline has passed.');
   }
-  const weekdays = schedule?.workingDays;
-  const clock = /^(\d{2}):(\d{2})$/.exec(schedule?.startTime || '');
-  if (start === null || deadline === null || deadline < start || !Array.isArray(weekdays) || !weekdays.length || weekdays.some(day => !Number.isInteger(day) || day < 0 || day > 6) || !clock || Number(clock[1]) > 23 || Number(clock[2]) > 59) {
+  const window = attendanceWindow(schedule, today, excusedDates);
+  if (!window) {
     reason('INVALID_SCHEDULE', 'A valid work schedule and deadline are required.'); return finish();
   }
-  const excluded = new Set([...exceptions, ...excusedDates]);
-  const key = ms => new Date(ms).toISOString().slice(0, 10);
-  const expected = ms => weekdays.includes(new Date(ms).getUTCDay()) && !excluded.has(key(ms));
-  const attendanceDates = [];
-  // Calendar inputs are bounded to 2000–2100, including sparse schedules and long leave.
-  for (let ms = now - DAY; ms >= start && attendanceDates.length < 20; ms -= DAY) if (expected(ms)) attendanceDates.unshift(ms);
-  const projectionDates = [];
-  for (let ms = Math.max(start, now - 28 * DAY); ms < now; ms += DAY) if (expected(ms)) projectionDates.push(ms);
+  const { attendanceDates, projectionDates, expected, key, clock } = window;
   const relevant = new Set([...attendanceDates, ...projectionDates].map(key));
   const byDate = new Map();
   records.forEach(record => {
@@ -147,4 +157,4 @@ function attendanceAnalytics({ creditedHours, requiredHours, records = [], sched
   if (!result.riskTier && !uncertain && attendanceReady && validTotal && validTarget && (completed || (result.projectedCompletion && result.projectedCompletion <= schedule.deadline))) establish('Low');
   return finish();
 }
-module.exports = { attendanceAnalytics };
+module.exports = { attendanceAnalytics, attendanceWindow, dateMs };

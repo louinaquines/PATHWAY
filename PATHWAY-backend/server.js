@@ -1921,7 +1921,7 @@ const AUDIT_ACTIONS = new Set([
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
-  'attendance.time_in', 'attendance.time_out', 'student.assigned', 'clearance.updated',
+  'attendance.time_in', 'attendance.time_out', 'attendance.excused_dates_updated', 'student.assigned', 'clearance.updated',
   'logbook.reviewed', 'placement.reviewed', 'placement.submitted', 'placement.resubmitted',
   'endorsement.draft_prepared', 'endorsement.delivery_started',
   'endorsement.email_accepted', 'endorsement.email_failed',
@@ -2462,6 +2462,7 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
 require('./dtrReview').installDtrReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction });
 require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, audit: writeAuditInTransaction });
+require('./attendanceExcusedDates').installAttendanceExcusedDates({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction });
 require('./reviewAnalysis').installReviewAnalysis({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, coordinatorSection, audit: writeAuditInTransaction });
 require('./companyProfileImport').installCompanyProfileImport({ app, requireStaff, allowRate });
 const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox');

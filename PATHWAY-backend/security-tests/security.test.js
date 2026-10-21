@@ -645,6 +645,18 @@ async function api(pathname, identity, body, method = 'POST', extraHeaders = {})
   return { response, data: await response.json().catch(() => ({})) };
 }
 
+test('attendance excused API installs with the real server audit allowlist', async () => {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'sections', 'excused-api-section'), { department: 'Department A', coordinatorId: identities.coordinatorA.uid });
+    await setDoc(doc(context.firestore(), 'users', 'excused-api-student'), { role: 'student', department: 'Department A', sectionId: 'excused-api-section' });
+  });
+  const endpoint = '/coordinator/sections/excused-api-section/students/excused-api-student/attendance-excused-dates';
+  const saved = await api(endpoint, identities.coordinatorA, { dates: ['2026-10-20'], expectedVersion: 0 }, 'PUT');
+  assert.equal(saved.response.status, 200);
+  assert.deepEqual(saved.data, { dates: ['2026-10-20'], version: 1 });
+  assert.deepEqual((await api(endpoint, identities.coordinatorA, undefined, 'GET')).data, saved.data);
+});
+
 test('backend health endpoint responds without exposing deployment details', async () => {
   const health = await api('/healthz', null, undefined, 'GET');
   assert.equal(health.response.status, 200);

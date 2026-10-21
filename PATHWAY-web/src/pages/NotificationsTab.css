@@ -15,3 +15,11 @@
 .notifications-page [role="tabpanel"] button > div { overflow-wrap: anywhere; }
 @media (max-width: 650px) { .notifications-page { padding: 16px !important; } .notifications-page form > div:nth-child(2) { grid-template-columns: 1fr !important; } }
 @media (prefers-reduced-motion: reduce) { .notification-switch-slider { transition: none; } }
+.attendance-risk-panel { width: 100%; min-width: 0; box-sizing: border-box; padding: 24px; background: white; border: 1px solid #e4eaf3; border-radius: 16px; color: #152238; }
+.attendance-risk-panel p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.attendance-risk-panel article { margin-top: 12px; padding: 16px; background: #f6f8fc; border: 1px solid #dbe4f0; border-radius: 10px; }
+.attendance-risk-panel h3, .attendance-risk-panel h4 { margin: 0 0 8px; }
+.attendance-risk-panel button { min-height: 38px; padding: 8px 12px; margin: 6px; border: 1px solid #dbe4f0; border-radius: 9px; background: white; color: #075fc9; font: inherit; font-size: 12px; cursor: pointer; }
+.attendance-risk-panel button:disabled { opacity: .55; cursor: not-allowed; }
+.attendance-risk-panel button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+@media (max-width: 640px) { .attendance-risk-panel { padding: 16px; } .attendance-risk-panel button { max-width: 100%; } }

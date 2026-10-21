@@ -1,5 +1,5 @@
 // src/pages/CoordinatorDashboard.js
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
 import SubmissionNotifications from '../components/SubmissionNotifications';
-import { collection, getDocs, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
@@ -92,6 +92,27 @@ export default function CoordinatorDashboard() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [attendanceTarget, setAttendanceTarget] = useState(null);
+  const attendanceNavigation = useRef(0);
+  useEffect(() => () => { attendanceNavigation.current++; }, [activeTab, coordinatorId]);
+
+  const openAttendanceRisk = async ({ sectionId, studentId }) => {
+    const actor = auth.currentUser, request = ++attendanceNavigation.current;
+    if (actor?.uid !== coordinatorId) return;
+    try {
+      const snapshot = await getDocsFromServer(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
+      if (auth.currentUser !== actor || request !== attendanceNavigation.current) return;
+      const assigned = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
+      setSections(assigned);
+      const section = assigned.find(item => item.id === sectionId);
+      if (!section) { setError('This section is no longer in your assigned sections. Refresh your workspace.'); return; }
+      fetchStudents(section);
+      setAttendanceTarget({ sectionId, studentId });
+      setActiveTab('analytics');
+    } catch {
+      if (auth.currentUser === actor && request === attendanceNavigation.current) setError('Could not refresh your assigned sections. Try opening the attendance notice again.');
+    }
+  };
 
   const exportSection = async () => {
     if (!selectedSection || exporting) return;
@@ -632,8 +653,8 @@ export default function CoordinatorDashboard() {
             {activeTab === 'messages' && <MessagesTab sections={sections} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'registrations' && <RegistrationsTab coordinatorId={coordinatorId} department={coordDept} sections={sections} />}
             {activeTab === 'classlist' && <ClassListTab coordinatorId={coordinatorId} department={coordDept} />}
-            {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
-            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} />}
+            {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
+            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
             {activeTab === 'clearance' && <ClearanceTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
           </div>

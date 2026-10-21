@@ -1,0 +1,253 @@
+const crypto = require('node:crypto');
+const { FieldPath } = require('firebase-admin/firestore');
+const { attendanceAnalytics } = require('./attendanceAnalytics');
+const { loadAttendanceInputs } = require('./attendanceAiReview');
+const { assertAttendanceAccess } = require('./attendanceExcusedDates');
+const RULE = 'attendance-risk-v1';
+const INPUT_ERRORS = new Set(['Invalid excused-date version.', 'Enter at most 366 unique calendar dates.',
+  'Invalid excluded dates.', 'Invalid analytics inputs.', 'Attendance record limit exceeded; coverage unavailable.']);
+const REASONS = new Set(['OVERDUE', 'INVALID_SCHEDULE', 'UNCERTAIN_ATTENDANCE', 'INSUFFICIENT_ATTENDANCE',
+  'INSUFFICIENT_CREDIT_HISTORY', 'INVALID_TOTALS', 'ATTENDANCE_BELOW_80', 'ATTENDANCE_BELOW_90',
+  'CONSECUTIVE_ABSENCES', 'ZERO_VELOCITY', 'PROJECTION_HORIZON', 'CREDIT_PROJECTION', 'PROJECTED_SHORTFALL', 'SOURCE_UNAVAILABLE']);
+const idValid = id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id);
+const denied = () => Object.assign(new Error('Notice unavailable.'), { status: 403 });
+const active = actor => actor?.role === 'coordinator' && actor.accountApproved === true && actor.disabled !== true
+  && !['disabled', 'inactive', 'suspended'].includes(actor.status) && typeof actor.department === 'string' && actor.department.length > 0;
+function latestDueContext(now) {
+  const date = new Date(now);
+  if (!Number.isFinite(date.getTime())) throw new Error('Invalid evaluation time.');
+  // asOf is the calculator's exclusive upper date. Before 00:15 use yesterday's context.
+  return new Date(date.getTime() + 8 * 3600000 - 15 * 60000).toISOString().slice(0, 10);
+}
+function localFirestore(db, env = process.env) {
+  const project = db.projectId;
+  return env.NODE_ENV !== 'production' && !env.K_SERVICE && env.PATHWAY_LOCAL_WORKFLOW === '1'
+    && /^demo-[a-z0-9-]+$/.test(project || '')
+    && /^(127\.0\.0\.1|localhost):\d{2,5}$/.test(env.FIRESTORE_EMULATOR_HOST || '')
+    && (!env.GOOGLE_CLOUD_PROJECT || env.GOOGLE_CLOUD_PROJECT === project)
+    && (!env.GCLOUD_PROJECT || env.GCLOUD_PROJECT === project);
+}
+function riskAlertsEnabled(db, env = process.env) {
+  return env.ATTENDANCE_RISK_ALERTS_ENABLED === '1' && localFirestore(db, env);
+}
+function projectNotice(snapshot) {
+  const n = snapshot.data();
+  // Routing references are returned only after current assignment authorization.
+  return { id: snapshot.id, studentId: n.studentId, sectionId: n.sectionId, title: 'Attendance risk update', kind: n.kind, riskTier: n.riskTier,
+    progressStatus: n.progressStatus, dataStatus: n.dataStatus, reasonCodes: n.reasonCodes.filter(c => REASONS.has(c)),
+    ruleVersion: n.ruleVersion, asOf: n.asOf, createdAt: n.createdAt, read: n.read === true };
+}
+function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, clock = () => new Date() }) {
+  const states = db.collection('attendanceRiskStates'), notices = db.collection('attendanceRiskNotices');
+  const checkpoint = db.collection('attendanceRiskWorker').doc('daily');
+  const retries = db.collection('attendanceRiskRetries');
+  const cursorKey = crypto.randomBytes(32);
+  let running = false;
+  function encodeCursor(actor, after) {
+    const iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', cursorKey, iv);
+    const data = Buffer.concat([cipher.update(JSON.stringify({ actor, scope: 'attendance-risk-notices-v1', after, expires: new Date(clock()).getTime() + 3600000 })), cipher.final()]);
+    return Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url');
+  }
+  function decodeCursor(value, actor) {
+    if (value === undefined) return null;
+    try {
+      if (typeof value !== 'string' || value.length > 1024 || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error();
+      const bytes = Buffer.from(value, 'base64url'), decipher = crypto.createDecipheriv('aes-256-gcm', cursorKey, bytes.subarray(0,12));
+      decipher.setAuthTag(bytes.subarray(12,28));
+      const result = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString());
+      if (result.actor !== actor || result.scope !== 'attendance-risk-notices-v1' || !idValid(result.after) || result.expires < new Date(clock()).getTime()) throw new Error();
+      return result.after;
+    } catch { throw Object.assign(new Error('Invalid or expired cursor; reload notices.'), { status: 400 }); }
+  }
+  async function actorAccess(uid, tx) {
+    if (!idValid(uid)) throw denied();
+    const snapshot = await tx.get(db.collection('users').doc(uid));
+    if (!active(snapshot.data())) throw denied();
+  }
+  async function noticeAccess(snapshot, uid, tx) {
+    if (!snapshot.exists) throw denied();
+    const n = snapshot.data();
+    if (n.recipientId !== uid || !idValid(n.studentId) || !idValid(n.sectionId)) throw denied();
+    await assertAttendanceAccess(db, uid, n.sectionId, n.studentId, tx);
+  }
+  const path = '/coordinator/attendance-risk-notices';
+  async function route(req, res, read) {
+    res.set('Cache-Control', 'private, no-store');
+    if (!allowRate(req, res, { limit: 60, windowMs: 60000, key: r => `risk-notices:${r.staff.uid}` })) return;
+    try {
+      if (read && (!idValid(req.params.id) || !req.body || typeof req.body !== 'object' || Array.isArray(req.body) || Object.keys(req.body).length)) return res.status(400).json({ error: 'Expected empty object.' });
+      if (Object.keys(req.query).some(k => k !== 'cursor') || (read && Object.keys(req.query).length)) return res.status(400).json({ error: 'Invalid query.' });
+      const uid = req.staff.uid, after = read ? null : decodeCursor(req.query.cursor, uid);
+      const result = await db.runTransaction(async tx => {
+        await actorAccess(uid, tx);
+        if (read) {
+          const snapshot = await tx.get(notices.doc(req.params.id)); await noticeAccess(snapshot, uid, tx);
+          if (!snapshot.data().read) {
+            tx.update(snapshot.ref, { read: true });
+            audit(tx, { actorId: uid, actorRole: 'coordinator', action: 'attendance.risk_notice_read', targetType: 'attendanceRiskNotices', targetId: snapshot.id });
+          }
+          return { records: [{ ...projectNotice(snapshot), read: true }], hasMore: false, cursor: null };
+        }
+        let query = notices.where('recipientId', '==', uid).orderBy(FieldPath.documentId()).limit(21);
+        if (after) query = query.startAfter(after);
+        const page = await tx.get(query), allowed = [];
+        for (const snapshot of page.docs.slice(0,20)) {
+          try { await noticeAccess(snapshot, uid, tx); allowed.push(snapshot); }
+          catch (error) { if (error.status !== 403) throw error; }
+        }
+        return { records: allowed.map(projectNotice), hasMore: page.size > 20,
+          cursor: page.size > 20 ? encodeCursor(uid, page.docs[19].id) : null };
+      });
+      // Fresh boundary after transactional I/O, including read acknowledgment/audit.
+      await db.runTransaction(async tx => {
+        await actorAccess(uid, tx);
+        for (const record of result.records) await noticeAccess(await tx.get(notices.doc(record.id)), uid, tx);
+      });
+      return res.json(result);
+    } catch (error) { return res.status([400,403].includes(error.status) ? error.status : 503).json({ error: error.status === 400 ? error.message : 'Notice unavailable.' }); }
+  }
+  app.get(path, requireStaff, (req, res) => route(req, res, false));
+  app.post(`${path}/:id/read`, requireStaff, (req, res) => route(req, res, true));
+
+  async function planStudent(tx, snapshot, asOf, evaluatedAt) {
+    const student = snapshot.data(), studentId = snapshot.id;
+    if (!idValid(student.sectionId)) return null;
+    const sectionSnapshot = await tx.get(db.collection('sections').doc(student.sectionId));
+    const section = sectionSnapshot.data();
+    if (!section || student.department !== section.department) return null;
+    const stateRef = states.doc(studentId), oldSnapshot = await tx.get(stateRef), previous = oldSnapshot.data() || {};
+    if (previous.asOf > asOf) return null;
+    let recipientId = null;
+    if (idValid(section.coordinatorId)) {
+      const actorSnapshot = await tx.get(db.collection('users').doc(section.coordinatorId));
+      if (active(actorSnapshot.data()) && actorSnapshot.data().department === section.department) recipientId = section.coordinatorId;
+    }
+    let loaded, metrics;
+    try {
+      loaded = await loadAttendanceInputs(snapshot.ref, student, section, asOf, tx);
+      metrics = attendanceAnalytics(loaded.inputs);
+    } catch (error) {
+      if (error.code !== undefined || !INPUT_ERRORS.has(error.message)) throw error;
+      loaded = null;
+      metrics = { riskTier: null, progressStatus: 'In progress', dataStatus: 'Unavailable', reasonCodes: [{ code: 'SOURCE_UNAVAILABLE' }], ruleVersion: RULE };
+    }
+    const evidence = loaded ? { ...loaded.evidence } : null;
+    if (evidence) delete evidence.queryReadTime; // Read time changes without any source change.
+    const fingerprint = crypto.createHash('sha256').update(JSON.stringify({ student, section, recipientId, evidence, metrics })).digest('hex');
+    if (previous.asOf === asOf && previous.ruleVersion === RULE && previous.fingerprint === fingerprint) return null;
+    const state = { studentId, sectionId: student.sectionId, asOf, ruleVersion: RULE, fingerprint, evaluatedAt,
+      open: previous.open === true, episode: previous.episode || 0, sequence: previous.sequence || 0,
+      lastTier: previous.lastTier || null, lastRecipientId: previous.lastRecipientId || null,
+      riskTier: metrics.riskTier, progressStatus: metrics.progressStatus, dataStatus: metrics.dataStatus,
+      reasonCodes: metrics.reasonCodes.map(r => r.code).filter(c => REASONS.has(c)),
+      errorCode: loaded ? null : 'SOURCE_UNAVAILABLE' };
+    const reliableRecovery = metrics.dataStatus === 'Ready' && (metrics.riskTier === 'Low' || metrics.progressStatus === 'Completed');
+    let kind = null;
+    if (state.open && reliableRecovery) { state.open = false; kind = 'recovered'; }
+    else if (!state.open && metrics.progressStatus !== 'Completed' && ['Medium','High'].includes(metrics.riskTier)) {
+      state.open = true; state.episode++; kind = 'opened';
+    } else if (state.open && metrics.riskTier === 'High' && previous.lastTier === 'Medium') kind = 'escalated';
+    if (state.open && recipientId && (previous.lastRecipientId !== recipientId || previous.sectionId !== student.sectionId) && !kind) kind = 'assigned';
+    if (metrics.riskTier) state.lastTier = metrics.riskTier;
+    // No recipient now: retain open episode; next valid assignment receives its current risk.
+    if (!recipientId) state.lastRecipientId = null;
+    let notice = null;
+    if (kind && recipientId) {
+      state.sequence++; state.lastRecipientId = recipientId;
+      notice = { recipientId, studentId, sectionId: student.sectionId, episode: state.episode, sequence: state.sequence,
+        kind, title: 'Attendance risk update', riskTier: state.riskTier, progressStatus: state.progressStatus,
+        dataStatus: state.dataStatus, reasonCodes: state.reasonCodes, ruleVersion: RULE, asOf, createdAt: evaluatedAt, read: false };
+    }
+    return { stateRef, state, notice };
+  }
+  const contextChanged = () => Object.assign(new Error('Evaluation context changed.'), { code: 'CONTEXT_CHANGED' });
+  function dueContext(now, saved) {
+    return [latestDueContext(now), latestDueContext(clock()), saved?.asOf || ''].sort().at(-1);
+  }
+  function writePlan(tx, plan) {
+    if (!plan) return;
+    tx.set(plan.stateRef, plan.state);
+    audit(tx, { actorId: 'attendance-risk-worker', actorRole: 'system', action: 'attendance.risk_evaluated', targetType: 'attendanceRiskStates', targetId: plan.stateRef.id,
+      details: { asOf: plan.state.asOf, ruleVersion: RULE, episode: plan.state.episode, sequence: plan.state.sequence, errorCode: plan.state.errorCode } });
+    if (plan.notice) {
+      const noticeId = crypto.createHash('sha256').update(`${plan.stateRef.id}:${plan.state.episode}:${plan.state.sequence}`).digest('hex');
+      tx.create(notices.doc(noticeId), plan.notice);
+    }
+  }
+  function failureCode(error) {
+    if (error.code === 'CONTEXT_CHANGED') return 'CONTEXT_CHANGED';
+    if ([7,16,'permission-denied','unauthenticated'].includes(error.code) || error.status === 403) return 'AUTHORIZATION_FAILED';
+    if ([8,'resource-exhausted'].includes(error.code)) return 'RESOURCE_EXHAUSTED';
+    return 'EVALUATION_FAILED';
+  }
+  async function evaluateStudent(studentId, now) {
+    let failure;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await db.runTransaction(async tx => {
+          const saved = (await tx.get(checkpoint)).data();
+          const asOf = dueContext(now, saved), evaluatedAt = new Date(clock()).toISOString();
+          const retryRef = retries.doc(studentId);
+          const retry = await tx.get(retryRef);
+          const snapshot = await tx.get(db.collection('users').doc(studentId));
+          const plan = snapshot.exists && snapshot.data().role === 'student' ? await planStudent(tx, snapshot, asOf, evaluatedAt) : null;
+          if (dueContext(now, saved) !== asOf) throw contextChanged();
+          // Student state, notice, audit and retry removal share one fresh transaction.
+          writePlan(tx, plan);
+          if (retry.exists) tx.delete(retryRef);
+          return { asOf };
+        }, { maxAttempts: 1 });
+      } catch (error) {
+        failure = error;
+        // Resource failures go to durable rotation immediately; SDK retry resets its backoff to 60s.
+        if (!['CONTEXT_CHANGED', 10, 409].includes(error.code)) break;
+      }
+    }
+    const errorCode = failureCode(failure);
+    // Failure persistence must succeed before the scan can advance past this student.
+    await db.runTransaction(async tx => {
+      const ref = retries.doc(studentId), previous = (await tx.get(ref)).data();
+      tx.set(ref, { studentId, errorCode, attempts: Math.min((previous?.attempts || 0) + 1, Number.MAX_SAFE_INTEGER), updatedAt: new Date(clock()).toISOString() });
+    }, { maxAttempts: 2 });
+    return { failed: true, errorCode };
+  }
+  async function evaluateDueAttendanceRisk({ now = clock(), batchSize = 10 } = {}) {
+    if (!localFirestore(db)) throw new Error('Attendance risk evaluation requires a pinned local demo Firestore emulator.');
+    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 25) throw new Error('batchSize must be 1 through 25.');
+    if (running) return { processed: 0, busy: true };
+    running = true;
+    try {
+      latestDueContext(now); // Validate the explicit local/manual time before I/O.
+      const scan = await db.runTransaction(async tx => {
+        const saved = (await tx.get(checkpoint)).data() || {};
+        let query = db.collection('users').where('role', '==', 'student').orderBy(FieldPath.documentId()).limit(batchSize + 1);
+        if (saved.afterId) query = query.startAfter(saved.afterId);
+        const page = await tx.get(query);
+        const retryLimit = Math.min(3, batchSize);
+        let retryQuery = retries.orderBy(FieldPath.documentId()).limit(retryLimit + 1);
+        if (saved.retryAfterId) retryQuery = retryQuery.startAfter(saved.retryAfterId);
+        const retryPage = await tx.get(retryQuery);
+        return { saved, students: page.docs.slice(0,batchSize).map(d => d.id), hasMore: page.size > batchSize,
+          retryIds: retryPage.docs.slice(0,retryLimit).map(d => d.id), retryMore: retryPage.size > retryLimit };
+      }, { maxAttempts: 2 });
+      const ids = [...new Set([...scan.students, ...scan.retryIds])];
+      let failed = 0, asOf = dueContext(now, scan.saved);
+      for (const id of ids) {
+        const result = await evaluateStudent(id, now);
+        if (result.failed) failed++; else if (result.asOf > asOf) asOf = result.asOf;
+      }
+      await db.runTransaction(async tx => {
+        const current = (await tx.get(checkpoint)).data() || {};
+        // A competing scan may already have advanced; replayed students are idempotent.
+        if ((current.scanVersion || 0) !== (scan.saved.scanVersion || 0)) return;
+        tx.set(checkpoint, { afterId: scan.hasMore ? scan.students.at(-1) : null,
+          retryAfterId: scan.retryMore ? scan.retryIds.at(-1) : null,
+          scanVersion: (current.scanVersion || 0) + 1, asOf: [asOf, dueContext(now, current)].sort().at(-1),
+          updatedAt: new Date(clock()).toISOString(), errorCode: failed ? 'STUDENT_EVALUATION_FAILED' : null });
+      }, { maxAttempts: 2 });
+      return { processed: scan.students.length, retried: scan.retryIds.length, failed, hasMore: scan.hasMore, asOf };
+    } finally { running = false; }
+  }
+  return { evaluateDueAttendanceRisk };
+}
+module.exports = { installAttendanceRiskAlerts, latestDueContext, riskAlertsEnabled };

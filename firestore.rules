@@ -246,6 +246,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /attendanceExcusedDates/{studentId} {
+      allow read, write: if false;
+    }
+    match /attendanceRiskStates/{id} { allow read, write: if false; }
+    match /attendanceRiskNotices/{id} { allow read, write: if false; }
+    match /attendanceRiskWorker/{id} { allow read, write: if false; }
+    match /attendanceRiskRetries/{id} { allow read, write: if false; }
+
     match /auditLogs/{logId} {
       allow read: if isAdmin();
       allow write: if false;

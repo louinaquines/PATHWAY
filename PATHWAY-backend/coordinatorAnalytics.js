@@ -1,5 +1,6 @@
 const { attendanceAnalytics } = require('./attendanceAnalytics');
-const { loadAttendanceMetrics } = require('./attendanceAiReview');
+const { loadAttendanceInputs } = require('./attendanceAiReview');
+const { assertAttendanceAccess, assertAttendanceFresh } = require('./attendanceExcusedDates');
 function validateSchedule(schedule) {
   if (!schedule || typeof schedule !== 'object' || !Array.isArray(schedule.workingDays) || schedule.workingDays.length > 7 || (schedule.exceptions && (!Array.isArray(schedule.exceptions) || schedule.exceptions.length > 366))) throw new Error('Invalid schedule.');
   attendanceAnalytics({ today: schedule?.startDate, creditedHours: 0, requiredHours: 1, schedule });
@@ -18,8 +19,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
       await coordinatorSection(req, req.params.sectionId);
       await db.runTransaction(async tx => {
         const ref = db.collection('sections').doc(req.params.sectionId);
-        const fresh = await tx.get(ref);
-        if (!fresh.exists || req.staff.role !== 'coordinator' || fresh.data().coordinatorId !== req.staff.uid || fresh.data().department !== req.staff.data.department) throw Object.assign(new Error('Assigned sections only.'), { status: 403 });
+        await assertAttendanceAccess(db, req.staff.uid, req.params.sectionId, undefined, tx);
         tx.update(ref, { attendanceSchedule: schedule });
         audit(tx, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'section.updated', targetType: 'sections', targetId: req.params.sectionId, details: { attendanceSchedule: schedule } });
       });
@@ -29,32 +29,40 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
   app.get(path, requireStaff, async (req, res) => {
     if (!allowRate(req, res, { limit: 20, windowMs: 60000, key: r => `analytics:${r.staff.uid}` })) return;
     try {
-      const section = (await coordinatorSection(req, req.params.sectionId)).data();
+      await coordinatorSection(req, req.params.sectionId);
+      const { section } = await assertAttendanceAccess(db, req.staff.uid, req.params.sectionId);
       const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
       const snapshot = await db.collection('users').where('sectionId', '==', req.params.sectionId).where('role', '==', 'student').limit(501).get();
       if (snapshot.size > 500) return res.status(422).json({ error: 'Section exceeds the supported analytics limit.' });
-      const students = [];
+      const students = [], sources = [];
       // Bounded batches avoid a request burst across every student at once.
       for (let index = 0; index < snapshot.docs.length; index += 10) {
         students.push(...await Promise.all(snapshot.docs.slice(index, index + 10).map(async doc => {
           const student = doc.data();
           if (student.department !== section.department) return null;
-          const required = Number(student.hoursRequired || section.hoursRequired);
-          const metrics = await loadAttendanceMetrics(doc.ref, student, section, today);
+          const required = student.hoursRequired ?? section.hoursRequired;
+          const { inputs, evidence } = await loadAttendanceInputs(doc.ref, student, section, today);
+          const metrics = attendanceAnalytics(inputs);
+          sources.push({ id: doc.id, student });
           return { id: doc.id, name: `${student.firstName || ''} ${student.lastName || ''}`.trim(), idNumber: student.idNumber || '',
             section: section.name, department: section.department, companyName: student.companyName || student.company || '',
             hoursRendered: metrics.creditedHours, hoursRequired: Number.isFinite(required) ? required : null,
-            ...metrics, status: !student.accountApproved ? 'Registration pending' : metrics.risk,
+            ...metrics, excusedDates: inputs.excusedDates, excusedDatesVersion: evidence.excusedDatesVersion,
+            status: !student.accountApproved ? 'Registration pending' : metrics.risk,
             lateRate: metrics.onTimeRate == null ? null : 100 - metrics.onTimeRate };
         })));
       }
-      const scoped = students.filter(Boolean), total = scoped.reduce((sum, s) => sum + (s.hoursRendered || 0), 0);
+      for (let index = 0; index < sources.length; index += 10) await Promise.all(sources.slice(index, index + 10).map(({ id, student }) => assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, id, student, section)));
+      await assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, null, null, section);
+      const scoped = students.filter(Boolean), hoursAvailable = scoped.every(s => s.hoursRendered !== null), riskAvailable = scoped.every(s => s.riskTier !== null);
+      const total = hoursAvailable ? scoped.reduce((sum, s) => sum + s.hoursRendered, 0) : null;
       res.set('Cache-Control', 'private, no-store');
       return res.json({ students: scoped, schedule: section.attendanceSchedule || null, today,
         totalStudents: scoped.length, activeInterns: scoped.filter(s => s.status !== 'Registration pending').length,
-        completedInterns: scoped.filter(s => s.status === 'Completed').length,
-        atRiskStudents: scoped.some(s => s.status === 'Unavailable') ? null : scoped.filter(s => s.status === 'High Risk').length,
-        totalHoursLogged: Math.round(total * 100) / 100, averageHours: scoped.length ? (total / scoped.length).toFixed(1) : 0 });
+        completedInterns: scoped.filter(s => s.progressStatus === 'Completed').length,
+        atRiskStudents: riskAvailable ? scoped.filter(s => s.riskTier === 'High').length : null,
+        countsAvailable: { completed: scoped.every(s => Number.isFinite(s.hoursRendered) && Number.isFinite(s.hoursRequired) && s.hoursRequired > 0), highRisk: riskAvailable, totalHours: hoursAvailable },
+        totalHoursLogged: total === null ? null : Math.round(total * 100) / 100, averageHours: total === null ? null : scoped.length ? (total / scoped.length).toFixed(1) : 0 });
     } catch (error) { return res.status(error.status || 500).json({ error: error.status ? error.message : 'Could not calculate section analytics.' }); }
   });
 }

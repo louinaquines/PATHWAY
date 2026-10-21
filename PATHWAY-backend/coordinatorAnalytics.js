@@ -19,8 +19,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
       await coordinatorSection(req, req.params.sectionId);
       await db.runTransaction(async tx => {
         const ref = db.collection('sections').doc(req.params.sectionId);
-        const fresh = await tx.get(ref);
-        if (!fresh.exists || req.staff.role !== 'coordinator' || fresh.data().coordinatorId !== req.staff.uid || fresh.data().department !== req.staff.data.department) throw Object.assign(new Error('Assigned sections only.'), { status: 403 });
+        await assertAttendanceAccess(db, req.staff.uid, req.params.sectionId, undefined, tx);
         tx.update(ref, { attendanceSchedule: schedule });
         audit(tx, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'section.updated', targetType: 'sections', targetId: req.params.sectionId, details: { attendanceSchedule: schedule } });
       });

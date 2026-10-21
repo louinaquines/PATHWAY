@@ -8,7 +8,10 @@ const { initializeApp, deleteApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const express = require('express');
 const { installAttendanceExcusedDates } = require('../attendanceExcusedDates');
+const { installCoordinatorAnalytics } = require('../coordinatorAnalytics');
 let env, admin, db, server, origin, revokeDuringTransaction = false, failAudit = false;
+let scheduleRevocation;
+const originalSchedule = { startDate: '2026-10-01', deadline: '2026-12-31', startTime: '08:00', workingDays: [1, 2, 3, 4, 5], exceptions: [] };
 const student = { role: 'student', department: 'IT', sectionId: 'excused-section' };
 const coordinator = { role: 'coordinator', department: 'IT', accountApproved: true };
 before(async () => {
@@ -27,6 +30,16 @@ before(async () => {
   }) };
   installAttendanceExcusedDates({ app, db: routeDb, requireStaff(req, res, next) { req.staff = { uid: req.headers.actor || 'excused-coordinator', role: req.headers.role || 'coordinator' }; next(); }, allowRate: () => true,
     audit(tx, event) { tx.set(db.collection('auditLogs').doc(), event); if (failAudit) throw new Error('Synthetic audit failure'); } });
+  installCoordinatorAnalytics({ app, db, async requireStaff(req, res, next) {
+    const profile = (await db.doc('users/excused-coordinator').get()).data();
+    req.staff = { uid: 'excused-coordinator', role: profile.role, data: profile };
+    if (scheduleRevocation) await db.doc('users/excused-coordinator').update(scheduleRevocation);
+    next();
+  }, allowRate: () => true, async coordinatorSection(req, sectionId) {
+    const snapshot = await db.collection('sections').doc(sectionId).get();
+    if (req.staff.role !== 'coordinator' || snapshot.data().coordinatorId !== req.staff.uid || snapshot.data().department !== req.staff.data.department) throw Object.assign(new Error('Denied'), { status: 403 });
+    return snapshot;
+  }, audit(tx, event) { tx.set(db.collection('auditLogs').doc(), event); } });
   server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve)); origin = `http://127.0.0.1:${server.address().port}`;
 });
 after(async () => { if (server) await new Promise(resolve => server.close(resolve)); if (env) await env.cleanup(); if (admin) await deleteApp(admin); });
@@ -76,4 +89,29 @@ test('audit failure rolls back policy and role revocation after middleware force
   assert.equal((await request('PUT', { dates: [], expectedVersion: 1 })).status, 403);
   assert.deepEqual((await db.doc('attendanceExcusedDates/excused-student').get()).data(), before);
   await db.doc('users/excused-coordinator').set(coordinator);
+});
+test('schedule API rechecks actor after middleware and preserves schedule and audit on denial', async t => {
+  for (const change of [{ role: 'admin' }, { role: 'student' }, { disabled: true }, { accountApproved: false }, { department: 'other' }, { status: 'disabled' }, { status: 'inactive' }, { status: 'suspended' }]) {
+    await t.test(JSON.stringify(change), async () => {
+      await db.doc('users/excused-coordinator').set(coordinator);
+      await db.doc('sections/schedule-section').set({ coordinatorId: 'excused-coordinator', department: 'IT', attendanceSchedule: originalSchedule });
+      const auditsBefore = await db.collection('auditLogs').where('targetId', '==', 'schedule-section').get();
+      scheduleRevocation = change;
+      try {
+        const response = await fetch(`${origin}/coordinator/sections/schedule-section/analytics/schedule`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ schedule: { ...originalSchedule, startTime: '09:00' } }) });
+        assert.equal(response.status, 403);
+        assert.deepEqual((await db.doc('sections/schedule-section').get()).data().attendanceSchedule, originalSchedule);
+        assert.equal((await db.collection('auditLogs').where('targetId', '==', 'schedule-section').get()).size, auditsBefore.size);
+      } finally { scheduleRevocation = undefined; await db.doc('users/excused-coordinator').set(coordinator); }
+    });
+  }
+});
+test('schedule API allows fresh assigned coordinator and creates exactly one audit', async () => {
+  await db.doc('sections/schedule-valid').set({ coordinatorId: 'excused-coordinator', department: 'IT', attendanceSchedule: originalSchedule });
+  const schedule = { ...originalSchedule, startTime: '09:00' };
+  const response = await fetch(`${origin}/coordinator/sections/schedule-valid/analytics/schedule`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ schedule }) });
+  assert.equal(response.status, 200); assert.deepEqual(await response.json(), { schedule });
+  assert.deepEqual((await db.doc('sections/schedule-valid').get()).data().attendanceSchedule, schedule);
+  const audits = await db.collection('auditLogs').where('targetId', '==', 'schedule-valid').get();
+  assert.equal(audits.size, 1); assert.equal(audits.docs[0].data().action, 'section.updated');
 });

@@ -116,6 +116,35 @@ test('scheduled failed records remain pending, retry hourly, and cannot advance 
   });
 });
 
+test('restart after final retry commit reconciles durable success before returning complete', async () => {
+  await reset();
+  await scheduledDemo(async () => {
+    failStudents.add('risk-student'); await worker.evaluateScheduledAttendanceRisk(); failStudents.clear();
+    let crashed = false;
+    const later = new Date(due.getTime() + 3600000);
+    const database = { projectId: db.projectId, collection: db.collection.bind(db), runTransaction: (callback, options) => db.runTransaction(async tx => {
+      const set = tx.set.bind(tx);
+      tx.set = (ref, value, ...args) => {
+        if (!crashed && ref.path === 'attendanceRiskWorker/daily' && value.successfulDay === '2026-10-21') {
+          crashed = true; throw new Error('Synthetic final success checkpoint crash');
+        }
+        return set(ref, value, ...args);
+      };
+      return callback(tx);
+    }, options) };
+    await assert.rejects(() => install(database, () => later).evaluateScheduledAttendanceRisk(), /checkpoint crash/);
+    assert.equal((await db.doc('attendanceRiskRetries/risk-student').get()).exists, false);
+    assert.equal((await db.doc('attendanceRiskWorker/daily').get()).data().successfulDay, undefined);
+    const result = await install(db, () => later).evaluateScheduledAttendanceRisk();
+    assert.equal(result.status, 'complete');
+    const saved = (await db.doc('attendanceRiskWorker/daily').get()).data();
+    assert.equal(saved.successfulDay, '2026-10-21');
+    assert.equal(saved.lastSuccessfulCheckAt, later.toISOString());
+    assert.equal(saved.pendingRetries, false); assert.equal(saved.errorCode, null);
+    assert.equal((await notices()).length, 1);
+  });
+});
+
 test('scheduled lease blocks overlapping workers and expired ownership cannot commit', async () => {
   await reset();
   await scheduledDemo(async () => {

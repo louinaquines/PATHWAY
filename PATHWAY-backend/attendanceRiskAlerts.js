@@ -277,6 +277,13 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
       const pending = !(await tx.get(retries.limit(1))).empty;
       if (Date.parse(saved.leaseUntil) > now.getTime()) return summary('busy', true, pending);
       if (saved.scanDay === dueDate && saved.normalComplete && (!pending || saved.lastRetryHour === hour)) {
+        // A previous worker can commit its final retry, then die before recording success.
+        if (!pending && (saved.successfulDay !== dueDate || !Number.isFinite(Date.parse(saved.lastSuccessfulCheckAt)) || saved.pendingRetries || saved.errorCode)) {
+          const lastSuccessfulCheckAt = saved.successfulDay === dueDate && Number.isFinite(Date.parse(saved.lastSuccessfulCheckAt))
+            ? saved.lastSuccessfulCheckAt : now.toISOString();
+          tx.set(checkpoint, { ...saved, successfulDay: dueDate, lastSuccessfulCheckAt,
+            lastAttemptAt: now.toISOString(), pendingRetries: false, errorCode: null, leaseOwner: null, leaseUntil: null });
+        }
         return summary(pending ? 'pending' : 'complete', false, pending);
       }
       const calls = saved.rateHour === hour ? saved.rateCalls || 0 : 0;

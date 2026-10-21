@@ -45,6 +45,8 @@ The user approved automatic checks, free hosting, synthetic accounts only and no
 
 ## Task 1: Bounded scheduled worker and secure hosted entry point
 
+Execution: implemented locally; final combined verification and review-fix results are in AUTOMATIC-ATTENDANCE-CHECKS-ACCEPTANCE.md.
+
 **Files:** Modify PATHWAY-backend/attendanceRiskAlerts.js and server.js; create PATHWAY-backend/attendanceRiskSchedule.js and security-tests/attendance-risk-schedule.test.js; extend security-tests/attendance-risk-alerts.test.js; update Dockerfile packaging.
 
 **Interfaces:** POST /internal/attendance-risk/run accepts an empty object and returns only `{ status, hasMore, pendingRetries, dueDate }`, with no record counts or student IDs. Extend worker checkpoint semantics to distinguish daily scan completion from cursor rollover. Export installAttendanceRiskSchedule({ app, db, worker, clock }) from the new module.
@@ -57,6 +59,8 @@ The user approved automatic checks, free hosting, synthetic accounts only and no
 
 ## Task 2: Automatic workflow and visible coordinator status
 
+Execution: implemented locally; the original checklist below is retained as the approved task brief. No hosted activation has occurred.
+
 **Files:** Create .github/workflows/attendance-risk.yml; modify PATHWAY-backend/attendanceRiskSchedule.js, PATHWAY-web/src/pages/AnalyticsTab.js and AnalyticsTab.test.js; use existing Analytics stylesheet and request helper.
 
 **Interfaces:** GET /coordinator/attendance-risk-status returns `{ status, dueDate, lastAttemptAt, lastSuccessfulCheckAt }`; timestamps nullable ISO strings. Status is disabled, pending, complete or unavailable. No manual run route is exposed to coordinators.
@@ -68,6 +72,8 @@ The user approved automatic checks, free hosting, synthetic accounts only and no
 - [ ] Run the focused Analytics Jest tests and scheduling Node/emulator tests. Commit only task files.
 
 ## Task 3: Verification and activation handoff
+
+Execution: acceptance/runbook written, local verification performed, one independent review completed and its restart-recovery finding addressed. Activation remains a separate approval gate, not a missing manual button or an automatic deployment.
 
 **Files:** Update project-notes/ATTENDANCE-INTEGRATION-2026-10-21.md and project-notes/MANUSCRIPT-CHANGE-CHECKLIST.md; add a short activation/runbook section here.
 

@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'pathway-firebase-cli-'));
 const firebaseCli = path.join(path.dirname(require.resolve('firebase-tools/package.json')), 'lib', 'bin', 'firebase.js');
-const testFiles = process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js'];
+const testFiles = process.argv.includes('--risk-only') ? ['security-tests/attendance-risk-alerts.test.js'] : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', 'security-tests/attendance-risk-alerts.test.js'];
 const testCommand = process.argv.includes('--attendance-api')
   ? 'node --test --test-concurrency=1 --test-name-pattern="attendance excused API" security-tests/security.test.js'
   : `node --test --test-concurrency=1 ${testFiles.join(' ')}`;

@@ -663,6 +663,34 @@ test('backend health endpoint responds without exposing deployment details', asy
   assert.deepEqual(health.data, { status: 'ok' });
 });
 
+test('attendance risk API installs with real authentication and read audit allowlist', async () => {
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    await setDoc(doc(store, 'attendanceRiskStates', 'installed-risk-state'), { open: true });
+    await setDoc(doc(store, 'attendanceRiskNotices', 'installed-risk-notice'), {
+      recipientId: identities.coordinatorA.uid, studentId: identities.studentA.uid, sectionId: 'section-a',
+      kind: 'opened', riskTier: 'Medium', progressStatus: 'In progress', dataStatus: 'Ready',
+      reasonCodes: ['ATTENDANCE_BELOW_90'], ruleVersion: 'attendance-risk-v1', asOf: '2026-10-21', createdAt: '2026-10-21T00:15:00+08:00', read: false,
+      privateNarrative: 'NEVER EXPOSE',
+    });
+  });
+  const endpoint = '/coordinator/attendance-risk-notices';
+  assert.equal((await api(endpoint, null, undefined, 'GET')).response.status, 401);
+  for (const identity of [identities.studentA, identities.admin]) assert.equal((await api(endpoint, identity, undefined, 'GET')).response.status, 403);
+  const page = await api(endpoint, identities.coordinatorA, undefined, 'GET');
+  assert.equal(page.response.status, 200); assert.equal(page.data.records.some(n => n.id === 'installed-risk-notice'), true);
+  assert.equal(JSON.stringify(page.data).includes('NEVER EXPOSE'), false);
+  const read = await api(`${endpoint}/installed-risk-notice/read`, identities.coordinatorA, {});
+  assert.equal(read.response.status, 200); assert.equal(read.data.records[0].read, true);
+  assert.equal((await api(`${endpoint}/installed-risk-notice/read`, identities.coordinatorB, {})).response.status, 403);
+  assert.equal((await api('/coordinator/attendance-risk-evaluate', identities.coordinatorA, {})).response.status, 404);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    assert.equal((await getDoc(doc(context.firestore(), 'attendanceRiskStates', 'installed-risk-state'))).data().open, true);
+    const audit = await getDocs(query(collection(context.firestore(), 'auditLogs'), where('targetId', '==', 'installed-risk-notice')));
+    assert.equal(audit.size, 1); assert.equal(audit.docs[0].data().action, 'attendance.risk_notice_read');
+  });
+});
+
 test('AI refinement requires student auth, valid notes and consent, and stays disabled in emulators', async () => {
   assert.equal((await api('/refine-logbook', null, { notes: 'Synthetic notes', consent: true })).response.status, 401);
   assert.equal((await api('/refine-logbook', identities.coordinatorA, { notes: 'Synthetic notes', consent: true })).response.status, 403);

@@ -1,12 +1,13 @@
 const { attendanceAnalytics, attendanceWindow } = require('./attendanceAnalytics');
 const { readExcusedPolicy, assertAttendanceAccess, assertAttendanceFresh } = require('./attendanceExcusedDates');
 const timestampVersion = value => value ? { seconds: value.seconds, nanoseconds: value.nanoseconds } : null;
-async function loadAttendanceInputs(ref, student, section, today) {
-  const policySnapshot = await ref.firestore.collection('attendanceExcusedDates').doc(ref.id).get();
+async function loadAttendanceInputs(ref, student, section, today, reader) {
+  const read = target => reader ? reader.get(target) : target.get();
+  const policySnapshot = await read(ref.firestore.collection('attendanceExcusedDates').doc(ref.id));
   const policy = readExcusedPolicy(policySnapshot);
   const window = attendanceWindow(section.attendanceSchedule, today, policy.dates);
   const from = window?.from || today;
-  const records = await ref.collection('attendance').where('date', '>=', from).where('date', '<', today).limit(1001).get();
+  const records = await read(ref.collection('attendance').where('date', '>=', from).where('date', '<', today).limit(1001));
   if (records.size > 1000) throw new Error('Attendance record limit exceeded; coverage unavailable.');
   return { inputs: { today, creditedHours: student.hoursRendered, requiredHours: student.hoursRequired ?? section.hoursRequired,
     schedule: section.attendanceSchedule, excusedDates: policy.dates,

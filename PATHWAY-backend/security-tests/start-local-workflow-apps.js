@@ -123,6 +123,7 @@ async function main() {
     ...process.env,
     PATHWAY_LOCAL_WORKFLOW: '1',
     PATHWAY_WORKPLACE_REVIEW_LOCAL: '1',
+    PATHWAY_WORKPLACE_FAKE_DISPATCH: process.env.PATHWAY_WORKPLACE_FAKE_DISPATCH === '1' ? '1' : '0',
     PATHWAY_CLOUDINARY_QA: '1',
     HOST: '127.0.0.1',
     PORT: '3100',

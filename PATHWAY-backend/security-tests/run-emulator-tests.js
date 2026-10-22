@@ -11,12 +11,13 @@ const journalMigrationFiles = ['security-tests/workplace-journal-consent.test.js
 const workerFiles = ['security-tests/workplace-analysis-pricing.test.js', 'security-tests/workplace-journal-worker.test.js'];
 const concernFiles = ['security-tests/workplace-concern-detector.test.js', 'security-tests/workplace-concern-cases.test.js', 'security-tests/workplace-concern-review.test.js'];
 const claudeFiles = ['security-tests/workplace-claude-adapter.test.js', 'security-tests/workplace-claude-pilot.test.js', 'security-tests/workplace-claude-workflow.test.js'];
+const dispatchFiles = ['security-tests/workplace-local-dispatch.test.js', 'security-tests/workplace-local-flow.test.js'];
 const testFiles = process.argv.includes('--workplace-concerns-only') ? [...workerFiles, ...concernFiles] : process.argv.includes('--workplace-worker-only') ? workerFiles : process.argv.includes('--journal-migration-only') ? journalMigrationFiles : process.argv.includes('--workplace-budget-only') ? budgetFiles : process.argv.includes('--risk-only') ? riskFiles : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', ...riskFiles, ...budgetFiles, ...journalMigrationFiles, ...workerFiles, ...concernFiles];
 const testCommand = process.argv.includes('--workplace-ui-only')
   ? 'node --test --test-concurrency=1 --test-name-pattern="local workplace review API" security-tests/security.test.js'
   : process.argv.includes('--attendance-api')
   ? 'node --test --test-concurrency=1 --test-name-pattern="attendance excused API" security-tests/security.test.js'
-  : `node --test --test-concurrency=1 ${(process.argv.includes('--workplace-claude-only') ? claudeFiles : [...testFiles, ...claudeFiles]).join(' ')}`;
+  : `node --test --test-concurrency=1 ${(process.argv.includes('--workplace-dispatch-only') ? dispatchFiles : process.argv.includes('--workplace-claude-only') ? claudeFiles : [...testFiles, ...claudeFiles, ...dispatchFiles]).join(' ')}`;
 const emulatorCache = path.join(__dirname, '..', '.firebase-cache');
 const rootDir = path.resolve(__dirname, '..', '..');
 const ports = {

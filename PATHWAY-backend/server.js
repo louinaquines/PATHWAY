@@ -86,7 +86,11 @@ async function requireUser(req, res, next) {
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
 require('./workplaceJournalConsent').installWorkplaceJournalConsent({ app, db: adminDb, requireUser, allowRate, audit: writeAuditInTransaction });
-require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit: writeAuditInTransaction });
+// Hosted/default entry points never load the synthetic analyzer or start a worker.
+const workplaceLocalDispatch = require('./workplaceLocalDispatch').localDispatchAllowed(adminDb, process.env)
+  ? require('./security-tests/workplace-local-runtime').createLocalRuntime({ db: adminDb }) : null;
+require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement,
+  audit: writeAuditInTransaction, onJournalQueued: workplaceLocalDispatch ? () => workplaceLocalDispatch.wake() : undefined });
 require('./workplaceConcernReview').installWorkplaceConcernReview({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction,
   enabled: process.env.PATHWAY_WORKPLACE_REVIEW_LOCAL === '1' && process.env.PATHWAY_LOCAL_WORKFLOW === '1'
     && adminDb.projectId === 'demo-pathway-security' });
@@ -2643,6 +2647,15 @@ const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST?.trim();
 const onListening = () => {
   console.log(`Backend running on ${host ? `${host}:` : ''}${port}`);
+  if (workplaceLocalDispatch) {
+    console.log('FIXED SYNTHETIC workplace simulation enabled; no Claude calls. Recovery target: 15 minutes while this process is awake.');
+    void workplaceLocalDispatch.start();
+  }
 };
-if (host) app.listen(port, host, onListening);
-else app.listen(port, onListening);
+const httpServer = host ? app.listen(port, host, onListening) : app.listen(port, onListening);
+if (workplaceLocalDispatch) {
+  httpServer.once('close', () => workplaceLocalDispatch.stop());
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+    workplaceLocalDispatch.stop(); httpServer.close();
+  });
+}

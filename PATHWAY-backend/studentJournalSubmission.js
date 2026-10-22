@@ -14,7 +14,7 @@ function reportingWeek(now) {
   const sunday = new Date(monday); sunday.setUTCDate(sunday.getUTCDate() + 6);
   return `${monday.toISOString().slice(0, 10)} – ${sunday.toISOString().slice(0, 10)}`;
 }
-function installStudentJournalSubmission({ app, db, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit, clock = () => new Date() }) {
+function installStudentJournalSubmission({ app, db, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit, onJournalQueued, clock = () => new Date() }) {
   app.post('/student/journals', requireUser, async (req, res) => {
     res.set('Cache-Control', 'private, no-store');
     try {
@@ -81,6 +81,10 @@ function installStudentJournalSubmission({ app, db, requireUser, allowRate, asse
         return response;
       });
       res.json(result);
+      // A committed receipt stays successful even if scheduling fails or analysis is delayed.
+      if (result.analysisStatus === 'queued' && onJournalQueued) {
+        Promise.resolve().then(() => onJournalQueued(digest([uid, result.entryId, result.revision]))).catch(() => {});
+      }
     } catch (error) { res.status(error.status || 500).json({ error: error.status ? error.message : 'Could not submit your journal. Keep your notes and retry.' }); }
   });
 }

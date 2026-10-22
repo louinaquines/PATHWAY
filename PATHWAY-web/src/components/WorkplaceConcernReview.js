@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import '../pages/NotificationsTab.css';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 const root = '/coordinator/workplace-concerns';
 const newIdentity = () => globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Array.from(globalThis.crypto.getRandomValues(new Uint32Array(4))).join('-');
 export default function WorkplaceConcernReview({ access, request = adminRequest }) {
@@ -9,6 +11,7 @@ export default function WorkplaceConcernReview({ access, request = adminRequest 
   const [priority,setPriority] = useState('normal'), [cursor,setCursor] = useState(null), [hasMore,setHasMore] = useState(false);
   const [noticeCursor,setNoticeCursor] = useState(null), [moreNotices,setMoreNotices] = useState(false);
   const alive = useRef(false), pending = useRef(false), generation = useRef(0), identity = useRef(null);
+  const assignments = useRef(new Map());
   const current = () => alive.current && access?.isCurrent();
   const accepted = run => current() && generation.current === run;
   const post = (path,body = {}) => request(`${root}${path}`,{ method: 'POST', body: JSON.stringify(body), deadlineMs: 15000 });
@@ -35,6 +38,22 @@ export default function WorkplaceConcernReview({ access, request = adminRequest 
     alive.current = true; pending.current = false; load();
     return () => { alive.current = false; generation.current++; pending.current = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const studentReferences = JSON.stringify([...new Set(records.map(item => item.studentId).concat(selected?.studentId || []))].sort());
+  useEffect(() => {
+    // Profile listeners only invalidate private state; API checks remain the authority.
+    const stops = JSON.parse(studentReferences).map(id => onSnapshot(doc(db,'users',id),{ includeMetadataChanges: true },snap => {
+      if (!current()) return;
+      const student = snap.data();
+      if (!student && snap.metadata?.fromCache) return;
+      if (student?.role !== 'student' || !student.sectionId) { access.onDenied(); return; }
+      const signature = JSON.stringify([student.sectionId,student.department]);
+      if (assignments.current.has(id) && assignments.current.get(id) !== signature) access.onDenied();
+      else assignments.current.set(id,signature);
+    },() => { if (current()) access.onDenied(); }));
+    return () => stops.forEach(stop => stop());
+  // Access is scoped to the mounted boundary; generations reject its stale responses.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[studentReferences]);
   async function open(id,preserveDraft = false) {
     if (pending.current || !current()) return;
     const run = ++generation.current; pending.current = true; setBusy(true); setError('');

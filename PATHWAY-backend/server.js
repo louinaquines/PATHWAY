@@ -87,6 +87,9 @@ async function requireUser(req, res, next) {
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
 require('./workplaceJournalConsent').installWorkplaceJournalConsent({ app, db: adminDb, requireUser, allowRate, audit: writeAuditInTransaction });
 require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit: writeAuditInTransaction });
+require('./workplaceConcernReview').installWorkplaceConcernReview({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction,
+  enabled: process.env.PATHWAY_WORKPLACE_REVIEW_LOCAL === '1' && process.env.PATHWAY_LOCAL_WORKFLOW === '1'
+    && adminDb.projectId === 'demo-pathway-security' });
 
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
@@ -1930,6 +1933,8 @@ const AUDIT_ACTIONS = new Set([
   'final_review.submitted', 'final_review.resubmitted', 'roster.updated', 'announcement.sent',
   'academic_term.created', 'academic_term.updated', 'academic_term.activated',
   'settings.updated', 'dtr.review_saved',
+  'workplace.concern_notice_read', 'workplace.concern_review', 'workplace.concern_contact',
+  'workplace.concern_act', 'workplace.concern_resolve', 'workplace.concern_dismiss_false_positive', 'workplace.concern_change_priority',
 ]);
 
 async function recordAudit({ actorId, actorRole, action, targetType, targetId, details = {} }) {

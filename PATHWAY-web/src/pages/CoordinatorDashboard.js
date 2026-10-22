@@ -30,6 +30,8 @@ import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCateg
 import { downloadSectionExcel } from '../sectionExport';
 import './RequirementsWorkspace.css';
 import './CoordinatorProfile.css';
+import WorkplaceConcernsTab from './WorkplaceConcernsTab';
+import { localWorkplaceReviewEnabled } from '../localWorkplaceReview';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -49,6 +51,7 @@ const STATUS_TEXT = {
 
 const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const HEADER_DESCRIPTIONS = {
+  concerns: 'Private local review of potential workplace concerns. Automatic analysis remains off.',
   requirements: 'Review student documents and submission status.',
   sections: 'Manage class sections, students, and requirements.',
   logbook: 'Review student attendance and weekly journals.',
@@ -68,6 +71,7 @@ const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
 function getSavedCoordinatorTab() {
   const savedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  if (savedTab === 'concerns') return localWorkplaceReviewEnabled() ? 'concerns' : 'requirements';
   return COORDINATOR_TABS.includes(savedTab) ? savedTab : 'requirements';
 }
 
@@ -271,6 +275,7 @@ export default function CoordinatorDashboard() {
         { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
         { id: 'sections', icon: 'section', label: 'Sections' },
         { id: 'logbook', icon: 'book', label: 'Logbook' },
+        ...(localWorkplaceReviewEnabled() ? [{ id: 'concerns',icon: 'bell',label: 'Workplace concerns' }] : []),
         { id: 'placements', icon: 'building', label: 'Company Placements' },
         { id: 'companies', icon: 'building', label: 'Company Directory' },
         { id: 'messages', icon: 'chat', label: 'Messages' },
@@ -371,6 +376,7 @@ export default function CoordinatorDashboard() {
               {activeTab === 'requirements' ? 'Requirements Approval' :
                 activeTab === 'sections' ? 'Sections Management' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
+                            activeTab === 'concerns' ? 'Private Workplace Concerns' :
                             activeTab === 'placements' ? 'Company Placements' :
                               activeTab === 'companies' ? 'Company Directory' :
                               activeTab === 'messages' ? 'Messages' :
@@ -648,6 +654,7 @@ export default function CoordinatorDashboard() {
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'logbook' && <LogbookTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
+            {activeTab === 'concerns' && <WorkplaceConcernsTab coordinatorId={coordinatorId} />}
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab sections={sections} selectedSection={selectedSection} onSectionChange={fetchStudents} />}

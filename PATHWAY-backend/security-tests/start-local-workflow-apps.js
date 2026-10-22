@@ -101,6 +101,7 @@ async function main() {
     EXPO_NO_DOTENV: '1',
     EXPO_PUBLIC_FIREBASE_EMULATOR_HOST: '127.0.0.1',
     EXPO_PUBLIC_BACKEND_URL: 'http://127.0.0.1:3100',
+    EXPO_PUBLIC_JOURNAL_BACKEND_SUBMISSION: '1',
     EXPO_OFFLINE: '1',
     EXPO_NO_TELEMETRY: '1',
   };
@@ -121,6 +122,7 @@ async function main() {
   const backendEnvironment = {
     ...process.env,
     PATHWAY_LOCAL_WORKFLOW: '1',
+    PATHWAY_WORKPLACE_REVIEW_LOCAL: '1',
     PATHWAY_CLOUDINARY_QA: '1',
     HOST: '127.0.0.1',
     PORT: '3100',
@@ -145,6 +147,7 @@ async function main() {
     ...process.env,
     BROWSER: 'none', HOST: '127.0.0.1', PORT: '3001',
     REACT_APP_LOCAL_EMULATOR: '1',
+    REACT_APP_WORKPLACE_REVIEW_LOCAL: '1',
     REACT_APP_BACKEND_URL: 'http://127.0.0.1:3100',
     REACT_APP_FIREBASE_API_KEY: 'demo-key',
     REACT_APP_FIREBASE_AUTH_DOMAIN: 'demo-pathway-security.firebaseapp.com',

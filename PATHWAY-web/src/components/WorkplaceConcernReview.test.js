@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import WorkplaceConcernReview from './WorkplaceConcernReview';
 import { adminRequest } from '../adminApi';
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
+jest.mock('../firebase', () => ({ db: {} }));
+jest.mock('firebase/firestore', () => ({ doc: jest.fn(),onSnapshot: jest.fn(() => () => {}) }));
 const root = '/coordinator/workplace-concerns';
 const row = { id: 'case-one', title: 'Potential workplace concern—needs review', studentId: 'synthetic-student', priority: 'high', state: 'open', version: 1, deliveryState: 'delivered' };
 const evidence = 'PRIVATE original threat excerpt';

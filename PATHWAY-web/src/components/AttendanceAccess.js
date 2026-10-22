@@ -4,7 +4,7 @@ import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 // Server requests authorize every operation; subscriptions only invalidate local private state.
-export default function AttendanceAccess({ actorId, sectionId, children }) {
+export default function AttendanceAccess({ actorId, sectionId, children, deniedMessage = 'Attendance access changed. Select a currently assigned section or sign in again.' }) {
   const [epoch, setEpoch] = useState(0), [denied, setDenied] = useState(false);
   const version = useRef(0), mounted = useRef(true);
   const user = auth.currentUser;
@@ -45,7 +45,7 @@ export default function AttendanceAccess({ actorId, sectionId, children }) {
   // The parent keys this boundary by actor and target.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actorId, sectionId, user]);
-  if (denied || !actorId || user?.uid !== actorId) return <p role="alert">Attendance access changed. Select a currently assigned section or sign in again.</p>;
+  if (denied || !actorId || user?.uid !== actorId) return <p role="alert">{deniedMessage}</p>;
   const generation = version.current;
   const isCurrent = () => mounted.current && generation === version.current && auth.currentUser === user && user?.uid === actorId;
   return <Fragment key={epoch}>{children({ onDenied: invalidate, isCurrent })}</Fragment>;

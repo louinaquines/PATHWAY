@@ -305,7 +305,7 @@ before(async () => {
       CLOUDINARY_CLOUD_NAME: 'pathway-test', CLOUDINARY_API_KEY: '123456789',
       CLOUDINARY_API_SECRET: 'emulator-only-not-a-real-secret',
       CLOUDINARY_API_BASE_URL: cloudinaryServerUrl,
-      PATHWAY_LOCAL_WORKFLOW: '1', SMTP_HOST: '127.0.0.1',
+      PATHWAY_LOCAL_WORKFLOW: '1', PATHWAY_WORKPLACE_REVIEW_LOCAL: '1', SMTP_HOST: '127.0.0.1',
       EVALUATION_WEB_URL: 'http://127.0.0.1:3001',
       SMTP_PORT: String(smtpServer.server.address().port),
       SMTP_FROM: 'pathway-test@example.invalid', SMTP_USER: 'pathway-test-user', SMTP_PASSWORD: 'pathway-test-smtp-password-not-real',
@@ -339,6 +339,34 @@ after(async () => {
   if (cloudinaryServer) await new Promise(resolve => cloudinaryServer.close(resolve));
   if (smtpServer) await new Promise(resolve => smtpServer.close(resolve));
   if (testEnv) await testEnv.cleanup();
+});
+
+test('local workplace review API is registered with coordinator auth but rejects anonymous and student access', async () => {
+  const root = '/coordinator/workplace-concerns/list';
+  assert.equal((await api(root, undefined, {})).response.status,401);
+  assert.equal((await api(root, identities.studentA, {})).response.status,403);
+  const result = await api(root, identities.coordinatorA, {});
+  assert.equal(result.response.status,200); assert.deepEqual(result.data.records,[]);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    await setDoc(doc(store,'workplaceConcernCases','ui-case'),{ studentId: identities.studentA.uid,state: 'open',version: 1,
+      priority: 'high',history: [],findings: [],createdAt: new Date().toISOString() });
+    await setDoc(doc(store,'workplaceConcernNotices','ui-notice'),{ caseId: 'ui-case',recipientId: identities.coordinatorA.uid,priority: 'high',read: false });
+    await setDoc(doc(store,'workplaceConcernCases','ui-dismiss'),{ studentId: identities.studentA.uid,state: 'open',version: 1,
+      priority: 'normal',history: [],findings: [],createdAt: new Date().toISOString() });
+  });
+  const read = await api('/coordinator/workplace-concerns/notices/ui-notice/read',identities.coordinatorA,{});
+  assert.equal(read.response.status,200);
+  let version = 1;
+  for (const [action,extra] of [['review',{}],['contact',{ note: 'Synthetic contact',outcome: 'success' }],['act',{ note: 'Synthetic action' }],
+    ['change_priority',{ priority: 'normal',note: 'Synthetic priority review' }],['resolve',{ note: 'Synthetic resolution' }]]) {
+    const changed = await api('/coordinator/workplace-concerns/ui-case/action',identities.coordinatorA,{ action,expectedVersion: version,requestId: `ui-${action}`,...extra });
+    assert.equal(changed.response.status,200,action); version = changed.data.version;
+  }
+  const dismissed = await api('/coordinator/workplace-concerns/ui-dismiss/action',identities.coordinatorA,
+    { action: 'dismiss_false_positive',expectedVersion: 1,requestId: 'ui-dismiss',note: 'Synthetic false-positive reason' });
+  assert.equal(dismissed.response.status,200);
+  assert.equal(dismissed.data.state,'dismissed_false_positive');
 });
 
 test('Firestore rules scope profile reads and protect privileged student fields', async () => {

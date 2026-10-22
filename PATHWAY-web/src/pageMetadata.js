@@ -4,6 +4,7 @@ const descriptions = {
   sections: 'Manage OJT sections, requirements, and student assignments in PATHWAY.',
   companies: 'View the PATHWAY partner company directory and internship capacity.',
   logbook: 'Review student OJT logbook submissions in PATHWAY.',
+  concerns: 'Private local coordinator review of potential workplace concerns in PATHWAY.',
   registrations: 'Review student registrations in PATHWAY.',
   classlist: 'Manage the authorized student roster in PATHWAY.',
   analytics: 'Monitor OJT progress and attendance analytics in PATHWAY.',

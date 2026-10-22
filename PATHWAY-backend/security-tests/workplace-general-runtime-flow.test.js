@@ -83,7 +83,8 @@ test('usage overflow triggers the real worker price brake with retained reservat
 test('historical receipts, wrong emulator context and canonical ledger paths are refused', async () => {
   assert.equal(typeof runtime.createSyntheticStageClaims, 'function');
   assert.throws(() => runtime.createSyntheticStageClaims({ db: f.db, env: { ...env, GOOGLE_CLOUD_PROJECT: 'other' }, enabled: true }));
-  assert.throws(() => runtime.createSyntheticLocalAccounting({ file: path.resolve(__dirname, '../../output/release/workplace-claude-pilot-reservations.jsonl') }));
+  assert.throws(() => runtime.createSyntheticLocalAccounting({ file: path.resolve(__dirname, '../../output/release/workplace-claude-pilot-reservations.jsonl'),
+    attemptId: 'synthetic-path-check', sessionId: randomUUID(), day: '2026-10-22', clock: f.clock }));
   const h = await harness();
   const claims = runtime.createSyntheticStageClaims({ db: f.db, env, enabled: true, studentId: 'c-student', requestId: h.requestId,
     requestHash: digest(h.prepared.request), sessionId: randomUUID(), day: '2026-10-22', clock: f.clock });
@@ -181,4 +182,36 @@ test('worker analyzer timeout aborts a stalled count, without a second transport
   await h.run(); assert.equal(aborted, true); assert.deepEqual(calls, { count: 1, generation: 0 });
   assert.equal(h.a.isStopped(), true); assert.equal(h.a.snapshot().attempts, 1);
   assert.equal((await f.db.collection('workplaceConcernCases').get()).size, 0);
+});
+
+test('committed stage writes with lost acknowledgements never authorize replay or the next transport', async () => {
+  for (const boundary of ['count', 'accepted', 'generation']) {
+    await f.reset(); let injected = false;
+    const db = new Proxy(f.db, { get(target, key) {
+      if (key === 'runTransaction') return async callback => {
+        let stage;
+        const result = await target.runTransaction(tx => callback(new Proxy(tx, { get(transaction, method) {
+          if (method === 'create' || method === 'update') return (ref, value) => {
+            if (ref.path.startsWith('workplaceSyntheticStageClaims/') && value.stage === boundary) stage = value.stage;
+            return transaction[method](ref, value);
+          };
+          const value = Reflect.get(transaction, method, transaction); return typeof value === 'function' ? value.bind(transaction) : value;
+        } })));
+        if (stage === boundary && !injected) { injected = true; throw Error('Synthetic lost stage acknowledgement'); }
+        return result;
+      };
+      const value = Reflect.get(target, key, target); return typeof value === 'function' ? value.bind(target) : value;
+    } });
+    const before = { ...calls }, h = await harness({ db }); await h.run();
+    assert.equal(injected, true);
+    assert.equal((await f.db.doc(`workplaceSyntheticStageClaims/${digest([h.jobId, 1])}`).get()).data().stage, boundary);
+    assert.equal(calls.count - before.count, boundary === 'count' ? 0 : 1);
+    assert.equal(calls.generation - before.generation, 0);
+    assert.equal(h.a.isStopped(), true); assert.equal(h.a.snapshot().attempts, 1);
+    const after = { ...calls }; await h.run(); assert.deepEqual(calls, after);
+    const restarted = runtime.createSyntheticStageClaims({ db: f.db, env, enabled: true, studentId: 'c-student', requestId: h.requestId,
+      requestHash: digest(h.prepared.request), sessionId: randomUUID(), day: '2026-10-22', clock: f.clock });
+    await assert.rejects(restarted.arm()); assert.deepEqual(calls, after);
+    assert.equal((await f.db.collection('workplaceConcernCases').get()).size, 0);
+  }
 });

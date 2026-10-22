@@ -10,7 +10,7 @@
 - Private, in-app coordinator alerts only. No automatic company contact, email, academic decisions, or placement changes.
 - Human workflow: review → contact → act → resolve. Reading does not resolve. Unreachable students remain open for follow-up.
 - False-positive disposition approved on 2026-10-22: the currently authorized coordinator may dismiss an AI-generated case with a required written reason without contacting the student. Dismissal is distinct from resolving a genuine concern and does not modify direct support reports or academic records.
-- Retention approved on 2026-10-22: keep flagged excerpts and review notes while a case is open, delete them 90 days after resolution, and keep only a minimal audit record afterward. This approval is for local-only implementation, not deployment or processing real student data. The minimal audit must exclude excerpts and free-text notes; its precise fields and retention duration still need definition before release.
+- Retention approved on 2026-10-22: keep flagged excerpts and review notes while a case is open, delete those sensitive details 90 days after closure, and retain minimal audit metadata for 12 calendar months after closure. This approval is local-only, not deployment or real-student processing. Allowed fields, UTC anniversary arithmetic, linked-copy cleanup and verification are recorded in WORKPLACE-SAFEGUARDS-ACCEPTANCE.md. Original journals and backup exports have separate retention; no legal compliance claim is made.
 - Begin background analysis after successful submission; use a 15-minute recovery-check target for interrupted or queued jobs. Free hosting may delay checks beyond that interval; no guaranteed response time.
 - Synthetic capstone testing only: automatic processing disabled by default and enabled only for explicitly authorized test windows. Maximum 10 provider attempts and $0.10 reserved spend per UTC day, including retries; stop at either bound. UTC accounting is an implementation proposal, not yet a user-selected reset time.
 
@@ -64,6 +64,6 @@ Use existing consistent UI components; coordinator-only details must not leak th
 
 1. Verify implementation feasibility for immediate dispatch and a 15-minute recovery target; obtain hosted enablement authorization separately.
 2. Verify current model pricing and reservation bounds before any automatic paid test. Confirm UTC versus Philippine-time daily reset before connecting the guard to a user-visible allowance.
-3. The minimal audit record's fields/retention duration before release. Evidence retention and reason-required false-positive dismissal are approved above. No indefinite retention claim or live cleanup is authorized by this document.
+3. Update 2026-10-22: user approved minimal audit retention for 12 months after closure, without excerpts or free-text notes. Evidence still expires 90 days after closure. Detailed cleanup implementation, associated-copy handling and local verification are in the safeguards plan; no production cleanup is authorized.
 
 Next step: review/approve this design, settle the operational decisions, then create a small staged implementation plan. Do not start provider-triggering product code from this document alone.

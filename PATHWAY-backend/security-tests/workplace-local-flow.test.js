@@ -61,3 +61,43 @@ test('no-concern fixture is processed without a case; exhausted daily budget def
   const jobs = (await f.db.collection('workplaceJournalAnalysisJobs').get()).docs.map(d => d.data());
   const delayed = jobs.find(j => j.delayReason === 'daily-limit'); assert.equal(delayed.state, 'queued'); assert.equal(delayed.attempts, 0); assert.equal(await f.case(), undefined);
 });
+
+test('competing first submissions and separate runtimes produce one durable job and notification', async () => {
+  const results = await Promise.all([submit(), submit(), submit()]);
+  assert.ok(results.every(r => r.status === 200)); assert.ok(results.every(r => r.data.entryId === results[0].data.entryId));
+  const other = createLocalRuntime({ db: f.db, env, clock: f.clock });
+  try { await Promise.all([runtime.start(), other.start()]); await runtime.wake(); }
+  finally { other.stop(); }
+  assert.equal((await f.db.collection(`users/c-student/logbook`).get()).size, 2); // one pre-existing fixture plus one new entry
+  assert.equal((await f.db.collection('workplaceJournalAnalysisJobs').get()).size, 1);
+  assert.equal((await job()).data().attempts, 1);
+  assert.equal((await f.db.collection('workplaceConcernCases').get()).size, 1);
+  assert.equal((await f.db.collection('workplaceConcernNotices').get()).size, 1);
+});
+
+test('mid-analysis revision, consent and expired lease discard stale dispatch results', async () => {
+  const { createLocalAnalyzer } = require('./workplace-local-analyzer');
+  for (const mode of ['revision','withdraw','lease']) {
+    runtime.stop(); await f.reset();
+    const analyzer = createLocalAnalyzer(), analyze = analyzer.analyze;
+    analyzer.analyze = async prepared => {
+      const j = await job();
+      if (mode === 'revision') await f.db.doc(`users/c-student/logbook/${j.data().entryId}`).update({ sourceRevision: 2 });
+      if (mode === 'withdraw') await f.db.doc('workplaceJournalConsents/c-student').update({ granted: false, revision: 2 });
+      if (mode === 'lease') f.setTime('2026-10-22T12:02:00Z');
+      return analyze(prepared);
+    };
+    runtime = createLocalRuntime({ db: f.db, env, clock: f.clock, analyzer });
+    await submit(); await runtime.start();
+    const saved = (await job()).data(); assert.equal(saved.state, mode === 'lease' ? 'sending' : 'cancelled'); assert.equal(saved.attempts, 1);
+    assert.equal(await f.case(), undefined); assert.equal((await f.db.collection('workplaceConcernNotices').get()).size, 0);
+    await runtime.wake(); assert.equal((await job()).data().attempts, 1); assert.equal(await f.case(), undefined);
+  }
+});
+
+test('explicit local startup cleans expired evidence without a coordinator screen or provider', async () => {
+  await f.db.doc('workplaceConcernCases/local-old').set({ state: 'resolved', studentId: 'c-student', closedAt: '2026-07-01T00:00:00Z',
+    findings: [{ quote: 'PRIVATE old evidence' }], history: [{ note: 'PRIVATE old notes' }] });
+  await runtime.start(); const old = (await f.db.doc('workplaceConcernCases/local-old').get()).data();
+  assert.equal(old.evidencePurged, true); assert.equal(old.findings, undefined); assert.equal(JSON.stringify(old).includes('PRIVATE'), false);
+});

@@ -9,8 +9,8 @@ const decision = () => ({ version: 'workplace-concern-v1', findings: [{ category
 async function concernFixture(install, { liveClock = false } = {}) {
   if (!/^(127\.0\.0\.1|localhost):\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST || '')) throw Error('Local emulator required');
   const admin = initializeApp({ projectId: 'demo-pathway-security' }, `concern-${Date.now()}-${Math.random()}`), db = getFirestore(admin);
-  let instant = Date.parse('2026-10-22T12:00:00Z'), failAudit = false, afterAuth;
-  const clock = () => liveClock ? new Date() : new Date(instant), app = express(); app.use(express.json());
+  let instant = Date.parse('2026-10-22T12:00:00Z'), failAudit = false, afterAuth, clockOverride;
+  const clock = () => clockOverride ? clockOverride() : liveClock ? new Date() : new Date(instant), app = express(); app.use(express.json());
   const requireStaff = async (req, res, next) => {
     const uid = req.headers.actor;
     if (!uid) return res.status(401).json({ error: 'Authentication required.' });
@@ -34,7 +34,7 @@ async function concernFixture(install, { liveClock = false } = {}) {
   if (install) install({ app, db, requireStaff, requireUser, assertRecordsOpen, assertActivePlacement, allowRate: () => true, audit, clock, enabled: true });
   const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
   async function reset() {
-    instant = Date.parse('2026-10-22T12:00:00Z'); failAudit = false; afterAuth = null;
+    instant = Date.parse('2026-10-22T12:00:00Z'); failAudit = false; afterAuth = null; clockOverride = null;
     analyzer.analyze = async () => ({ usage: { inputTokens: 100, outputTokens: 100 }, decision: decision() });
     for (const col of ['workplaceConcernCases','workplaceConcernNotices','workplaceConcernReceipts','workplaceConcernWorker',
       'workplaceJournalAnalysisJobs','workplaceJournalWorker','workplaceAnalysisBudgetDays','workplaceAnalysisBudgetAttempts','auditLogs',
@@ -57,7 +57,7 @@ async function concernFixture(install, { liveClock = false } = {}) {
   }
   const analyzer = { prepare: () => ({ model: 'claude-haiku-5-5', inputTokenUpperBound: 10000, maxOutputTokens: 2048, features: FEATURES, request: 'synthetic-only' }),
     analyze: async () => ({ usage: { inputTokens: 100, outputTokens: 100 }, decision: decision() }) };
-  return { db, app, clock, job, reset, seedPilot, analyzer, setTime: value => { instant = Date.parse(value); },
+  return { db, app, clock, job, reset, seedPilot, analyzer, setTime: value => { instant = Date.parse(value); }, setClock: value => { clockOverride = value; },
     setAfterAuth: value => { afterAuth = value; }, setFailAudit: value => { failAudit = value; },
     async post(path, body = {}, actor = 'c-coord') {
       const res = await fetch(`http://127.0.0.1:${server.address().port}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...(actor ? { actor } : {}) }, body: JSON.stringify(body) });

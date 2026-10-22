@@ -5,7 +5,7 @@ function localDispatchAllowed(db, env) {
     && local(env.FIRESTORE_EMULATOR_HOST) && local(env.FIREBASE_AUTH_EMULATOR_HOST)
     && env.NODE_ENV !== 'production' && !env.K_SERVICE;
 }
-function createWorkplaceLocalDispatch({ db, env = process.env, runBatch, setIntervalFn = setInterval, clearIntervalFn = clearInterval }) {
+function createWorkplaceLocalDispatch({ db, env = process.env, runBatch, runRecovery, setIntervalFn = setInterval, clearIntervalFn = clearInterval }) {
   const allowed = localDispatchAllowed(db, env);
   let started = false, stopped = false, timer, active, pending = false;
   function wake() {
@@ -13,6 +13,7 @@ function createWorkplaceLocalDispatch({ db, env = process.env, runBatch, setInte
     if (active) { pending = true; return active; }
     // Defer execution until active is assigned, including synchronously throwing workers.
     active = Promise.resolve().then(async () => {
+      if (!stopped && runRecovery) { try { await runRecovery(); } catch { /* Durable recovery can retry on the next wake. */ } }
       for (let batches = 0; batches < 4 && !stopped; batches++) {
         pending = false;
         let result;

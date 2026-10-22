@@ -92,9 +92,9 @@ test('exact expiry suppresses evidence before cleanup and cleanup preserves open
   await action('dismiss_false_positive', { note: 'PRIVATE explanatory notes' });
   f.setTime('2027-01-20T11:59:59.999Z'); assert.equal((await f.post(`${root}/${id}/detail`)).data.findings.length, 1);
   f.setTime('2027-01-20T12:00:00.000Z'); const expired = await f.post(`${root}/${id}/detail`);
-  assert.equal(expired.data.evidenceExpired, true); assert.equal(expired.data.findings, undefined); assert.equal(expired.data.history, undefined);
+  assert.equal(expired.data.evidenceExpired, true); assert.equal(expired.data.findings, undefined); assert.equal(expired.data.history[0].note, undefined);
   await purgeExpiredConcernEvidence({ db: f.db, clock: f.clock, limit: 20 });
-  const purged = (await f.case()).data(); assert.equal(purged.evidencePurged, true); assert.equal(purged.findings, undefined); assert.equal(purged.history, undefined);
+  const purged = (await f.case()).data(); assert.equal(purged.evidencePurged, true); assert.equal(purged.findings, undefined); assert.equal(purged.history[0].note, undefined);
   assert.equal(JSON.stringify(purged).includes('PRIVATE'), false);
   assert.ok((await f.db.doc('users/c-student/logbook/entry').get()).data().rawNotes);
   await purgeExpiredConcernEvidence({ db: f.db, clock: f.clock, limit: 20 });
@@ -115,5 +115,86 @@ test('cleanup racing a closed-case action never restores sensitive evidence or r
   const [cleanup, attempted] = await Promise.all([purgeExpiredConcernEvidence({ db: f.db, clock: f.clock }), action('review')]);
   assert.equal(cleanup.status, 'complete'); assert.equal(attempted.status, 409);
   const saved = (await f.case()).data(); assert.equal(saved.state, 'dismissed_false_positive');
-  assert.equal(saved.findings, undefined); assert.equal(saved.history, undefined);
+  assert.equal(saved.findings, undefined); assert.equal(saved.history[0].note, undefined);
+});
+
+test('closed audit survives without notes at ninety days, then all endpoints hide it at twelve months', async () => {
+  const body = { action: 'dismiss_false_positive', expectedVersion: 1, requestId: 'retention-close', note: 'PRIVATE closure' };
+  assert.equal((await f.post(`${root}/${id}/action`, body)).status, 200);
+  const notices = await f.post(`${root}/notices/list`), noticeId = notices.data.records[0].id;
+  assert.equal((await f.case()).data().auditDeleteAt, '2027-10-22T12:00:00.000Z');
+  f.setTime('2027-01-20T12:00:00Z');
+  const safe = (await f.post(`${root}/${id}/detail`)).data;
+  assert.equal(safe.evidenceExpired, true); assert.equal(safe.history[0].action, 'dismiss_false_positive');
+  assert.equal(JSON.stringify(safe).includes('PRIVATE'), false);
+  f.setTime('2027-10-22T12:00:00Z');
+  assert.deepEqual((await f.post(`${root}/list`)).data.records, []);
+  assert.deepEqual((await f.post(`${root}/notices/list`)).data.records, []);
+  for (const path of [`/${id}/detail`, `/notices/${noticeId}/read`]) assert.equal((await f.post(root + path)).status, 403);
+  assert.equal((await f.post(`${root}/${id}/action`, body)).status, 403);
+});
+
+test('malformed closed timestamps hide the whole case; valid legacy closure derives anniversary', async () => {
+  await (await f.case()).ref.update({ state: 'resolved', closedAt: '2026-10-22T12:00:00Z' });
+  f.setTime('2027-10-22T12:00:00Z'); assert.equal((await f.post(`${root}/${id}/detail`)).status, 403);
+  f.setTime('2026-10-23T00:00:00Z'); await (await f.case()).ref.update({ closedAt: 'bad' });
+  assert.deepEqual((await f.post(`${root}/list`)).data.records, []);
+  assert.equal((await f.post(`${root}/${id}/detail`)).status, 403);
+});
+
+test('expiry between initial access and fresh response suppresses detail, lists and receipt replay', async () => {
+  const body = { action: 'dismiss_false_positive', expectedVersion: 1, requestId: 'cross-boundary', note: 'PRIVATE' };
+  assert.equal((await f.post(`${root}/${id}/action`, body)).status, 200);
+  for (const [path, payload] of [[`${root}/${id}/detail`, {}], [`${root}/list`, {}], [`${root}/notices/list`, {}], [`${root}/${id}/action`, body]]) {
+    let calls = 0; f.setClock(() => new Date(++calls === 1 ? '2027-10-22T11:59:59.999Z' : '2027-10-22T12:00:00Z'));
+    const response = await f.post(path, payload);
+    if (path.endsWith('/list')) assert.deepEqual(response.data.records, []);
+    else assert.equal(response.status, 403);
+    assert.equal(JSON.stringify(response.data).includes('PRIVATE'), false);
+  }
+});
+
+test('expiry inside the fresh assignment reads cannot leak any endpoint response', async () => {
+  const body = { action: 'dismiss_false_positive', expectedVersion: 1, requestId: 'inside-boundary', note: 'PRIVATE' };
+  assert.equal((await f.post(`${root}/${id}/action`, body)).status, 200);
+  const noticeId = (await f.post(`${root}/notices/list`)).data.records[0].id;
+  for (const [path, payload] of [[`${root}/${id}/detail`, {}], [`${root}/list`, {}], [`${root}/notices/list`, {}], [`${root}/${id}/action`, body], [`${root}/notices/${noticeId}/read`, {}]]) {
+    let assignmentReads = 0;
+    const profile = f.db.doc('users/c-student'), originalGet = f.db.runTransaction.bind(f.db);
+    // Keep real transactions/queries: only inject elapsed time after the second assignment read.
+    f.db.runTransaction = (work, ...args) => originalGet(async tx => {
+      const get = tx.get.bind(tx);
+      tx.get = async (...params) => { const result = await get(...params); if (params[0]?.path === profile.path && ++assignmentReads === 2) f.setTime('2027-10-22T12:00:00Z'); return result; };
+      return work(tx);
+    }, ...args);
+    f.setTime('2027-10-22T11:59:59.999Z');
+    try {
+      const response = await f.post(path, payload);
+      if (path.endsWith('/list')) assert.deepEqual(response.data.records, []);
+      else assert.equal(response.status, 403);
+    } finally { f.db.runTransaction = originalGet; }
+  }
+});
+
+test('observed evidence and audit expiry cannot reverse after server clock rollback', async () => {
+  await f.post(`${root}/${id}/action`, { action: 'dismiss_false_positive', expectedVersion: 1, requestId: 'rollback-close', note: 'PRIVATE' });
+  f.setTime('2027-01-20T12:00:00Z'); assert.equal((await f.post(`${root}/${id}/detail`)).data.evidenceExpired, true);
+  f.setTime('2027-01-20T11:59:59Z'); const hidden = await f.post(`${root}/${id}/detail`);
+  assert.equal(hidden.data.evidenceExpired, true); assert.equal(hidden.data.findings, undefined);
+  f.setTime('2027-10-22T12:00:00Z'); assert.equal((await f.post(`${root}/${id}/detail`)).status, 403);
+  f.setTime('2027-10-22T11:59:59Z'); assert.equal((await f.post(`${root}/${id}/detail`)).status, 403);
+});
+
+test('expiry while authorizing a later list row also removes earlier projected rows', async () => {
+  await f.post(`${root}/${id}/action`, { action: 'dismiss_false_positive', expectedVersion: 1, requestId: 'list-crossing', note: 'PRIVATE' });
+  await f.db.doc('workplaceConcernCases/0-earlier').set((await f.case()).data());
+  const original = f.db.runTransaction.bind(f.db); let reads = 0;
+  f.db.runTransaction = (work, ...args) => original(async tx => {
+    const get = tx.get.bind(tx);
+    tx.get = async (...params) => { const result = await get(...params); if (params[0]?.path === 'users/c-student' && ++reads === 4) f.setTime('2027-10-22T12:00:00Z'); return result; };
+    return work(tx);
+  }, ...args);
+  f.setTime('2027-10-22T11:59:59.999Z');
+  try { assert.deepEqual((await f.post(`${root}/list`)).data.records, []); }
+  finally { f.db.runTransaction = original; }
 });

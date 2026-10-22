@@ -57,3 +57,16 @@ test('fixed analyzer supports exact synthetic fixtures only, with validated lite
   assert.throws(() => analyzer.prepare('A real or unsupported journal'), /unavailable/i);
   await assert.rejects(analyzer.analyze({ request: 'unsupported' }), /unavailable/i);
 });
+
+test('owned recovery runs once per bounded wake and cannot block jobs after a failure', async () => {
+  let recoveries = 0, batches = 0;
+  const dispatch = createWorkplaceLocalDispatch({ db: { projectId: 'demo-pathway-security' }, env,
+    runRecovery: async () => { recoveries++; throw Error('synthetic cleanup unavailable'); },
+    runBatch: async () => { batches++; return { status: 'complete', processed: 5 }; },
+    setIntervalFn: () => 1, clearIntervalFn: () => {} });
+  await dispatch.start(); assert.equal(recoveries, 1); assert.equal(batches, 4);
+  dispatch.stop(); await dispatch.wake(); assert.equal(recoveries, 1);
+  const disabled = createWorkplaceLocalDispatch({ db: { projectId: 'demo-pathway-security' }, env: {},
+    runRecovery: () => assert.fail('Disabled cleanup accessed'), runBatch: () => assert.fail('Disabled worker accessed') });
+  await disabled.start(); await disabled.wake();
+});

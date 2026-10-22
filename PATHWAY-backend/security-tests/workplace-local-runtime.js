@@ -1,11 +1,13 @@
 const { localDispatchAllowed, createWorkplaceLocalDispatch } = require('../workplaceLocalDispatch');
-function createLocalRuntime({ db, env = process.env, clock, ...timers }) {
-  let runBatch;
+function createLocalRuntime({ db, env = process.env, clock, analyzer, ...timers }) {
+  let runBatch, runRecovery;
   if (localDispatchAllowed(db, env)) {
     const { createWorkplaceJournalWorker } = require('../workplaceJournalWorker');
     const { createLocalAnalyzer } = require('./workplace-local-analyzer');
-    runBatch = createWorkplaceJournalWorker({ db, enabled: true, analyzer: createLocalAnalyzer(), clock }).runBatch;
+    const { runConcernRetentionBatch } = require('../workplaceConcernCleanup');
+    runBatch = createWorkplaceJournalWorker({ db, enabled: true, analyzer: analyzer || createLocalAnalyzer(), clock }).runBatch;
+    runRecovery = () => runConcernRetentionBatch({ db, enabled: true, clock, env });
   }
-  return createWorkplaceLocalDispatch({ db, env, runBatch, ...timers });
+  return createWorkplaceLocalDispatch({ db, env, runBatch, runRecovery, ...timers });
 }
 module.exports = { createLocalRuntime };

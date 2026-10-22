@@ -162,6 +162,20 @@ Observed local evidence: backend85/85, focused risk26/26 and separate calculator
 
 ## Revision tracking
 
+### Journal scoring update — 2026-10-22, isolated local implementation
+
+Implemented in the journal-scoring worktree, not merged or deployed. Coordinator-requested journal analysis now includes the approved 30/25/20/15/10 completeness rubric. Four narrative criteria receive full/half/zero judgments with explanations; full and partial judgments require exact quotes from original notes. Missing criteria require an empty quote and an explanation. Application code, not Claude, applies weights and bands; half points are preserved.
+
+Examples: “worked on software” mentions an activity without meaningful detail (partial task evidence); “tested the login form with invalid passwords” clearly describes the task (full task evidence). An explicit statement of no challenges can satisfy the challenge criterion. These are project-defined review guidelines, not validated academic grading standards. Concise or original-language writing does not receive a length or English-fluency penalty from the calculator.
+
+Metadata contributes five points for an explicit, valid, ordered ISO reporting period of up to seven calendar days, and five for finite numeric weekly hours greater than zero and no more than 168. These checks establish plausibility only, not verified attendance. The authorized local follow-up now records new mobile journals as explicit Monday–Sunday Philippine-time ISO periods in the existing weekRange field. A valid new entry can earn all 100 points. Legacy yearless labels are not rewritten or assigned guessed years: those entries still cannot receive the five date points (maximum 95), and the UI explains why. Revisions preserve the original reporting period and display that original period in the dialog. No historical migration is performed.
+
+Original text is required: refined-only legacy entries show Analysis unavailable with no total and are not sent to Claude for scoring. Provider/schema failure is unavailable, never an automatic zero. No submission is Not submitted, not zero. Results are transient and discardable; no stored grade, journal mutation, official approval or coordinator correction/audit workflow is added. Existing evidence-backed possible competency and tone findings remain advisory. This is not a claim of competency verification or sentiment diagnosis.
+
+Processing remains explicitly user-triggered and permission-gated, not automatic after student submission. Assignment is checked before provider sharing and again before returning results. This phase does not implement journal workplace-concern flags or alerts.
+
+Verification history: 39 focused backend/provider/packaging tests and 100 full backend emulator tests passed. Independent review found one stale metadata-score issue, fixed with four RED→GREEN cases; all 10 journal component tests pass. Subsequent full web runs initially failed one attendance-navigation test; tracing and a region-scoped query resolved its synchronization failure without altering attendance application logic or increasing the timeout. Latest follow-up results: 178/178 web tests across 42 suites and 59/59 affected Node tests, including Philippine-time date boundaries and mobile-helper-to-calculator 100-point scoring. The 100-test emulator suite was not rerun for the date/helper-and-test-only follow-up. Provider responses are synthetic; multilingual fixtures demonstrate schema/arithmetic handling, not actual Claude language accuracy or model reliability. See JOURNAL-SCORING-ACCEPTANCE.md for review status, evidence and limitations. No real-provider call, production change, deployment or APK build was performed.
+
 - [ ] Locate exact current manuscript paragraphs/figures for each topic.
 - [ ] Classify each item as already covered, clarification, addition or conflicting claim.
 - [ ] Record manuscript page/section and adviser-approved replacement wording.

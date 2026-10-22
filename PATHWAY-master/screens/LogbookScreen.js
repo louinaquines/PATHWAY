@@ -13,6 +13,7 @@ import Modal from '../components/BackdropModal';
 import { collection, addDoc, doc, runTransaction, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
 import { readRecordPage, mergeRecords } from '../services/recordPagination';
 import { logbookLoadErrorMessage } from '../services/logbookLoadError';
+import { journalWeekRange as getWeekRange } from '../services/journalWeekRange';
 import LoadMore from '../components/LoadMore';
 import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
@@ -64,17 +65,6 @@ const STATUS_CONFIG = {
     label: 'Needs Revision',
   },
 };
-
-function getWeekRange(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const mon = new Date(d);
-  mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
-  const fmt = dt => dt.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
-  return `${fmt(mon)} – ${fmt(sun)}`;
-}
 
 function formatTimeAgo(isoStr) {
   if (!isoStr) return '';
@@ -328,12 +318,15 @@ export default function LogbookScreen({ navigation }) {
           if (!current.exists() || current.data().status !== 'rejected') throw new Error('This entry is no longer available for revision. Reopen Logbook to refresh it.');
           transaction.update(entryRef, content);
         });
-      } else await addDoc(collection(db, 'users', uid, 'logbook'), {
-        ...content,
-        weekNum: summary.count + 1,
-        weekRange: getWeekRange(new Date()),
-        createdAt: new Date().toISOString(),
-      });
+      } else {
+        const createdAt = new Date();
+        await addDoc(collection(db, 'users', uid, 'logbook'), {
+          ...content,
+          weekNum: summary.count + 1,
+          weekRange: getWeekRange(createdAt),
+          createdAt: createdAt.toISOString(),
+        });
+      }
       setModal(false);
       showStudentSuccess(editingEntry ? 'Logbook resubmitted' : 'Logbook submitted', 'Your entry was saved and is ready for coordinator review.');
       setEditingEntry(null);
@@ -546,7 +539,7 @@ export default function LogbookScreen({ navigation }) {
               <View>
                 <Text style={styles.modalTitle}>{editingEntry ? `Revise Week ${editingEntry.weekNum}` : 'New Weekly Entry'}</Text>
                 <Text style={styles.modalWeek}>
-                  Week {summary.count + 1}  ·  {getWeekRange(new Date())}
+                  Week {editingEntry?.weekNum ?? summary.count + 1}  ·  {editingEntry ? (editingEntry.weekRange || 'Reporting period unavailable') : getWeekRange(new Date())}
                 </Text>
               </View>
               <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>

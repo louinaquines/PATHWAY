@@ -1,0 +1,21 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+test('Docker-packaged journal modules load with their relative runtime dependencies', () => {
+  const backend = path.resolve(__dirname, '..');
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'pathway-journal-package-'));
+  try {
+    for (const line of fs.readFileSync(path.join(backend, 'Dockerfile'), 'utf8').split(/\r?\n/)) {
+      if (!line.startsWith('COPY ')) continue;
+      for (const name of line.split(/\s+/).slice(1, -1)) {
+        if (/^[A-Za-z0-9]+\.js$/.test(name)) fs.copyFileSync(path.join(backend, name), path.join(target, name));
+      }
+    }
+    const result = spawnSync(process.execPath, ['-e', "require('./anthropicAnalysis'); require('./journalAiReview');"], { cwd: target, encoding: 'utf8', windowsHide: true });
+    assert.equal(result.status, 0, result.stderr);
+  } finally { fs.rmSync(target, { recursive: true, force: true }); }
+});

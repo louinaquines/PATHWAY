@@ -57,4 +57,8 @@ Final review Ruling: reviewer did not rerun the full web suite; the implementer 
 
 Finishing choice: preserve the isolated codex/journal-scoring branch locally per the approved plan. Commit only the scoped implementation, regression tests and paper notes. No main merge, push, live Claude call, production mutation or APK build. Retain this managed worktree and its ignored evidence logs.
 
+## Local main integration — later authorized step
+
+On 2026-10-22 the user authorized local integration. Merged codex/journal-scoring into primary main as 73b7180, preserving unrelated edits and backing up the earlier untracked plan. Fresh merged-result verification: full web 178/178 across 42 suites; affected Node 59/59; full backend emulator npm test 100/100. No conflicts or product-code adaptations. See JOURNAL-INTEGRATION-2026-10-22.md for exact commit IDs, preserved-file hashes, backup location and logs. No remote push, deployment, actual Claude evaluation or APK. Source worktree retained for ignored evidence.
+
 Mobile instructions: read PATHWAY-master/AGENTS.md. Its v54 documentation URL redirects to latest; read the official sdk-54 branch's exact versioned index.mdx instead (https://raw.githubusercontent.com/expo/expo/sdk-54/docs/pages/versions/v54.0.0/index.mdx). No Expo SDK APIs or dependency versions are being changed.

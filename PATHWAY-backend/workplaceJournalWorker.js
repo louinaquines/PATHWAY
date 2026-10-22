@@ -130,9 +130,10 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
     } finally { clearTimeout(timer); }
     return true;
   }
-  async function runBatch({ limit = 5 } = {}) {
+  async function runBatch({ limit = 5, jobId } = {}) {
     if (enabled !== true) return { status: 'disabled', processed: 0 };
     if (!Number.isInteger(limit) || limit < 1 || limit > 5) throw Error('Batch limit must be 1–5.');
+    if (jobId !== undefined && !validId(jobId)) throw Error('Invalid target job.');
     try { pricing({ model: PRICE_PROFILE.model, inputTokenUpperBound: 1, maxOutputTokens: 1 }); }
     catch { return { status: 'unavailable', processed: 0 }; }
     const owner = randomUUID(); let processed = 0;
@@ -149,8 +150,14 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
       });
       if (!lease) return { status: 'busy', processed: 0 };
       const base = db.collection('workplaceJournalAnalysisJobs').orderBy('__name__');
-      let page = await (lease.cursor ? base.startAfter(lease.cursor) : base).limit(limit).get();
-      if (page.empty && lease.cursor) page = await base.limit(limit).get();
+      let page;
+      if (jobId !== undefined) {
+        const target = await db.collection('workplaceJournalAnalysisJobs').doc(jobId).get();
+        page = { docs: target.exists ? [target] : [] };
+      } else {
+        page = await (lease.cursor ? base.startAfter(lease.cursor) : base).limit(limit).get();
+        if (page.empty && lease.cursor) page = await base.limit(limit).get();
+      }
       for (const doc of page.docs) {
         const brake = await guardRef().get();
         if (brake.exists && brake.data().blocked !== false) return { status: 'unavailable', processed };

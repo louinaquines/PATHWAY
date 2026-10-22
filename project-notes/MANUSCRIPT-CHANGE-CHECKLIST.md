@@ -186,3 +186,9 @@ Verification history: 39 focused backend/provider/packaging tests and 100 full b
 - [ ] Implement and test locally before writing completed-result claims.
 - [ ] Include test conditions, failures, limitations and unverified release checks.
 - [ ] Confirm final manuscript describes actual deployed behavior separately from planned/local behavior.
+
+### Workplace concern Claude adapter — bounded local pilot, 2026-10-22
+
+Describe the separate, default-off Claude adapter and fixed synthetic-only evaluation, not a deployed automatic alert feature. Backend consent and journal submission feed the local queue; validated possible concerns create private coordinator cases and in-app notices. Current assignment controls access; original source quotes support human review, not an automatic finding against an employer.
+
+Document durable paid-attempt reservations, no automatic provider retries, persistent failure stop, exact job targeting, stale-source/consent/lease rejection and UTC accounting as engineering safeguards. The input reservation is not a provider-certified token ceiling or account billing limit. Do not claim multilingual or emergency-detection accuracy from schema tests or nine synthetic examples. Use WORKPLACE-CLAUDE-PILOT-RESULTS.md for actual results and remaining release gates; real-provider evidence must be distinguished from fake-HTTP integration evidence.

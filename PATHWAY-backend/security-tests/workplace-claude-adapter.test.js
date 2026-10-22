@@ -54,3 +54,15 @@ test('caller abort, deadline signal, oversized output and uncertain transport ne
   const large = adapter({ fetcher: async (url,options) => { assert.ok(options.signal instanceof AbortSignal); return new Response('a'.repeat(32769)); } });
   await assert.rejects(large.analyze(large.prepare(notes)),e => e.code === 'CLAUDE_OUTPUT');
 });
+test('diagnostics retain only fixed stages, HTTP status and allowlisted stop reasons', async () => {
+  for (const [fetcher,expected] of [
+    [async () => new Response('SECRET BODY',{ status: 401 }),{ stage: 'http',code: 'CLAUDE_PROVIDER',httpStatus: 401 }],
+    [async () => { throw Error('SECRET NETWORK'); },{ stage: 'transport',code: 'CLAUDE_TRANSPORT_UNCERTAIN' }],
+    [async () => Response.json(reply({ stop_reason: 'max_tokens' })),{ stage: 'response-validation',code: 'CLAUDE_OUTPUT',reason: 'stop-reason',stopReason: 'max_tokens' }],
+    [async () => Response.json(reply({ stop_reason: 'SECRET STOP' })),{ stage: 'response-validation',code: 'CLAUDE_OUTPUT',reason: 'stop-reason',stopReason: 'unknown' }],
+    [async () => new Response('SECRET JSON'),{ stage: 'response-validation',code: 'CLAUDE_OUTPUT',reason: 'invalid-json' }],
+  ]) {
+    const a = adapter({ fetcher });
+    await assert.rejects(a.analyze(a.prepare(notes)), e => { assert.deepEqual(e.diagnostic,expected); assert.ok(!JSON.stringify(e).includes('SECRET')); return true; });
+  }
+});

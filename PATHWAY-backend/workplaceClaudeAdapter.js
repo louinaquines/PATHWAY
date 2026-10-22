@@ -3,7 +3,8 @@ const { prepareConcernRequest, validateConcernDecision } = require('./workplaceC
 const { PRICE_PROFILE, FEATURES } = require('./workplaceAnalysisPricing');
 function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fetcher = fetch } = {}) {
   const sources = new Set(allowedSources), prepared = new Map();
-  const fail = code => Object.assign(Error('Claude workplace pilot unavailable.'),{ code });
+  const fail = (code, details = {}) => Object.assign(Error('Claude workplace pilot unavailable.'),{ code,
+    diagnostic: Object.freeze({ stage: code === 'CLAUDE_PROVIDER' ? 'http' : code === 'CLAUDE_TRANSPORT_UNCERTAIN' ? 'transport' : code === 'CLAUDE_OUTPUT' ? 'response-validation' : 'preparation',code,...details }) });
   function allowed() { if (enabled !== true || typeof apiKey !== 'string' || !apiKey.trim()) throw fail('CLAUDE_DISABLED'); }
   function prepare(rawNotes) {
     allowed(); if (!sources.has(rawNotes)) throw fail('CLAUDE_SOURCE');
@@ -25,15 +26,22 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
         signal: signal ? AbortSignal.any([signal,AbortSignal.timeout(25000)]) : AbortSignal.timeout(25000),
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, body: value.request });
     } catch { throw fail('CLAUDE_TRANSPORT_UNCERTAIN'); }
-    if (!response.ok) { await response.body?.cancel().catch(() => {}); throw fail('CLAUDE_PROVIDER'); }
-    let result;
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      throw fail('CLAUDE_PROVIDER',Number.isInteger(response.status) && response.status >= 100 && response.status <= 599 ? { httpStatus: response.status } : {});
+    }
+    let result, reason = 'response-body', stopReason;
     try {
       const reader = response.body.getReader(), chunks = []; let size = 0;
       try { while (true) { const { done,value: chunk } = await reader.read(); if (done) break;
         size += chunk.byteLength; if (size > 32768) throw Error(); chunks.push(Buffer.from(chunk));
       } } finally { await reader.cancel().catch(() => {}); }
-      result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-      if (result.model !== PRICE_PROFILE.model || result.stop_reason !== 'end_turn' || !result.usage) throw Error();
+      reason = 'invalid-json'; result = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      reason = 'model-mismatch'; if (result?.model !== PRICE_PROFILE.model) throw Error();
+      reason = 'stop-reason';
+      stopReason = ['end_turn','max_tokens','stop_sequence','tool_use','pause_turn','refusal','model_context_window_exceeded'].includes(result.stop_reason) ? result.stop_reason : 'unknown';
+      if (result.stop_reason !== 'end_turn') throw Error();
+      reason = 'usage-invalid'; if (!result.usage) throw Error();
       const u = result.usage, integer = n => Number.isSafeInteger(n) && n >= 0;
       if (!integer(u.input_tokens) || !integer(u.output_tokens) || (u.cache_read_input_tokens ?? 0) !== 0 || (u.cache_creation_input_tokens ?? 0) !== 0
         || (u.service_tier !== undefined && u.service_tier !== 'standard')
@@ -41,9 +49,11 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
         || (u.cache_creation && Object.values(u.cache_creation).some(n => n !== 0))) throw Error();
       const usage = { inputTokens: u.input_tokens, outputTokens: u.output_tokens };
       if (usage.inputTokens > value.inputTokenUpperBound || usage.outputTokens > value.maxOutputTokens) return { usage };
+      reason = 'content-shape';
       if (!Array.isArray(result.content) || result.content.length !== 1 || result.content[0]?.type !== 'text' || typeof result.content[0].text !== 'string') throw Error();
+      reason = 'decision-invalid';
       return { usage, decision: validateConcernDecision(original.rawNotes,JSON.parse(result.content[0].text)) };
-    } catch { throw fail('CLAUDE_OUTPUT'); }
+    } catch { throw fail('CLAUDE_OUTPUT',{ reason,...(stopReason ? { stopReason } : {}) }); }
   }
   return { prepare, analyze };
 }

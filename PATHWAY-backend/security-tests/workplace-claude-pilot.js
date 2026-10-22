@@ -6,6 +6,18 @@ const { createWorkplaceJournalWorker } = require('../workplaceJournalWorker');
 const { localConcernEnabled } = require('../workplaceConcernCases');
 const { digest } = require('../workplaceJournalConsent');
 const error = code => Object.assign(Error('Workplace paid pilot unavailable.'),{ code });
+function safeAdapterDiagnostic(failure) {
+  const stages = { CLAUDE_PROVIDER: 'http',CLAUDE_TRANSPORT_UNCERTAIN: 'transport',CLAUDE_OUTPUT: 'response-validation',
+    CLAUDE_DISABLED: 'preparation',CLAUDE_INPUT: 'preparation',CLAUDE_SOURCE: 'preparation' };
+  const code = Object.hasOwn(stages,failure?.code || '') ? failure.code : 'CLAUDE_UNKNOWN';
+  const out = { stage: stages[code] || 'unknown',code }, details = failure?.diagnostic;
+  if (code === 'CLAUDE_PROVIDER' && Number.isInteger(details?.httpStatus) && details.httpStatus >= 100 && details.httpStatus <= 599) out.httpStatus = details.httpStatus;
+  if (code === 'CLAUDE_OUTPUT') {
+    out.reason = ['response-body','invalid-json','model-mismatch','stop-reason','usage-invalid','content-shape','decision-invalid'].includes(details?.reason) ? details.reason : 'unknown';
+    if (details?.stopReason !== undefined) out.stopReason = ['end_turn','max_tokens','stop_sequence','tool_use','pause_turn','refusal','model_context_window_exceeded'].includes(details.stopReason) ? details.stopReason : 'unknown';
+  }
+  return out;
+}
 function openPilotLedger(file) {
   const lock = `${file}.lock`, marker = `${file}.started`, mirror = `${file}.continuity`, stopped = `${file}.stopped`, owner = randomUUID();
   const write = (target,value,flags) => { const fd = fs.openSync(target,flags,0o600); try { fs.writeFileSync(fd,value); fs.fsyncSync(fd); } finally { fs.closeSync(fd); } };
@@ -67,19 +79,33 @@ async function runPilot({ enabled,db,apiKey,ledger,flow,fetcher = fetch,clock = 
     if (stopped || ledger.has(attemptId)) {
       const row = { ...base,status: stopped ? 'untested' : 'previously_reserved' }; results.push(row); onResult(row); continue;
     }
-    let outcome, shared = false;
+    let outcome, shared = false, diagnostic, stage = 'submission', providerValidated = false;
     const adapter = createWorkplaceClaudeAdapter({ enabled: true,apiKey,allowedSources: [fixture.notes],
       fetcher: async (url,options) => {
-        if (shared) throw error('PILOT_DUPLICATE_SEND');
-        const sendTime = clock();
-        if (sendTime.toISOString().slice(0,10) !== day || sendTime < attemptTime) throw error('PILOT_DAY_CHANGED');
-        if (ledger.reserve(attemptId,9560,sendTime).status !== 'reserved') throw error('PILOT_ALLOWANCE');
+        try {
+          if (shared) throw error('PILOT_DUPLICATE_SEND');
+          const sendTime = clock();
+          if (sendTime.toISOString().slice(0,10) !== day || sendTime < attemptTime) throw error('PILOT_DAY_CHANGED');
+          if (ledger.reserve(attemptId,9560,sendTime).status !== 'reserved') throw error('PILOT_ALLOWANCE');
+        } catch { diagnostic = { stage: 'accounting',code: 'PILOT_RESERVATION_FAILED' }; throw error('PILOT_RESERVATION_FAILED'); }
         shared = true; requests++; return fetcher(url,options);
       } });
-    const analyzer = { prepare: notes => adapter.prepare(notes), analyze: async (p,options) => { outcome = await adapter.analyze(p,options); return outcome; } };
+    const analyzer = {
+      prepare: notes => { try { return adapter.prepare(notes); } catch (failure) { diagnostic = safeAdapterDiagnostic(failure); throw failure; } },
+      analyze: async (p,options) => {
+        try {
+          outcome = await adapter.analyze(p,options);
+          const inputBoundExceeded = outcome.usage.inputTokens > p.inputTokenUpperBound, outputBoundExceeded = outcome.usage.outputTokens > p.maxOutputTokens;
+          if (inputBoundExceeded || outputBoundExceeded) diagnostic = { stage: 'usage-bound',code: 'CLAUDE_USAGE_BOUND',inputBoundExceeded,outputBoundExceeded };
+          else providerValidated = Boolean(outcome.decision);
+          return outcome;
+        } catch (failure) { diagnostic ||= safeAdapterDiagnostic(failure); throw failure; }
+      },
+    };
     let row;
     try {
       const entry = await flow.submit(fixture,{ day });
+      stage = 'worker';
       const worker = createWorkplaceJournalWorker({ db,enabled: true,analyzer,clock });
       let job;
       for (let page = 0; page < 4; page++) {
@@ -88,11 +114,13 @@ async function runPilot({ enabled,db,apiKey,ledger,flow,fetcher = fetch,clock = 
       }
       if (job?.state !== 'processed' || !outcome?.decision) throw error('PILOT_ANALYSIS_UNAVAILABLE');
       const findings = outcome.decision.findings, observed = findings.some(f => f.priority === 'high') ? 'high' : findings.length ? 'normal' : 'none';
+      stage = 'workflow';
       const review = await flow.inspect(entry.entryId);
       if ((observed === 'none' && review !== null) || (observed !== 'none' && (!review || review.priority !== observed || !review.noticeDelivered))) throw error('PILOT_WORKFLOW');
       row = { ...base,status: observed === fixture.expected ? 'passed' : 'mismatch',observed,usage: outcome.usage,reservedMicroUsd: 9560,decision: outcome.decision };
     } catch {
-      ledger.stop?.(); stopped = true; row = { ...base,status: 'unavailable',code: 'PILOT_STOPPED',requestAttempted: shared };
+      ledger.stop?.(); stopped = true; row = { ...base,status: 'unavailable',code: 'PILOT_STOPPED',requestAttempted: shared,
+        diagnostic: diagnostic || { stage,code: stage === 'submission' ? 'PILOT_SUBMISSION_FAILED' : stage === 'workflow' ? 'PILOT_WORKFLOW_FAILED' : 'PILOT_WORKER_UNAVAILABLE',providerValidated } };
     }
     results.push(row); onResult(row);
   }
@@ -143,7 +171,7 @@ async function main() {
     const file = path.resolve(__dirname,`../../output/release/workplace-claude-pilot-${new Date().toISOString().replace(/[:.]/g,'-')}.jsonl`);
     fs.writeFileSync(file,'',{ flag: 'wx' });
     const result = await runPilot({ enabled: true,db: f.db,apiKey: process.env.ANTHROPIC_API_KEY,ledger,flow: pilotFlow(f),clock: f.clock,
-      onResult: row => { fs.appendFileSync(file,JSON.stringify(row)+'\n'); console.log(JSON.stringify({ id: row.id,status: row.status,observed: row.observed })); } });
+      onResult: row => { fs.appendFileSync(file,JSON.stringify(row)+'\n'); console.log(JSON.stringify({ id: row.id,status: row.status,observed: row.observed,diagnostic: row.diagnostic })); } });
     console.log(JSON.stringify({ status: result.status,requests: result.requests,allowance: ledger.snapshot(f.clock()),report: file,syntheticOnly: true,productionWrites: 0 }));
     ledger.close(); ledger = null;
     if (result.status !== 'complete' || result.results.some(row => row.status !== 'passed')) process.exitCode = 1;

@@ -92,3 +92,25 @@ test('local accounting failure prevents HTTP and usage overrun persists the work
   const guards = await f.db.collection('workplaceJournalWorker').get(); assert.ok(guards.docs.some(d => d.data().blocked));
   assert.equal((await f.db.collection('workplaceConcernCases').get()).size,0);
 });
+test('pilot preserves safe adapter diagnostics before worker catch and separates post-validation workflow failure', async () => {
+  for (const kind of ['http','transport','output','workflow','overrun']) {
+    await f.reset(); const dir = fs.mkdtempSync(path.join(os.tmpdir(),'pathway-diagnostic-')); let ledger;
+    try {
+      ledger = openPilotLedger(path.join(dir,'ledger')); const flow = pilotFlow(f);
+      const result = await runPilot({ enabled: true,db: f.db,clock: f.clock,apiKey: 'SECRET KEY',ledger,
+        flow: kind === 'workflow' ? { ...flow,inspect: async () => { throw Error('SECRET DATABASE'); } } : flow,
+        fetcher: async () => {
+          if (kind === 'http') return new Response('SECRET BODY',{ status: 403 });
+          if (kind === 'transport') throw Error('SECRET NETWORK');
+          if (kind === 'output') return new Response('SECRET INVALID JSON');
+          return response(fixtures[0],kind === 'overrun' ? { usage: { input_tokens: 14001,output_tokens: 1 } } : {});
+        } });
+      const d = result.results[0].diagnostic;
+      assert.equal(d.stage,kind === 'output' ? 'response-validation' : kind === 'overrun' ? 'usage-bound' : kind);
+      if (kind === 'http') assert.equal(d.httpStatus,403);
+      if (kind === 'workflow') assert.equal(d.providerValidated,true);
+      if (kind === 'overrun') assert.equal(d.inputBoundExceeded,true);
+      assert.ok(!JSON.stringify(result).includes('SECRET')); assert.equal(result.requests,1); assert.equal(ledger.isStopped(),true);
+    } finally { ledger?.close(); fs.rmSync(dir,{ recursive: true,force: true }); }
+  }
+});

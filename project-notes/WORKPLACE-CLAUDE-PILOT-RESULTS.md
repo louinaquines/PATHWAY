@@ -36,6 +36,12 @@ Proposed reservation: 9560 micro-USD per attempted request, up to nine planned r
 - Local placement checks mirror inline server guards instead of importing the hosted server; cost if wrong: fixture fidelity, not hosted authorization.
 - Live availability/account allowance, language/safety accuracy, hosted authentication and production readiness were not established by this test. Cost if wrong: these results cannot justify release; release stays gated.
 
+## Diagnostic-only follow-up
+
+The user separately approved safe failure diagnostics, not another paid attempt. This addresses the earlier deferred generic-failure reporting limitation: HTTP status and fixed transport/response-validation/usage/accounting/worker/workflow codes now survive the pilot's worker boundary. Raw provider text, headers, keys and arbitrary error messages are excluded. Historical failure detail cannot be recovered.
+
+Fresh verification: 21/21 focused tests and 185/185 full backend tests passed (overlapping counts), independent review found no Important bugs/security gaps. No new paid calls, deployments or changes to the durable stop/reservation. Unknown wrapper fallbacks and post-validation worker-persistence failure were inspected but not directly added as new test cases. See WORKPLACE-CLAUDE-FAILURE-DIAGNOSIS.md.
+
 ## Release limitations
 
 The adapter and runner are default-off and not connected to hosted submission or a scheduler. Current consent/source/lease and coordinator-assignment checks remain mandatory. Fluent language/safety review and unresolved release retention decisions remain separate gates. An unavailable result must never be interpreted as no concern.

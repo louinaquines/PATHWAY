@@ -2,6 +2,8 @@ const { randomUUID } = require('node:crypto');
 const { reserveWorkplaceAttempt } = require('./workplaceAnalysisBudget');
 const { reserveCostMicroUsd, PRICE_PROFILE } = require('./workplaceAnalysisPricing');
 const { validId, digest, DISCLOSURE_VERSION } = require('./workplaceJournalConsent');
+const { validateConcernDecision } = require('./workplaceConcernDetector');
+const { planConcernOutcome, applyConcernOutcome } = require('./workplaceConcernCases');
 const LEASE_MS = 90000, RETRY_MS = 15 * 60000;
 const terminal = new Set(['processed', 'cancelled', 'unavailable']);
 // Control plane only: no live provider, results/evidence, route, or dispatcher is installed.
@@ -34,16 +36,19 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
     const time = now().getTime();
     const control = await tx.get(controlRef()), snap = await tx.get(ref), guard = await tx.get(guardRef());
     if (enabled !== true || !control.exists || !snap.exists || !live(control.data(), owner, time) || !live(snap.data(), owner, time)) return null;
-    if (guard.exists && guard.data().blocked !== false) return { job: snap.data(), invalid: 'unavailable' };
+    if (guard.exists && guard.data().blocked !== false) return { job: snap.data(), control: control.data(), invalid: 'unavailable' };
     const notes = await sourceValid(tx, snap.data());
     const freshTime = now().getTime();
     if (!live(control.data(), owner, freshTime) || !live(snap.data(), owner, freshTime)) return null;
-    return { job: snap.data(), notes, invalid: notes === null ? 'cancelled' : null };
+    return { job: snap.data(), control: control.data(), notes, invalid: notes === null ? 'cancelled' : null };
   }
-  async function finish(ref, owner, state, extra = {}) {
+  async function finish(ref, owner, state, extra = {}, decision) {
     return db.runTransaction(async tx => {
       const check = await ready(tx, ref, owner);
       if (!check) return false;
+      const plan = !check.invalid && decision ? await planConcernOutcome({ db, tx, jobId: ref.id, job: check.job, decision, now: now() }) : null;
+      if (!live(check.job, owner, now().getTime()) || !live(check.control, owner, now().getTime())) return false;
+      applyConcernOutcome(tx, plan);
       tx.update(ref, { ...extra, state: check.invalid || state, leaseOwner: null, leaseUntil: null,
         ...(check.invalid ? { usage: null } : {}), updatedAt: now().toISOString() });
       return true;
@@ -108,14 +113,17 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
         analyzer.analyze(prepared, { signal: controller.signal }),
         new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(Error('Uncertain timeout')); }, 25000); }),
       ]);
-      if (!result || Object.keys(result).length !== 1 || !result.usage || Object.keys(result.usage).length !== 2
+      if (!result || ![1,2].includes(Object.keys(result).length) || Object.keys(result).some(k => !['usage','decision'].includes(k)) || !result.usage || Object.keys(result.usage).length !== 2
         || !['inputTokens','outputTokens'].every(k => Number.isSafeInteger(result.usage[k]) && result.usage[k] >= 0)) throw Error('Invalid adapter output');
       const usage = { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens };
       if (usage.inputTokens > prepared.inputTokenUpperBound || usage.outputTokens > prepared.maxOutputTokens) {
         // Budget safety brake is allowed even for a stale owner; no source/result data is written.
         await guardRef().set({ blocked: true, reason: 'usage-bound-exceeded', updatedAt: now().toISOString() });
         await finish(ref, owner, 'unavailable');
-      } else await finish(ref, owner, 'processed', { usage });
+      } else {
+        const decision = Object.hasOwn(result, 'decision') ? validateConcernDecision(claim.notes, result.decision) : undefined;
+        await finish(ref, owner, 'processed', { usage }, decision);
+      }
     } catch (error) {
       const retry = error.code === 'TRANSIENT' && claim.attempt < 2;
       await finish(ref, owner, retry ? 'retry' : 'unavailable', retry ? { dueAt: new Date(now().getTime() + RETRY_MS).toISOString() } : {});

@@ -1,6 +1,21 @@
 const { isDeepStrictEqual } = require('node:util');
 const { prepareConcernRequest, validateConcernDecision } = require('./workplaceConcernDetector');
 const { PRICE_PROFILE, FEATURES } = require('./workplaceAnalysisPricing');
+// Preparation validates size and preserves text; it does not authorize provider access.
+function prepareWorkplaceClaudeRequest(rawNotes) {
+  try {
+    const prompt = prepareConcernRequest(rawNotes);
+    const request = JSON.stringify({ model: PRICE_PROFILE.model, max_tokens: 1024, thinking: { type: 'disabled' }, output_config: { effort: 'low' },
+      service_tier: 'standard_only', inference_geo: 'global',
+      system: prompt.instructions, messages: [{ role: 'user', content: JSON.stringify({ journalNotes: prompt.source }) }] });
+    if (Buffer.byteLength(request, 'utf8') > 5000) throw Error();
+    // Engineering reservation only; not a general-input tokenizer proof or invoice guarantee.
+    return Object.freeze({ model: PRICE_PROFILE.model, inputTokenUpperBound: 14000, maxOutputTokens: 1024, features: FEATURES, request });
+  } catch {
+    throw Object.assign(Error('Claude workplace pilot unavailable.'), { code: 'CLAUDE_INPUT',
+      diagnostic: Object.freeze({ stage: 'preparation', code: 'CLAUDE_INPUT' }) });
+  }
+}
 function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fetcher = fetch } = {}) {
   const sources = new Set(allowedSources), prepared = new Map();
   const fail = (code, details = {}) => Object.assign(Error('Claude workplace pilot unavailable.'),{ code,
@@ -8,14 +23,8 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
   function allowed() { if (enabled !== true || typeof apiKey !== 'string' || !apiKey.trim()) throw fail('CLAUDE_DISABLED'); }
   function prepare(rawNotes) {
     allowed(); if (!sources.has(rawNotes)) throw fail('CLAUDE_SOURCE');
-    const prompt = prepareConcernRequest(rawNotes);
-    const request = JSON.stringify({ model: PRICE_PROFILE.model, max_tokens: 1024, thinking: { type: 'disabled' }, output_config: { effort: 'low' },
-      service_tier: 'standard_only', inference_geo: 'global',
-      system: prompt.instructions, messages: [{ role: 'user', content: JSON.stringify({ journalNotes: prompt.source }) }] });
-    if (Buffer.byteLength(request,'utf8') > 5000) throw fail('CLAUDE_INPUT');
-    // Pilot-only engineering allowance, not a tokenizer proof or invoice guarantee.
-    const value = Object.freeze({ model: PRICE_PROFILE.model, inputTokenUpperBound: 14000, maxOutputTokens: 1024, features: FEATURES, request });
-    prepared.set(request,{ value, rawNotes }); return value;
+    const value = prepareWorkplaceClaudeRequest(rawNotes);
+    prepared.set(value.request,{ value, rawNotes }); return value;
   }
   async function analyze(value,{ signal } = {}) {
     allowed(); const original = prepared.get(value?.request);
@@ -58,4 +67,4 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
   }
   return { prepare, analyze };
 }
-module.exports = { createWorkplaceClaudeAdapter };
+module.exports = { createWorkplaceClaudeAdapter, prepareWorkplaceClaudeRequest };

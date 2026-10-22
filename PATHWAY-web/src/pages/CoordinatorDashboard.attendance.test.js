@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import CoordinatorDashboard from './CoordinatorDashboard';
 import { adminRequest } from '../adminApi';
@@ -18,7 +18,8 @@ test('a notice opens a freshly assigned section absent from the initial dashboar
     students: [{ id: 'student', name: 'Assigned student', riskTier: 'Medium', progressStatus: 'In progress', dataStatus: 'Ready' }],
   } : { records: [{ id: 'notice', title: 'Attendance risk update', studentId: 'student', sectionId: 'new-section', kind: 'assigned', riskTier: 'Medium', progressStatus: 'In progress', dataStatus: 'Ready', reasonCodes: [], read: false }], hasMore: false, cursor: null });
   const view = render(<MemoryRouter><CoordinatorDashboard /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole('button', { name: 'View attendance analytics' }));
+  const notices = await screen.findByRole('region', { name: 'Attendance risk notices' });
+  fireEvent.click(await within(notices).findByRole('button', { name: 'View attendance analytics' }));
   expect(await screen.findByText('Assigned student')).toBeInTheDocument();
   expect(screen.getByText('Assigned student').closest('tr')).toHaveAttribute('id', 'attendance-student-student');
   expect(screen.queryByText(/no longer in your assigned sections/)).not.toBeInTheDocument();

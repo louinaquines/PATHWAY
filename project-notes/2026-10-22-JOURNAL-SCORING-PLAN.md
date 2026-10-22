@@ -70,4 +70,4 @@
 
 Primary checkout is main and has unrelated user edits. Recommended execution is native/inline in a new isolated journal-scoring worktree based on current main, leaving the existing scheduling and workplace-support worktrees unchanged. User approval of this plan and worktree creation is required before implementation.
 
-Status: plan prepared; no product code changed, tests added, provider calls made or deployment performed for this phase.
+Status: approved, implemented and reviewed locally on codex/journal-scoring. User authorized the follow-up to resolve the attendance test and yearless reporting dates. New journals now carry explicit Philippine calendar-week dates; legacy records remain unchanged. Final web regression: 178/178. Affected Node suite: 59/59. Independent follow-up review: no remaining findings. See JOURNAL-SCORING-ACCEPTANCE.md for evidence and rulings. No real provider calls, merge, push, deployment or APK.

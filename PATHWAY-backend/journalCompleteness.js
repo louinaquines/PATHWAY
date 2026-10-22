@@ -13,7 +13,7 @@ function validateNarrativeRubric(rubric, notes) {
   for (const item of rubric) {
     if (!item || typeof item !== 'object' || Array.isArray(item) || Object.keys(item).length !== 4
       || !['id', 'level', 'reason', 'evidence'].every(key => Object.hasOwn(item, key))
-      || !CRITERIA.some(([id]) => id === item.id) || seen.has(item.id) || !Object.hasOwn(CREDIT, item.level)
+      || !CRITERIA.some(([id]) => id === item.id) || seen.has(item.id) || typeof item.level !== 'string' || !Object.hasOwn(CREDIT, item.level)
       || typeof item.reason !== 'string' || !item.reason.trim() || item.reason.length > 400
       || typeof item.evidence !== 'string' || item.evidence.length > 300
       || (item.level === 'missing' ? item.evidence !== '' : !item.evidence.trim() || !notes.includes(item.evidence))) throw new Error('Unsupported rubric judgment');

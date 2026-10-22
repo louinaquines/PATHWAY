@@ -46,6 +46,7 @@ test('rejects duplicate or omitted criteria, invalid judgments, unsupported quot
   for (const bad of [valid.slice(1), [...valid, valid[0]], [valid[0], valid[0], valid[2], valid[3]],
     valid.map((x, i) => i ? x : { ...x, total: 100 }),
     valid.map((x, i) => i ? x : { ...x, level: 'excellent' }),
+    valid.map((x, i) => i ? x : { ...x, level: ['full'] }),
     valid.map((x, i) => i ? x : { ...x, evidence: 'invented achievement' }),
     valid.map((x, i) => i ? x : { ...x, level: 'missing' }),
     valid.map((x, i) => i ? x : { ...x, reason: '' }),

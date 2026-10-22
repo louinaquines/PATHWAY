@@ -1,4 +1,5 @@
 // Explicit read-only analysis of one server-loaded entry, not client-supplied text.
+const { scoreJournalCompleteness } = require('./journalCompleteness');
 function installJournalAiReview({ app, db, requireStaff, coordinatorOwnsStudent, allowRate, ai }) {
   app.post('/coordinator/students/:studentId/logbook/:entryId/ai-analysis', requireStaff, async (req, res) => {
     res.set('Cache-Control', 'private, no-store');
@@ -12,13 +13,24 @@ function installJournalAiReview({ app, db, requireStaff, coordinatorOwnsStudent,
       if (!profile.exists || !(await coordinatorOwnsStudent(req.staff.uid, profile.data()))) return res.status(403).json({ error: 'Assigned students only.' });
       const entry = await student.collection('logbook').doc(req.params.entryId).get();
       if (!entry.exists) return res.status(404).json({ error: 'Journal not found.' });
+      const stillAssigned = async () => {
+        const fresh = await student.get();
+        return fresh.exists && await coordinatorOwnsStudent(req.staff.uid, fresh.data());
+      };
+      if (!(await stillAssigned())) return res.status(403).json({ error: 'Assigned students only.' });
       const data = entry.data();
-      const notes = data.rawNotes || data.refined;
-      if (typeof notes !== 'string' || !notes.trim() || notes.length > 8000) return res.status(400).json({ error: 'Journal text must be 1–8,000 characters.' });
+      const notes = data.rawNotes;
+      if (typeof notes !== 'string' || !notes.trim()) return res.json({ completeness: [], competencies: [], sentiment: [],
+        entryId: req.params.entryId, source: 'original-unavailable', scoring: scoreJournalCompleteness(data),
+        advisoryOnly: true, requiresHumanReview: true, limitation: 'Original notes are unavailable. Refined text is not scored. No journal records were changed.' });
+      if (notes.length > 8000) return res.status(400).json({ error: 'Journal text must be 1–8,000 characters.', scoring: scoreJournalCompleteness(data) });
       const result = await ai.analyzeJournal(notes);
-      return res.json({ ...result, entryId: req.params.entryId, source: data.rawNotes ? 'original-notes' : 'saved-report', limitation: 'Text evidence is not proof of competency or sentiment. Review manually; no grades, approvals or journal records were changed.' });
+      if (!(await stillAssigned())) return res.status(403).json({ error: 'Assigned students only.' });
+      const scoring = scoreJournalCompleteness(data, result.rubric);
+      if (scoring.total === null) throw Object.assign(new Error('Invalid judgments'), { code: 'AI_OUTPUT' });
+      return res.json({ ...result, scoring, entryId: req.params.entryId, source: 'original-notes', limitation: 'Completeness is advisory, not an academic grade or verified competency. Metadata checks do not verify attendance. Review manually; no grades, approvals or journal records were changed.' });
     } catch (error) {
-      return res.status([429, 503].includes(error.status) ? error.status : 503).json({ error: 'AI review unavailable. Free journal checks remain available.', code: ['AI_DISABLED', 'AI_LIMIT', 'AI_OUTPUT'].includes(error.code) ? error.code : 'AI_UNAVAILABLE' });
+      return res.status([429, 503].includes(error.status) ? error.status : 503).json({ error: 'Analysis unavailable. Free journal checks remain available.', scoring: scoreJournalCompleteness({}), code: ['AI_DISABLED', 'AI_LIMIT', 'AI_OUTPUT'].includes(error.code) ? error.code : 'AI_UNAVAILABLE' });
     }
   });
 }

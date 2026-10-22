@@ -114,3 +114,13 @@ test('pilot preserves safe adapter diagnostics before worker catch and separates
     } finally { ledger?.close(); fs.rmSync(dir,{ recursive: true,force: true }); }
   }
 });
+test('one-request diagnostic stops durably after success without sending the remaining fixtures', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),'pathway-once-')); let ledger;
+  try {
+    ledger = openPilotLedger(path.join(dir,'ledger')); let calls = 0;
+    const result = await runPilot({ enabled: true,db: f.db,clock: f.clock,apiKey: 'SYNTHETIC',ledger,flow: pilotFlow(f),maxRequests: 1,
+      fetcher: async () => { calls++; return response(fixtures[0]); } });
+    assert.equal(calls,1); assert.equal(result.status,'bounded'); assert.equal(result.results[0].status,'passed');
+    assert.equal(result.results.filter(row => row.status === 'untested').length,8); assert.equal(ledger.isStopped(),true);
+  } finally { ledger?.close(); fs.rmSync(dir,{ recursive: true,force: true }); }
+});

@@ -32,3 +32,20 @@ The pilot captures these allowlisted fields before the worker catches the except
 Tests were written first and failed on missing diagnostics, then **21/21 focused tests passed** (`claude-diagnostics-red.log`, `claude-diagnostics-green.log`). Fresh complete backend regression: **185/185 passed**, zero skipped, 282.7 seconds (`claude-diagnostics-full.log`). Focused counts overlap the full suite and must not be added. All test HTTP is fake; no new paid request occurred. The historical single reservation and durable stop were checked and remain intact.
 
 Independent read-only review found no Important bugs or security gaps in the four-file diagnostic diff. Coverage limitation: unknown wrapper fallbacks and post-validation worker-persistence failure were inspected but not directly exercised by the added fake-HTTP cases; the new workflow-failure case exercises the review boundary after validation. This is not a new real-provider success claim.
+
+## Separately approved single-request diagnostic
+
+The user approved proceeding to the bounded diagnostic. A runner safety gap was found before sending: the CLI had no one-request mode. Added `--diagnostic-once` / `maxRequests: 1` with allowed values only 1 or the original 9. The new regression failed because two HTTP calls occurred, then all **22/22 focused tests passed** after the fix. Independent static review found no Important issues. A fresh full suite is required before sending.
+
+One-request mode skips already reserved fixture identities, sends at most one new fixed synthetic source, and durably stops after success as well as failure. Existing reservation history and continuity are not reset. The previous stop evidence must be preserved in a reviewed archive, and the stop restored if setup fails before a new one is written. No automatic retry, remaining-fixture run, deployment or setting change is authorized.
+
+### Observed result — 12:43 UTC
+
+- Before payment: full suite **186/186 passed**, zero skipped (`claude-once-full.log`, 288.1 seconds). Focused 22/22 overlaps this count.
+- Exactly **one** new request. `en-danger` was skipped as previously reserved; `fil-danger` **passed**, observed high priority with validated exact source evidence. The actual local HTTP review APIs verified the private coordinator case and notice.
+- Returned usage: **372 input / 184 output tokens**. One new 9560 micro-USD reservation; cumulative two attempts / 19120 micro-USD reserved ($0.01912). Reservation is not confirmed billing; the historical attempt's usage remains unknown.
+- Seven remaining fixtures untested. No automatic retry or full-pilot continuation. The old stop is preserved as `.stopped.reviewed-20261022-once`; the new `.stopped` exists. Ledger and continuity history are preserved.
+- Evidence: `output/release/workplace-claude-diagnostic-once.log` and `workplace-claude-pilot-2026-10-22T12-43-40-813Z.jsonl`.
+- CLI limitation: the command exits 1 because its original completion check requires every fixture to pass. The bounded report explicitly says `status: bounded`, `requests: 1` and the tested fixture passed; this exit is not a provider failure. Leave as a documented minor rather than send another request or conflate a partial evaluation with a complete one.
+
+The current backend key/request/model path succeeded once. The earlier unavailable attempt remains historically unexplained; this does not prove an outage, expired key, fixed historical defect or multilingual/emergency-detection reliability. No production deployment/settings, emails, real student records or APK were involved.

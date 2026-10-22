@@ -42,6 +42,14 @@ The user separately approved safe failure diagnostics, not another paid attempt.
 
 Fresh verification: 21/21 focused tests and 185/185 full backend tests passed (overlapping counts), independent review found no Important bugs/security gaps. No new paid calls, deployments or changes to the durable stop/reservation. Unknown wrapper fallbacks and post-validation worker-persistence failure were inspected but not directly added as new test cases. See WORKPLACE-CLAUDE-FAILURE-DIAGNOSIS.md.
 
+## Separately approved bounded diagnostic — 12:43 UTC
+
+Added/reviewed a one-request mode after a RED regression demonstrated the original runner could send two requests. Full suite after the safety change: **186/186 passed**, zero skipped; focused **22/22** overlaps that count.
+
+One new real request **passed** on `fil-danger` (expected/observed high); original evidence, private coordinator case and notice were validated through the local backend flow. Usage returned: 372 input and 184 output tokens. `en-danger` was not replayed. Seven fixtures remain untested. This is one descriptive synthetic success, not an accuracy measurement or resolution of the unknown historical failure.
+
+Cumulative durable allowance: two attempts, 19120 micro-USD reserved; actual total billed cost unknown. Prior stop evidence archived intact, a new durable stop is present, and no remaining-fixture run is authorized. The CLI's all-nine completion check exits 1 for the intentionally bounded run despite its successful tested fixture; use the structured report, not that exit code, to interpret this partial result. Details and evidence paths are in WORKPLACE-CLAUDE-FAILURE-DIAGNOSIS.md. No production deployment or APK.
+
 ## Release limitations
 
 The adapter and runner are default-off and not connected to hosted submission or a scheduler. Current consent/source/lease and coordinator-assignment checks remain mandatory. Fluent language/safety review and unresolved release retention decisions remain separate gates. An unavailable result must never be interpreted as no concern.

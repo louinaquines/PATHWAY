@@ -68,16 +68,17 @@ function openPilotLedger(file) {
     close() { if (fs.readFileSync(lock,'utf8') !== owner) throw error('PILOT_LOCK_CHANGED'); fs.unlinkSync(lock); },
   };
 }
-async function runPilot({ enabled,db,apiKey,ledger,flow,fetcher = fetch,clock = () => new Date(),onResult = () => {} } = {}) {
+async function runPilot({ enabled,db,apiKey,ledger,flow,fetcher = fetch,clock = () => new Date(),onResult = () => {},maxRequests = 9 } = {}) {
   if (!localConcernEnabled(db,enabled)) return { status: 'disabled',results: [],requests: 0 };
   if (!apiKey || !ledger || !flow) throw error('PILOT_CONFIG');
+  if (![1,9].includes(maxRequests)) throw error('PILOT_CONFIG');
   let requests = 0, stopped = ledger.isStopped?.() === true; const results = [];
   for (const fixture of fixtures) {
     const attemptTime = clock(), day = attemptTime.toISOString().slice(0,10);
     const attemptId = digest(['workplace-pilot-v1',day,fixture.id]);
     const base = { id: fixture.id,language: fixture.language,expected: fixture.expected };
-    if (stopped || ledger.has(attemptId)) {
-      const row = { ...base,status: stopped ? 'untested' : 'previously_reserved' }; results.push(row); onResult(row); continue;
+    if (stopped || requests >= maxRequests || ledger.has(attemptId)) {
+      const row = { ...base,status: stopped || requests >= maxRequests ? 'untested' : 'previously_reserved' }; results.push(row); onResult(row); continue;
     }
     let outcome, shared = false, diagnostic, stage = 'submission', providerValidated = false;
     const adapter = createWorkplaceClaudeAdapter({ enabled: true,apiKey,allowedSources: [fixture.notes],
@@ -122,9 +123,10 @@ async function runPilot({ enabled,db,apiKey,ledger,flow,fetcher = fetch,clock = 
       ledger.stop?.(); stopped = true; row = { ...base,status: 'unavailable',code: 'PILOT_STOPPED',requestAttempted: shared,
         diagnostic: diagnostic || { stage,code: stage === 'submission' ? 'PILOT_SUBMISSION_FAILED' : stage === 'workflow' ? 'PILOT_WORKFLOW_FAILED' : 'PILOT_WORKER_UNAVAILABLE',providerValidated } };
     }
+    if (maxRequests === 1 && shared) ledger.stop();
     results.push(row); onResult(row);
   }
-  return { status: stopped ? 'stopped' : 'complete',results,requests };
+  return { status: stopped ? 'stopped' : requests >= maxRequests && maxRequests === 1 ? 'bounded' : 'complete',results,requests };
 }
 function installPilotFlow(options) {
   const { installWorkplaceJournalConsent } = require('../workplaceJournalConsent');
@@ -171,6 +173,7 @@ async function main() {
     const file = path.resolve(__dirname,`../../output/release/workplace-claude-pilot-${new Date().toISOString().replace(/[:.]/g,'-')}.jsonl`);
     fs.writeFileSync(file,'',{ flag: 'wx' });
     const result = await runPilot({ enabled: true,db: f.db,apiKey: process.env.ANTHROPIC_API_KEY,ledger,flow: pilotFlow(f),clock: f.clock,
+      maxRequests: process.argv.includes('--diagnostic-once') ? 1 : 9,
       onResult: row => { fs.appendFileSync(file,JSON.stringify(row)+'\n'); console.log(JSON.stringify({ id: row.id,status: row.status,observed: row.observed,diagnostic: row.diagnostic })); } });
     console.log(JSON.stringify({ status: result.status,requests: result.requests,allowance: ledger.snapshot(f.clock()),report: file,syntheticOnly: true,productionWrites: 0 }));
     ledger.close(); ledger = null;

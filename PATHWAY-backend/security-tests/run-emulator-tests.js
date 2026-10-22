@@ -8,7 +8,8 @@ const firebaseCli = path.join(path.dirname(require.resolve('firebase-tools/packa
 const riskFiles = ['security-tests/attendance-risk-alerts.test.js', 'security-tests/attendance-risk-schedule.test.js', 'security-tests/attendance-schedule-client.test.js'];
 const budgetFiles = ['security-tests/workplace-analysis-budget.test.js'];
 const journalMigrationFiles = ['security-tests/workplace-journal-consent.test.js', 'security-tests/student-journal-submission.test.js'];
-const testFiles = process.argv.includes('--journal-migration-only') ? journalMigrationFiles : process.argv.includes('--workplace-budget-only') ? budgetFiles : process.argv.includes('--risk-only') ? riskFiles : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', ...riskFiles, ...budgetFiles, ...journalMigrationFiles];
+const workerFiles = ['security-tests/workplace-analysis-pricing.test.js', 'security-tests/workplace-journal-worker.test.js'];
+const testFiles = process.argv.includes('--workplace-worker-only') ? workerFiles : process.argv.includes('--journal-migration-only') ? journalMigrationFiles : process.argv.includes('--workplace-budget-only') ? budgetFiles : process.argv.includes('--risk-only') ? riskFiles : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', ...riskFiles, ...budgetFiles, ...journalMigrationFiles, ...workerFiles];
 const testCommand = process.argv.includes('--attendance-api')
   ? 'node --test --test-concurrency=1 --test-name-pattern="attendance excused API" security-tests/security.test.js'
   : `node --test --test-concurrency=1 ${testFiles.join(' ')}`;

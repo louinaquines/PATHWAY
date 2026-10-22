@@ -15,12 +15,13 @@ const dispatchFiles = ['security-tests/workplace-local-dispatch.test.js', 'secur
 const controlledFiles = ['security-tests/workplace-controlled-dispatch.test.js', 'security-tests/workplace-controlled-flow.test.js', 'security-tests/workplace-dispatch-bootstrap.test.js'];
 const retentionFiles = ['security-tests/workplace-concern-retention.test.js', 'security-tests/workplace-concern-cleanup.test.js'];
 const generalFiles = ['security-tests/workplace-general-runtime.test.js', 'security-tests/workplace-general-runtime-flow.test.js'];
-const releaseFiles = ['security-tests/workplace-release-policy.test.js', 'security-tests/workplace-general-provider.test.js', 'security-tests/workplace-evaluation.test.js', 'security-tests/workplace-cutover-candidate.test.js'];
+const releaseFiles = ['security-tests/workplace-release-policy.test.js', 'security-tests/workplace-general-provider.test.js', 'security-tests/workplace-evaluation.test.js', 'security-tests/workplace-cutover-candidate.test.js', 'security-tests/workplace-hosted-runtime.test.js'];
 const testFiles = process.argv.includes('--workplace-concerns-only') ? [...workerFiles, ...concernFiles] : process.argv.includes('--workplace-worker-only') ? workerFiles : process.argv.includes('--journal-migration-only') ? journalMigrationFiles : process.argv.includes('--workplace-budget-only') ? budgetFiles : process.argv.includes('--risk-only') ? riskFiles : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', ...riskFiles, ...budgetFiles, ...journalMigrationFiles, ...workerFiles, ...concernFiles];
 const testCommand = process.argv.includes('--workplace-ui-only')
   ? 'node --test --test-concurrency=1 --test-name-pattern="local workplace review API" security-tests/security.test.js'
   : process.argv.includes('--attendance-api')
   ? 'node --test --test-concurrency=1 --test-name-pattern="attendance excused API" security-tests/security.test.js'
+  : process.argv.includes('--workplace-hosted-only') ? 'node --test --test-concurrency=1 security-tests/workplace-hosted-runtime.test.js'
   : process.argv.includes('--workplace-controlled-only') ? `node --test --test-concurrency=1 ${controlledFiles.join(' ')}`
   : process.argv.includes('--workplace-general-only') ? `node --test --test-concurrency=1 ${generalFiles.join(' ')}`
   : process.argv.includes('--workplace-review-only') ? 'node --test --test-concurrency=1 security-tests/workplace-concern-review.test.js'

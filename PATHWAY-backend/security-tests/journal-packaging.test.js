@@ -15,7 +15,7 @@ test('Docker-packaged journal modules load with their relative runtime dependenc
         if (/^[A-Za-z0-9]+\.js$/.test(name)) fs.copyFileSync(path.join(backend, name), path.join(target, name));
       }
     }
-    const result = spawnSync(process.execPath, ['-e', "require('./anthropicAnalysis'); require('./journalAiReview');"], { cwd: target, encoding: 'utf8', windowsHide: true });
+    const result = spawnSync(process.execPath, ['-e', "require('./anthropicAnalysis'); require('./journalAiReview'); require('./workplaceJournalConsent'); require('./studentJournalSubmission');"], { cwd: target, encoding: 'utf8', windowsHide: true });
     assert.equal(result.status, 0, result.stderr);
   } finally { fs.rmSync(target, { recursive: true, force: true }); }
 });

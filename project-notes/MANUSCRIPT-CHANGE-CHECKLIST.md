@@ -1,5 +1,7 @@
 # Manuscript change checklist: scoring, alerts, and workplace support
 
+Local journal migration preparation (2026-10-22): versioned opt-in/withdrawal, backend-owned transactional journal submission and inert queued jobs are being added behind an off-by-default mobile compatibility path. Do not describe this as deployed automatic concern analysis: provider worker, alerts and direct-write cutover are separate gates. See JOURNAL-BACKEND-CUTOVER.md for source-revision/hash checks, release ordering, old-client limits and withdrawal semantics. New journals and rejected-entry revisions are migrated; admin/draft write paths need separate cutover inventory. No backfill or live rule closure is performed here.
+
 Date: 2026-10-21
 Status: baseline approved. Attendance backend and UI implemented, verified and whole-change-reviewed locally; ready for local integration. Final results:165 UI tests,85 backend tests and58 separate Node tests passed. Other scoring/AI escalation phases remain pending. Production packaging/scheduling gates remain open; nothing here establishes deployment.
 

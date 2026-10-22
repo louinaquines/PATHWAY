@@ -18,6 +18,8 @@ import LoadMore from '../components/LoadMore';
 import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
+import { createJournalMigrationClient, journalRevisionExpectation } from '../services/journalSubmission';
+import JournalAnalysisConsent from '../components/JournalAnalysisConsent';
 import usePlacementEligibility, { PLACEMENT_REQUIRED } from '../services/usePlacementEligibility';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
@@ -224,6 +226,9 @@ export default function LogbookScreen({ navigation }) {
   const [summary, setSummary] = useState({ count: 0, hours: 0, pending: 0, approved: 0, rejected: 0 });
 
   const uid = auth.currentUser.uid;
+  const backendSubmission = process.env.EXPO_PUBLIC_JOURNAL_BACKEND_SUBMISSION === '1';
+  const migration = useRef(null);
+  if (!migration.current) migration.current = createJournalMigrationClient(postBackend, () => doc(collection(db, 'users', uid, 'logbook')).id);
 
   useEffect(() => { fetchEntries(); }, []);
 
@@ -310,7 +315,11 @@ export default function LogbookScreen({ navigation }) {
     try {
       const entryText = refined.trim() || rawNotes.trim();
       const content = { rawNotes: rawNotes.trim(), refined: entryText, aiRefined: Boolean(refined.trim()), hours: +hours, status: 'pending' };
-      if (editingEntry) {
+      let submission;
+      if (backendSubmission) {
+        const { status, ...payload } = content;
+        submission = await migration.current.submit({ ...payload, ...(editingEntry ? { entryId: editingEntry.id, expectedRevision: editingEntry.sourceRevision ?? 0, expectedSource: journalRevisionExpectation(editingEntry) } : {}) });
+      } else if (editingEntry) {
         await runTransaction(db, async transaction => {
           const entryRef = doc(db, 'users', uid, 'logbook', editingEntry.id);
           const [profile, current] = await Promise.all([transaction.get(doc(db, 'users', uid)), transaction.get(entryRef)]);
@@ -328,7 +337,7 @@ export default function LogbookScreen({ navigation }) {
         });
       }
       setModal(false);
-      showStudentSuccess(editingEntry ? 'Logbook resubmitted' : 'Logbook submitted', 'Your entry was saved and is ready for coordinator review.');
+      showStudentSuccess(editingEntry ? 'Logbook resubmitted' : 'Logbook submitted', `Your entry was saved and is ready for coordinator review.${submission ? (submission.analysisStatus === 'queued' ? ' Automated analysis is queued, not reviewed. Automatic processing is not active in this release.' : ' Automatic analysis is not enabled for this submission.') : ''}`);
       setEditingEntry(null);
       setRawNotes('');
       setHours('');
@@ -343,6 +352,7 @@ export default function LogbookScreen({ navigation }) {
 
   const closeModal = () => {
     if (saving) return;
+    migration.current.discardJournalDraft();
     setEditingEntry(null);
     setModal(false);
     setRawNotes('');
@@ -351,6 +361,7 @@ export default function LogbookScreen({ navigation }) {
   };
 
   const reviseEntry = entry => {
+    migration.current.discardJournalDraft();
     setEditingEntry(entry);
     setRawNotes(entry.rawNotes || entry.refined || '');
     setHours(String(entry.hours || ''));
@@ -396,6 +407,8 @@ export default function LogbookScreen({ navigation }) {
           <Text variant="heading" style={styles.pageTitle}>Your logbook</Text>
           <Text style={styles.pageSubtitle}>Submit weekly reports and check their status.</Text>
         </View>
+
+        {backendSubmission && <JournalAnalysisConsent client={migration.current} />}
 
         {loadError ? (
           <View style={styles.loadErrorCard}>

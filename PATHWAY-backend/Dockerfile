@@ -12,6 +12,7 @@ COPY dtrReview.js dtrComparison.js coordinatorAnalytics.js attendanceAnalytics.j
 COPY companyProfileImport.js ./
 COPY anthropicAnalysis.js ./
 COPY journalAiReview.js journalCompleteness.js ./
+COPY workplaceJournalConsent.js studentJournalSubmission.js ./
 COPY attendanceAiReview.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
 COPY documentAiReview.js ./

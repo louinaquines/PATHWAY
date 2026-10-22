@@ -85,6 +85,8 @@ async function requireUser(req, res, next) {
 }
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
+require('./workplaceJournalConsent').installWorkplaceJournalConsent({ app, db: adminDb, requireUser, allowRate, audit: writeAuditInTransaction });
+require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit: writeAuditInTransaction });
 
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
@@ -1922,7 +1924,7 @@ const AUDIT_ACTIONS = new Set([
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
   'attendance.time_in', 'attendance.time_out', 'attendance.excused_dates_updated', 'attendance.risk_evaluated', 'attendance.risk_notice_read', 'student.assigned', 'clearance.updated',
-  'logbook.reviewed', 'placement.reviewed', 'placement.submitted', 'placement.resubmitted',
+  'logbook.reviewed', 'journal.consent_updated', 'journal.submitted', 'journal.resubmitted', 'placement.reviewed', 'placement.submitted', 'placement.resubmitted',
   'endorsement.draft_prepared', 'endorsement.delivery_started',
   'endorsement.email_accepted', 'endorsement.email_failed',
   'final_review.submitted', 'final_review.resubmitted', 'roster.updated', 'announcement.sent',

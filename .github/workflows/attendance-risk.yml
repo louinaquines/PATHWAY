@@ -13,12 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/scripts
+      - name: Load scheduled client from this revision
+        timeout-minutes: 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --hostname github.com --method GET \
+            --header "Accept: application/vnd.github.raw+json" \
+            "repos/${GITHUB_REPOSITORY}/contents/.github/scripts/attendance-risk-run.cjs?ref=${GITHUB_SHA}" \
+            > "${RUNNER_TEMP}/attendance-risk-run.cjs"
       - name: Process due attendance batches
         env:
           ATTENDANCE_BACKEND_ORIGIN: ${{ vars.ATTENDANCE_BACKEND_ORIGIN }}
           ATTENDANCE_SCHEDULE_SECRET: ${{ secrets.ATTENDANCE_SCHEDULE_SECRET }}
-        run: node .github/scripts/attendance-risk-run.cjs
+        run: node "${RUNNER_TEMP}/attendance-risk-run.cjs"

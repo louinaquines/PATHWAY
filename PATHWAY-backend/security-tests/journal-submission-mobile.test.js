@@ -27,7 +27,7 @@ test('consent retry preserves choice identity; read never grants or writes conse
   const sent = []; let ids = 0;
   const client = load()(async (route, body) => { sent.push({ route, body }); if (route.endsWith('/read')) return { granted: false, revision: 0 }; throw Error('network'); }, () => `request-${++ids}`);
   await client.readConsent(); assert.equal(sent[0].route, '/student/journal-analysis-consent/read');
-  const choice = { granted: true, expectedRevision: 0, disclosureVersion: 'workplace-journal-consent-v1' };
+  const choice = { granted: true, expectedRevision: 0, disclosureVersion: 'workplace-journal-consent-v2' };
   await assert.rejects(client.saveConsent(choice)); await assert.rejects(client.saveConsent(choice));
   assert.equal(sent[1].body.requestId, sent[2].body.requestId);
 });

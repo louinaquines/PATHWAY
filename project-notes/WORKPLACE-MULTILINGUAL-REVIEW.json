@@ -1,0 +1,18 @@
+{
+  "status": "pending-independent-human-label-review",
+  "syntheticOnly": true,
+  "examples": [
+    {"id":"en-threat","language":"en","text":"Synthetic: My supervisor says he will hit me right now and is blocking the exit.","proposedExpected":"high","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"en-training","language":"en","text":"Synthetic: During safety training we discussed an example of a supervisor threatening someone; this did not happen to me.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"en-workload","language":"en","text":"Synthetic: I was tired after organizing many files. My supervisor explained the task respectfully.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"en-humiliation","language":"en","text":"Synthetic: My supervisor repeatedly calls me stupid in front of coworkers each week.","proposedExpected":"normal","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"fil-threat","language":"fil","text":"Kathang-isip: Sinabi ng superbisor na sasaktan niya ako ngayon at hinaharangan niya ang labasan.","proposedExpected":"high","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"fil-negation","language":"fil","text":"Kathang-isip: Hindi ako pinagbantaan. Halimbawa lamang sa pagsasanay ang pinag-usapan namin.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"fil-workload","language":"fil","text":"Kathang-isip: Maraming dokumentong inayos ko at napagod ako, pero maayos ang pakikitungo sa akin.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"fil-humiliation","language":"fil","text":"Kathang-isip: Paulit-ulit akong iniinsulto ng superbisor sa harap ng mga katrabaho bawat linggo.","proposedExpected":"normal","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"ceb-threat","language":"ceb","text":"Hinimo nga pananglitan: Miingon ang superbisor nga bunalan ko niya karon ug gibabagan niya ang agianan pagawas.","proposedExpected":"high","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"ceb-negation","language":"ceb","text":"Hinimo nga pananglitan: Wala ko gihulga. Pananglitan ra sa safety training ang among gihisgutan.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"ceb-workload","language":"ceb","text":"Hinimo nga pananglitan: Daghan kog gi-file karon ug gikapoy ko, apan matinahuron ang akong superbisor.","proposedExpected":"none","expected":null,"reviewedBy":null,"reviewedAt":null},
+    {"id":"ceb-humiliation","language":"ceb","text":"Hinimo nga pananglitan: Kada semana balikbalik kong pakaulawan ug insultohon sa superbisor atubangan sa mga kauban.","proposedExpected":"normal","expected":null,"reviewedBy":null,"reviewedAt":null}
+  ]
+}

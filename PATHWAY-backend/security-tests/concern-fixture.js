@@ -41,7 +41,7 @@ async function concernFixture(install, { liveClock = false } = {}) {
       'studentJournalReceipts','studentJournalSequences','workplaceJournalConsentReceipts']) await db.recursiveDelete(db.collection(col));
     await db.recursiveDelete(db.collection('users/c-student/logbook'));
     await seedPilot();
-    await db.doc('workplaceJournalConsents/c-student').set({ granted: true, revision: 1, disclosureVersion: 'workplace-journal-consent-v1' });
+    await db.doc('workplaceJournalConsents/c-student').set({ granted: true, revision: 1, disclosureVersion: 'workplace-journal-consent-v2' });
     await db.doc('users/c-student/logbook/entry').set({ rawNotes: NOTES, sourceRevision: 1 });
   }
   async function seedPilot() {
@@ -53,7 +53,7 @@ async function concernFixture(install, { liveClock = false } = {}) {
   }
   async function job(id = 'c-job', patch = {}) {
     await db.doc(`workplaceJournalAnalysisJobs/${id}`).set({ studentId: 'c-student', entryId: 'entry', sourceRevision: 1, sourceHash: digest(NOTES),
-      consentRevision: 1, disclosureVersion: 'workplace-journal-consent-v1', state: 'queued', attempts: 0, createdAt: clock().toISOString(), ...patch });
+      consentRevision: 1, disclosureVersion: 'workplace-journal-consent-v2', state: 'queued', attempts: 0, createdAt: clock().toISOString(), ...patch });
   }
   const analyzer = { prepare: () => ({ model: 'claude-haiku-5-5', inputTokenUpperBound: 10000, maxOutputTokens: 2048, features: FEATURES, request: 'synthetic-only' }),
     analyze: async () => ({ usage: { inputTokens: 100, outputTokens: 100 }, decision: decision() }) };

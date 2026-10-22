@@ -140,7 +140,7 @@ function pilotFlow(f) {
       const current = await f.post('/student/journal-analysis-consent/read',{},'c-student');
       if (current.status !== 200) throw error('PILOT_CONSENT');
       if (!current.data.granted) {
-        const choice = await f.post('/student/journal-analysis-consent',{ granted: true,disclosureVersion: 'workplace-journal-consent-v1',expectedRevision: current.data.revision,requestId: `pilot-consent-${current.data.revision}` },'c-student');
+        const choice = await f.post('/student/journal-analysis-consent',{ granted: true,disclosureVersion: 'workplace-journal-consent-v2',expectedRevision: current.data.revision,requestId: `pilot-consent-${current.data.revision}` },'c-student');
         if (choice.status !== 200) throw error('PILOT_CONSENT');
       }
       const saved = await f.post('/student/journals',{ requestId: `pilot-${day}-${fixture.id}`,

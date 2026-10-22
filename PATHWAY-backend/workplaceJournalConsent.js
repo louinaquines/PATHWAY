@@ -1,5 +1,5 @@
 const { createHash } = require('node:crypto');
-const DISCLOSURE_VERSION = 'workplace-journal-consent-v1';
+const { DISCLOSURE_VERSION } = require('./workplaceRealUsePolicy');
 const validId = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const problem = (status, message) => Object.assign(new Error(message), { status });
@@ -12,6 +12,8 @@ function assertFreshStudent(actor, snapshot) {
 function consentValue(snapshot) {
   if (!snapshot.exists) return { granted: false, disclosureVersion: DISCLOSURE_VERSION, revision: 0 };
   const data = snapshot.data();
+  if (data.disclosureVersion === 'workplace-journal-consent-v1' && typeof data.granted === 'boolean' && Number.isSafeInteger(data.revision) && data.revision >= 1)
+    return { granted: false, disclosureVersion: DISCLOSURE_VERSION, revision: data.revision };
   if (typeof data.granted !== 'boolean' || data.disclosureVersion !== DISCLOSURE_VERSION
     || !Number.isSafeInteger(data.revision) || data.revision < 1) throw problem(503, 'Consent status unavailable.');
   return { granted: data.granted, disclosureVersion: data.disclosureVersion, revision: data.revision };

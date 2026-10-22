@@ -20,7 +20,7 @@ export default function JournalAnalysisConsent({ client }) {
     if (!consent || inFlight.current) return;
     inFlight.current = true; setBusy(true); setError('');
     try {
-      const result = await client.saveConsent({ granted, disclosureVersion: 'workplace-journal-consent-v1', expectedRevision: consent.revision });
+      const result = await client.saveConsent({ granted, disclosureVersion: 'workplace-journal-consent-v2', expectedRevision: consent.revision });
       if (active.current) setConsent(result);
     } catch (e) {
       if (active.current) {
@@ -31,7 +31,7 @@ export default function JournalAnalysisConsent({ client }) {
   }
   return <View style={styles.card}>
     <Text variant="heading" style={styles.title}>Journal workplace support analysis</Text>
-    <Text style={styles.body}>Optional: allow original notes in future journal submissions to be shared with Anthropic to identify potential workplace concerns. Potential concerns go privately to your assigned coordinator for human review. Your company or supervisor will not be contacted automatically.</Text>
+    <Text style={styles.body}>Optional: allow original notes in future journal submissions to be shared with Anthropic for token counting and workplace-concern analysis. Potential concerns go privately to your assigned coordinator for human review. Your company or supervisor will not be contacted automatically.</Text>
     <Text style={styles.body}>AI can miss or misunderstand concerns. PATHWAY is not continuously monitored or an emergency service. You may decline and still submit journals or contact your coordinator directly.</Text>
     <Text style={styles.body}>Withdrawal stops future sharing, including queued unsent entries. It cannot recall text already shared or erase existing review records. This release only prepares the queue; automatic analysis is not active.</Text>
     <Text style={styles.status} accessibilityLiveRegion="polite">{consent ? (consent.granted ? 'Your choice: allowed for future submissions.' : 'Your choice: analysis off.') : 'Your current consent choice is not loaded.'}</Text>

@@ -25,14 +25,14 @@ beforeEach(async () => {
   for (const name of ['workplaceJournalAnalysisJobs', 'workplaceJournalWorker', 'workplaceAnalysisBudgetDays', 'workplaceAnalysisBudgetAttempts']) await db.recursiveDelete(db.collection(name));
   await db.doc('users/worker-student').set({ role: 'student', accountApproved: true, preDeploymentStatus: 'approved', placementStatus: 'approved', companyId: 'worker-company' });
   await db.doc('companies/worker-company').set({ active: true });
-  await db.doc('workplaceJournalConsents/worker-student').set({ granted: true, disclosureVersion: 'workplace-journal-consent-v1', revision: 1 });
+  await db.doc('workplaceJournalConsents/worker-student').set({ granted: true, disclosureVersion: 'workplace-journal-consent-v2', revision: 1 });
   await db.doc('users/worker-student/logbook/entry').set({ rawNotes: 'Synthetic original notes.', sourceRevision: 1, status: 'pending' });
   analyzer = { prepare: notes => { prepares++; assert.equal(notes, 'Synthetic original notes.'); return metadata(); },
     analyze: async prepared => { calls++; assert.ok(Object.isFrozen(prepared)); return { usage: { inputTokens: 1000, outputTokens: 100 } }; } };
 });
 async function job(id = 'job-a', patch = {}) {
   await db.doc(`workplaceJournalAnalysisJobs/${id}`).set({ studentId: 'worker-student', entryId: 'entry', sourceRevision: 1,
-    sourceHash: digest('Synthetic original notes.'), consentRevision: 1, disclosureVersion: 'workplace-journal-consent-v1',
+    sourceHash: digest('Synthetic original notes.'), consentRevision: 1, disclosureVersion: 'workplace-journal-consent-v2',
     state: 'queued', attempts: 0, createdAt: clock().toISOString(), ...patch });
 }
 async function data(id = 'job-a') { return (await db.doc(`workplaceJournalAnalysisJobs/${id}`).get()).data(); }

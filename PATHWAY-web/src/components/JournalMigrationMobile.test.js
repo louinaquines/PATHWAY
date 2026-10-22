@@ -26,7 +26,8 @@ test('consent loads off with no automatic grant and explicit choice sends versio
   expect(client.saveConsent).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Allow future analysis' }));
   await screen.findByText('Your choice: allowed for future submissions.');
-  expect(client.saveConsent).toHaveBeenCalledWith({ granted: true, expectedRevision: 0, disclosureVersion: 'workplace-journal-consent-v1' });
+  expect(client.saveConsent).toHaveBeenCalledWith({ granted: true, expectedRevision: 0, disclosureVersion: 'workplace-journal-consent-v2' });
+  expect(screen.getByText(/Anthropic for token counting and workplace-concern analysis/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Withdraw consent' })).toBeInTheDocument();
 });
 test('consent load failure remains unknown and permits a refresh instead of an implicit choice', async () => {

@@ -33,7 +33,7 @@ test('decline and post-submit withdrawal prevent sharing, while no-flag success 
   const a = adapter(async () => { calls++; return response(fixture); }); await run(a); assert.equal(calls,1); assert.equal(await flow.inspect(entry.entryId),null);
   await flow.submit(fixtures[0]);
   const current = await f.post('/student/journal-analysis-consent/read',{},'c-student');
-  await f.post('/student/journal-analysis-consent',{ granted: false,disclosureVersion: 'workplace-journal-consent-v1',expectedRevision: current.data.revision,requestId: 'withdraw' },'c-student');
+  await f.post('/student/journal-analysis-consent',{ granted: false,disclosureVersion: 'workplace-journal-consent-v2',expectedRevision: current.data.revision,requestId: 'withdraw' },'c-student');
   await run(a); assert.equal(calls,1);
 });
 test('raw edits and lease expiry after real adapter response discard outcomes without another paid request', async () => {

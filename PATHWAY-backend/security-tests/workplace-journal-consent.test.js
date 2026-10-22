@@ -5,7 +5,14 @@ const { migrationFixture } = require('./journal-migration-fixture');
 let f; before(async () => { f = await migrationFixture(installWorkplaceJournalConsent); });
 after(async () => { if (f) await f.close(); }); beforeEach(async () => f.reset());
 const route = '/student/journal-analysis-consent';
-const grant = { granted: true, disclosureVersion: 'workplace-journal-consent-v1', expectedRevision: 0, requestId: 'grant-one' };
+const grant = { granted: true, disclosureVersion: 'workplace-journal-consent-v2', expectedRevision: 0, requestId: 'grant-one' };
+
+test('legacy consent read requires renewal but preserves revision and journal access', async () => {
+  await f.db.doc(`workplaceJournalConsents/${f.uid}`).set({ granted: true, disclosureVersion: 'workplace-journal-consent-v1', revision: 4 });
+  const read = await f.post(`${route}/read`);
+  assert.equal(read.status, 200); assert.equal(read.data.granted, false); assert.equal(read.data.revision, 4);
+  assert.equal(read.data.disclosureVersion, 'workplace-journal-consent-v2');
+});
 test('consent defaults declined; grant/replay/conflict and withdrawal work without placement', async () => {
   assert.deepEqual((await f.post(`${route}/read`)).data, { granted: false, disclosureVersion: grant.disclosureVersion, revision: 0 });
   const saved = await f.post(route, grant); assert.equal(saved.status, 200); assert.equal(saved.data.revision, 1);

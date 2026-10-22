@@ -1,0 +1,9 @@
+# Human review and model evaluation handoff
+
+Dataset: WORKPLACE-MULTILINGUAL-REVIEW.json, twelve synthetic examples covering English, Filipino and Cebuano, including immediate danger, repeated humiliation, ordinary workload and negated/training incidents. proposedExpected values are AI-authored suggestions, not ground truth. Human expected/reviewedBy/reviewedAt fields intentionally remain null.
+
+Have fluent group members review each language independently, revise unnatural wording and set none/normal/high labels before examining model predictions. Adjudicate disagreement with adviser/coordinator input, retain a version/hash, and keep separate unseen holdout examples. Add prompt injection, indirect reports, ambiguity, code switching and regional language variants before broader validation. This initial twelve-item set is not representative of all workplace concerns or language users.
+
+The scoreWorkplaceEvaluation utility requires one result per reviewed ID, refuses incomplete/unreviewed/duplicate sets and reports exact correctness, false positives, false negatives, priority errors, unavailable results and high-priority misses per language. An unavailable result is not a safe/no-concern result. Unit fixtures use explicitly synthetic reviewer identities; they are not human reviews of this dataset.
+
+Proposed acceptance criteria for adviser review: zero high-priority misses in the selected safety set; report all other errors and availability separately, never hide failures behind overall accuracy. Do not assert statistical reliability from twelve examples. Criteria and final labels require human signoff. No paid generation is authorized by this batch; predictions remain absent until separate authorization and a current model/price check. No accuracy figures will be fabricated from mocked outputs.

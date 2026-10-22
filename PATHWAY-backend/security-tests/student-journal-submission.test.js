@@ -6,7 +6,7 @@ let f; before(async () => { f = await migrationFixture(installStudentJournalSubm
 after(async () => { if (f) await f.close(); }); beforeEach(async () => f.reset());
 const payload = { requestId: 'submit-one', rawNotes: 'Original sample activities.', refined: 'Polished sample activities.', aiRefined: true, hours: 32 };
 const submit = patch => f.post('/student/journals', { ...payload, ...patch });
-async function grant() { await f.db.doc(`workplaceJournalConsents/${f.uid}`).set({ granted: true, disclosureVersion: 'workplace-journal-consent-v1', revision: 1 }); }
+async function grant() { await f.db.doc(`workplaceJournalConsents/${f.uid}`).set({ granted: true, disclosureVersion: 'workplace-journal-consent-v2', revision: 1 }); }
 test('atomic creation derives dates and preserves original notes; declined consent creates no job', async () => {
   const result = await submit(); assert.equal(result.status, 200); assert.equal(result.data.analysisStatus, 'not-enabled');
   const saved = (await f.db.doc(`users/${f.uid}/logbook/${result.data.entryId}`).get()).data();
@@ -84,10 +84,10 @@ test('consent withdrawal racing submission produces a coherent snapshot without 
   const both = await migrationFixture(args => { installStudentJournalSubmission(args); installWorkplaceJournalConsent(args); });
   try {
     await both.reset();
-    await both.db.doc(`workplaceJournalConsents/${both.uid}`).set({ granted: true, disclosureVersion: 'workplace-journal-consent-v1', revision: 1 });
+    await both.db.doc(`workplaceJournalConsents/${both.uid}`).set({ granted: true, disclosureVersion: 'workplace-journal-consent-v2', revision: 1 });
     const [submitted, withdrawn] = await Promise.all([
       both.post('/student/journals', payload),
-      both.post('/student/journal-analysis-consent', { granted: false, expectedRevision: 1, disclosureVersion: 'workplace-journal-consent-v1', requestId: 'race-withdraw' }),
+      both.post('/student/journal-analysis-consent', { granted: false, expectedRevision: 1, disclosureVersion: 'workplace-journal-consent-v2', requestId: 'race-withdraw' }),
     ]);
     assert.equal(submitted.status, 200); assert.equal(withdrawn.status, 200);
     const jobs = await both.db.collection('workplaceJournalAnalysisJobs').get();

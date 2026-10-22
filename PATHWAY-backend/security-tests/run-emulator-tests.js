@@ -15,6 +15,7 @@ const dispatchFiles = ['security-tests/workplace-local-dispatch.test.js', 'secur
 const controlledFiles = ['security-tests/workplace-controlled-dispatch.test.js', 'security-tests/workplace-controlled-flow.test.js', 'security-tests/workplace-dispatch-bootstrap.test.js'];
 const retentionFiles = ['security-tests/workplace-concern-retention.test.js', 'security-tests/workplace-concern-cleanup.test.js'];
 const generalFiles = ['security-tests/workplace-general-runtime.test.js', 'security-tests/workplace-general-runtime-flow.test.js'];
+const releaseFiles = ['security-tests/workplace-release-policy.test.js', 'security-tests/workplace-general-provider.test.js', 'security-tests/workplace-evaluation.test.js', 'security-tests/workplace-cutover-candidate.test.js'];
 const testFiles = process.argv.includes('--workplace-concerns-only') ? [...workerFiles, ...concernFiles] : process.argv.includes('--workplace-worker-only') ? workerFiles : process.argv.includes('--journal-migration-only') ? journalMigrationFiles : process.argv.includes('--workplace-budget-only') ? budgetFiles : process.argv.includes('--risk-only') ? riskFiles : process.argv.includes('--attendance-only') ? ['security-tests/attendance-excused-security.test.js'] : ['security-tests/security.test.js', 'security-tests/attendance-excused-security.test.js', ...riskFiles, ...budgetFiles, ...journalMigrationFiles, ...workerFiles, ...concernFiles];
 const testCommand = process.argv.includes('--workplace-ui-only')
   ? 'node --test --test-concurrency=1 --test-name-pattern="local workplace review API" security-tests/security.test.js'
@@ -23,7 +24,7 @@ const testCommand = process.argv.includes('--workplace-ui-only')
   : process.argv.includes('--workplace-controlled-only') ? `node --test --test-concurrency=1 ${controlledFiles.join(' ')}`
   : process.argv.includes('--workplace-general-only') ? `node --test --test-concurrency=1 ${generalFiles.join(' ')}`
   : process.argv.includes('--workplace-review-only') ? 'node --test --test-concurrency=1 security-tests/workplace-concern-review.test.js'
-  : `node --test --test-concurrency=1 ${(process.argv.includes('--workplace-cleanup-only') ? retentionFiles : process.argv.includes('--workplace-safeguards-only') ? [...retentionFiles, 'security-tests/workplace-concern-review.test.js', ...dispatchFiles] : process.argv.includes('--workplace-dispatch-only') ? dispatchFiles : process.argv.includes('--workplace-claude-only') ? claudeFiles : [...testFiles, ...claudeFiles, ...dispatchFiles, ...retentionFiles, ...controlledFiles, ...generalFiles]).join(' ')}`;
+  : `node --test --test-concurrency=1 ${(process.argv.includes('--workplace-cleanup-only') ? retentionFiles : process.argv.includes('--workplace-safeguards-only') ? [...retentionFiles, 'security-tests/workplace-concern-review.test.js', ...dispatchFiles] : process.argv.includes('--workplace-dispatch-only') ? dispatchFiles : process.argv.includes('--workplace-claude-only') ? claudeFiles : [...testFiles, ...claudeFiles, ...dispatchFiles, ...retentionFiles, ...controlledFiles, ...generalFiles, ...releaseFiles]).join(' ')}`;
 const emulatorCache = path.join(__dirname, '..', '.firebase-cache');
 const rootDir = path.resolve(__dirname, '..', '..');
 const ports = {

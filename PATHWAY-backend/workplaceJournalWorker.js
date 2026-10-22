@@ -7,7 +7,7 @@ const { planConcernOutcome, applyConcernOutcome } = require('./workplaceConcernC
 const LEASE_MS = 90000, RETRY_MS = 15 * 60000;
 const terminal = new Set(['processed', 'cancelled', 'unavailable']);
 // Control plane only: no live provider, results/evidence, route, or dispatcher is installed.
-function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new Date(), priceProfile = PRICE_PROFILE } = {}) {
+function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new Date(), priceProfile = PRICE_PROFILE, onAccountingUncertain } = {}) {
   const now = () => { const value = clock(); if (!(value instanceof Date) || !Number.isFinite(value.getTime())) throw Error('Clock unavailable'); return value; };
   const pricing = prepared => reserveCostMicroUsd({ ...prepared, now: now(), profile: priceProfile });
   const profileKey = digest(['model', 'currency', 'inputRate', 'outputRate', 'reviewedAt', 'expiresAt'].map(key => priceProfile?.[key]));
@@ -87,7 +87,10 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
     if (!preflight || preflight.invalid) { if (preflight) await finish(ref, owner, preflight.invalid); return true; }
     let reservation;
     try { reservation = await reserveWorkplaceAttempt({ db, enabled, attemptId: digest([ref.id, claim.attempt]), now: now(), reservedMicroUsd: cost }); }
-    catch { await finish(ref, owner, 'unavailable'); return true; }
+    catch {
+      if (onAccountingUncertain) await onAccountingUncertain();
+      await finish(ref, owner, 'unavailable'); return true;
+    }
     if (reservation.status === 'daily-limit') {
       const nextDay = new Date(now()); nextDay.setUTCHours(24, 0, 0, 0);
       await finish(ref, owner, 'queued', { dueAt: nextDay.toISOString(), delayReason: 'daily-limit' }); return true;
@@ -110,7 +113,13 @@ function createWorkplaceJournalWorker({ db, enabled, analyzer, clock = () => new
       // Adapter is trusted, synthetic and injected here. It must honor cancellation in a real integration.
       const controller = new AbortController();
       const result = await Promise.race([
-        analyzer.analyze(prepared, { signal: controller.signal }),
+        analyzer.analyze(prepared, { signal: controller.signal, assertReady: async () => {
+          const check = await db.runTransaction(tx => ready(tx, ref, owner));
+          if (!check || check.invalid || controller.signal.aborted) throw Error('Send authorization unavailable');
+          const fresh = now().getTime();
+          if (!live(check.job, owner, fresh) || !live(check.control, owner, fresh)) throw Error('Send authorization expired');
+          pricing(prepared);
+        } }),
         new Promise((_, reject) => { timer = setTimeout(() => { controller.abort(); reject(Error('Uncertain timeout')); }, 25000); }),
       ]);
       if (!result || ![1,2].includes(Object.keys(result).length) || Object.keys(result).some(k => !['usage','decision'].includes(k)) || !result.usage || Object.keys(result.usage).length !== 2

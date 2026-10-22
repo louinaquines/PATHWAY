@@ -87,8 +87,7 @@ async function requireUser(req, res, next) {
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
 require('./workplaceJournalConsent').installWorkplaceJournalConsent({ app, db: adminDb, requireUser, allowRate, audit: writeAuditInTransaction });
 // Hosted/default entry points never load the synthetic analyzer or start a worker.
-const workplaceLocalDispatch = require('./workplaceLocalDispatch').localDispatchAllowed(adminDb, process.env)
-  ? require('./security-tests/workplace-local-runtime').createLocalRuntime({ db: adminDb }) : null;
+const workplaceLocalDispatch = require('./workplaceDispatchBootstrap').createServerWorkplaceDispatch({ db: adminDb });
 require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement,
   audit: writeAuditInTransaction, onJournalQueued: workplaceLocalDispatch ? () => workplaceLocalDispatch.wake() : undefined });
 require('./workplaceConcernReview').installWorkplaceConcernReview({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction,
@@ -2648,7 +2647,10 @@ const host = process.env.HOST?.trim();
 const onListening = () => {
   console.log(`Backend running on ${host ? `${host}:` : ''}${port}`);
   if (workplaceLocalDispatch) {
-    console.log('FIXED SYNTHETIC workplace simulation enabled; no Claude calls. Recovery target: 15 minutes while this process is awake.');
+    console.log(workplaceLocalDispatch.mode === 'controlled-claude'
+      ? 'CONTROLLED local Claude window configured; one exact new fixture only. Durable stop and reservations apply.'
+      : workplaceLocalDispatch.mode === 'controlled-unavailable' ? 'Controlled workplace analysis unavailable; no fallback or requests.'
+      : 'FIXED SYNTHETIC workplace simulation enabled; no Claude calls. Recovery target: 15 minutes while this process is awake.');
     void workplaceLocalDispatch.start();
   }
 };

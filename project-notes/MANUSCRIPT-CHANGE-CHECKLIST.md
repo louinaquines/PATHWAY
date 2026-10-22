@@ -202,3 +202,11 @@ The local implementation separates API visibility expiry from bounded physical c
 Expiry is rechecked after assignment reads and at final whole-page projection. A transactional operational timestamp prevents clock rollback from restoring already-observed expired data; it contains no case/person references. Forward clock errors and shared-clock contention remain operational limitations. Prior backup exports and original journal text have separate retention and are not erased by concern cleanup.
 
 See WORKPLACE-SAFEGUARDS-ACCEPTANCE.md for actual verification, failures/fixes and remaining limitations. Automatic local fixed-fixture dispatch is not real Claude detection. No native APK, paid provider request or deployment is included.
+
+### Controlled Claude dispatch preparation — 2026-10-23, not live
+
+Distinguish the fixed-fake automatic simulation, separately recorded historical paid pilot, and new controlled local runtime. The new path is restricted to one newly submitted canonical synthetic fixture, one explicitly selected demo student/request, a maximum-15-minute UTC window and at most one external attempt. It does not enable analysis of arbitrary student writing or hosted automatic processing.
+
+Explain receipt-derived job binding, fresh consent/source/lease checks, both existing daily reservation layers and durable pre-send stop. A reservation can remain spent without a successful request; no uncertain refund or automatic retry is promised. Window expiry prevents new sharing, not recall of text already sent. Timing and engineering cost bounds are implementation safeguards, not scoring rules supplied by the manuscript, emergency monitoring or an account-wide billing guarantee.
+
+Use WORKPLACE-CONTROLLED-CLAUDE-ACCEPTANCE.md for current verification and the later paid-test authorization sheet. This implementation approval authorizes synthetic HTTP responses only; no new paid result or production behavior may be claimed. General-input token bounds, linguistic/safety evaluation, original-journal/backup retention and release verification remain separate work.

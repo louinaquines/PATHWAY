@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { installJournalAiReview } = require('../journalAiReview');
 const { validateJournalResult, createAnthropicAnalysis } = require('../anthropicAnalysis');
+const judgments = () => ['tasks', 'learning', 'outcomes', 'challenges'].map(id => ({ id, level: 'partial', reason: 'Mentioned without detail.', evidence: 'tested' }));
 function fixture({ owns = true, role = 'coordinator', consent = true, providerError } = {}) {
   let handler, reads = 0, calls = 0;
   const db = { collection: () => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({}) }), collection: () => ({ doc: () => ({ get: async () => { reads++; return { exists: true, data: () => ({ rawNotes: 'I tested software.', refined: 'Different text' }) }; } }) }) }) }) };
@@ -21,12 +22,24 @@ test('provider failure never exposes private details', async () => {
   const { res } = await fixture({ providerError: new Error('private key and journal') }).run(); assert.equal(res.code, 503); assert.ok(!JSON.stringify(res.data).includes('private'));
 });
 test('analysis rejects invented quotes, unexpected fields and oversized arrays', () => {
-  const valid = { completeness: [], competencies: [{ name: 'Testing', evidence: 'tested' }], sentiment: [] };
+  const valid = { completeness: [], competencies: [{ name: 'Testing', evidence: 'tested' }], sentiment: [], rubric: judgments() };
   assert.deepEqual(validateJournalResult(valid, 'I tested software.'), valid);
   for (const bad of [{ ...valid, approval: true }, { ...valid, competencies: [{ name: 'Testing', evidence: 'invented' }] }, { ...valid, completeness: Array(6).fill({ finding: 'Test', evidence: 'tested' }) }]) assert.throws(() => validateJournalResult(bad, 'I tested software.'));
 });
 test('structured analysis uses mocked provider and shared request quota', async () => {
-  const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '1' }, async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ completeness: [], competencies: [], sentiment: [] }) }] })));
-  assert.equal((await ai.analyzeJournal('Test notes')).advisoryOnly, true);
+  const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '1' }, async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ completeness: [], competencies: [], sentiment: [], rubric: judgments() }) }] })));
+  const result = await ai.analyzeJournal('I tested software.');
+  assert.equal(result.advisoryOnly, true); assert.equal(result.rubric.length, 4);
   await assert.rejects(ai.refine('Test notes'), error => error.code === 'AI_LIMIT');
+});
+
+test('provider rejects missing rubric and invented or AI-calculated score fields', async () => {
+  for (const body of [
+    { completeness: [], competencies: [], sentiment: [] },
+    { completeness: [], competencies: [], sentiment: [], rubric: judgments(), total: 100 },
+    { completeness: [], competencies: [], sentiment: [], rubric: judgments().map(x => ({ ...x, evidence: 'invented' })) },
+  ]) {
+    const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '1' }, async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(body) }] })));
+    await assert.rejects(ai.analyzeJournal('I tested software.'), error => error.code === 'AI_OUTPUT');
+  }
 });

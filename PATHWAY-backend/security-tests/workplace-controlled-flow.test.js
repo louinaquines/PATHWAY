@@ -13,7 +13,7 @@ const env = { PATHWAY_WORKPLACE_CONTROLLED_CLAUDE: '1', PATHWAY_LOCAL_WORKFLOW: 
 const window = { studentId: 'c-student', requestId: 'controlled-new', source: fixtures[0].notes,
   startAt: '2026-10-22T12:00:00Z', endAt: '2026-10-22T12:15:00Z' };
 function response(fixture = fixtures[0]) {
-  return Response.json({ model: 'claude-haiku-5-5', stop_reason: 'end_turn', usage: { input_tokens: 600, output_tokens: 150 },
+  return Response.json({ model: 'claude-haiku-5-5', stop_reason: 'end_turn', usage: { input_tokens: 600, output_tokens: 150, service_tier: 'standard', inference_geo: 'global' },
     content: [{ type: 'text', text: JSON.stringify({ version: 'workplace-concern-v1', findings: fixture.expected === 'none' ? [] : [
       { category: 'threat', priority: 'high', quote: fixture.evidence, immediateDangerQuote: fixture.evidence, reason: 'Synthetic review required.' }] }) }] });
 }
@@ -176,16 +176,21 @@ test('no-concern output creates no alert; cleanup failure does not prevent the b
   assert.equal(saved.status, 200); await r.wake(); assert.equal(calls, 1);
   assert.equal((await f.db.collection('workplaceConcernCases').get()).size, 0);
 });
-test('malformed output and usage overflow stop without success alerts or retries', async () => {
-  for (const kind of ['malformed', 'overflow']) {
+test('malformed output, usage overflow and unsupported routing stop without success alerts or retries', async () => {
+  for (const kind of ['malformed', 'overflow', 'missing-geo', 'us-geo', 'priority']) {
     await f.reset(); await f.db.recursiveDelete(f.db.collection('workplaceControlledWindows'));
     ledger.close(); ledger = openPilotLedger(path.join(dir, kind));
     const r = runtime({ fetcher: async () => { calls++; if (kind === 'malformed') return new Response('SECRET invalid body');
-      const result = await response().json(); result.usage.input_tokens = 14001; return Response.json(result); } });
+      const result = await response().json();
+      if (kind === 'overflow') result.usage.input_tokens = 14001;
+      if (kind === 'missing-geo') delete result.usage.inference_geo;
+      if (kind === 'us-geo') result.usage.inference_geo = 'us';
+      if (kind === 'priority') result.usage.service_tier = 'priority';
+      return Response.json(result); } });
     await r.start(); await submit(); await r.wake(); await r.wake();
     assert.equal(ledger.isStopped(), true); assert.equal((await f.db.collection('workplaceConcernCases').get()).size, 0); r.stop();
   }
-  assert.equal(calls, 2);
+  assert.equal(calls, 5);
 });
 test('expiry and consent withdrawal before send produce no provider request', async () => {
   const r = runtime(); await r.start(); await submit();

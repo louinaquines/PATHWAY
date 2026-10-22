@@ -11,7 +11,8 @@ before(async () => { f = await concernFixture(installPilotFlow); }); after(async
 beforeEach(async () => { await f.reset(); await f.db.doc('workplaceJournalConsents/c-student').delete(); });
 function response(fixture,patch = {}) {
   const findings = fixture.expected === 'none' ? [] : [{ category: 'threat',priority: fixture.expected,quote: fixture.evidence,reason: 'Synthetic potential concern for human review.',immediateDangerQuote: fixture.expected === 'high' ? fixture.evidence : null }];
-  return Response.json({ model: 'claude-haiku-5-5',stop_reason: 'end_turn',usage: { input_tokens: 600,output_tokens: 150 },content: [{ type: 'text',text: JSON.stringify({ version: 'workplace-concern-v1',findings }) }],...patch });
+  return Response.json({ model: 'claude-haiku-5-5',stop_reason: 'end_turn',content: [{ type: 'text',text: JSON.stringify({ version: 'workplace-concern-v1',findings }) }],...patch,
+    usage: { input_tokens: 600,output_tokens: 150,service_tier: 'standard',inference_geo: 'global',...patch.usage } });
 }
 function adapter(fetcher) { return createWorkplaceClaudeAdapter({ enabled: true,apiKey: 'SYNTHETIC',allowedSources: fixtures.map(v => v.notes),fetcher }); }
 const run = a => createWorkplaceJournalWorker({ db: f.db,enabled: true,analyzer: a,clock: f.clock }).runBatch();

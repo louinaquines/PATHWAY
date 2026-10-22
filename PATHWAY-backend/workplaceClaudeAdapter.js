@@ -10,6 +10,7 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
     allowed(); if (!sources.has(rawNotes)) throw fail('CLAUDE_SOURCE');
     const prompt = prepareConcernRequest(rawNotes);
     const request = JSON.stringify({ model: PRICE_PROFILE.model, max_tokens: 1024, thinking: { type: 'disabled' }, output_config: { effort: 'low' },
+      service_tier: 'standard_only', inference_geo: 'global',
       system: prompt.instructions, messages: [{ role: 'user', content: JSON.stringify({ journalNotes: prompt.source }) }] });
     if (Buffer.byteLength(request,'utf8') > 5000) throw fail('CLAUDE_INPUT');
     // Pilot-only engineering allowance, not a tokenizer proof or invoice guarantee.
@@ -44,7 +45,7 @@ function createWorkplaceClaudeAdapter({ enabled, apiKey, allowedSources = [], fe
       reason = 'usage-invalid'; if (!result.usage) throw Error();
       const u = result.usage, integer = n => Number.isSafeInteger(n) && n >= 0;
       if (!integer(u.input_tokens) || !integer(u.output_tokens) || (u.cache_read_input_tokens ?? 0) !== 0 || (u.cache_creation_input_tokens ?? 0) !== 0
-        || (u.service_tier !== undefined && u.service_tier !== 'standard')
+        || u.service_tier !== 'standard' || u.inference_geo !== 'global'
         || (u.server_tool_use && Object.values(u.server_tool_use).some(n => n !== 0))
         || (u.cache_creation && Object.values(u.cache_creation).some(n => n !== 0))) throw Error();
       const usage = { inputTokens: u.input_tokens, outputTokens: u.output_tokens };

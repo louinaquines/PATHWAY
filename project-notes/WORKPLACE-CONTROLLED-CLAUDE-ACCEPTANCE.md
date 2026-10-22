@@ -1,6 +1,6 @@
 # Controlled local Claude dispatch — implementation verification
 
-2026-10-23. Implemented and verified locally. Final backend suite: 244/244 passed. Three Important independent-review findings fixed with RED→GREEN regressions; one Minor deferred. This is not release approval or permission for a paid request.
+2026-10-23. Implemented and verified locally. Initial controlled-dispatch backend suite: 244/244 passed; latest tier/routing follow-up: 247/247 passed (see below). Three initial Important independent-review findings fixed with RED→GREEN regressions; scoped Minor limitations are recorded below. This is not release approval or permission for a paid request.
 
 ## Boundaries
 
@@ -51,3 +51,25 @@ General-input bounds, language/safety evaluation, original-journal/backup retent
 - Spend the window before local reservation. Cross-store interruption can consume an allowance without a request; explicit later review is required instead of refund/retry.
 - Keep coupled runtime/bootstrap artifacts in one scoped local commit after verification, avoiding missing intermediate modules. This trades finer commit granularity for an internally consistent change; unrelated edits stay excluded.
 - The reviewer did not certify live API/model/pricing/token bounds/detection quality, production/real-student/legal suitability, independent older subsystem correctness, or exhaustive crash interleavings. Those remain separate checks; author-run suite evidence is not independent execution or a release guarantee.
+
+## Next-gate local readiness check — 2026-10-23
+
+Read-only filesystem inspection at 01:56:06 Asia/Manila (2026-10-22T17:56:06.022Z): the canonical reservation ledger records nine attempts / 86040 micro-USD reserved for the October 22 UTC accounting day. Its continuity copy matches, the durable stop is present, and no ledger lock is held. These are historical reservations, not an actual-billing statement or a new allowance authorization. No ledger, sidecar, stop, configuration or production record was changed.
+
+Current Anthropic documentation compatibility is recorded separately in 2026-10-23-ANTHROPIC-CONTROLLED-PREFLIGHT.md. Do not refresh the code's price profile, switch models or clear the stop based on documentation research alone. Current synthetic consent, an unused submission identity, an approved exact UTC window and separate permission for any external request are still required; none was activated by this check.
+
+Preflight outcome: **HOLD the paid gate.** Official documentation confirms the configured model ID and disabled-thinking/low-effort combination, but the request omits the service-tier and inference-geography selectors assumed by FEATURES. The documented request default can use Priority capacity and an omitted geography follows workspace configuration. Any local patch must reconcile this with the pinned API version and permitted workspace geography; do not change workspace settings or bypass an API denial. The 14,000-token allowance is still an engineering assumption, not provider-certified.
+
+Current documented short-prompt rates are lower than the code's historical reservation rates. This research does not lower the 9,560-micro-USD reservation, extend the price-profile expiry, verify this account or authorize credentialed token counting. See the separately cited research note for exact rates, limitations and prerequisites. Only documentation changed in this step; the previous 244/244 backend result remains historical code-verification evidence, not a fresh provider-compatibility test.
+
+## Local tier/routing follow-up — 2026-10-23
+
+User approved addressing the gaps locally using synthetic responses while retaining the conservative reservation. The adapter now requests `service_tier: "standard_only"` and `inference_geo: "global"`, matching the documented [tier selector](https://platform.claude.com/docs/en/api/service-tiers) and [inference geography selector](https://platform.claude.com/docs/en/manage-claude/data-residency). It requires response usage to report `service_tier: "standard"` and `inference_geo: "global"`; absent, null, unknown, Priority or US-only metadata is unavailable, not a validated decision. A workspace/API rejection never triggers fallback or workspace-setting changes.
+
+The model, pinned API version, 14,000-input engineering allowance, 1,024-output cap, 5,000-byte serialized-request limit, 9,560-micro-USD reservation, original profile expiry and daily ceilings are unchanged. Tests prepare all nine canonical fixtures without HTTP and independently check each still reserves 9,560 micro-USD. This verifies local arithmetic/byte-limit behavior only, not provider tokenization, actual billing or account/API-version compatibility. No credentialed token count was authorized or performed; the paid gate remains held pending that separate review/authorization.
+
+TDD evidence: the initial adapter run failed on omitted request selectors and accepting absent response metadata (workplace-routing-red.log). After the minimal adapter patch, 10/10 adapter tests passed in 0.156 seconds (workplace-routing-unit-green.log). Synthetic workflow fixtures now include explicit valid tier/geography fields; controlled-flow cases additionally reject missing geography, US geography and Priority responses with no case/notice or retry and with the durable pilot stop retained. No browser/native/client contract changes, paid calls, token-count calls, credential inspection, production access, deployment or APK are included.
+
+One narrow independent read-only review found no Critical or Important issues. Deferred Minor: the routing-specific integration cases assert the stop and repeat wakes, but do not additionally reopen the ledger/start a fresh runtime; their aggregate HTTP count is weaker than an individual per-case count. Prior generic restart tests are not claimed as these exact routing-specific scenarios. Reviewer did not execute tests or certify live account/API-version compatibility, tokenization, older subsystems, production or unrelated edits; fresh suite execution remains the author's responsibility.
+
+Final fresh `npm test` in PATHWAY-backend: **247/247 passed**, zero failures/skips/cancellations, 397.141 seconds. Log: output/release/workplace-routing-final-full.log. Unit counts overlap this full total. Expected permission-denied output belongs to negative security tests; emulator SIGINT is teardown. Syntax and scoped staged-diff checks passed. The price-profile source has no changes from ab9b279; neither its rates nor its expiry was refreshed. Web/native tests were not rerun because no client source/contracts changed. All response data in the new tests is synthetic; no live-provider compatibility claim follows from this result.

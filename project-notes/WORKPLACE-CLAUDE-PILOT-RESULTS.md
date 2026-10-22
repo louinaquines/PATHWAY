@@ -50,6 +50,12 @@ One new real request **passed** on `fil-danger` (expected/observed high); origin
 
 Cumulative durable allowance: two attempts, 19120 micro-USD reserved; actual total billed cost unknown. Prior stop evidence archived intact, a new durable stop is present, and no remaining-fixture run is authorized. The CLI's all-nine completion check exits 1 for the intentionally bounded run despite its successful tested fixture; use the structured report, not that exit code, to interpret this partial result. Details and evidence paths are in WORKPLACE-CLAUDE-FAILURE-DIAGNOSIS.md. No production deployment or APK.
 
+## Subsequently approved remaining seven — 12:50 UTC
+
+The user separately approved the remaining evaluation. Exactly seven new fixed synthetic requests were sent; **all seven matched their expected categories**, with flagged private cases/notices verified locally and no-case results verified for the three ordinary/negated/training samples. No retry or prompt tuning occurred. Earlier receipts were skipped, not replayed. The stop was restored afterward.
+
+Combined outcome: **eight passed, one historical unavailable**, not nine passed. Known successful-response usage is 2875 input / 1060 output tokens; cumulative reservation is nine attempts / 86040 micro-USD ($0.08604), not actual billing. No code/deployment/APK changes in this continuation. See WORKPLACE-SYNTHETIC-ACCEPTANCE.md for per-sample results, evidence, CLI exit-code limitation and manuscript-safe wording.
+
 ## Release limitations
 
 The adapter and runner are default-off and not connected to hosted submission or a scheduler. Current consent/source/lease and coordinator-assignment checks remain mandatory. Fluent language/safety review and unresolved release retention decisions remain separate gates. An unavailable result must never be interpreted as no concern.

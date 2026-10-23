@@ -1,12 +1,12 @@
 # Workplace detection — simple human review sheet
 
-Status: awaiting human review. All examples are invented. This sheet is not an accuracy result or a claim that Claude has processed them.
+Status: All 12 draft labels approved by Loui Jay Naquines on October 23, 2026 (Asia/Manila), as explicitly stated in the project chat. Review method: AI-assisted human label review, not blind independent labeling. All examples are invented. The human-approved labels below remain provisional evaluation references, not independently established ground truth, Claude predictions or accuracy results.
 
 ## What you need to do
 
 1. Ask a person fluent in each language to review that language's four examples. One person may review more than one language if fluent.
 2. Read the examples below. Choose **none**, **normal**, or **high** for each, using your own judgment. Do not run Claude or use real student journals.
-3. Fill in the answer table with the label, reviewer name/identifier, review date and any correction/comment. If wording is unclear, record that instead of guessing.
+3. Check or correct the AI draft in the answer table, then fill in Human-approved label, reviewer name/identifier and review date. Add corrections to the reasoning where needed. If wording is unclear, record that instead of guessing. Leave approval fields blank until a person actually reviews the example.
 4. Save this file and tell Codex: “The human review sheet is filled in.” Codex can validate the answers and transfer them into the evaluation dataset. No JSON editing is required from you.
 
 Labels describe a possible concern requiring human review, not a finding of misconduct:
@@ -49,22 +49,28 @@ Review proposed criteria with your adviser. Do not claim this small synthetic sa
 
 ## Fill in these answers
 
-Use a date such as `2026-10-23`. Leave uncertain labels blank and explain in Comments. A language reviewer should confirm translations are natural and faithful before approval.
+Use a date such as `2026-10-23`. Leave uncertain human-approved labels blank and explain why. A language reviewer should confirm translations are natural and faithful before approval.
 
-| Example ID | Label: none / normal / high | Reviewer | Review date | Comments / corrections |
-|---|---|---|---|---|
-| en-threat | | | | |
-| en-training | | | | |
-| en-workload | | | | |
-| en-humiliation | | | | |
-| fil-threat | | | | |
-| fil-negation | | | | |
-| fil-workload | | | | |
-| fil-humiliation | | | | |
-| ceb-threat | | | | |
-| ceb-negation | | | | |
-| ceb-workload | | | | |
-| ceb-humiliation | | | | |
+Balanced interpretation means avoiding both unnecessary alarms and dismissal of a described concern; it does not mean forcing equal numbers into each category. Here, **normal is a review-priority label**, not a statement that humiliation is acceptable. **none** means no concern is described in this excerpt, not proof that the workplace is safe. Students can still request support regardless of the label.
+
+| Example ID | AI draft label | Draft reasoning / corrections | Human-approved label | Reviewer | Review date |
+|---|---|---|---|---|---|
+| en-threat | high | An explicit threat to hit the student right now plus a blocked exit indicates possible immediate danger. Flag urgently for human review; this is not a verified finding or a promise of immediate response. | high | Loui Jay Naquines | 2026-10-23 |
+| en-training | none | The student explicitly identifies a hypothetical training example and denies experiencing it. Mentioning a threat alone should not trigger a personal-concern alert. Reassess if additional text reports an actual event. | none | Loui Jay Naquines | 2026-10-23 |
+| en-workload | none | Fatigue and many files are described alongside respectful instruction. This excerpt does not establish harassment or an unsafe workload; do not infer mistreatment from tiredness alone. | none | Loui Jay Naquines | 2026-10-23 |
+| en-humiliation | normal | Repeated personal insults in front of coworkers warrant coordinator review. No immediate physical danger is explicitly described, so do not automatically label this high; additional danger information may change priority. | normal | Loui Jay Naquines | 2026-10-23 |
+| fil-threat | high | The description says the supervisor will hurt the student now and is blocking the exit. Those explicit immediate-danger indicators support high-priority human review without assuming the allegation is already proven. | high | Loui Jay Naquines | 2026-10-23 |
+| fil-negation | none | The account denies being threatened and identifies the discussion as a training example. Respect the negation rather than flagging the threat-related word by itself. | none | Loui Jay Naquines | 2026-10-23 |
+| fil-workload | none | Many documents and fatigue are reported, but treatment is described as proper. No explicit mistreatment or dangerous conditions appear in the excerpt; more context could change the assessment. | none | Loui Jay Naquines | 2026-10-23 |
+| fil-humiliation | normal | Repeated insults in front of coworkers describe a concern worth reviewing. The excerpt does not explicitly report immediate danger; normal priority must not be read as approval of the behavior. | normal | Loui Jay Naquines | 2026-10-23 |
+| ceb-threat | high | My reading is that the supervisor threatens to beat the student now and blocks the way out. That supports high-priority review. A fluent Cebuano reviewer must confirm the phrasing and intended meaning. | high | Loui Jay Naquines | 2026-10-23 |
+| ceb-negation | none | My reading is that the student denies being threatened and says the discussion was only a safety-training example. Do not treat a negated or hypothetical event as an experienced threat; confirm with a fluent reviewer. | none | Loui Jay Naquines | 2026-10-23 |
+| ceb-workload | none | My reading is that the student filed many items and felt tired, while the supervisor remained respectful. No explicit workplace concern is described; a fluent reviewer should confirm the nuance. | none | Loui Jay Naquines | 2026-10-23 |
+| ceb-humiliation | normal | My reading is that the supervisor repeatedly humiliates and insults the student in front of colleagues each week. That warrants review, but no immediate danger is explicit. Confirm the language with a fluent reviewer. | normal | Loui Jay Naquines | 2026-10-23 |
+
+These suggestions produce 3 high, 3 normal and 6 none labels because of the described content, not a target distribution. The machine-readable dataset now records these labels only because Loui Jay Naquines explicitly approved all 12 draft labels in the project chat. The review date is recorded as a calendar date; no review time, additional reviewer, language qualification or adviser signoff has been inferred.
+
+Reviewers who see these suggestions are performing **AI-assisted label review**, not blind independent labeling. Record that limitation in the paper. For a less biased quality evaluation, have another fluent reviewer label a separate unseen holdout without first seeing these suggestions or model predictions, then resolve disagreements with your adviser.
 
 ## What happens afterward
 

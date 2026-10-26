@@ -124,7 +124,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       const snap = await getDocs(collection(db, 'users', student.id, 'logbook'));
       const sorted = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.weekNum || 0) - (b.weekNum || 0));
+        .sort((a, b) => String(b.periodStart || b.createdAt || '').localeCompare(String(a.periodStart || a.createdAt || '')));
       setEntries(sorted);
     } catch (e) {
       console.error(e);
@@ -139,7 +139,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         body: JSON.stringify({ status }),
       });
       setEntries(prev => prev.map(e => e.id === entryId ? {
-        ...e, status, reviewReason: status === 'rejected' ? 'Please revise and resubmit this weekly entry.' : '',
+        ...e, status, reviewReason: status === 'rejected' ? `Please revise and resubmit this ${e.frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '',
       } : e));
       return true;
     } catch (e) {
@@ -214,8 +214,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       {/* Col 3: Logbook Entries */}
       <div className="logbook-detail" style={t.col3}>
         <div className="logbook-panel-header logbook-detail-header" style={t.colHeader}>
-          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Weekly journals'}
-          <p>{selectedStudent ? 'Review weekly reports and reported hours.' : 'Select a student to view their submissions.'}</p>
+          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Journals'}
+          <p>{selectedStudent ? 'Review journal reports and reported hours.' : 'Select a student to view their submissions.'}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {document.getElementById('logbook-header-actions') && createPortal(
@@ -229,10 +229,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {exportError && <p role="alert">{exportError}</p>}
           {selectedStudent && <div className="logbook-record-toolbar"><div className="logbook-record-switch" role="group" aria-label="Student record type">
             <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
-            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Weekly journals</button>
+            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
           </div>{recordView === 'attendance' && <button type="button" className="logbook-export" onClick={() => setDtrStudent(selectedStudent)}><Icon name="clipboard" size={16} />Compare DTR</button>}</div>}
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
-            <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from weekly journal hours.</p>
+            <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from journal hours.</p>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
             {attendanceError && <p role="alert">{attendanceError}</p>}
@@ -243,7 +243,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="book" size={28} label="Logbook" /></div>
               <h3 style={t.emptyTitle}>Select a Student</h3>
-              <p style={t.emptySub}>Select a section and student to review their weekly journal submissions and hours.</p>
+              <p style={t.emptySub}>Select a section and student to review their journal submissions and hours.</p>
             </div>
           )}
 
@@ -265,9 +265,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
               <div style={t.entryTop}>
                 <div>
-                  <div style={t.entryWeek}>Week {entry.weekNum}</div>
+                  <div style={t.entryWeek}>{entry.frequency === 'daily' ? `Daily journal · ${entry.periodStart}` : entry.frequency === 'weekly' ? 'Weekly journal' : `Week ${entry.weekNum}`}</div>
                   <div style={t.entrySub}>
-                    <span><Icon name="calendar" size={14} /> {entry.weekRange || 'Weekly period'}</span><span><strong>{entry.hours} hrs rendered</strong></span>
+                    <span><Icon name="calendar" size={14} /> {entry.frequency === 'daily' ? entry.periodStart : entry.weekRange || 'Weekly period'}</span><span><strong>{entry.hours} hrs rendered</strong></span>
                   </div>
                 </div>
                 <span style={{
@@ -280,9 +280,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 </span>
               </div>
 
-              <div style={t.entryLabel}>Weekly report</div>
+              <div style={t.entryLabel}>{entry.frequency === 'daily' ? 'Daily report' : 'Weekly report'}</div>
               <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
-              <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} />
+              <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} hours={entry.hours} weekRange={entry.weekRange} />
               {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
               {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Journal review checks · rules and keywords</summary>
                 {item.findings.map(finding => <p key={finding}>{finding}</p>)}
@@ -320,7 +320,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       <AlertDialog
       open={Boolean(rejectConfirm)}
       title="Reject this logbook entry?"
-      description="The student will be notified and can revise and resubmit this weekly entry."
+      description="The student will be notified and can revise and resubmit this journal entry."
       confirmLabel="Reject entry"
       busy={saving}
       onCancel={() => setRejectConfirm(null)}

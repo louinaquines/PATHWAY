@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import SectionsTab from './SectionsTab';
+import JournalFrequencySettings from '../components/JournalFrequencySettings';
 import LogbookTab from './LogbookTab';
 import RegistrationsTab from './RegistrationsTab';
 import ClassListTab from './ClassListTab';
@@ -51,7 +52,7 @@ const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'companies', 'p
 const HEADER_DESCRIPTIONS = {
   requirements: 'Review student documents and submission status.',
   sections: 'Manage class sections, students, and requirements.',
-  logbook: 'Review student attendance and weekly journals.',
+  logbook: 'Review student attendance and journals.',
   placements: 'Review company placements and student assignments.',
   companies: 'Manage partner companies and available placements.',
   messages: 'Stay connected with students and company contacts.',
@@ -367,7 +368,7 @@ export default function CoordinatorDashboard() {
         {/* Topbar */}
         <header style={s.topbar} className="topbar requirements-topbar">
           <div style={s.topbarLeft} className="topbarLeft">
-            <div className="coordinator-header-title"><h1 style={s.pageTitle}>
+            <div className="coordinator-header-title"><div className="coordinator-title-settings-row"><h1 style={s.pageTitle}>
               {activeTab === 'requirements' ? 'Requirements Approval' :
                 activeTab === 'sections' ? 'Sections Management' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
@@ -381,7 +382,7 @@ export default function CoordinatorDashboard() {
                             activeTab === 'evaluations' ? 'Supervisor Evaluations' :
                               activeTab === 'clearance' ? 'Clearance Readiness' :
                                 activeTab === 'profile' ? 'Coordinator Profile' : ''}
-            </h1><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
+            </h1>{activeTab === 'sections' && <JournalFrequencySettings key={auth.currentUser?.uid} />}</div><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
             {activeTab === 'requirements' && pendingCount > 0 && (
               <span style={s.pendingBadge}>
                 {pendingCount} Pending Review

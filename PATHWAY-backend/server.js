@@ -85,6 +85,8 @@ async function requireUser(req, res, next) {
 }
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
+require('./departmentJournals').installDepartmentJournals({ app, db: adminDb, requireStaff, requireUser, allowRate, audit: writeAuditInTransaction });
+require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit: writeAuditInTransaction, periodAware: true });
 const { createSupportUploads, cleanupSupportAttachments } = require('./workplaceSupportAttachments');
 const supportUploads = createSupportUploads();
 require('./workplaceSupport').installWorkplaceSupport({ app, db: adminDb, requireUser, requireStaff, allowRate, audit: writeAuditInTransaction, uploads: supportUploads });
@@ -880,7 +882,7 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
       assertRecordsOpen(student);
       if (!entrySnap.exists) throw Object.assign(new Error('Logbook entry not found.'), { status: 404 });
       if (entrySnap.data().status !== 'pending') throw Object.assign(new Error('This entry is no longer awaiting review.'), { status: 409 });
-      const reviewReason = status === 'rejected' ? 'Please revise and resubmit this weekly entry.' : '';
+      const reviewReason = status === 'rejected' ? `Please revise and resubmit this ${entrySnap.data().frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '';
       transaction.update(entryRef, { status, reviewedBy: req.staff.uid, reviewedAt: now, reviewReason });
       transaction.set(adminDb.collection('notifications').doc(), {
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
@@ -1948,7 +1950,7 @@ const AUDIT_ACTIONS = new Set([
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
   'attendance.time_in', 'attendance.time_out', 'attendance.excused_dates_updated', 'attendance.risk_evaluated', 'attendance.risk_notice_read', 'student.assigned', 'clearance.updated',
-  'logbook.reviewed', 'placement.reviewed', 'placement.submitted', 'placement.resubmitted',
+  'logbook.reviewed', 'journal.frequency_updated', 'journal.submitted', 'journal.resubmitted', 'placement.reviewed', 'placement.submitted', 'placement.resubmitted',
   'endorsement.draft_prepared', 'endorsement.delivery_started',
   'endorsement.email_accepted', 'endorsement.email_failed',
   'final_review.submitted', 'final_review.resubmitted', 'roster.updated', 'announcement.sent',

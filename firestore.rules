@@ -54,6 +54,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data.get('clearanceStatus', '') != 'cleared';
     }
 
+    function legacyJournalWritesAllowed(userId) {
+      let department = get(/databases/$(database)/documents/users/$(userId)).data.get('department', '');
+      return department is string && department.size() <= 200 && department.matches('.*\\S.*')
+        && !department.matches('.*[/].*') && !exists(/databases/$(database)/documents/departmentJournalSettings/$(department));
+    }
+
     function submissionEligible(userId) {
       let student = get(/databases/$(database)/documents/users/$(userId)).data;
       let companyId = student.get('companyId', '');
@@ -120,7 +126,7 @@ service cloud.firestore {
         allow read: if isOwner(userId) || isAdmin()
           || (get(/databases/$(database)/documents/users/$(userId)).data.sectionId is string
             && isCoordinatorForSection(get(/databases/$(database)/documents/users/$(userId)).data.sectionId));
-        allow create: if recordsOpen(userId) && isOwner(userId) && submissionEligible(userId)
+        allow create: if recordsOpen(userId) && isOwner(userId) && submissionEligible(userId) && legacyJournalWritesAllowed(userId)
           && request.resource.data.status in ['draft', 'pending']
           && request.resource.data.rawNotes is string
           && request.resource.data.rawNotes.size() <= 8000
@@ -130,7 +136,7 @@ service cloud.firestore {
           && request.resource.data.hours > 0
           && request.resource.data.hours <= 168
           && request.resource.data.keys().hasOnly(['rawNotes', 'refined', 'aiRefined', 'weekNum', 'weekRange', 'hours', 'status', 'createdAt', 'updatedAt']);
-        allow update: if recordsOpen(userId) && (isAdmin()
+        allow update: if recordsOpen(userId) && legacyJournalWritesAllowed(userId) && (isAdmin()
           || (isOwner(userId)
             && submissionEligible(userId)
             && resource.data.status == 'rejected' && request.resource.data.status == 'pending'
@@ -245,14 +251,6 @@ service cloud.firestore {
       allow read: if isAdmin() || isCoordinator();
       allow write: if false;
     }
-
-    match /attendanceExcusedDates/{studentId} {
-      allow read, write: if false;
-    }
-    match /attendanceRiskStates/{id} { allow read, write: if false; }
-    match /attendanceRiskNotices/{id} { allow read, write: if false; }
-    match /attendanceRiskWorker/{id} { allow read, write: if false; }
-    match /attendanceRiskRetries/{id} { allow read, write: if false; }
 
     match /auditLogs/{logId} {
       allow read: if isAdmin();

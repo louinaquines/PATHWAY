@@ -11,7 +11,7 @@ COPY server.js firebaseAdmin.js cloudinaryUploads.js endorsementMail.js gmailMai
 COPY dtrReview.js dtrComparison.js coordinatorAnalytics.js attendanceAnalytics.js reviewAnalysis.js ./
 COPY companyProfileImport.js ./
 COPY anthropicAnalysis.js ./
-COPY journalAiReview.js ./
+COPY journalAiReview.js departmentJournals.js studentJournalSubmission.js workplaceJournalConsent.js workplaceRealUsePolicy.js ./
 COPY attendanceAiReview.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
 COPY documentAiReview.js ./

@@ -85,6 +85,29 @@ async function requireUser(req, res, next) {
 }
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
+const { createSupportUploads, cleanupSupportAttachments } = require('./workplaceSupportAttachments');
+const supportUploads = createSupportUploads();
+require('./workplaceSupport').installWorkplaceSupport({ app, db: adminDb, requireUser, requireStaff, allowRate, audit: writeAuditInTransaction, uploads: supportUploads });
+const { reconcileSupport, markSupportAssignment } = require('./workplaceSupportNotifications');
+let supportReconciliationRunning = false;
+setInterval(async () => {
+  if (supportReconciliationRunning) return;
+  supportReconciliationRunning = true;
+  try {
+    await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction });
+    await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction, queued: true });
+  } catch { console.error('Support reconciliation unavailable'); }
+  finally { supportReconciliationRunning = false; }
+}, 60000).unref();
+let supportCleanupRunning = false;
+setInterval(async () => {
+  if (supportCleanupRunning || !cloudinaryConfig()) return;
+  supportCleanupRunning = true;
+  try { await cleanupSupportAttachments({ db: adminDb, uploads: supportUploads }); }
+  catch { console.error('Support attachment cleanup unavailable'); }
+  finally { supportCleanupRunning = false; }
+}, 60000).unref();
+
 
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
@@ -1549,6 +1572,7 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
       const hoursRequired = Number(sectionSnap.data().hoursRequired);
       if (!Number.isFinite(hoursRequired) || hoursRequired <= 0) throw Object.assign(new Error('Section has an invalid required-hours setting.'), { status: 409 });
       transaction.update(studentRef, { sectionId, hoursRequired });
+      markSupportAssignment(transaction, adminDb, studentId);
       transaction.set(adminDb.collection('notifications').doc(), {
         recipientId: studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: 'Section assignment updated', message: `You have been assigned to ${sectionSnap.data().name || 'your OJT section'}.`,
@@ -1915,6 +1939,8 @@ async function requireAdmin(req, res, next) {
 }
 
 const AUDIT_ACTIONS = new Set([
+  'workplace_support.submitted', 'workplace_support.acknowledge', 'workplace_support.contact',
+  'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
   'company.created', 'company.updated', 'evaluation.email_accepted', 'evaluation.email_unknown',

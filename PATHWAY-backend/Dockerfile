@@ -16,6 +16,7 @@ COPY attendanceAiReview.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
 COPY documentAiReview.js ./
 COPY companyMailInbox.js ./
+COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./
 COPY localCompanyInbox.js ./
 COPY companyTestLink.js ./
 COPY companyMailSender.js companyMailReplies.js companyMailAttachment.js announcementEmail.js evaluationOtp.js ./

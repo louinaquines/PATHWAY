@@ -1812,6 +1812,7 @@ test('final approval requires all required documents, then records decision and 
   });
   const denied = await api('/coordinator/final-reviews/final-a/decision', identities.coordinatorA, { status: 'approved' });
   assert.equal(denied.response.status, 409);
+  assert.match(denied.data.error, /Application Form \(submitted\)/i);
   let studentSnap;
   await testEnv.withSecurityRulesDisabled(async context => {
     studentSnap = await getDoc(doc(context.firestore(), 'users', identities.studentA.uid));

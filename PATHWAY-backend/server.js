@@ -832,7 +832,18 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
             .map(item => item.id);
         const submissions = student.requirements || {};
         const missing = requiredIds.filter(id => submissions[id]?.status !== 'approved');
-        if (missing.length) throw Object.assign(new Error('Required student documents are still missing or incomplete.'), { status: 409 });
+        if (missing.length) {
+          const labels = new Map(configuredRequirements.docs.map(doc => [doc.id, doc.data().label]));
+          const blockers = missing.slice(0, 8).map(id => {
+            const submission = submissions[id];
+            const status = submission?.autoReview?.status === 'needs_review' ? 'needs coordinator review'
+              : ['submitted', 'needs_revision', 'rejected'].includes(submission?.status)
+                ? submission.status.replaceAll('_', ' ') : 'not submitted';
+            return (snapshotText(labels.get(id), 160) || id.replaceAll('_', ' ')) + ' (' + status + ')';
+          });
+          const more = missing.length > blockers.length ? ' and ' + (missing.length - blockers.length) + ' more' : '';
+          throw Object.assign(new Error('Approve these required documents before final approval: ' + blockers.join(', ') + more + '.'), { status: 409 });
+        }
       }
       studentId = review.studentId;
       transaction.update(requestRef, { status, reviewReason: note, reviewedBy: req.staff.uid, reviewedAt: now, updatedAt: now });

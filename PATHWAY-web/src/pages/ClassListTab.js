@@ -164,6 +164,10 @@ export default function ClassListTab({ department, coordinatorId }) {
             )}
           </div>
         </div>
+        {outcomes.some(row => row.status === 'created') && <p role="status">
+          <strong>Temporary password for new accounts:</strong> <code>UC@</code> followed by the Student ID from the CSV.
+          Share sign-in details privately. Students must change this password on first sign-in.
+        </p>}
         {outcomes.length > 0 && <ul aria-label="Import results">{outcomes.map(row => <li key={row.idNumber}>{row.idNumber}: {row.status}{row.error ? ` — ${row.error}` : ` — ${row.username}`}</li>)}</ul>}
         {resetResult && <div role="status">Temporary password for {resetResult.id}: <code>{resetResult.password}</code>. Deliver privately after verifying identity. <button onClick={() => setResetResult(null)}>Dismiss</button></div>}
       </div>

@@ -95,6 +95,7 @@ export default function CoordinatorDashboard() {
   const [exporting, setExporting] = useState(false);
   const [attendanceTarget, setAttendanceTarget] = useState(null);
   const attendanceNavigation = useRef(0);
+  const sectionLoad = useRef(0);
   useEffect(() => () => { attendanceNavigation.current++; }, [activeTab, coordinatorId]);
 
   const openAttendanceRisk = async ({ sectionId, studentId }) => {
@@ -178,6 +179,10 @@ export default function CoordinatorDashboard() {
   }, [activeTab]);
 
   const fetchStudents = async (section) => {
+    const request = ++sectionLoad.current;
+    setStudents([]);
+    setSectionRequirements([]);
+    setDocumentPreview(null);
     setSelectedSection(section);
     window.localStorage.setItem(SECTION_STORAGE_KEY, section.id);
     setSelectedStudent(null);
@@ -190,6 +195,7 @@ export default function CoordinatorDashboard() {
           where('sectionId', '==', section.id))),
         getDocs(collection(db, 'sections', section.id, 'requirements'))
       ]);
+      if (request !== sectionLoad.current) return;
       setStudents(studentSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       const reqs = reqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       reqs.sort((a, b) => {
@@ -199,11 +205,12 @@ export default function CoordinatorDashboard() {
       setSectionRequirements(reqs);
     } catch (e) {
       console.error(e);
-      setError('We could not load this section. Please try again.');
+      if (request === sectionLoad.current) setError('We could not load this section. Please try again.');
     }
   };
 
   const handleRequirement = async (studentId, reqId, status, reason = '') => {
+    const request = sectionLoad.current;
     setSaving(true);
     setError('');
     try {
@@ -211,6 +218,7 @@ export default function CoordinatorDashboard() {
         method: 'POST', body: JSON.stringify({ status, reason }),
       });
 
+      if (request !== sectionLoad.current) return;
       const updated = students.map(s => {
         if (s.id !== studentId) return s;
         const reqs = { ...s.requirements };
@@ -652,8 +660,8 @@ export default function CoordinatorDashboard() {
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab sections={sections} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
-            {activeTab === 'registrations' && <RegistrationsTab coordinatorId={coordinatorId} department={coordDept} sections={sections} />}
-            {activeTab === 'classlist' && <ClassListTab coordinatorId={coordinatorId} department={coordDept} />}
+            {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
+            {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
             {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}

@@ -10,9 +10,9 @@ import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
 import './CoordinatorRecords.css';
 
-export default function ClassListTab({ department, coordinatorId }) {
+export default function ClassListTab({ department, coordinatorId, selectedSection }) {
   const [sections, setSections] = useState([]);
-  const [sectionId, setSectionId] = useState('');
+  const [sectionId, setSectionId] = useState(selectedSection?.id || '');
   const [outcomes, setOutcomes] = useState([]);
   const [resetResult, setResetResult] = useState(null);
   const [resetConfirm, setResetConfirm] = useState(null);
@@ -26,12 +26,13 @@ export default function ClassListTab({ department, coordinatorId }) {
   const [removeConfirm, setRemoveConfirm] = useState(null);
 
   const loadIds = useCallback(async () => {
-    if (!department) return;
+    if (!department || !sectionId) { setIds([]); setLoading(false); return; }
     setLoading(true);
     try {
       const snap = await getDocs(query(
         collection(db, 'studentRoster'),
         where('department', '==', department),
+        where('sectionId', '==', sectionId),
         where('active', '==', true)
       ));
       setIds(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id)));
@@ -41,10 +42,10 @@ export default function ClassListTab({ department, coordinatorId }) {
     } finally {
       setLoading(false);
     }
-  }, [department]);
+  }, [department, sectionId]);
 
   useEffect(() => {
-    if (department) loadIds();
+    loadIds();
   }, [department, loadIds]);
 
   useEffect(() => {
@@ -187,7 +188,7 @@ export default function ClassListTab({ department, coordinatorId }) {
         {ids.length === 0 ? (
           <div style={s.emptyState}>
             <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Authorized roster" /></div>
-            <p style={s.empty}>No student IDs have been authorized for {department} yet.</p>
+            <p style={s.empty}>{sectionId ? 'No student IDs have been authorized for this section yet.' : 'Select a section to view its authorized students.'}</p>
           </div>
         ) : (
           <div style={s.tableContainer}>

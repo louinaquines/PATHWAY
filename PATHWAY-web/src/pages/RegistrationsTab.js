@@ -10,7 +10,9 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import './CoordinatorRecords.css';
 
-export default function RegistrationsTab({ department, sections = [] }) {
+export default function RegistrationsTab({ department, selectedSection }) {
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const sectionId = unassignedOnly ? '' : selectedSection?.id;
   const [pending, setPending]   = useState([]);
   const [approved, setApproved] = useState([]);
   const [rejected, setRejected] = useState([]);
@@ -21,18 +23,18 @@ export default function RegistrationsTab({ department, sections = [] }) {
   const [rejectConfirm, setRejectConfirm] = useState(null);
 
   const fetchRegistrations = useCallback(async () => {
+    setPending([]);
+    setApproved([]);
+    setRejected([]);
+    if (!department || sectionId === undefined) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const sectionQueries = sections.map(section => getDocs(query(
-        collection(db, 'users'), where('sectionId', '==', section.id), where('role', '==', 'student')
-      )));
-      const [unassigned, ...assigned] = await Promise.all([
-        getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', department), where('sectionId', '==', ''))),
-        ...sectionQueries,
-      ]);
-      const all  = [...unassigned.docs, ...assigned.flatMap(result => result.docs)]
-        .filter((item, index, records) => records.findIndex(candidate => candidate.id === item.id) === index)
-        .map(d => ({ id: d.id, ...d.data() }));
+      const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'),
+        where('department', '==', department), where('sectionId', '==', sectionId)));
+      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPending(all.filter(s => !s.accountApproved && s.status !== 'rejected_registration'));
       setApproved(all.filter(s => s.accountApproved));
       setRejected(all.filter(s => s.status === 'rejected_registration'));
@@ -41,7 +43,7 @@ export default function RegistrationsTab({ department, sections = [] }) {
     } finally {
       setLoading(false);
     }
-  }, [department, sections]);
+  }, [department, sectionId]);
 
   useEffect(() => {
     fetchRegistrations();
@@ -93,7 +95,9 @@ export default function RegistrationsTab({ department, sections = [] }) {
 
   return (
     <div style={r.page} className="registrations-page">
-      <div className="registration-intro"><h2>Student accounts</h2><p>Review account approvals across your assigned sections.</p></div>
+      <label><input type="checkbox" checked={unassignedOnly} disabled={saving || loading}
+        onChange={event => setUnassignedOnly(event.target.checked)} /> Show unassigned registrations</label>
+      <div className="registration-intro"><h2>Student accounts</h2><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
       {/* Sub tabs / Filter navigation */}
       <div className="registration-tabs" style={r.subTabs}>
         <button
@@ -161,7 +165,7 @@ export default function RegistrationsTab({ department, sections = [] }) {
                   </div>
                   <div style={r.metaRow}>
                     <span style={r.metaItem}>Username: {student.username || (student.idNumber ? `uclm-${student.idNumber}` : 'Not provided')}</span>
-                    <span style={r.metaItem}>Section: {sections.find(section => section.id === student.sectionId)?.name || 'Unassigned'}</span>
+                    <span style={r.metaItem}>Section: {unassignedOnly ? 'Unassigned' : selectedSection?.name}</span>
                     <span style={r.metaItem}><Icon name="building" size={14} /> {student.department || department}</span>
                   </div>
                   {student.createdAt && (

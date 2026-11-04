@@ -64,3 +64,27 @@ test('failed activation displays the server error without marking the student ac
   expect(screen.getByRole('button', { name: 'Activate Account' })).toBeEnabled();
   expect(adminRequest).toHaveBeenCalledWith('/admin/students/student-1/account-status', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ accountApproved: true }) }));
 });
+
+test('overview and student directory share department scope, with sections inside Students', async () => {
+  const records = rows => ({ docs: rows.map(([id, data]) => ({ id, data: () => data })) });
+  getDocs.mockResolvedValueOnce(records([
+    ['a', { role: 'student', firstName: 'Alice', department: 'Education', sectionId: 'e1', accountApproved: true }],
+    ['b', { role: 'student', firstName: 'Ben', department: 'Education', sectionId: 'e2' }],
+    ['c', { role: 'student', firstName: 'Cara', department: 'Engineering', sectionId: 'c1' }],
+  ])).mockResolvedValueOnce(records([
+    ['e1', { name: 'Education A', department: 'Education', hoursRequired: 250 }],
+    ['e2', { name: 'Education B', department: 'Education' }],
+    ['c1', { name: 'Engineering A', department: 'Engineering' }],
+  ]));
+  render(<AdminDashboard />);
+  fireEvent.change(await screen.findByLabelText('Filter by department'), { target: { value: 'Education' } });
+  expect(screen.queryByText('Cara')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Sections/ })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /^Students/ }));
+  fireEvent.change(screen.getByLabelText('Filter by section'), { target: { value: 'e1' } });
+  expect(screen.getByText('Alice')).toBeInTheDocument();
+  expect(screen.queryByText('Ben')).not.toBeInTheDocument();
+  expect(screen.getByText('250 hrs')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '' } });
+  expect(screen.getByText('Cara')).toBeInTheDocument();
+});

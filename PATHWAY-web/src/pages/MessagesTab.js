@@ -32,6 +32,11 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     setLoading(true);
     setStudents([]);
     setError('');
+    if (!selectedSection?.id) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     try {
       const messageSnap = await getDocs(query(collection(db, 'messages'), where('participantIds', 'array-contains', coordinatorId)));
       if (version !== loadVersion.current) return;
@@ -63,7 +68,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   const allowedStudentIds = useMemo(() => new Set(students.map(student => student.id)), [students]);
   const conversations = useMemo(() => {
     const grouped = new Map();
-    items.filter(item => !selectedSection?.id || allowedStudentIds.has(item.studentId)).forEach(item => {
+    items.filter(item => selectedSection?.id && allowedStudentIds.has(item.studentId)).forEach(item => {
       const key = item.conversationId || item.studentId;
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key).push(item);

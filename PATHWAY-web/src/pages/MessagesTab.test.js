@@ -84,3 +84,9 @@ test('changing sections closes the old conversation and clears its reply draft',
   expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveValue('');
   expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
 });
+
+test('no section selection leaves conversations unloaded', async () => {
+  render(<MessagesTab />);
+  expect(await screen.findByText('Select a section to see its students.')).toBeInTheDocument();
+  expect(getDocs).not.toHaveBeenCalled();
+});

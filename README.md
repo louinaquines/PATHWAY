@@ -36,3 +36,25 @@ The backend requires its runtime configuration to be provided locally or by the 
 The backend security suite uses the Firebase Auth and Firestore Emulators. From `PATHWAY-backend/`, run `npm test`. A Java runtime is required. These tests are designed for local emulators and do not deploy rules or write to production Firebase.
 
 Review `PATHWAY-DOCUMENTATION.md` and `PATHWAY-backend/SECURITY.md` before configuring or deploying the system.
+
+### Try company batch matching locally
+
+Use Node.js 22 (22.12 or later) and Java 21. From the repository root on the matching branch:
+
+```powershell
+npm --prefix PATHWAY-backend ci
+npm --prefix PATHWAY-web ci
+npm --prefix PATHWAY-master ci
+npm --prefix PATHWAY-backend run dev:emulator
+```
+
+The launcher starts the local API, staff portal, student web preview, and Firebase emulators with synthetic data. It prints the demo sign-in details. No production credentials or AI key are needed.
+
+1. Open the staff portal at `http://127.0.0.1:3001` and sign in as the demo coordinator.
+2. Select **Emulator Test Section** and open **Company Placements → Match students to companies**.
+3. Select **Morgan Matching Demo**, generate suggestions, and verify that **Matching Demo Host** appears. Enter the internship dates and confirm to see the new placement and endorsement queue entry.
+4. To test student preferences before confirmation, sign in as the matching demo student in the local student web preview and open the Company screen.
+
+If the launcher restored an older emulator snapshot and the matching fixtures are missing, run `npm --prefix PATHWAY-backend run emulator:seed` in a second terminal while the local workflow is running. That command refreshes the standard demo fixtures too.
+
+For a live release, merge the matching branch and deploy the backend before the coordinator web build. Release updated student app code to expose the optional preference screen. Existing companies must be configured in **Company Directory → Batch matching settings** with confirmed slots, eligible course codes, location, supervisor contact, and internship role. For student profiles without a course code, matching uses the section's course code or name.

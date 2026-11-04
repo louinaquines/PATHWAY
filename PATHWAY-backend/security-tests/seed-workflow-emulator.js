@@ -163,6 +163,36 @@ async function main() {
     },
   );
 
+  const matchingStudent = await ensureAccount(
+    auth,
+    'student.matching@pathway.test',
+    'Morgan',
+    'Matching Demo',
+    'student',
+    { idNumber: 'EMU-0003', isEmulatorDemo: true, requirementsStatus: 'not_submitted', hoursRendered: 0, hoursRequired: 486 },
+  );
+  const matchingCompany = db.collection('companies').doc('pathway-emulator-matching-company');
+  if (!(await matchingCompany.get()).exists) {
+    await matchingCompany.create({
+      name: 'Matching Demo Host',
+      normalizedName: 'matching demo host',
+      address: '200 Emulator Avenue',
+      capacity: 1,
+      occupiedSlots: 0,
+      availableSlots: 1,
+      active: true,
+      status: 'active',
+      matching: {
+        acceptanceConfirmed: true,
+        eligibleCourses: ['emulator test section'],
+        location: 'Lapu-Lapu City',
+        supervisorName: 'Jamie Supervisor',
+        supervisorEmail: 'jamie@example.test',
+        internshipRole: 'Software QA Intern',
+      },
+    });
+  }
+
   await db.collection('sections').doc(SECTION_ID).set({
     name: 'Emulator Test Section',
     coordinatorId: coordinator.uid,
@@ -247,6 +277,7 @@ async function main() {
   console.log('Seeded isolated PATHWAY emulator workflow.');
   console.log(`Student: ${student.email} / ${PASSWORD}`);
   console.log(`Approved dashboard preview: ${approvedStudent.email} / ${PASSWORD}`);
+  console.log(`Unplaced matching demo: ${matchingStudent.email} / ${PASSWORD}`);
   console.log(`Coordinator: ${coordinator.email} / ${PASSWORD}`);
   console.log(`Admin: ${administrator.email} / ${PASSWORD}`);
   console.log(`Section: ${SECTION_ID} (${DEPARTMENT})`);

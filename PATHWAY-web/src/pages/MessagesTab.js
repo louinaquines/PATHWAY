@@ -6,13 +6,12 @@ import './MessagesTab.css';
 
 const formatDate = value => value ? new Date(value).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
 
-export default function MessagesTab({ selectedSection, sections = [], onSectionChange }) {
+export default function MessagesTab({ selectedSection }) {
   const coordinatorId = auth.currentUser?.uid;
   const [items, setItems] = useState([]);
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState('');
-  const [sectionSearch, setSectionSearch] = useState('');
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -132,17 +131,6 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       </div>
       </div>
     </dialog>
-    <section className="messages-sections">
-      <header><h2>Sections</h2><p>Your assigned classes</p></header>
-      <input type="search" aria-label="Search sections" placeholder="Search sections..." value={sectionSearch} onChange={event => setSectionSearch(event.target.value)} />
-      <div className="messages-panel-list">
-        {sections.filter(section => `${section.name} ${section.department || ''}`.toLowerCase().includes(sectionSearch.toLowerCase())).map(section =>
-          <button type="button" className="messages-choice" aria-pressed={selectedSection?.id === section.id} key={section.id} onClick={() => onSectionChange?.(section)}>
-            <strong>{section.name}</strong><span>{section.department}</span>
-          </button>)}
-        {!sections.length && <p className="messages-empty-copy">No assigned sections.</p>}
-      </div>
-    </section>
     <section className="messages-students">
       <header><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />

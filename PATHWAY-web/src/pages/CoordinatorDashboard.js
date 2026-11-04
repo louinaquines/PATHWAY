@@ -659,7 +659,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'logbook' && <LogbookTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
-            {activeTab === 'messages' && <MessagesTab sections={sections} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
+            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}

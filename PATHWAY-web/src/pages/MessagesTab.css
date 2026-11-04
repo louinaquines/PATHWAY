@@ -1,4 +1,4 @@
-.messages-workspace { display: grid; grid-template-columns: 210px 280px minmax(0, 1fr); flex: 1; gap: 16px; padding: 24px; min-height: 0; min-width: 0; overflow: auto; background: #f6f8fc; box-sizing: border-box; }
+.messages-workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr); flex: 1; gap: 16px; padding: 24px; min-height: 0; min-width: 0; overflow: auto; background: #f6f8fc; box-sizing: border-box; }
 .messages-workspace { grid-template-rows: auto minmax(0, 1fr); }
 .messages-alert-toolbar { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 .messages-workspace .messages-alert-trigger { display: inline-flex; align-items: center; gap: 9px; width: auto; padding: 11px 16px; border: 1px solid #dbe5f2; border-radius: 12px; background: white; color: #075fc9; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -92,6 +92,6 @@
 .messages-welcome p { max-width: 300px; color: #697991; font-size: 12px; line-height: 1.8; }
 .messages-error { margin: 10px; padding: 12px; background: #fff1f2; color: #9f1239; border-radius: 9px; font-size: 12px; line-height: 1.6; }
 .messages-error button { display: block; margin-top: 8px; }
-@media (max-width: 1250px) { .messages-workspace { grid-template-columns: 170px 230px minmax(0, 1fr); gap: 10px; padding: 16px; } }
-@media (max-width: 950px) { .messages-workspace { grid-template-columns: 1fr 1fr; } .messages-conversation { grid-column: 1 / -1; min-height: 420px !important; } .messages-sections, .messages-students { max-height: 360px; } }
+@media (max-width: 1250px) { .messages-workspace { grid-template-columns: 230px minmax(0, 1fr); gap: 10px; padding: 16px; } }
+@media (max-width: 950px) { .messages-workspace { grid-template-columns: 1fr; } .messages-conversation { grid-column: 1 / -1; min-height: 420px !important; } .messages-students { max-height: 360px; } }
 @media (max-width: 520px) { .messages-workspace { grid-template-columns: 1fr; padding: 12px; } .messages-conversation { grid-column: 1; } }

@@ -28,16 +28,16 @@ test('message notification button opens and closes the overlay', async () => {
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
-test('sections and students are separate and section selection uses the shared selector', async () => {
-  getDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce({ docs: [{ id: 'avery', data: () => ({ firstName: 'Avery', lastName: 'Student', idNumber: '1234' }) }] });
-  const onSectionChange = jest.fn();
-  const sections = [{ id: 'a', name: 'Section A' }, { id: 'b', name: 'Section B' }];
-  render(<MessagesTab sections={sections} selectedSection={sections[0]} onSectionChange={onSectionChange} />);
+test('shows only students and unread conversations from the current section', async () => {
+  getDocs.mockResolvedValueOnce({ docs: [{ id: 'outside', data: () => ({
+    studentId: 'outside-student', recipientId: 'coordinator-1', body: 'Other section message', read: false,
+  }) }] }).mockResolvedValueOnce({ docs: [{ id: 'avery', data: () => ({ firstName: 'Avery', lastName: 'Student', idNumber: '1234' }) }] });
+  render(<MessagesTab selectedSection={{ id: 'a', name: 'Section A' }} />);
   expect(await screen.findByRole('button', { name: 'Avery Student' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Sections' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Sections' })).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Students' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Section B' }));
-  expect(onSectionChange).toHaveBeenCalledWith(sections[1]);
+  expect(screen.getAllByText('Section A').length).toBeGreaterThan(0);
+  expect(screen.queryByText('Other section message')).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search students and conversations' }), { target: { value: '1234' } });
   expect(screen.getByRole('button', { name: 'Avery Student' })).toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search students and conversations' }), { target: { value: 'missing' } });

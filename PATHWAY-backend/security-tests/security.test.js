@@ -2230,3 +2230,61 @@ test('verified private endorsements are emailed only by the assigned coordinator
     assert.equal(failedAudits.size, 1);
   });
 });
+
+test('company batch API validates scope and capacity, commits placement records once, and locks preferences', async () => {
+  const matching = { acceptanceConfirmed: true, eligibleCourses: ['batch-course'], location: 'Cebu',
+    supervisorName: 'Test Supervisor', supervisorEmail: 'supervisor@example.test', internshipRole: 'Intern' };
+  const sectionId = 'batch-api-section';
+  const one = await createIdentity('batchStudentOne', 'student', 'Department A', sectionId);
+  const two = await createIdentity('batchStudentTwo', 'student', 'Department A', sectionId);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    await setDoc(doc(store, 'sections', sectionId), { name: 'batch-course', department: 'Department A', coordinatorId: identities.coordinatorA.uid });
+    await setDoc(doc(store, 'users', one.uid), one.profile);
+    await setDoc(doc(store, 'users', two.uid), two.profile);
+  });
+  const created = await api('/coordinator/companies', identities.coordinatorA, {
+    name: 'Batch API Test Company', address: 'Test address', capacity: 1, active: true, matching,
+  });
+  assert.equal(created.response.status, 201, JSON.stringify(created.data));
+  const companyId = created.data.company.id;
+  const preferences = '/student/placement-preferences';
+  assert.equal((await api(preferences, one, { companyIds: [companyId], location: 'Cebu' }, 'PUT')).response.status, 200);
+  const loaded = await api(preferences, one, undefined, 'GET');
+  assert.deepEqual(loaded.data.preferences, { companyIds: [companyId], location: 'Cebu' });
+  const preview = '/coordinator/company-matching/preview';
+  assert.equal((await api(preview, identities.coordinatorB, { sectionId, studentIds: [one.uid] })).response.status, 403);
+  assert.equal((await api(preview, identities.coordinatorA, { sectionId, studentIds: [identities.studentB.uid] })).response.status, 403);
+  const [planOne, planTwo] = await Promise.all([one, two].map(student => api(preview, identities.coordinatorA, { sectionId, studentIds: [student.uid] })));
+  assert.equal(planOne.response.status, 200, JSON.stringify(planOne.data));
+  assert.equal(planTwo.response.status, 200, JSON.stringify(planTwo.data));
+  const confirmation = (plan, student) => ({
+    path: '/coordinator/company-matching/' + plan.data.planId + '/confirm',
+    body: { assignments: [{ studentId: student.uid, companyId }], startDate: '2026-11-05', endDate: '2026-12-05' },
+  });
+  const attempts = [confirmation(planOne, one), confirmation(planTwo, two)];
+  assert.equal((await api(attempts[0].path, identities.coordinatorB, attempts[0].body)).response.status, 404);
+  const results = await Promise.all(attempts.map(({ path, body }) => api(path, identities.coordinatorA, body)));
+  assert.deepEqual(results.map(result => result.response.status).sort(), [200, 409], JSON.stringify(results.map(result => result.data)));
+  const winnerIndex = results.findIndex(result => result.response.status === 200);
+  const winner = [one, two][winnerIndex];
+  const loser = [one, two][1 - winnerIndex];
+  const { path, body } = attempts[winnerIndex];
+  assert.equal((await api(path, identities.coordinatorA, body)).response.status, 200);
+  assert.equal((await api(path, identities.coordinatorA, { ...body, endDate: '2026-12-06' })).response.status, 409);
+  assert.equal((await api(preferences, winner, { companyIds: [] }, 'PUT')).response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    const placed = (await getDoc(doc(store, 'users', winner.uid))).data();
+    assert.equal(placed.companyId, companyId);
+    assert.equal(placed.startDate, body.startDate);
+    assert.equal((await getDoc(doc(store, 'users', loser.uid))).data().companyId, undefined);
+    const endorsement = (await getDoc(doc(store, 'endorsements', placed.endorsementId))).data();
+    assert.equal(endorsement.status, 'awaiting_document');
+    assert.equal(endorsement.deliveryStatus, 'not_sent');
+    assert.equal((await getDoc(doc(store, 'companyProposals', placed.placementProposalId))).data().status, 'approved');
+    for (const [collectionName, field] of [['placementHistory', 'studentId'], ['notifications', 'recipientId']]) {
+      assert.equal((await getDocs(query(collection(store, collectionName), where(field, '==', winner.uid)))).size, 1);
+    }
+  });
+});

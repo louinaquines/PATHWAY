@@ -2213,7 +2213,7 @@ function normalizedCompanyName(value) {
   return value.trim().toLocaleLowerCase('en').replace(/\s+/g, ' ');
 }
 
-function parseCompanyPayload(body = {}) {
+function parseCompanyPayload(body = {}, actorId) {
   const name = typeof body.name === 'string' ? body.name.trim().replace(/\s+/g, ' ') : '';
   const address = typeof body.address === 'string' ? body.address.trim() : '';
   const industry = typeof body.industry === 'string' ? body.industry.trim() : '';
@@ -2229,6 +2229,7 @@ function parseCompanyPayload(body = {}) {
   }
   return { name, normalizedName: normalizedCompanyName(name), address, industry, email, phone,
     capacity, active, status: active ? 'active' : 'inactive',
+    ...(body.matching === undefined ? {} : { matching: require('./companyMatchingPolicy').normalizeMatchingSettings(body.matching, { actorId, now: Date.now() }) }),
     ...(body.geofence === undefined ? {} : { geofence: require('./geofence').parseGeofence(body.geofence) }) };
 }
 
@@ -2286,7 +2287,7 @@ app.patch('/admin/companies/:companyId', requireAdmin, (req, res) => res.status(
 app.post('/coordinator/companies', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   let company;
-  try { company = parseCompanyPayload(req.body); }
+  try { company = parseCompanyPayload(req.body, req.staff.uid); }
   catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
   const companyRef = adminDb.collection('companies').doc();
   const now = new Date().toISOString();
@@ -2316,7 +2317,7 @@ app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) =>
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.companyId)) return res.status(400).json({ error: 'Invalid company.' });
   let company;
-  try { company = parseCompanyPayload(req.body); }
+  try { company = parseCompanyPayload(req.body, req.staff.uid); }
   catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
   const companyRef = adminDb.collection('companies').doc(req.params.companyId);
   const now = new Date().toISOString();
@@ -2352,6 +2353,8 @@ app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) =>
     return res.status(500).json({ error: 'Could not update company.' });
   }
 });
+
+require('./companyMatching').installCompanyMatching({ app, db: adminDb, requireUser, requireStaff, snapshotText, placementStudentName, writeAuditInTransaction, isIsoDate });
 
 app.get('/admin/academic-terms', requireAdmin, async (req, res) => {
   try {

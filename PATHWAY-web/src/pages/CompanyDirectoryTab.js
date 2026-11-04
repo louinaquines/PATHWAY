@@ -3,7 +3,9 @@ import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
 import './CompanyDirectoryTab.css';
 
-const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
+const EMPTY_MATCHING = { acceptanceConfirmed: false, eligibleCourses: '', location: '', supervisorName: '', supervisorEmail: '', supervisorPosition: '', supervisorPhone: '', internshipRole: '' };
+const MATCHING_FIELDS = [['eligibleCourses', 'Eligible courses'], ['location', 'Internship location'], ['supervisorName', 'Supervisor name'], ['supervisorEmail', 'Supervisor email'], ['supervisorPosition', 'Supervisor position'], ['supervisorPhone', 'Supervisor phone'], ['internshipRole', 'Internship role']];
+const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150', matching: EMPTY_MATCHING };
 
 export default function CompanyDirectoryTab({ readOnly = true }) {
   const [companies, setCompanies] = useState([]);
@@ -52,7 +54,8 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     setEditingId(company.id);
     setForm({ name: company.name || '', address: company.address || '', industry: company.industry || '',
       email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active,
-      geofenceEnabled: company.geofence?.enabled === true, latitude: String(company.geofence?.latitude ?? ''), longitude: String(company.geofence?.longitude ?? ''), radiusMeters: String(company.geofence?.radiusMeters ?? 150) });
+      geofenceEnabled: company.geofence?.enabled === true, latitude: String(company.geofence?.latitude ?? ''), longitude: String(company.geofence?.longitude ?? ''), radiusMeters: String(company.geofence?.radiusMeters ?? 150),
+      matching: { ...EMPTY_MATCHING, ...company.matching, acceptanceConfirmed: company.matching?.acceptanceConfirmed === true, eligibleCourses: (company.matching?.eligibleCourses || []).join(', ') } });
     setNotice('');
     setError('');
   };
@@ -63,8 +66,9 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     setError('');
     setNotice('');
     try {
-      const { geofenceEnabled, latitude, longitude, radiusMeters, ...details } = form;
-      const payload = { ...details, capacity: Number(form.capacity), active, geofence: geofenceEnabled
+      const { geofenceEnabled, latitude, longitude, radiusMeters, matching, ...details } = form;
+      const { acceptanceConfirmedAt, acceptanceConfirmedBy, ...matchingFields } = matching;
+      const payload = { ...details, matching: { ...matchingFields, eligibleCourses: matching.eligibleCourses.split(',').map(code => code.trim()).filter(Boolean) }, capacity: Number(form.capacity), active, geofence: geofenceEnabled
         ? { enabled: true, latitude: Number(latitude), longitude: Number(longitude), radiusMeters: Number(radiusMeters) }
         : { enabled: false } };
       const result = await adminRequest(editingId ? `/coordinator/companies/${encodeURIComponent(editingId)}` : '/coordinator/companies', {
@@ -123,6 +127,12 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
         <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
         {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
         <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
+        <fieldset style={{ border: '1px solid #dbe5f0', borderRadius: 12, padding: 12, display: 'grid', gap: 12 }}>
+          <legend>Batch matching settings</legend>
+          <label style={styles.activeCheck}><input type="checkbox" checked={form.matching.acceptanceConfirmed} onChange={event => setForm(previous => ({ ...previous, matching: { ...previous.matching, acceptanceConfirmed: event.target.checked } }))} /> Company confirmed internship slots</label>
+          <p style={styles.help}>Confirm availability with the company before including it in batch suggestions. Enter course codes separated by commas.</p>
+          {MATCHING_FIELDS.map(([key, label]) => <label key={key} style={styles.label}>{label}<input required={form.matching.acceptanceConfirmed && !['supervisorPosition', 'supervisorPhone'].includes(key)} type={key === 'supervisorEmail' ? 'email' : 'text'} maxLength={key === 'eligibleCourses' ? 1000 : 300} value={form.matching[key]} onChange={event => setForm(previous => ({ ...previous, matching: { ...previous.matching, [key]: event.target.value } }))} style={styles.input} /></label>)}
+        </fieldset>
         {form.geofenceEnabled && <fieldset style={{ border: '1px solid #dbe5f0', borderRadius: 12, padding: 12 }}>
           <legend>Company attendance area</legend>
           <p style={styles.help}>Use verified company coordinates. Both attendance punches must be inside this area.</p>
@@ -152,6 +162,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
                 <div style={styles.meta}>{company.industry || 'Industry not provided'}</div>
                 <div style={styles.meta}>{company.address || 'Address not provided'}</div>
                 <div style={styles.meta}>{company.geofence?.enabled ? `Attendance area: ${company.geofence.radiusMeters} m radius` : 'Attendance location check: off'}</div>
+                <div style={styles.meta}>{company.matching?.acceptanceConfirmed ? `Internship slots confirmed · ${(company.matching.eligibleCourses || []).join(', ')} · ${company.matching.internshipRole || 'Role not provided'} · ${company.matching.location || 'Location not provided'}` : 'Batch matching: not enabled'}</div>
                 <div className="directory-capacity" style={styles.slots}><span>{slots}</span>{configured && <span>{company.availableSlots} available</span>}</div>
               </div>
               {!readOnly && <button type="button" onClick={() => editCompany(company)} style={styles.editButton}>Edit</button>}

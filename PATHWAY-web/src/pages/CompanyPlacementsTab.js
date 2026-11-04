@@ -8,6 +8,7 @@ import EndorsementDraftDialog from '../components/EndorsementDraftDialog';
 import { adminRequest } from '../adminApi';
 import PlacementCompanies from '../components/PlacementCompanies';
 import CompanyConversations from '../components/CompanyConversations';
+import CompanyBatchMatching from '../components/CompanyBatchMatching';
 import './PlacementReviews.css';
 
 const labels = { draft: 'Draft', pending_review: 'Pending review', needs_revision: 'Needs revision', rejected: 'Rejected', approved: 'Approved', superseded: 'Superseded by placement change' };
@@ -214,6 +215,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
     </div>}
     <CompanyConversations sectionId={selectedSection?.id} />
+    {selectedSection && !error && <CompanyBatchMatching key={'batch-' + selectedSection.id}
+      sectionId={selectedSection.id} students={assignedStudents} onConfirmed={load} />}
     <div className="placement-page-header">
       <div><h2 style={{ margin: 0 }}>Company Placements</h2>
       <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Company details, assigned students, and placement reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>

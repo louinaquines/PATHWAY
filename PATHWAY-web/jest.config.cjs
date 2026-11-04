@@ -2,6 +2,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   testEnvironmentOptions: { customExportConditions: ['node', 'node-addons'] },
   roots: ['<rootDir>/src'],
+  moduleDirectories: ['node_modules', '<rootDir>/node_modules'],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
   transform: { '^.+\\.[jt]sx?$': ['babel-jest', {
     presets: [['@babel/preset-env', { targets: { node: 'current' } }], ['@babel/preset-react', { runtime: 'automatic' }]],

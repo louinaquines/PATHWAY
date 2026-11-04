@@ -53,3 +53,10 @@
 }
 .placement-review-top-toolbar .coordinator-search input { width: 100%; min-width: 0; }
 .placement-review-top-toolbar .submission-notifications { flex: 0 0 auto; }
+
+.placement-batch { margin: 1rem 0; padding: 1rem; background: white; border: 1px solid #e2e8f0; border-radius: 12px; }
+.placement-batch summary { cursor: pointer; font-weight: 650; }
+.placement-batch fieldset { min-width: 0; margin: 0.75rem 0; border: 1px solid #e2e8f0; border-radius: 8px; }
+.placement-batch-students, .placement-batch-rows { display: grid; gap: 0.75rem; max-height: 22rem; overflow: auto; margin-bottom: 0.75rem; }
+.placement-batch-rows label { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: 0.5rem; align-items: center; }
+.placement-batch select { max-width: 100%; min-width: 0; padding: 0.4rem; }

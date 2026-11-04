@@ -23,6 +23,7 @@ import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
 import PlacementDateField from '../components/PlacementDateField';
+import PlacementPreferences from '../components/PlacementPreferences';
 import PreDeploymentStepper from '../components/PreDeploymentStepper';
 import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotificationsSheet';
 import {
@@ -319,6 +320,8 @@ export default function CompanyScreen({ navigation }) {
             </View>
           )}
         </View>
+
+        {!cleared && !placementApproved && !loadFailed && uid && <PlacementPreferences key={uid} studentId={uid} />}
 
         {proposalStatus === 'pending_review' && (
           <View style={styles.pendingCard}>

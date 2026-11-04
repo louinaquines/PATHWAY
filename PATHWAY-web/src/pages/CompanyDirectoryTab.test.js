@@ -46,3 +46,35 @@ test('read-only directory has no import or company mutation controls', async () 
   expect(screen.queryByLabelText('Company website')).not.toBeInTheDocument();
   expect(screen.queryByText('Add to directory')).not.toBeInTheDocument();
 });
+
+test('matching is opt-in and saves parsed course codes separately from contact details', async () => {
+  render(<CompanyDirectoryTab readOnly={false} />);
+  await screen.findByText('No companies have been added yet.');
+  expect(screen.getByLabelText('Company confirmed internship slots')).not.toBeChecked();
+  fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Host' } });
+  fireEvent.click(screen.getByLabelText('Company confirmed internship slots'));
+  for (const [label, value] of Object.entries({ 'Eligible courses': ' BSIT, BSCS, , ', 'Internship location': 'Manila', 'Supervisor name': 'Ana', 'Supervisor email': 'ana@example.com', 'Supervisor position': 'Lead', 'Supervisor phone': '123', 'Internship role': 'Software Developer Intern' })) {
+    if (['Supervisor position', 'Supervisor phone'].includes(label)) expect(screen.getByLabelText(label)).not.toBeRequired();
+    else expect(screen.getByLabelText(label)).toBeRequired();
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  }
+  fireEvent.click(screen.getByText('Add to directory'));
+  await waitFor(() => expect(adminRequest.mock.calls.some(([path, options]) => path === '/coordinator/companies' && JSON.parse(options.body).matching?.acceptanceConfirmed)).toBe(true));
+  const payload = JSON.parse(adminRequest.mock.calls.find(([path]) => path === '/coordinator/companies')[1].body);
+  expect(payload.matching).toEqual({ acceptanceConfirmed: true, eligibleCourses: ['BSIT', 'BSCS'], location: 'Manila', supervisorName: 'Ana', supervisorEmail: 'ana@example.com', supervisorPosition: 'Lead', supervisorPhone: '123', internshipRole: 'Software Developer Intern' });
+  expect(payload.email).toBe('');
+  expect(payload.capacity).toBe(1);
+});
+
+test('editing restores matching settings while old records remain opted out', async () => {
+  adminRequest.mockResolvedValue({ companies: [{ id: 'old', name: 'Old host', active: true }, { id: 'new', name: 'New host', active: true, matching: { acceptanceConfirmed: true, eligibleCourses: ['BSIT', 'BSCS'], location: 'Cebu', supervisorName: 'Ana', internshipRole: 'Developer Intern' } }] });
+  render(<CompanyDirectoryTab readOnly={false} />);
+  await screen.findByText('Old host');
+  fireEvent.click(screen.getAllByText('Edit')[1]);
+  expect(screen.getByLabelText('Company confirmed internship slots')).toBeChecked();
+  expect(screen.getByLabelText('Eligible courses')).toHaveValue('BSIT, BSCS');
+  expect(screen.getByLabelText('Internship location')).toHaveValue('Cebu');
+  fireEvent.click(screen.getAllByText('Edit')[0]);
+  expect(screen.getByLabelText('Company confirmed internship slots')).not.toBeChecked();
+  expect(screen.getByLabelText('Eligible courses')).not.toBeRequired();
+});

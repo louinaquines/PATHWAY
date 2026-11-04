@@ -2065,13 +2065,51 @@ async function coordinatorSection(req, sectionId) {
   return snapshot;
 }
 
+function validGroupChatLink(value) {
+  if (typeof value !== 'string' || value.length > 500) return false;
+  if (!value.trim()) return true;
+  try {
+    const url = new URL(value.trim());
+    return /^https:\/\//i.test(value.trim()) && url.protocol === 'https:' && Boolean(url.hostname) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+app.patch('/coordinator/sections/:sectionId/group-chat', requireStaff, async (req, res) => {
+  if (!validGroupChatLink(req.body?.messengerLink)) {
+    return res.status(400).json({ error: 'Enter a full HTTPS group chat link or leave it blank.' });
+  }
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  const messengerLink = req.body.messengerLink.trim();
+  const sectionRef = adminDb.collection('sections').doc(req.params.sectionId);
+  try {
+    await adminDb.runTransaction(async transaction => {
+      const section = await transaction.get(sectionRef);
+      if (!section.exists || section.data().coordinatorId !== req.staff.uid
+        || section.data().department !== req.staff.data.department) {
+        throw Object.assign(new Error('Section not found or not assigned to you.'), { status: 403 });
+      }
+      transaction.update(sectionRef, { messengerLink });
+      writeAuditInTransaction(transaction, {
+        actorId: req.staff.uid, actorRole: req.staff.role, action: 'section.updated',
+        targetType: 'sections', targetId: sectionRef.id, details: { groupChatLinked: Boolean(messengerLink) },
+      });
+    });
+    return res.json({ messengerLink });
+  } catch (error) {
+    if (!error.status) console.error(error);
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'Could not save the group chat link.' });
+  }
+});
+
 app.post('/coordinator/sections', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   const { name, department, hoursRequired, messengerLink = '' } = req.body || {};
+  if (!validGroupChatLink(messengerLink)) return res.status(400).json({ error: 'Enter a full HTTPS group chat link or leave it blank.' });
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 120
     || !Number.isFinite(Number(hoursRequired)) || Number(hoursRequired) <= 0 || Number(hoursRequired) > 10000
-    || department !== req.staff.data.department
-    || typeof messengerLink !== 'string' || messengerLink.length > 500) return res.status(400).json({ error: 'Enter valid section details for your assigned department.' });
+    || department !== req.staff.data.department) return res.status(400).json({ error: 'Enter valid section details for your assigned department.' });
   try {
     const sectionRef = adminDb.collection('sections').doc();
     const activeTerm = await adminDb.collection('academicTerms').where('isActive', '==', true).limit(1).get();

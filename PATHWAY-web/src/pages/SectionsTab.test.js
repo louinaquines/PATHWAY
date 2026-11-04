@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { getDocs } from 'firebase/firestore';
 import SectionsTab from './SectionsTab';
+import { adminRequest } from '../adminApi';
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
@@ -39,4 +40,18 @@ test('selecting a section loads the same enrolled roster', async () => {
   render(<SectionsTab coordinatorId="coord-a" />);
   fireEvent.click(await screen.findByRole('button', { name: /Section A Computer Studies/ }));
   expect(await screen.findByText('Taylor Student')).toBeInTheDocument();
+});
+
+test('a legacy placeholder is hidden and the coordinator can replace it with a Messenger invite', async () => {
+  const messengerLink = 'https://m.me/j/example-invite/';
+  adminRequest.mockResolvedValueOnce({ messengerLink });
+  render(<SectionsTab coordinatorId="coord-a" selectedSection={{ ...section, messengerLink: 'N/a' }} />);
+  const input = await screen.findByLabelText('Group chat link');
+  expect(screen.queryByRole('link', { name: 'Open Group Chat' })).toBeNull();
+  fireEvent.change(input, { target: { value: messengerLink } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save group chat link' }));
+  expect(await screen.findByRole('link', { name: 'Open Group Chat' })).toHaveAttribute('href', messengerLink);
+  expect(adminRequest).toHaveBeenCalledWith('/coordinator/sections/section-a/group-chat', {
+    method: 'PATCH', body: JSON.stringify({ messengerLink }),
+  });
 });

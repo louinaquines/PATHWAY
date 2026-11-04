@@ -10,6 +10,16 @@ import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
 import './SectionsTab.css';
 
+function groupChatHref(value) {
+  if (typeof value !== 'string' || !/^https:\/\//i.test(value.trim())) return '';
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
 export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
@@ -35,6 +45,26 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     'College of Criminology',
     'College of Computer Studies',
   ];
+
+  const [chatSave, setChatSave] = useState(null);
+  const chatHref = groupChatHref(selected?.messengerLink);
+
+  async function saveGroupChat(event, section) {
+    event.preventDefault();
+    const messengerLink = new FormData(event.currentTarget).get('messengerLink').trim();
+    setChatSave({ id: section.id, busy: true });
+    try {
+      const result = await adminRequest('/coordinator/sections/' + encodeURIComponent(section.id) + '/group-chat', {
+        method: 'PATCH', body: JSON.stringify({ messengerLink }),
+      });
+      const updated = { ...section, messengerLink: result.messengerLink };
+      setSections(previous => previous.map(item => item.id === section.id ? updated : item));
+      setSelected(previous => previous?.id === section.id ? updated : previous);
+      setChatSave({ id: section.id, message: 'Group chat link saved.' });
+    } catch (error) {
+      setChatSave({ id: section.id, message: error.message, failed: true });
+    }
+  }
 
   const CATEGORIES = ['Pre-OJT', 'Ongoing', 'Post-OJT'];
   const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
@@ -227,8 +257,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 <div className="section-detail-meta" style={t.detailSubRow}>
                   <span><Icon name="building" size={14} /> {selected.department}</span>
                   <span><Icon name="clock" size={14} /> {selected.hoursRequired} Hours</span>
-                  {selected.messengerLink ? (
-                    <a href={selected.messengerLink} target="_blank" rel="noreferrer" style={t.gcLink}>
+                  {chatHref ? (
+                    <a href={chatHref} target="_blank" rel="noreferrer" style={t.gcLink}>
                       <><Icon name="chat" size={14} /> Open Group Chat</>
                     </a>
                   ) : (
@@ -237,6 +267,14 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 </div>
               </div>
 
+              <form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+                <label style={t.label}>Group chat link
+                  <input name="messengerLink" type="url" maxLength={500} style={t.input}
+                    defaultValue={chatHref} placeholder="https://m.me/j/…" />
+                </label>
+                <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
+                {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
+              </form>
               <div className="section-view-toggle" style={t.viewToggle}>
                 <button
                   aria-pressed={view === 'students'}

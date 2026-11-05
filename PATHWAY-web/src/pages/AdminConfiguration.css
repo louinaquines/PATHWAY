@@ -40,3 +40,31 @@
 .admin-audit-details pre { margin-top: 10px !important; border-color: #e4eaf3 !important; color: #526985 !important; }
 @media (max-width: 1100px) { .admin-terms { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .admin-configuration-form { padding: 20px !important; } .admin-term-date-row { flex-direction: column; gap: 0 !important; } .admin-settings .admin-configuration-form > div:nth-child(2) { grid-template-columns: 1fr !important; } }
+
+.admin-term-toolbar, .admin-settings-savebar, .admin-drawer-footer {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.admin-term-toolbar { justify-content: space-between; }
+.admin-term-toolbar p { color: #475569; margin: 0; }
+.admin-term-dialog, .admin-create-drawer {
+  color: #172438; background: #fff; border: 1px solid #d9e2ee;
+  border-radius: 12px; padding: 16px; max-height: calc(100dvh - 32px); overflow: auto;
+  width: min(100% - 32px, 640px); box-sizing: border-box;
+}
+.admin-term-dialog { position: fixed; inset: 0; margin: auto; z-index: 50; }
+.admin-create-drawer {
+  position: fixed; inset: 0 0 0 auto; margin: 0; height: 100dvh; max-height: 100dvh;
+  border-radius: 12px 0 0 12px; z-index: 50;
+}
+.admin-term-dialog::backdrop, .admin-create-drawer::backdrop { background: #0f172a60; }
+.admin-drawer-footer, .admin-settings-savebar {
+  position: sticky; bottom: 0; justify-content: flex-end; padding: 8px;
+  background: #fff; border-top: 1px solid #d9e2ee; z-index: 2;
+}
+.admin-settings-savebar strong { margin-inline-end: auto; }
+.admin-weekday-row { display: flex; gap: 8px; overflow-x: auto; padding-block: 4px; }
+.admin-weekday-row button { flex: 1 0 auto; min-height: 44px; white-space: nowrap; }
+
+.admin-create-drawer .create-coordinator-layout { display: block; }
+.admin-create-drawer .create-coordinator-guide { display: none; }
+.admin-create-drawer .create-coordinator-submit { width: auto !important; }

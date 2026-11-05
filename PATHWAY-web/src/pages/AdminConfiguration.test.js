@@ -13,8 +13,8 @@ test('academic term edit populates the labeled form', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Edit Term' }));
   expect(screen.getByLabelText('Term name / school year')).toHaveValue('Semester One');
   expect(screen.getByLabelText('Start date')).toHaveValue('2026-06-01');
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel Edit' }));
-  expect(screen.getByLabelText('Term name / school year')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByLabelText('Term name / school year')).not.toBeInTheDocument();
 });
 
 test('workday controls expose their selected state and preserve save payload', async () => {
@@ -23,7 +23,7 @@ test('workday controls expose their selected state and preserve save payload', a
   const monday = await screen.findByRole('button', { name: /Monday/ });
   expect(monday).toHaveAttribute('aria-pressed', 'true');
   fireEvent.click(screen.getByRole('button', { name: /Tuesday/ }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save Global Settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
   expect(adminRequest).toHaveBeenLastCalledWith('/admin/settings', expect.objectContaining({ method: 'PUT', body: expect.stringContaining('"expectedWorkdays":["Monday","Tuesday"]') }));
   await screen.findByRole('status');
 });
@@ -35,4 +35,16 @@ test('audit search filters events and metadata is expandable', async () => {
   expect(screen.getByText('View details').closest('details')).not.toHaveAttribute('open');
   fireEvent.change(screen.getByLabelText('Search audit logs'), { target: { value: 'no-match' } });
   expect(screen.getByText('No audit records match your query.')).toBeInTheDocument();
+});
+
+test('discard restores the saved workdays without writing settings', async () => {
+  adminRequest.mockResolvedValue({ settings: { expectedWorkdays: ['Monday'] } });
+  render(<SystemSettingsTab />);
+  const tuesday = await screen.findByRole('button', { name: 'Tuesday' });
+  fireEvent.click(tuesday);
+  expect(tuesday).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+  expect(tuesday).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+  expect(adminRequest).toHaveBeenCalledTimes(1);
 });

@@ -5,10 +5,18 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './AdminConfiguration.css';
+import { PortalError, PortalFormDialog } from '../components/PortalStates';
 
 const EMPTY = { name: '', startDate: '', endDate: '', isActive: false };
 
+function formatDate(value) {
+  const date = new Date(value + 'T00:00:00Z');
+  return Number.isNaN(date.valueOf()) ? '—'
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
 export default function AcademicTermsTab() {
+  const [formOpen, setFormOpen] = useState(false);
   const [terms, setTerms]     = useState([]);
   const [form, setForm]       = useState(EMPTY);
   const [editing, setEditing] = useState(null);
@@ -18,6 +26,7 @@ export default function AcademicTermsTab() {
 
   const load = useCallback(() => {
     setLoading(true);
+    setError('');
     adminRequest('/admin/academic-terms')
       .then(data => setTerms(data.terms || []))
       .catch(e => setError(e.message))
@@ -41,6 +50,7 @@ export default function AcademicTermsTab() {
       setTerms(current => editing ? current.map(term => term.id === editing ? data.term : term) : [data.term, ...current]);
       setForm(EMPTY);
       setEditing(null);
+      setFormOpen(false);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -49,9 +59,12 @@ export default function AcademicTermsTab() {
   };
 
   const edit = term => {
+    setFormOpen(true);
     setEditing(term.id);
     setForm({ name: term.name, startDate: term.startDate, endDate: term.endDate, isActive: term.isActive });
   };
+
+  const closeForm = () => { if (!saving) { setEditing(null); setForm(EMPTY); setFormOpen(false); setError(''); } };
 
   if (loading) {
     return <PageSkeleton label="Loading academic terms" variant="table" />;
@@ -59,14 +72,17 @@ export default function AcademicTermsTab() {
 
   return (
     <div style={s.page} className="admin-configuration admin-terms">
-      <div style={s.header}>
-        <h2 style={s.title}>Academic terms</h2>
-        <p style={s.sub}>Manage school-year dates and term availability for new sections.</p>
+      <div className="admin-term-toolbar">
+        <p>New sections use the term marked Active.</p>
+        <button type="button" className="admin-configuration-save" onClick={() => {
+          setForm(EMPTY); setEditing(null); setError(''); setFormOpen(true);
+        }}>+ New term</button>
       </div>
+      {error && !formOpen && <PortalError message={error} onRetry={load} />}
 
-      {error && <div role="alert" style={s.error}>{error}</div>}
-
+      {formOpen && <PortalFormDialog className="admin-term-dialog" label={editing ? 'Edit term' : 'New term'} onCancel={closeForm}>
       <form onSubmit={submit} style={s.form} className="admin-configuration-form">
+        {error && <PortalError message={error} />}
         <div style={s.formHeader}>
           <div style={s.iconWrap}><Icon name="calendar" size={20} label="Academic term" /></div>
           <div>
@@ -119,24 +135,17 @@ export default function AcademicTermsTab() {
             onChange={e => update('isActive', e.target.checked)}
             style={{ width: 16, height: 16, cursor: 'pointer' }}
           />
-          <span style={{ color: '#000000', fontWeight: 700 }}>Set as the Active Academic Term for new sections</span>
+          <span style={{ color: '#000000', fontWeight: 700 }}>Set as active for new sections</span>
         </label>
 
         <div style={s.btnRow}>
           <button type="submit" className="admin-configuration-save" style={s.button} disabled={saving}>
             {saving ? 'Saving...' : editing ? 'Save Changes' : '+ Create Academic Term'}
           </button>
-          {editing && (
-            <button
-              type="button"
-              style={s.cancel}
-              onClick={() => { setEditing(null); setForm(EMPTY); }}
-            >
-              Cancel Edit
-            </button>
-          )}
+          <button type="button" style={s.cancel} disabled={saving}
+            onClick={closeForm}>Cancel</button>
         </div>
-      </form>
+      </form></PortalFormDialog>}
 
       <div style={s.listSection} className="admin-term-records">
         <h3 style={s.listTitle}>Recorded Academic Terms ({terms.length})</h3>
@@ -146,7 +155,7 @@ export default function AcademicTermsTab() {
               <div style={s.cardLeft}>
                 <div style={s.termName}>{term.name}</div>
                 <div style={s.meta}>
-                  <Icon name="calendar" size={14} /> {term.startDate || '—'} to {term.endDate || '—'}
+                  <Icon name="calendar" size={14} /> {formatDate(term.startDate)} to {formatDate(term.endDate)}
                 </div>
               </div>
               <div style={s.actions}>

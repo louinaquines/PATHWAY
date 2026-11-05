@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import Icon from './Icons';
 
 export function PortalError({ message, onRetry, retryDisabled = false }) {
@@ -14,4 +15,19 @@ export function PortalEmpty({ title, description }) {
     <strong>{title}</strong>
     <p>{description}</p>
   </div>;
+}
+
+export function PortalFormDialog({ label, className, onCancel, children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', '');
+    }
+  }, []);
+  return <dialog ref={ref} className={className} aria-label={label} onCancel={event => {
+    event.preventDefault();
+    onCancel();
+  }}>{children}</dialog>;
 }

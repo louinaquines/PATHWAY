@@ -29,3 +29,14 @@
 .admin-student-records input:focus-visible, .admin-student-records select:focus-visible, .admin-student-records button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
 @media (max-width: 900px) { .admin-student-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .admin-student-filters { padding: 14px !important; } .admin-student-filters select { flex: 1 1 140px; min-width: 0; } .admin-student-summary > div { padding: 14px; } }
+
+.admin-students-directory .admin-compact-student-stats {
+  display: flex; flex-wrap: wrap; gap: 8px 24px;
+  padding: 8px 0; margin: 0; background: transparent;
+}
+.admin-students-directory .admin-compact-student-stats > div {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; min-height: 0;
+}
+.admin-students-directory .admin-compact-student-stats strong { font-size: 14px; }
+.admin-student-records .admin-student-filters { display: flex; flex-wrap: wrap; gap: 8px; }

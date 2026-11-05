@@ -16,7 +16,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import { setPageMetadata } from '../pageMetadata';
 import './AdminOverview.css';
 import AlertDialog from '../components/AlertDialog';
-import { PortalError, PortalEmpty } from '../components/PortalStates';
+import { PortalError, PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import './AdminStudents.css';
 import './AdminDirectories.css';
 import './CreateCoordinator.css';
@@ -56,6 +56,7 @@ export default function AdminDashboard() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('all');
+  const [studentStatus, setStudentStatus] = useState('all');
   const navigate = useNavigate();
   const setActiveTab = tab => { setNavigationOpen(false); navigate('/admin/' + tab); };
 
@@ -152,8 +153,22 @@ export default function AdminDashboard() {
     }] : []),
   ].slice(0, 4);
 
-  const totalHours = departmentStudents.reduce((sum, s) => sum + (s.hoursRendered || 0), 0);
-  const avgHours = departmentStudents.length > 0 ? (totalHours / departmentStudents.length).toFixed(1) : 0;
+  const scopedPending = pending.filter(inDepartment).length;
+  const unassignedSections = departmentSections.filter(section => !coordinators.some(user => user.id === section.coordinatorId)).length;
+  const averageHours = departmentStudents.length
+    ? (departmentStudents.reduce((sum, student) => sum + (Number(student.hoursRendered) || 0), 0) / departmentStudents.length).toFixed(1)
+    : '—';
+  const hourTargets = departmentStudents.map(student =>
+    Number(student.hoursRequired) || Number(sections.find(section => section.id === student.sectionId)?.hoursRequired)
+  ).filter(target => Number.isFinite(target) && target > 0);
+  const averageTarget = hourTargets.length === departmentStudents.length && hourTargets.length
+    ? String(Number((hourTargets.reduce((sum, target) => sum + target, 0) / hourTargets.length).toFixed(1)))
+    : '—';
+  const openStudents = status => {
+    setSectionFilter('all');
+    setStudentStatus(status);
+    setActiveTab('students');
+  };
   const departmentData = getDepartmentData(dashboardScopedStudents);
   const accountStatusData = getAccountStatusData(dashboardScopedStudents);
   const registrationData = getRegistrationData(dashboardScopedStudents, dashboardPeriod);
@@ -460,11 +475,11 @@ export default function AdminDashboard() {
               </label>
               <label style={s.dashboardSelect}>
                 <Icon name="filter" size={14} />
-                <span className="sr-only">Chart grouping</span>
+                <span>Group by</span>
                 <select value={dashboardPeriod} onChange={event => setDashboardPeriod(event.target.value)}>
-                  <option value="day">Days</option>
-                  <option value="month">Months</option>
-                  <option value="year">Years</option>
+                  <option value="day">Day</option>
+                  <option value="month">Month</option>
+                  <option value="year">Year</option>
                 </select>
               </label>
               <button type="button" style={s.exportBtn} onClick={exportDashboard}>
@@ -481,36 +496,25 @@ export default function AdminDashboard() {
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="admin-system-overview" style={s.overviewGrid}>
-                <div className="admin-overview-metrics-wrap">
-                  {/* Featured Hero Stat Cards */}
-                  <div className="admin-featured-stats-grid">
-                    <FeaturedStatCard
-                      label="Active Students"
-                      value={departmentStudents.filter(student => student.accountApproved).length}
-                      icon="users"
-                      badge="Verified & Active"
-                      subtitle="Students actively verified and monitored in OJT"
-                      variant="emerald"
-                    />
-                    <FeaturedStatCard
-                      label="Active Sections"
-                      value={departmentSections.length}
-                      icon="section"
-                      badge="Monitored Cohorts"
-                      subtitle="Class sections currently active and supervised"
-                      variant="sky"
-                    />
+                <section aria-labelledby="admin-attention-heading">
+                  <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>
+                  <div className="admin-attention-grid">
+                    <button type="button" onClick={() => openStudents('pending')}>
+                      <span>Pending approvals</span><strong data-zero={scopedPending === 0}>{scopedPending}</strong>
+                    </button>
+                    <button type="button" onClick={() => openStudents('all')}>
+                      <span>Sections without a coordinator</span><strong data-zero={unassignedSections === 0}>{unassignedSections}</strong>
+                    </button>
+                    <button type="button" onClick={() => openStudents('all')}>Review student hours</button>
+                    <button type="button" onClick={() => setActiveTab('companies')}>Review company capacity</button>
                   </div>
-
-                  {/* Supporting 4 Stat Cards */}
-                  <div className="admin-supporting-stats-grid">
-                    <StatCard label="Total Students" value={departmentStudents.length} accent="sky" icon="users" subtitle="Total enrolled records" />
-                    <StatCard label="Pending Approval" value={pending.filter(inDepartment).length} accent="yellow" icon="clock" subtitle="Accounts awaiting review" />
-                    <StatCard label="OJT Coordinators" value={coordinators.filter(inDepartment).length} accent="slate" icon="userCheck" subtitle="Assigned faculty" />
-                    <StatCard label="Avg Rendered Hours" value={`${avgHours} hrs`} accent="yellow" icon="chart" subtitle="Across students" />
-                  </div>
-                </div>
-
+                </section>
+                <dl className="admin-compact-stats" aria-label="Overview statistics">
+                  <div><dt>Students</dt><dd>{departmentStudents.length}</dd></div>
+                  <div><dt>Sections</dt><dd>{departmentSections.length}</dd></div>
+                  <div><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd></div>
+                  <div><dt>Average rendered hours</dt><dd>{averageHours} of {averageTarget} hrs</dd></div>
+                </dl>
                 <AdminCharts
                   departmentData={departmentData}
                   accountStatusData={accountStatusData}
@@ -546,24 +550,12 @@ export default function AdminDashboard() {
             {/* STUDENTS */}
             {activeTab === 'students' && (
               <div style={s.tabContent} className="admin-students-directory">
-                <div className="admin-student-filters">
-                  {departmentPicker}
-                  <label style={s.dashboardSelect}>
-                    <span className="sr-only">Filter by section</span>
-                    <select value={sectionFilter} onChange={event => setSectionFilter(event.target.value)}>
-                      <option value="all">All sections</option>
-                      {departmentSections.map(section => <option key={section.id} value={section.id}>
-                        {section.name || section.id}{!departmentFilter && section.department ? ' · ' + section.department : ''}
-                      </option>)}
-                    </select>
-                  </label>
-                </div>
                 {selectedSection && <p style={s.subText}>
                   <strong>{selectedSection.name}</strong>
                   {' · '}<span>{selectedSection.hoursRequired ?? '—'} hrs</span>
                   {' · Coordinator: '}{sectionCoordinator ? [sectionCoordinator.firstName, sectionCoordinator.lastName].filter(Boolean).join(' ') : 'Unassigned'}
                 </p>}
-                <div className="admin-student-summary">
+                <div className="admin-student-summary admin-compact-student-stats">
                   <div><span>Total students</span><strong>{directoryStudents.length}</strong></div>
                   <div><span>Active accounts</span><strong>{directoryStudents.filter(student => student.accountApproved).length}</strong></div>
                   <div><span>Pending accounts</span><strong>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</strong></div>
@@ -576,13 +568,27 @@ export default function AdminDashboard() {
                   onToggle={handleToggleAccount}
                   showToggle
                   studentDirectory
+                  directoryFilters={<>
+                  {departmentPicker}
+                  <label style={s.dashboardSelect}>
+                    <span className="sr-only">Filter by section</span>
+                    <select value={sectionFilter} onChange={event => setSectionFilter(event.target.value)}>
+                      <option value="all">All sections</option>
+                      {departmentSections.map(section => <option key={section.id} value={section.id}>
+                        {section.name || section.id}{!departmentFilter && section.department ? ' · ' + section.department : ''}
+                      </option>)}
+                    </select>
+                  </label>
+                  </>}
+                  studentStatus={studentStatus}
+                  onStudentStatus={setStudentStatus}
                   sections={sections}
                 />
               </div>
             )}
 
             {/* COORDINATORS */}
-            {activeTab === 'coordinators' && (
+            {['coordinators', 'create'].includes(activeTab) && (
               <div style={s.tabContent} className="admin-directory-screen">
                 <div style={s.tabHeader}>
                   <div>
@@ -609,7 +615,9 @@ export default function AdminDashboard() {
             )}
 
             {/* SECTIONS */}
-            {activeTab === 'create' && <CreateCoordinatorTab onCreated={fetchAll} />}
+            {activeTab === 'create' && <PortalFormDialog className="admin-create-drawer" label="Create coordinator" onCancel={() => setActiveTab('coordinators')}>
+              <CreateCoordinatorTab onCreated={fetchAll} onCancel={() => setActiveTab('coordinators')} />
+            </PortalFormDialog>}
             {activeTab === 'companies' && <div className="admin-companies-screen"><CompanyDirectoryTab readOnly /></div>}
             {activeTab === 'terms' && <AcademicTermsTab />}
             {activeTab === 'settings' && <SystemSettingsTab />}
@@ -844,7 +852,7 @@ function AdminProfileTab({ admin, onSaved }) {
   );
 }
 
-function CreateCoordinatorTab({ onCreated }) {
+function CreateCoordinatorTab({ onCreated, onCancel }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', department: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -976,6 +984,8 @@ function CreateCoordinatorTab({ onCreated }) {
           </select>
         </div>
 
+        <div className="admin-drawer-footer">
+          <button type="button" className="portal-secondary" onClick={onCancel} disabled={loading}>Cancel</button>
         <button
           type="submit" className="create-coordinator-submit"
           style={{ ...s.createBtn, opacity: loading ? 0.7 : 1 }}
@@ -983,65 +993,9 @@ function CreateCoordinatorTab({ onCreated }) {
         >
           {loading ? 'Creating account…' : 'Create coordinator account'}
         </button>
+        </div>
       </form>
       <aside className="create-coordinator-guide"><div className="create-coordinator-guide-icon"><Icon name="shield" size={22} /></div><h3>Coordinator access</h3><p>This account is for faculty responsible for the assigned department.</p><div><h4>Student management</h4><p>Manage authorized class lists, student requirements, and logbooks.</p></div><div><h4>Placement oversight</h4><p>Manage partner companies, placements, and evaluation requests.</p></div><div><h4>Before creating</h4><p>Confirm the faculty member’s email and department. Provide the initial password through a secure channel.</p></div></aside>
-      </div>
-    </div>
-  );
-}
-
-function FeaturedStatCard({ label, value, icon, badge, subtitle, variant = 'emerald' }) {
-  const isEmerald = variant === 'emerald';
-  return (
-    <div className={`admin-featured-stat-card ${isEmerald ? 'admin-featured-stat-emerald' : 'admin-featured-stat-sky'}`}>
-      <div className="admin-featured-stat-header">
-        <div className="admin-featured-stat-title-wrap">
-          <span className="admin-featured-stat-label">{label}</span>
-          {badge && (
-            <span className="admin-featured-stat-badge">
-              <Icon name="check" size={12} />
-              {badge}
-            </span>
-          )}
-        </div>
-        <div className="admin-featured-stat-icon-wrap">
-          <Icon name={icon} size={22} label={label} />
-        </div>
-      </div>
-      <div className="admin-featured-stat-body">
-        <div className="admin-featured-stat-value">{value}</div>
-        {subtitle && <div className="admin-featured-stat-subtext">{subtitle}</div>}
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, accent, icon, subtitle }) {
-  const themes = {
-    sky: { bg: COLORS.sky50, color: COLORS.sky700 },
-    yellow: { bg: COLORS.amber50, color: COLORS.amber700 },
-    emerald: { bg: COLORS.emerald50, color: COLORS.emerald700 },
-    slate: { bg: COLORS.slate100, color: COLORS.slate700 },
-  };
-  const current = themes[accent] || themes.sky;
-
-  const displaySubtitle = subtitle || (
-    label === 'Pending Approval' ? (value > 0 ? 'Needs review' : 'All clear') :
-      label === 'Avg Rendered Hours' ? 'Across students' :
-        'Current records'
-  );
-
-  return (
-    <div className="admin-regular-stat-card">
-      <div className="admin-regular-stat-header">
-        <span className="admin-regular-stat-label">{label}</span>
-        <div className="admin-regular-stat-icon" style={{ backgroundColor: current.bg, color: current.color }}>
-          <Icon name={icon} size={15} label={label} />
-        </div>
-      </div>
-      <div>
-        <div className="admin-regular-stat-value">{value}</div>
-        <div className="admin-regular-stat-footer">{displaySubtitle}</div>
       </div>
     </div>
   );
@@ -1285,10 +1239,12 @@ function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
 }
 
-function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [] }) {
+function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus }) {
   const [search, setSearch] = useState('');
   const [deactivate, setDeactivate] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const statusFilter = studentStatus || 'all';
+  const showAccountId = !studentDirectory && !coordinatorDirectory || users.some(user => user.idNumber || user.employeeId);
+  const showAccountContact = !studentDirectory && !coordinatorDirectory || users.some(user => studentDirectory ? user.username : user.email);
   const sectionName = user => sections.find(section => section.id === user.sectionId)?.name || user.sectionName || 'Unassigned';
   const filtered = users.filter(u =>
     `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''} ${u.email || ''} ${u.idNumber || ''} ${u.department || ''} ${studentDirectory ? sectionName(u) : ''}`
@@ -1305,6 +1261,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
         confirmLabel="Deactivate account" busy={saving} onCancel={() => setDeactivate(null)}
         onConfirm={async () => { await onToggle(deactivate.id, true); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
+        {directoryFilters}
         <input
           type="text"
           aria-label="Search accounts"
@@ -1314,7 +1271,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
           style={s.tableSearchInput}
         />
         {studentDirectory && <>
-          <select aria-label="Filter by account status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <select aria-label="Filter by account status" value={statusFilter} onChange={e => onStudentStatus(e.target.value)}>
             <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="rejected">Rejected</option>
           </select>
         </>}
@@ -1326,8 +1283,8 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
           <thead>
             <tr>
               <th style={s.th}>Name</th>
-              <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student / Employee ID'}</th>
-              <th style={s.th}>{studentDirectory ? 'Username' : 'Email Address'}</th>
+              {showAccountId && <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student / Employee ID'}</th>}
+              {showAccountContact && <th style={s.th}>{studentDirectory ? 'Username' : 'Email Address'}</th>}
               <th style={s.th}>Department</th>
               {studentDirectory && <th style={s.th}>Section</th>}
               <th style={s.th}>Account Status</th>
@@ -1340,10 +1297,8 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
                 <td style={s.td}>
                   <strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
                 </td>
-                <td style={s.td}>
-                  <span style={s.idCode}>{user.idNumber || '—'}</span>
-                </td>
-                <td style={s.td}>{studentDirectory ? user.username || '—' : user.email}</td>
+                {showAccountId && <td style={s.td}><span style={s.idCode}>{user.idNumber || user.employeeId || '—'}</span></td>}
+                {showAccountContact && <td style={s.td}>{(studentDirectory ? user.username : user.email) || '—'}</td>}
                 <td style={s.td}>{user.department || '—'}</td>
                 {studentDirectory && <td style={s.td}>{sectionName(user)}</td>}
                 <td style={s.td}>
@@ -1389,7 +1344,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5 + (studentDirectory ? 1 : 0) + (showToggle ? 1 : 0)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
+                <td colSpan={3 + Number(showAccountId) + Number(showAccountContact) + Number(studentDirectory) + Number(showToggle)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
                   <PortalEmpty title={users.length === 0 ? 'No accounts yet' : 'No matching accounts'}
                     description={users.length === 0 ? 'Accounts will appear here after they are created.' : 'Try changing your search or filters.'} />
                 </td>

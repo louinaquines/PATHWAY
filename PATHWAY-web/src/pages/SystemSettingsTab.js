@@ -18,6 +18,8 @@ const DEFAULTS = {
 
 export default function SystemSettingsTab() {
   const [settings, setSettings] = useState(DEFAULTS);
+  const [savedSettings, setSavedSettings] = useState(DEFAULTS);
+  const dirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [message, setMessage]   = useState('');
@@ -26,7 +28,7 @@ export default function SystemSettingsTab() {
   const loadSettings = useCallback(() => {
     setLoading(true);
     adminRequest('/admin/settings')
-      .then(data => setSettings({ ...DEFAULTS, ...data.settings }))
+      .then(data => { const loaded = { ...DEFAULTS, ...data.settings }; setSettings(loaded); setSavedSettings(loaded); })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -48,7 +50,8 @@ export default function SystemSettingsTab() {
     setError('');
     try {
       const data = await adminRequest('/admin/settings', { method: 'PUT', body: JSON.stringify(settings) });
-      setSettings({ ...DEFAULTS, ...data.settings });
+      const saved = { ...DEFAULTS, ...data.settings };
+      setSettings(saved); setSavedSettings(saved);
       setMessage('System configurations and schedule parameters saved successfully.');
     } catch (e) {
       setError(e.message);
@@ -63,13 +66,6 @@ export default function SystemSettingsTab() {
 
   return (
     <div style={s.page} className="admin-configuration admin-settings">
-      <div style={s.header}>
-        <h2 style={s.title}>System settings</h2>
-        <p style={s.sub}>
-          Set default OJT hours, attendance schedules, and notification preferences.
-        </p>
-      </div>
-
       {error   && <div role="alert" style={s.error}>{error}</div>}
       {message && <div role="status" style={s.success}>{message}</div>}
 
@@ -77,7 +73,7 @@ export default function SystemSettingsTab() {
         <div><h3>Hours & attendance</h3><p>Default values for section creation and attendance calculations.</p></div>
         <div style={s.grid}>
           <div style={s.field}>
-            <label style={s.label} htmlFor="settings-required-hours">Default required OJT hours</label>
+            <label style={s.label} htmlFor="settings-required-hours">Default required OJT hours (hrs)</label>
             <input
               id="settings-required-hours"
               style={s.input}
@@ -91,7 +87,7 @@ export default function SystemSettingsTab() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label} htmlFor="settings-daily-hours">Daily target hours</label>
+            <label style={s.label} htmlFor="settings-daily-hours">Daily target hours (hrs)</label>
             <input
               id="settings-daily-hours"
               style={s.input}
@@ -120,7 +116,7 @@ export default function SystemSettingsTab() {
           </div>
 
           <div style={s.field}>
-            <label style={s.label} htmlFor="settings-grace-period">Late arrival grace period (minutes)</label>
+            <label style={s.label} htmlFor="settings-grace-period">Late arrival grace period (min)</label>
             <input
               id="settings-grace-period"
               style={s.input}
@@ -138,7 +134,7 @@ export default function SystemSettingsTab() {
         <div style={s.workdaysSection} className="admin-workdays">
           <h3>Expected workdays</h3>
           <p style={s.hint}>Selected days are factored into student attendance analytics and missed shift calculations.</p>
-          <div style={s.daysGrid}>
+          <div className="admin-weekday-row">
             {DAYS.map(day => {
               const active = settings.expectedWorkdays.includes(day);
               return (
@@ -154,7 +150,7 @@ export default function SystemSettingsTab() {
                   }}
                   onClick={() => toggleDay(day)}
                 >
-                  <Icon name={active ? 'check' : 'x'} size={14} /> {day}
+                  <span aria-hidden="true">{day.slice(0, 3)} · {active ? 'On' : 'Off'}</span><span className="sr-only">{day}</span>
                 </button>
               );
             })}
@@ -176,14 +172,13 @@ export default function SystemSettingsTab() {
           </label>
         </div>
 
-        <button
-          type="submit" className="admin-configuration-save"
-          style={s.saveButton}
-          disabled={saving || settings.expectedWorkdays.length === 0}
-        >
-          <Icon name="save" size={15} />
-          {saving ? 'Saving Configurations...' : 'Save Global Settings'}
-        </button>
+        {dirty && <div className="admin-settings-savebar">
+          <strong>Unsaved changes</strong>
+          <button type="button" className="portal-secondary" disabled={saving}
+            onClick={() => { setSettings(savedSettings); setError(''); setMessage(''); }}>Discard</button>
+          <button type="submit" className="admin-configuration-save" style={s.saveButton}
+            disabled={saving || settings.expectedWorkdays.length === 0}>{saving ? 'Saving…' : 'Save'}</button>
+        </div>}
       </form>
     </div>
   );

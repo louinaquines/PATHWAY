@@ -91,7 +91,7 @@ test('overview and student directory share department scope, with sections insid
   render(<AdminDashboard />);
   fireEvent.change(await screen.findByLabelText('Filter by department'), { target: { value: 'Education' } });
   expect(screen.queryByText('Cara')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /^Sections/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Sections' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /^Students/ }));
   fireEvent.change(screen.getByLabelText('Filter by section'), { target: { value: 'e1' } });
   expect(screen.getByText('Alice')).toBeInTheDocument();

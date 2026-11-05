@@ -1,5 +1,5 @@
 // src/pages/LogbookTab.js
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import DtrReviewDialog from '../components/DtrReviewDialog';
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
@@ -16,8 +16,7 @@ import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
-export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, onSectionChange }) {
-  const [sections, setSections]               = useState([]);
+export default function LogbookTab({ coordinatorId, selectedSection: sharedSection }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
@@ -76,39 +75,25 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' });
   };
 
-  const fetchSections = useCallback(async () => {
-    if (!coordinatorId) return;
-    setLoading(true);
-    try {
-      const snap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
-      setSections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [coordinatorId]);
-
-  useEffect(() => {
-    fetchSections();
-  }, [fetchSections]);
-
   const fetchStudents = async (section) => {
     setSelectedSection(section);
-    onSectionChange?.(section);
+    setLoading(true);
     setSelectedStudent(null);
     setEntries([]);
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
       setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
     } catch (e) {
       console.error(e);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     if (sharedSection) fetchStudents(sharedSection);
     else {
+      setLoading(false);
       setSelectedSection(null);
       setStudents([]);
       setSelectedStudent(null);
@@ -166,7 +151,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     approved: 'Approved',
     rejected: 'Rejected',
   };
-  const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
   const filteredStudents = students.filter(student => matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
 
   if (loading) {
@@ -175,29 +159,13 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
   return (
     <div className="logbook-workspace" style={t.page}>
-      {/* Col 1: Sections */}
-      <div className="logbook-sections" style={t.col1}>
-        <div className="logbook-panel-header" style={t.colHeader}>Sections <span className="logbook-count">{sections.length}</span><p>Choose a class to review its journals.</p></div>
-        <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" /></div>
-        {filteredSections.length === 0 && <div style={t.empty}>No sections created yet.</div>}
-        {filteredSections.map(sec => (
-          <button type="button" className="logbook-select-card" aria-pressed={selectedSection?.id === sec.id}
-            key={sec.id}
-            style={{ ...t.card, ...(selectedSection?.id === sec.id ? t.cardActive : {}) }}
-            onClick={() => fetchStudents(sec)}
-          >
-            <div style={t.cardTitle}>{sec.name}</div>
-            <div style={t.cardSub}>{sec.department}</div>
-          </button>
-        ))}
-      </div>
-
       {/* Col 2: Students */}
       <div className="logbook-students" style={t.col2}>
         <div className="logbook-panel-header" style={t.colHeader}>
           Students <span className="logbook-count">{students.length}</span><p>{selectedSection?.name || 'Select a section first.'}</p>
         </div>
-        {!selectedSection && <div style={t.empty}>Select a section first.</div>}
+        <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" /></div>
+        {!selectedSection && <div style={t.empty}>Choose a section in the top bar.</div>}
         {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>No students in this section.</div>}
         {filteredStudents.map(st => (
           <button type="button" className="logbook-select-card" aria-pressed={selectedStudent?.id === st.id}
@@ -219,7 +187,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {document.getElementById('logbook-header-actions') && createPortal(
-              <button type="button" className="section-export-button" disabled={!selectedStudent || !selectedSection || exporting} onClick={exportStudentRecords} aria-busy={exporting} title={selectedStudent ? 'Download selected student records as an Excel file' : 'Select a student to export'}><Icon name="download" size={18} />{exporting ? 'Exporting…' : 'Export Data'}</button>,
+              <button type="button" className="section-export-button" disabled={!selectedStudent || !selectedSection || exporting} onClick={exportStudentRecords} aria-busy={exporting} title={selectedStudent ? 'Download selected student records as an Excel file' : 'Select a student to export'}><Icon name="download" size={18} />{exporting ? 'Exporting…' : 'Export student records (Excel)'}</button>,
               document.getElementById('logbook-header-actions'))}
             <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => { setRecordView('journals'); fetchEntries(student); }} />
           </div>
@@ -228,9 +196,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         <div className="logbook-detail-content" style={t.entriesScroll}>
           {exportError && <p role="alert">{exportError}</p>}
           {selectedStudent && <div className="logbook-record-toolbar"><div className="logbook-record-switch" role="group" aria-label="Student record type">
-            <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
-            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
-          </div>{recordView === 'attendance' && <button type="button" className="logbook-export" onClick={() => setDtrStudent(selectedStudent)}><Icon name="clipboard" size={16} />Compare DTR</button>}</div>}
+            <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance ({attendance.length})</button>
+            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals ({entries.length})</button>
+          </div>{recordView === 'attendance' && <button type="button" className="logbook-export" title="Compare a submitted daily time record with PATHWAY attendance." onClick={() => setDtrStudent(selectedStudent)}><Icon name="clipboard" size={16} />Compare DTR</button>}</div>}
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
             <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from journal hours.</p>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}

@@ -103,6 +103,14 @@ export default function MessagesTab({ selectedSection }) {
     finally { setSending(false); }
   };
 
+  const threadsByStudent = new Map(conversations.map(thread => [thread.studentId, thread]));
+  const unread = thread => Number(Boolean(thread?.messages.some(message => message.recipientId === coordinatorId && !message.read)));
+  const recent = thread => String(thread?.messages.at(-1)?.createdAt || '');
+  const sortedStudents = [...students].sort((a, b) => {
+    const first = threadsByStudent.get(a.id);
+    const second = threadsByStudent.get(b.id);
+    return unread(second) - unread(first) || recent(second).localeCompare(recent(first));
+  });
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
   return <div className="messages-workspace">
@@ -137,7 +145,7 @@ export default function MessagesTab({ selectedSection }) {
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
       <div className="messages-panel-list" aria-busy={loading}>
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>
-          {students.filter(student => {
+          {sortedStudents.filter(student => {
             const thread = conversations.find(item => item.studentId === student.id);
             return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
           }).map(student => {

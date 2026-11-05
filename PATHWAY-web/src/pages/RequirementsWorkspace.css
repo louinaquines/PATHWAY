@@ -117,3 +117,14 @@
   .requirements-workspace .requirements-sections, .requirements-workspace .requirements-students { width: 100% !important; max-height: 300px; }
   .requirements-document > div:last-child { margin-left: 0 !important; }
 }
+
+.coordinator-review-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+.coordinator-review-filters button[aria-pressed="true"] { background: #e8f1ff; border-color: #7497bd; }
+.coordinator-queue-status { display: inline-block; border-radius: 8px; padding: 4px 8px; background: #eef2f7; color: #475569 !important; }
+.coordinator-queue-status[data-status="review"] { background: #fef3c7; color: #92400e !important; }
+.coordinator-queue-status[data-status="complete"] { background: #dcfce7; color: #166534 !important; }
+.coordinator-review-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; }
+.coordinator-review-progress progress { flex: 1; accent-color: #0759ba; }
+@media (max-width: 950px) {
+  .requirements-workspace .requirements-students, .logbook-workspace .logbook-students { width: 100% !important; }
+}

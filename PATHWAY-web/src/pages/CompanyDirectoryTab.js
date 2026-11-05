@@ -1,3 +1,4 @@
+import { PortalFormDialog } from '../components/PortalStates';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
@@ -6,6 +7,7 @@ import './CompanyDirectoryTab.css';
 const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
 export default function CompanyDirectoryTab({ readOnly = true }) {
+  const [formOpen, setFormOpen] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState('');
@@ -47,8 +49,9 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       .some(value => String(value || '').toLowerCase().includes(term)));
   }, [companies, search]);
 
-  const resetForm = () => { setForm(EMPTY_FORM); setEditingId(''); };
+  const resetForm = () => { setForm(EMPTY_FORM); setEditingId(''); setFormOpen(false); };
   const editCompany = company => {
+    setFormOpen(true);
     setEditingId(company.id);
     setForm({ name: company.name || '', address: company.address || '', industry: company.industry || '',
       email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active,
@@ -95,7 +98,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       {profilePreview && <div className="company-import-preview"><strong>{profilePreview.name || 'Company name not found'}</strong><p>{profilePreview.description || 'Description not found.'}</p>
         <dl><dt>Email</dt><dd>{profilePreview.email || 'Not found'}</dd><dt>Phone</dt><dd>{profilePreview.phone || 'Not found'}</dd></dl>
         <a href={profilePreview.sourceUrl} target="_blank" rel="noopener noreferrer">View source website</a><p>{profilePreview.warning}</p>
-        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); }}>Use suggestions in form</button>
+        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); setFormOpen(true); }}>Use suggestions in form</button>
       </div>}
     </section>}
     <div style={styles.headingRow}>
@@ -106,11 +109,14 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       <div style={styles.summary}><strong>{loadFailed ? '—' : companies.length}</strong><span>companies</span></div>
     </div>
 
-    {error && <div role="alert" style={styles.error}>{error}</div>}
+    {error && !formOpen && <div role="alert" style={styles.error}>{error}</div>}
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
-    <div className={`company-directory-layout${readOnly ? ' is-readonly' : ''}`} style={styles.layout}>
-      {!readOnly && <form className="company-directory-form" onSubmit={onSubmit} style={styles.formCard}>
+    {!readOnly && <button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button>}
+    <div className={`company-directory-layout${readOnly || !formOpen ? ' is-readonly' : ''}`} style={{ ...styles.layout, gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer" label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
+      <form className="company-directory-form" onSubmit={onSubmit} style={styles.formCard}>
+        {error && <div role="alert" style={styles.error}>{error}</div>}
         <h3 style={styles.cardTitle}>{editingId ? 'Edit company' : 'Add company'}</h3>
         <p className="directory-form-help">{editingId ? 'Update contact details and placement availability.' : 'Create a destination for official student placements.'}</p>
         <label style={styles.label}>Company name<input required maxLength={160} value={form.name} onChange={event => setForm(previous => ({ ...previous, name: event.target.value }))} style={styles.input} /></label>
@@ -132,9 +138,9 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
         </fieldset>}
         <div style={styles.formActions}>
           <button type="submit" disabled={saving || loading || loadFailed} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add to directory'}</button>
-          {editingId && <button type="button" disabled={saving} onClick={resetForm} style={styles.secondaryButton}>Cancel edit</button>}
+          <button type="button" disabled={saving} onClick={resetForm} style={styles.secondaryButton}>Cancel</button>
         </div>
-      </form>}
+      </form></PortalFormDialog>}
 
       <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
         <div style={styles.listHeader}>
@@ -149,9 +155,10 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
             return <article className="directory-company-card" key={company.id} style={styles.companyRow}>
               <div style={styles.companyMain}>
                 <div style={styles.companyNameLine}><strong>{company.name || 'Unnamed company'}</strong><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></div>
-                <div style={styles.meta}>{company.industry || 'Industry not provided'}</div>
+                <div style={styles.meta}>{company.industry || (readOnly ? 'Industry not provided' : <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>)}</div>
                 <div style={styles.meta}>{company.address || 'Address not provided'}</div>
                 <div style={styles.meta}>{company.geofence?.enabled ? `Attendance area: ${company.geofence.radiusMeters} m radius` : 'Attendance location check: off'}</div>
+                {!readOnly && configured && company.capacity > 0 && <progress className="coordinator-capacity-progress" aria-label={company.name + ' placement capacity'} value={company.occupiedSlots || 0} max={company.capacity} />}
                 <div className="directory-capacity" style={styles.slots}><span>{slots}</span>{configured && <span>{company.availableSlots} available</span>}</div>
               </div>
               {!readOnly && <button type="button" onClick={() => editCompany(company)} style={styles.editButton}>Edit</button>}

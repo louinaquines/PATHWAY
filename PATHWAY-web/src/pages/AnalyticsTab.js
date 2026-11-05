@@ -28,6 +28,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [exceptionDate, setExceptionDate] = useState('');
   const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
   const [saving, setSaving] = useState(false);
   const requestRevision = useRef(0);
@@ -122,12 +123,22 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
-        <h3>Work schedule and completion deadline</h3>
-        <p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p>
+        <details className="analytics-schedule-edit" key={selectedSection.id}>
+          <summary>Work schedule · {schedule.startDate || 'Start date unset'} to {schedule.deadline || 'Deadline unset'} · {schedule.startTime} <strong>Edit</strong></summary>
+        <details><summary>How is this calculated?</summary><p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p></details>
         <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
         <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
-        <label>Exceptions (YYYY-MM-DD, comma-separated) <input value={schedule.exceptions.join(',')} onChange={event => setSchedule(current => ({ ...current, exceptions: event.target.value.split(',').map(value => value.trim()).filter(Boolean) }))} /></label>
+        <div className="analytics-exceptions">
+          <label>Exception date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
+          <button type="button" className="portal-secondary" disabled={!exceptionDate || schedule.exceptions.includes(exceptionDate)} onClick={() => {
+            setSchedule(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
+            setExceptionDate('');
+          }}>Add date</button>
+          {schedule.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove exception ' + date}
+            onClick={() => setSchedule(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
+        </div>
         <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
+        </details>
       </form>}
 
       {/* Metrics Summary Grid */}
@@ -186,7 +197,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       </div>
                     </td>
                     <td style={s.td}>
-                      <div className="analytics-attendance-metrics" style={s.attendanceMini}>
+                      <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
+                        <summary>Attendance details</summary>
                         <span>Rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
@@ -196,7 +208,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
                         {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
                         {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
-                      </div>
+                      </details>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>
                       <span style={{

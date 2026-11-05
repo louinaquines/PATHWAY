@@ -17,6 +17,7 @@ test('StrictMode replay loads analytics and the excused editor without stale res
   adminRequest.mockImplementation(async path => path.endsWith('/analytics') ? payload : { dates: ['2026-10-02'], version: 2 });
   render(<StrictMode><AnalyticsTab coordinatorId="staff" selectedSection={section} /></StrictMode>);
   await screen.findByText('Test Student');
+  fireEvent.click(screen.getByText('Attendance details'));
   fireEvent.click(screen.getByRole('button', { name: 'Edit excused dates for Test Student' }));
   await waitFor(() => expect(screen.getByLabelText('Excused dates (YYYY-MM-DD)')).toHaveValue('2026-10-02'));
   expect(screen.getByRole('button', { name: 'Save excused dates' })).toBeEnabled();
@@ -27,6 +28,7 @@ test('unavailable metrics stay unavailable and schedule saves through scoped API
   await screen.findByText('Test Student');
   expect(screen.getByText('Completion estimate unavailable')).toBeInTheDocument();
   expect(screen.queryByText('100%')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText('Edit'));
   const dates = container.querySelectorAll('input[type=date]');
   fireEvent.change(dates[0], { target: { value: '2026-10-01' } });
   fireEvent.change(dates[1], { target: { value: '2026-12-31' } });
@@ -75,6 +77,7 @@ test('excused dates load fresh version, reject impossible dates and require conf
   });
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Test Student');
+  fireEvent.click(screen.getByText('Attendance details'));
   fireEvent.click(screen.getByRole('button', { name: 'Edit excused dates for Test Student' }));
   const input = await screen.findByLabelText('Excused dates (YYYY-MM-DD)');
   await waitFor(() => expect(input).toHaveValue('2026-10-01'));
@@ -106,6 +109,7 @@ test('lost section assignment clears an open draft and later policy responses', 
   adminRequest.mockResolvedValueOnce(payload).mockImplementationOnce(() => new Promise(done => { resolve = done; }));
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Test Student');
+  fireEvent.click(screen.getByText('Attendance details'));
   fireEvent.click(screen.getByRole('button', { name: 'Edit excused dates for Test Student' }));
   act(() => onSnapshot.mock.calls[1][1]({ data: () => ({ coordinatorId: 'someone-else' }) }));
   expect(screen.queryByLabelText('Excused dates (YYYY-MM-DD)')).not.toBeInTheDocument();

@@ -38,14 +38,14 @@ describe('coordinator decision retries', () => {
     ])).mockResolvedValueOnce(snapshot([{ id: 'final', sectionId: 'section-1', studentName: 'Taylor Student', studentId: 'taylor', status: 'pending_review', companySnapshot: { companyName: 'Final Host' } }])).mockResolvedValueOnce(snapshot([]));
     adminRequest.mockImplementation(url => Promise.resolve(url === '/coordinator/company-directory' ? { companies: [] } : { history: [] }));
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Open company queue' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Company requests/ }));
     const alex = screen.getByRole('textbox', { name: 'Placement feedback for Alex Student' });
     fireEvent.change(alex, { target: { value: 'Correct your dates.' } });
     expect(screen.getByRole('textbox', { name: 'Placement feedback for Sam Student' })).toHaveValue('');
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta Host' } });
     expect(screen.queryByText('Alpha Host')).not.toBeInTheDocument();
     expect(screen.getByText('Beta Host')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Open final approval queue' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Final approvals/ }));
     expect(screen.getByRole('button', { name: 'Approve final review' })).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'Final review feedback for Taylor Student' })).toHaveValue('');
   });

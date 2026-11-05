@@ -72,6 +72,7 @@ export default function CoordinatorDashboard() {
   const [students, setStudents] = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [reviewFilter, setReviewFilter] = useState('all');
   const { page } = useParams();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const activeTab = COORDINATOR_TABS.includes(page) ? page : 'requirements';
@@ -261,7 +262,15 @@ export default function CoordinatorDashboard() {
   };
 
   const pendingCount = students.filter(s => s.requirementsStatus === 'pending').length;
-  const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
+  const needsReview = student => sectionRequirements.some(requirement => student.requirements?.[requirement.id]?.status === 'submitted');
+  const isComplete = student => requirementProgress(student.requirements, sectionRequirements).percentage === 100;
+  const reviewQueue = students.filter(needsReview);
+  const firstReviewId = activeTab === 'requirements' ? reviewQueue[0]?.id : undefined;
+  const selectedProgress = selectedStudent ? requirementProgress(selectedStudent.requirements, sectionRequirements) : null;
+  useEffect(() => {
+    if (!firstReviewId) return;
+    setSelectedStudent(current => current || students.find(student => student.id === firstReviewId) || null);
+  }, [firstReviewId, students]);
   const filteredStudents = students.filter(student => matchesCoordinatorSearch(
     searchQuery,
     student.firstName,
@@ -270,29 +279,26 @@ export default function CoordinatorDashboard() {
     selectedSection?.name,
   ));
 
+  const visibleReviewStudents = filteredStudents.filter(student => reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : isComplete(student)));
+
   const coordNavGroups = [
-    {
-      title: 'Workspace',
-      items: [
+    { title: 'Review', items: [
         { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
-        { id: 'sections', icon: 'section', label: 'Sections' },
         { id: 'logbook', icon: 'book', label: 'Logbook' },
-        { id: 'placements', icon: 'building', label: 'Company Placements' },
-        { id: 'companies', icon: 'building', label: 'Company Directory' },
-        { id: 'messages', icon: 'chat', label: 'Messages' },
         { id: 'evaluations', icon: 'star', label: 'Evaluations' },
         { id: 'clearance', icon: 'cap', label: 'Clearance' },
-      ],
-    },
-    {
-      title: 'Operations',
-      items: [
-        { id: 'classlist', icon: 'clipboard', label: 'Authorized Roster' },
+    ] },
+    { title: 'Placements', items: [
+        { id: 'placements', icon: 'building', label: 'Company Placements' },
+        { id: 'companies', icon: 'building', label: 'Company Directory' },
+    ] },
+    { title: 'Students', items: [
+        { id: 'sections', icon: 'section', label: 'Sections & Roster' },
         { id: 'registrations', icon: 'users', label: 'Registrations', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true },
         { id: 'analytics', icon: 'chart', label: 'Analytics' },
+        { id: 'messages', icon: 'chat', label: 'Messages' },
         { id: 'notifications', icon: 'bell', label: 'Notifications' },
-      ],
-    },
+    ] },
   ];
 
   return (
@@ -329,9 +335,9 @@ export default function CoordinatorDashboard() {
                 <button
                   type="button"
                   key={item.id}
-                  className={activeTab === item.id ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
+                  className={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
                   onClick={() => setActiveTab(item.id)}
-                  aria-current={activeTab === item.id ? 'page' : undefined}
+                  aria-current={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'page' : undefined}
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />
@@ -400,14 +406,18 @@ export default function CoordinatorDashboard() {
             )}
             {activeTab !== 'profile' && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
-                <span>Current section</span>
-                <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" value={selectedSection?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                  <option value="">Select a section</option>
+                <span>Section</span>
+                <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
+                  {sections.length === 0 && <option value="">No assigned sections</option>}
                   {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
                 </select>
               </label>
             )}
           </div>
+          {['sections', 'classlist'].includes(activeTab) && <button type="button" className="portal-secondary"
+            onClick={() => setActiveTab(activeTab === 'sections' ? 'classlist' : 'sections')}>
+            {activeTab === 'sections' ? 'Authorized roster' : 'Back to sections'}
+          </button>}
           {activeTab === 'logbook' && <div id="logbook-header-actions" />}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
@@ -441,41 +451,25 @@ export default function CoordinatorDashboard() {
           <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
             {activeTab === 'requirements' && (
               <div className="requirements-workspace" style={s.threeCol}>
-                {/* Column 1: Sections */}
-                <div className="requirements-sections" style={s.col1}>
-                  <div style={s.colHeader}>Sections <span className="requirements-count">{filteredSections.length}</span><p>Choose your class to get started.</p></div>
-                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" /></div>
-                  {filteredSections.length === 0 && (
-                    <div style={s.empty}>{searchQuery ? 'No matching sections. Try another search.' : 'No sections yet. Create one in the Sections tab.'}</div>
-                  )}
-                  {filteredSections.map(sec => (
-                    <button
-                      type="button"
-                      className="requirements-section-card"
-                      aria-pressed={selectedSection?.id === sec.id}
-                      key={sec.id}
-                      style={{ ...s.secCard, ...(selectedSection?.id === sec.id ? s.secCardActive : {}) }}
-                      onClick={() => fetchStudents(sec)}
-                    >
-                      <div style={s.secName}>{sec.name}</div>
-                      <div style={s.secInfo}>{sec.department}</div>
-                    </button>
-                  ))}
-                </div>
-
                 {/* Column 2: Students */}
                 <div className="requirements-students" style={s.col2}>
                   <div style={s.colHeader}>
                     Students <span className="requirements-count">{filteredStudents.length}</span>
                     <p>{selectedSection?.name || 'Select a section to see its students.'}</p>
                   </div>
+                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" /></div>
+                  <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">
+                    {[['review', 'Needs review'], ['all', 'All'], ['complete', 'Complete']].map(([value, label]) => (
+                      <button type="button" key={value} className="portal-secondary" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>
+                    ))}
+                  </div>
                   {!selectedSection && (
-                    <div style={s.empty}>Select a section from the left list.</div>
+                    <div style={s.empty}>Choose a section in the top bar.</div>
                   )}
-                  {selectedSection && filteredStudents.length === 0 && (
-                    <div style={s.empty}>{searchQuery ? 'No matching students. Try another search.' : 'No students enrolled in this section.'}</div>
+                  {selectedSection && visibleReviewStudents.length === 0 && (
+                    <div style={s.empty}>{searchQuery || reviewFilter !== 'all' ? 'No students match this view.' : 'No students enrolled in this section.'}</div>
                   )}
-                  {filteredStudents.map(student => {
+                  {visibleReviewStudents.map(student => {
                     const progress = requirementProgress(student.requirements, sectionRequirements);
                     return (
                     <button
@@ -489,6 +483,9 @@ export default function CoordinatorDashboard() {
                         <div className="student-card-name">
                           <strong>{student.firstName} {student.lastName}</strong>
                           <span>ID {student.idNumber || 'not provided'}</span>
+                          <span className="coordinator-queue-status" data-status={needsReview(student) ? 'review' : isComplete(student) ? 'complete' : 'neutral'}>
+                            {needsReview(student) ? 'Needs review' : isComplete(student) ? 'Complete' : 'In progress'}
+                          </span>
                         </div>
                         {selectedStudent?.id === student.id && (
                           <strong className={`student-card-percentage${progress.percentage === 100 ? ' is-complete' : ''}`}>{progress.percentage}%</strong>
@@ -512,6 +509,10 @@ export default function CoordinatorDashboard() {
                     </div>
                     <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} onOpen={setSelectedStudent} />
                   </div>
+                  {selectedProgress?.total > 0 && <div className="coordinator-review-progress">
+                    <progress aria-label="Requirements approved" value={selectedProgress.approved} max={selectedProgress.total} />
+                    <span>{selectedProgress.approved} of {selectedProgress.total} approved</span>
+                  </div>}
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>
                       {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements configured</h3><p style={s.emptySub}>Add a checklist for this section in the Sections screen.</p></div>}
@@ -609,7 +610,7 @@ export default function CoordinatorDashboard() {
                                             }}
                                           >
                                             <Icon name="x" size={14} />
-                                            Reject
+                                            Request changes
                                           </button>
                                         </div>
                                       )}
@@ -624,9 +625,9 @@ export default function CoordinatorDashboard() {
 
                       <AlertDialog
                         open={Boolean(rejectionModal)}
-                        title="Reject requirement submission?"
+                        title="Request changes to this document?"
                         description="Specify the correction the student needs before resubmitting this requirement."
-                        confirmLabel="Confirm rejection"
+                        confirmLabel="Request changes"
                         busy={saving}
                         confirmDisabled={!rejectionReason.trim()}
                         onCancel={() => setRejectionModal(null)}
@@ -651,7 +652,7 @@ export default function CoordinatorDashboard() {
               </div>
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
-            {activeTab === 'logbook' && <LogbookTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
+            {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
@@ -660,7 +661,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
             {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
-            {activeTab === 'clearance' && <ClearanceTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
+            {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
           </div>
         )}
       </main>

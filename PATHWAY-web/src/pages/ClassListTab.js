@@ -121,10 +121,12 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
         </div>
 
         <div style={s.inputSection}>
+          {selectedSection && <p style={s.help}>Import into {selectedSection.name}</p>}
+          {!selectedSection && <>
           <label style={s.label}>Assigned section</label>
           <select aria-label="Assigned section" value={sectionId} onChange={e => setSectionId(e.target.value)} disabled={saving}>
             <option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-          </select>
+          </select></>}
           {[
             ['idNumber', 'Student ID', 'e.g. 24228132'],
             ['firstName', 'First name', 'Enter first name'],
@@ -156,7 +158,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
               onClick={() => addIds(false)}
               disabled={saving || !sectionId || !input.trim()}
             >
-              {saving ? 'Provisioning accounts...' : 'Import and create accounts'}
+              {saving ? 'Provisioning accounts...' : 'Import CSV'}
             </button>
             {message && (
               <span role="status" style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>

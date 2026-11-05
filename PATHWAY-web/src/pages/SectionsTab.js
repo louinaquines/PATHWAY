@@ -225,7 +225,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             >
               <button type="button" className="section-select" aria-pressed={selected?.id === sec.id} onClick={() => fetchStudents(sec)} style={t.secMainClick}>
                 <div style={t.secName}>{sec.name}</div>
-                <div style={t.secInfo}>{sec.department}</div>
+                {(selected?.id === sec.id || Array.isArray(sec.studentIds)) && <div style={t.secInfo}>{selected?.id === sec.id ? students.length : sec.studentIds.length} students</div>}
                 <div style={t.secHoursBadge}>{sec.hoursRequired} hrs required</div>
               </button>
               <button
@@ -304,26 +304,16 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   {filteredStudents.length === 0 ? (
                     <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
                   ) : (
-                  <div style={t.studentsGrid}>
-                    {filteredStudents.map(st => (
-                      <div key={st.id} style={t.studentRow}>
-                        <div style={t.studentLeft}>
-                          <div style={t.studentAvatar}>{st.firstName?.[0]}{st.lastName?.[0]}</div>
-                          <div>
-                            <div style={t.studentName}>{st.firstName} {st.lastName}</div>
-                            <div style={t.studentInfo}>ID {st.idNumber || 'not provided'}</div>
-                          </div>
-                        </div>
-                        <span style={{
-                          ...t.pill,
-                          backgroundColor: st.accountApproved ? COLORS.emerald50 : COLORS.yellow100,
-                          color: '#000000',
-                          border: `1px solid ${st.accountApproved ? COLORS.emerald200 : COLORS.yellow300}`,
-                        }}>
-                          {st.accountApproved ? 'Active' : 'Pending Approval'}
-                        </span>
-                      </div>
-                    ))}
+                  <div className="coordinator-compact-table-wrap">
+                    <table className="coordinator-compact-table">
+                      <thead><tr><th>Student</th><th>Student ID</th><th>Account</th></tr></thead>
+                      <tbody>{filteredStudents.map(student => <tr key={student.id}>
+                        <td>{student.firstName} {student.lastName}</td><td>{student.idNumber || '—'}</td>
+                        <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
+                          {student.accountApproved ? 'Active' : 'Pending approval'}
+                        </span></td>
+                      </tr>)}</tbody>
+                    </table>
                   </div>
                 )}
 

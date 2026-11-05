@@ -38,7 +38,7 @@ test('shared section loads enrolled students with rule-compatible query scope', 
 
 test('selecting a section loads the same enrolled roster', async () => {
   render(<SectionsTab coordinatorId="coord-a" />);
-  fireEvent.click(await screen.findByRole('button', { name: /Section A Computer Studies/ }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Section A/ }));
   expect(await screen.findByText('Taylor Student')).toBeInTheDocument();
 });
 

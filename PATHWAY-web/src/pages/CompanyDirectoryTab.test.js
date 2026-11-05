@@ -13,15 +13,14 @@ beforeEach(() => {
 test('preview requires explicit use and an independent reviewed save', async () => {
   render(<CompanyDirectoryTab readOnly={false} />);
   await screen.findByText('No companies have been added yet.');
-  fireEvent.change(screen.getByLabelText('Address'), { target: { value: 'Verified address' } });
   fireEvent.change(screen.getByLabelText('Company website'), { target: { value: 'https://example.com' } });
   fireEvent.click(screen.getByText('Preview details'));
   await screen.findByText('Sample Company');
-  expect(screen.getByLabelText('Company name')).toHaveValue('');
+  expect(screen.queryByLabelText('Company name')).not.toBeInTheDocument();
   expect(screen.getByText('View source website')).toHaveAttribute('href', 'https://example.com/');
   fireEvent.click(screen.getByText('Use suggestions in form'));
   expect(screen.getByLabelText('Company name')).toHaveValue('Sample Company');
-  expect(screen.getByLabelText('Address')).toHaveValue('Verified address');
+  fireEvent.change(screen.getByLabelText('Address'), { target: { value: 'Verified address' } });
   expect(adminRequest.mock.calls.some(([path]) => path === '/coordinator/companies')).toBe(false);
   fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Edited Company' } });
   fireEvent.click(screen.getByText('Add to directory'));
@@ -37,6 +36,7 @@ test('preview failures offer manual entry and do not save', async () => {
   fireEvent.change(screen.getByLabelText('Company website'), { target: { value: 'https://example.com' } });
   fireEvent.click(screen.getByText('Preview details'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter company details manually.');
+  fireEvent.click(screen.getByRole('button', { name: '+ Add company' }));
   expect(screen.getByLabelText('Company name')).toBeEnabled();
   expect(screen.queryByText('Use suggestions in form')).not.toBeInTheDocument();
 });

@@ -231,15 +231,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
-    <div className="review-overview">
-      <div><span>Company requests</span><strong>{pendingPlacements}</strong><small>Awaiting your decision</small><button type="button" onClick={() => { setReviewStage('placement'); setReviewStatus('pending_review'); setReviewSearch(''); }}>Open company queue</button></div>
-      <div><span>Final approvals</span><strong>{pendingFinalReviews}</strong><small>Pre-deployment submissions</small><button type="button" onClick={() => { setReviewStage('final'); setReviewStatus('pending_review'); setReviewSearch(''); }}>Open final approval queue</button></div>
-      <div><span>Endorsement paperwork</span><strong>{endorsementItems.length}</strong><small>Awaiting a verified signed copy</small><button type="button" onClick={() => { setReviewStage('endorsement'); setReviewStatus('all'); setReviewSearch(''); }}>Open endorsements</button></div>
-    </div>
-    <div className="review-toolbar">
-      <label>Status<select value={reviewStatus} onChange={event => setReviewStatus(event.target.value)}><option value="all">All statuses</option>{Object.entries({ ...labels, awaiting_document: 'Awaiting signed copy', signed_copy_verified: 'Signed copy verified' }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    </div>
-    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', 'Endorsements'], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewStatus('all'); }}>{label}</button>)}</div>
+    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', "Endorsements (" + (endorsementItems.length + verifiedEndorsementItems.length) + ")"], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewSearch(''); setReviewStatus(['placement', 'final'].includes(value) ? 'pending_review' : 'all'); }}>{label}</button>)}</div>
     <section hidden={!['all', 'placement'].includes(reviewStage)}>
     <div className="review-section-heading"><h3>Company placement requests</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
     {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}

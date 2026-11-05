@@ -25,6 +25,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [summaryFilter, setSummaryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
@@ -176,7 +177,15 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const clearedCount = rows.filter(row => row.clearanceStatus === 'cleared').length;
   const needsReqs = rows.filter(row => row.requirements !== 'Approved').length;
   const needsHours = rows.filter(row => row.hours !== 'Complete').length;
-  const filteredRows = rows.filter(row => matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
+  const summaries = [
+    ['all', 'Total Students', rows.length, () => true],
+    ['cleared', 'Cleared', clearedCount, row => row.clearanceStatus === 'cleared'],
+    ['ready', 'Ready for Sign-Off', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
+    ['requirements', 'Needs Requirements', needsReqs, row => row.requirements !== 'Approved'],
+    ['hours', 'Needs Hours', needsHours, row => row.hours !== 'Complete'],
+  ];
+  const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
+  const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
 
   return (
     <div style={s.page} className="clearance-page">
@@ -189,7 +198,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={load}>Refresh</button>
           <button style={s.secondaryBtn} onClick={printReport} disabled={!rows.length}><Icon name="download" size={15} /> Print Report</button>
-          <button style={s.primaryBtn} onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={15} /> Export CSV</button>
+          <button style={s.primaryBtn} onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={15} /> Export clearance CSV</button>
         </div>
       </div>
 
@@ -197,11 +206,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
 
       {/* Metrics Grid */}
       <div className="clearance-metrics" style={s.metrics}>
-        <MetricCard label="Total Students" value={rows.length} accent="sky" />
-        <MetricCard label="Cleared" value={clearedCount} accent="emerald" />
-        <MetricCard label="Ready for Sign-Off" value={readyCount} accent="yellow" />
-        <MetricCard label="Needs Requirements" value={needsReqs} accent="slate" />
-        <MetricCard label="Needs Hours" value={needsHours} accent="rose" />
+        {summaries.map(([id, label, value]) => <button type="button" key={id} className="portal-secondary clearance-filter"
+          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}>{label} <strong>{value}</strong></button>)}
       </div>
 
       {/* Table Card */}
@@ -224,7 +230,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
             </thead>
             <tbody>
               {filteredRows.map(row => (
-                <tr key={`${row.idNumber}-${row.section}`} style={s.tr}>
+                <tr key={row.id} style={s.tr}>
                   <td style={s.td}>
                     <div style={s.studentName}>{row.student || 'Unnamed student'}</div>
                     <span style={s.idCode}>{row.idNumber || '—'}</span>
@@ -242,9 +248,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
                   </td>
                   <td style={s.td}>
                     <strong>{row.rendered}</strong> / {row.required} hrs
-                    <span style={s.hoursTag}>
-                      ({row.hours})
-                    </span>
+                    <progress className="coordinator-capacity-progress" aria-label="OJT hours completed" value={row.rendered} max={Math.max(1, row.required)} />
                   </td>
                   <td style={s.td}>
                     <span style={{
@@ -276,15 +280,6 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function MetricCard({ label, value }) {
-  return (
-    <div style={s.metricCard}>
-      <div style={s.metricLabel}>{label}</div>
-      <div style={s.metricValue}>{value}</div>
     </div>
   );
 }

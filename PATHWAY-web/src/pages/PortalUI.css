@@ -130,3 +130,14 @@ select:not([multiple]):disabled { opacity: .65; cursor: not-allowed; }
     color: FieldText !important;
   }
 }
+
+.coordinator-add-company { align-self: flex-start; min-height: 44px; }
+.coordinator-inline-link { border: 0; padding: 0; background: transparent; color: #0759ba; text-decoration: underline; font: inherit; cursor: pointer; }
+.coordinator-capacity-progress { display: block; width: 100%; max-width: 200px; height: 6px; accent-color: #0759ba; }
+.coordinator-compact-table-wrap { overflow-x: auto; }
+.coordinator-compact-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.coordinator-compact-table :is(th, td) { padding: 8px 16px; border-bottom: 1px solid #d9e2ee; text-align: left; }
+.coordinator-compact-table th { background: #f5f8fc; color: #475569; }
+.clearance-filter[aria-pressed="true"] { background: #e8f1ff; border-color: #7497bd; }
+.analytics-schedule-edit summary, .analytics-attendance-metrics summary { cursor: pointer; color: #0759ba; }
+.analytics-exceptions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }

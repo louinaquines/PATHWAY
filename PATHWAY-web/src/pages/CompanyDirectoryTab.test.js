@@ -42,7 +42,24 @@ test('preview failures offer manual entry and do not save', async () => {
 });
 test('read-only directory has no import or company mutation controls', async () => {
   render(<CompanyDirectoryTab />);
-  await screen.findByText('No companies have been added yet.');
+  await screen.findByText('No companies yet');
   expect(screen.queryByLabelText('Company website')).not.toBeInTheDocument();
   expect(screen.queryByText('Add to directory')).not.toBeInTheDocument();
+});
+
+test('admin directory pages companies and searches the complete directory', async () => {
+  adminRequest.mockResolvedValue({ companies: Array.from({ length: 12 }, (_, index) => ({
+    id: String(index), name: 'Company ' + String(index + 1).padStart(2, '0'),
+    industry: index === 11 ? 'Education' : 'Technology', active: true, capacity: 2, occupiedSlots: 1, availableSlots: 1,
+  })) });
+  render(<CompanyDirectoryTab />);
+  expect(await screen.findByText('Company 01')).toBeInTheDocument();
+  expect(screen.queryByText('Company 11')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByText('Company 11')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search companies' }), { target: { value: 'Company 12' } });
+  expect(screen.getByText('Company 12')).toBeInTheDocument();
+  expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Industry' }), { target: { value: 'Technology' } });
+  expect(screen.getByText('No matching companies')).toBeInTheDocument();
 });

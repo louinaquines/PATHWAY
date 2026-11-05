@@ -1,4 +1,5 @@
 import { PortalFormDialog } from '../components/PortalStates';
+import AdminCompanyDirectory from '../components/AdminCompanyDirectory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
@@ -89,6 +90,9 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     }
     saveCompany(Boolean(form.active));
   };
+
+  if (readOnly) return <AdminCompanyDirectory companies={companies} loading={loading} error={error}
+    loadFailed={loadFailed} onReload={load} />;
 
   return <div className="company-directory-page" style={styles.page}>
     {!readOnly && <section className="company-import-card" aria-label="Import company suggestions">

@@ -28,3 +28,14 @@
 .admin-directories-mode main input:focus-visible, .admin-directories-mode main button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
 @media (max-width: 1100px) { .admin-companies-screen .company-directory-records > div:last-child { grid-template-columns: 1fr !important; } }
 @media (max-width: 700px) { .admin-directory-summary { grid-template-columns: 1fr; } .admin-directory-search { padding: 14px !important; } }
+
+.admin-company-directory { display: grid; gap: 16px; padding: 24px; min-width: 0; }
+.admin-company-summary, .admin-company-filters, .admin-company-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.admin-company-summary { color: #475569; font-size: 14px; }
+.admin-company-filters { align-items: end; }
+.admin-company-filters label { display: grid; gap: 8px; color: #475569; font-size: 13px; min-width: 0; }
+.admin-company-filters label:first-child { flex: 1 1 240px; }
+.admin-company-filters input { min-height: 44px; box-sizing: border-box; border: 1px solid #c7d5e6; border-radius: 8px; padding: 8px 12px; font: inherit; }
+.admin-company-table-wrap { overflow-x: auto; border: 1px solid #d9e2ee; border-radius: 12px; background: white; }
+.admin-company-pagination { justify-content: flex-end; font-size: 14px; color: #475569; }
+.admin-company-pagination > span:first-child { margin-inline-end: auto; }

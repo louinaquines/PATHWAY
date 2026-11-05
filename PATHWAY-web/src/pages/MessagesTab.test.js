@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import MessagesTab from './MessagesTab';
 import { getDocs, where } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
@@ -89,4 +89,24 @@ test('no section selection leaves conversations unloaded', async () => {
   render(<MessagesTab />);
   expect(await screen.findByText('Select a section to see its students.')).toBeInTheDocument();
   expect(getDocs).not.toHaveBeenCalled();
+});
+
+
+test('incoming messages appear without refresh and preserve an unsent reply', async () => {
+  jest.useFakeTimers();
+  try {
+    const students = { docs: [{ id: 'avery', data: () => ({ firstName: 'Avery', lastName: 'Student' }) }] };
+    getDocs.mockResolvedValueOnce({ docs: [] }).mockResolvedValueOnce(students);
+    render(<MessagesTab selectedSection={{ id: 'a', name: 'Section A' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Avery Student' }));
+    const reply = screen.getByRole('textbox', { name: 'Message reply' });
+    fireEvent.change(reply, { target: { value: 'My unsent reply' } }); reply.focus();
+    getDocs.mockResolvedValueOnce({ docs: [{ id: 'live-message', data: () => ({
+      studentId: 'avery', conversationId: 'avery__coordinator-1', recipientId: 'coordinator-1',
+      body: 'New student message', read: false, createdAt: '2026-11-05T11:00:00Z',
+    }) }] }).mockResolvedValueOnce(students);
+    await act(async () => { jest.advanceTimersByTime(10000); });
+    expect(screen.getByRole('log', { name: 'Conversation' })).toHaveTextContent('New student message');
+    expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveValue('My unsent reply');
+  } finally { jest.useRealTimers(); }
 });

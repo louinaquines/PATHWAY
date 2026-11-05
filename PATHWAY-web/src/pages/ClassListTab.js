@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClassListTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -25,9 +26,10 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
   const [filterQuery, setFilterQuery] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
 
-  const loadIds = useCallback(async () => {
+  const loadIds = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!department || !sectionId) { setIds([]); setLoading(false); return; }
-    setLoading(true);
+
+    if (!silent) setLoading(true);
     try {
       const snap = await getDocs(query(
         collection(db, 'studentRoster'),
@@ -35,14 +37,18 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
         where('sectionId', '==', sectionId),
         where('active', '==', true)
       ));
+      if (!isRefreshCurrent()) return;
       setIds(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id)));
     } catch (e) {
+      if (!isRefreshCurrent()) return;
       console.error(e);
       setMessage('Could not load the authorized class list.');
     } finally {
       setLoading(false);
     }
   }, [department, sectionId]);
+
+  usePortalAutoRefresh(loadIds, { enabled: !loading && !saving, scope: sectionId || '', protectInputs: true });
 
   useEffect(() => {
     loadIds();

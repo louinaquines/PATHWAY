@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AuditLogsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { adminRequest } from '../adminApi';
@@ -12,13 +13,16 @@ export default function AuditLogsTab() {
   const [error, setError]       = useState('');
   const [search, setSearch]     = useState('');
 
-  const loadLogs = useCallback(() => {
-    setLoading(true);
-    adminRequest('/admin/audit-logs')
-      .then(data => setLogs(data.logs || []))
-      .catch(e => setError(e.message))
+  const loadLogs = useCallback(({ silent = false, isCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
+    return adminRequest('/admin/audit-logs')
+      .then(data => { if (isCurrent()) setLogs(data.logs || []); })
+
+      .catch(e => { if (isCurrent()) setError(e.message); })
       .finally(() => setLoading(false));
   }, []);
+
+  usePortalAutoRefresh(loadLogs, { enabled: !loading });
 
   useEffect(() => {
     loadLogs();

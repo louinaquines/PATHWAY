@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AnalyticsTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { adminRequest } from '../adminApi';
@@ -34,23 +35,28 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const requestRevision = useRef(0);
   const [editing, setEditing] = useState(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     const revision = ++requestRevision.current;
     if (!coordinatorId) { setData(null); setLoading(false); return; }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     // Never substitute fabricated fallback metrics when the authenticated API fails.
     try {
       if (!selectedSection?.id) { setData(null); return; }
       const payload = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics`, { deadlineMs: 15000 });
+      if (!isRefreshCurrent()) return;
       if (revision !== requestRevision.current || !isCurrent()) return;
       setData(payload);
       if (payload.schedule) setSchedule(payload.schedule);
       else setSchedule({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
-    } catch (failure) { if (revision === requestRevision.current && isCurrent()) { setData(null); setEditing(null); setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
+    } catch (failure) {
+      if (!isRefreshCurrent()) return; if (revision === requestRevision.current && isCurrent()) { setData(null); setEditing(null); setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
     finally { if (revision === requestRevision.current) setLoading(false); }
     return;
   }, [coordinatorId, selectedSection]); // Access lifetime is controlled by the keyed boundary.
+
+  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing, scope: selectedSection?.id || '', protectInputs: true });
+
 
   useEffect(() => {
     loadData();

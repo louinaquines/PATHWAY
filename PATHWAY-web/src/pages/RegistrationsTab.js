@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/RegistrationsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -22,28 +23,33 @@ export default function RegistrationsTab({ department, selectedSection }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [rejectConfirm, setRejectConfirm] = useState(null);
 
-  const fetchRegistrations = useCallback(async () => {
-    setPending([]);
-    setApproved([]);
-    setRejected([]);
+  const fetchRegistrations = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    if (!silent) setPending([]);
+
+    if (!silent) setApproved([]);
+    if (!silent) setRejected([]);
     if (!department || sectionId === undefined) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'),
         where('department', '==', department), where('sectionId', '==', sectionId)));
+      if (!isRefreshCurrent()) return;
       const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPending(all.filter(s => !s.accountApproved && s.status !== 'rejected_registration'));
       setApproved(all.filter(s => s.accountApproved));
       setRejected(all.filter(s => s.status === 'rejected_registration'));
     } catch (e) {
+      if (!isRefreshCurrent()) return;
       console.error(e);
     } finally {
       setLoading(false);
     }
   }, [department, sectionId]);
+
+  usePortalAutoRefresh(fetchRegistrations, { enabled: !loading && !saving, scope: String(sectionId), protectInputs: true });
 
   useEffect(() => {
     fetchRegistrations();

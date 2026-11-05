@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -36,12 +37,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [reviewConfirm, setReviewConfirm] = useState(null);
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       if (!selectedSection?.id) {
         setCompanies([]);
+
         setAssignedStudents([]);
         setItems([]);
         setFinalItems([]);
@@ -59,6 +61,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         adminRequest(`/coordinator/placement-history?sectionId=${encodeURIComponent(selectedSection.id)}`),
         getDocs(query(collection(db, 'users'), ...scopedFilters, where('role', '==', 'student'))),
       ]);
+      if (!isRefreshCurrent()) return;
       const proposals = snap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => !selectedSection || item.sectionId === selectedSection.id);
       setItems(proposals);
       setCompanies(directory.companies || []);
@@ -71,6 +74,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setCompanySelections(previous => Object.fromEntries(proposals.map(item => [item.id, previous[item.id] || item.companyId || ''])));
       setFinalItems(finalSnap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => !selectedSection || item.sectionId === selectedSection.id));
     } catch (loadError) {
+      if (!isRefreshCurrent()) return;
       console.error('Company placement load error:', loadError);
       setError(loadError.code === 'permission-denied'
         ? 'You do not have permission to view placement requests for this section. Confirm that the deployed Firestore rules are current.'
@@ -84,6 +88,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setFinalItems([]);
     } finally { setLoading(false); }
   }, [selectedSection, department]);
+
+  usePortalAutoRefresh(load, { enabled: !loading && !busy && !draftBusy && !deliveryBusy, scope: selectedSection?.id || '', protectInputs: true });
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setEndorsementDraft(null); }, [selectedSection?.id]);

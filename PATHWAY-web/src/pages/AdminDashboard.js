@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -60,23 +61,28 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const setActiveTab = tab => { setNavigationOpen(false); navigate('/admin/' + tab); };
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const [userSnap, secSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'sections')),
       ]);
+
+      if (!isRefreshCurrent()) return;
       setUsers(userSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setSections(secSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
+      if (!isRefreshCurrent()) return;
       console.error(e);
       setError('Could not load administrator records. Check your connection and retry.');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  usePortalAutoRefresh(fetchAll, { enabled: !loading && !saving, scope: activeTab, protectInputs: true });
 
   useEffect(() => {
     fetchAll();

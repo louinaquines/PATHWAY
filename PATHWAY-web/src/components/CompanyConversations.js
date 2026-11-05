@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import './CompanyConversations.css';
@@ -114,8 +115,18 @@ export default function CompanyConversations({ sectionId }) {
     }
     return () => { active = false; };
   }, [selected, sectionId, revision]);
+  usePortalAutoRefresh(async ({ isCurrent }) => {
+    const result = await adminRequest(`/coordinator/sections/${encodeURIComponent(sectionId)}/company-conversations`);
+    if (!isCurrent()) return;
+    setList(result);
+    if (selected) {
+      const result = await adminRequest(`/coordinator/sections/${encodeURIComponent(sectionId)}/company-conversations/${encodeURIComponent(selected)}`);
+      if (isCurrent()) setThread(result);
+    }
+  }, { enabled: !!sectionId && !busy && !sending && !linking && !attachmentBusy, scope: sectionId + ':' + selected, protectInputs: false });
+
   return <section className="company-conversations" aria-label="Company email conversations">
-    <header><div><h3>Company email</h3><p>Company replies for this section. Refresh to check for new messages.</p></div>
+    <header><div><h3>Company email</h3><p>Company replies for this section update automatically.</p></div>
       <button type="button" disabled={!selected || busy} onClick={() => setRevision(value => value + 1)}>{busy ? 'Refreshing…' : 'Refresh replies'}</button></header>
     {error && <p role="alert">{error}</p>}
     {!sectionId ? <p>Select a section to view company conversations.</p> : !list && !error ? <p role="status">Loading conversations…</p> : list?.connected === false ?

@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -75,13 +76,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' });
   };
 
-  const fetchStudents = async (section) => {
-    setSelectedSection(section);
-    setLoading(true);
-    setSelectedStudent(null);
-    setEntries([]);
+  const fetchStudents = async (section, { silent = false, isCurrent = () => true } = {}) => {
+    if (!silent) { setSelectedSection(section); setLoading(true); setSelectedStudent(null); setEntries([]); }
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
+      if (!isCurrent()) return;
       setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     } catch (e) {
@@ -103,10 +102,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedSection?.id]);
 
-  const fetchEntries = async (student) => {
+  const fetchEntries = async (student, { isCurrent = () => true } = {}) => {
     setSelectedStudent(student);
     try {
       const snap = await getDocs(collection(db, 'users', student.id, 'logbook'));
+      if (!isCurrent()) return;
       const sorted = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(b.periodStart || b.createdAt || '').localeCompare(String(a.periodStart || a.createdAt || '')));
@@ -115,6 +115,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       console.error(e);
     }
   };
+
+  usePortalAutoRefresh(async options => {
+    if (!selectedSection) return;
+    await fetchStudents(selectedSection, options);
+    if (options.isCurrent() && selectedStudent) await fetchEntries(selectedStudent, options);
+  }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
   const handleAction = async (entryId, status) => {
     setSaving(true);

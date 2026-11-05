@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/SystemSettingsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { adminRequest } from '../adminApi';
@@ -25,13 +26,16 @@ export default function SystemSettingsTab() {
   const [message, setMessage]   = useState('');
   const [error, setError]       = useState('');
 
-  const loadSettings = useCallback(() => {
-    setLoading(true);
-    adminRequest('/admin/settings')
-      .then(data => { const loaded = { ...DEFAULTS, ...data.settings }; setSettings(loaded); setSavedSettings(loaded); })
-      .catch(e => setError(e.message))
+  const loadSettings = useCallback(({ silent = false, isCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
+    return adminRequest('/admin/settings')
+      .then(data => { if (!isCurrent()) return; const loaded = { ...DEFAULTS, ...data.settings }; setSettings(loaded); setSavedSettings(loaded); })
+      .catch(e => { if (isCurrent()) setError(e.message); })
       .finally(() => setLoading(false));
   }, []);
+
+  usePortalAutoRefresh(loadSettings, { enabled: !loading && !saving && !dirty });
+
 
   useEffect(() => {
     loadSettings();

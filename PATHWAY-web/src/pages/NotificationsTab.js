@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/NotificationsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
@@ -34,15 +35,17 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
     try { setAnnouncementId(sessionStorage.getItem(`pathway-last-announcement:${userId}`) || ''); } catch {}
   }, [userId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!userId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setLoadError('');
     try {
       const snap = await getDocs(query(collection(db, 'notifications'), where('recipientId', '==', userId)));
+      if (!isRefreshCurrent()) return;
       if (!isCurrent()) return;
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))));
     } catch (e) {
+      if (!isRefreshCurrent()) return;
       if (!isCurrent()) return;
       if (e.code === 'permission-denied') { onDenied(); return; }
       console.error(e);
@@ -51,6 +54,9 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
       if (isCurrent()) setLoading(false);
     }
   }, [userId]);
+
+  usePortalAutoRefresh(load, { enabled: !loading && !sending, scope: userId, protectInputs: true });
+
 
   useEffect(() => {
     load();

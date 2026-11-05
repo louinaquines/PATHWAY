@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -28,18 +29,21 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const [summaryFilter, setSummaryFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!coordinatorId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const sectionSnap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
+      if (!isRefreshCurrent()) return;
       const sections = sectionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const scopedSections = selectedSection ? sections.filter(section => section.id === selectedSection.id) : [];
       const evaluationResult = await adminRequest('/coordinator-evaluations');
+      if (!isRefreshCurrent()) return;
       const evaluatedStudents = new Set((evaluationResult.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
       const groups = await Promise.all(scopedSections.map(async section => {
         const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
+      if (!isRefreshCurrent()) return;
         return studentSnap.docs.map(d => {
           const student = d.data();
           const required = Number(student.hoursRequired || section.hoursRequired || 486);
@@ -65,12 +69,16 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       }));
       setRows(groups.flat());
     } catch (e) {
+      if (!isRefreshCurrent()) return;
       console.error(e);
       setError('Could not load clearance records.');
     } finally {
       setLoading(false);
     }
   }, [coordinatorId, selectedSection]);
+
+  usePortalAutoRefresh(load, { enabled: !loading, scope: selectedSection?.id || '', protectInputs: true });
+
 
   useEffect(() => {
     load();

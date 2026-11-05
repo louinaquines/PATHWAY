@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, getDocs, query, updateDoc, doc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
@@ -25,11 +26,12 @@ export default function MessagesTab({ selectedSection }) {
     else alertsDialog.current?.close();
   }, [alertsOpen]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!coordinatorId) return;
     const version = ++loadVersion.current;
-    setLoading(true);
-    setStudents([]);
+    if (!silent) setLoading(true);
+    if (!silent) setStudents([]);
+
     setError('');
     if (!selectedSection?.id) {
       setItems([]);
@@ -38,22 +40,27 @@ export default function MessagesTab({ selectedSection }) {
     }
     try {
       const messageSnap = await getDocs(query(collection(db, 'messages'), where('participantIds', 'array-contains', coordinatorId)));
+      if (!isRefreshCurrent()) return;
       if (version !== loadVersion.current) return;
       setItems(messageSnap.docs.map(item => ({ id: item.id, ...item.data(), body: item.data().body || item.data().message || '' })).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
       if (selectedSection?.id) {
         const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', selectedSection.id)));
+      if (!isRefreshCurrent()) return;
         if (version !== loadVersion.current) return;
         setStudents(studentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
       } else setStudents([]);
     } catch (loadError) {
+      if (!isRefreshCurrent()) return;
       if (version !== loadVersion.current) return;
       console.error('Messages load error:', loadError);
-      setItems([]);
+      if (!silent) setItems([]);
       setError(loadError.code === 'permission-denied'
         ? 'Messages are unavailable because the deployed Firestore rules do not yet allow this coordinator conversation scope.'
         : 'Could not load messages. Check your connection and try again.');
     } finally { if (version === loadVersion.current) setLoading(false); }
   }, [coordinatorId, selectedSection]);
+
+  usePortalAutoRefresh(load, { enabled: !loading && !sending, scope: selectedSection?.id || '', protectInputs: false });
 
   useEffect(() => { load(); return () => { loadVersion.current += 1; }; }, [load]);
 
@@ -78,6 +85,14 @@ export default function MessagesTab({ selectedSection }) {
       return { id, studentId, name: student ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id : messages[0].senderRole === 'student' ? messages[0].senderName || studentId : 'Student', messages };
     });
   }, [items, students, allowedStudentIds, selectedSection]);
+
+  useEffect(() => {
+    setSelected(previous => {
+      if (!previous) return previous;
+      const current = conversations.find(item => item.studentId === previous.studentId);
+      return current ? { ...current, id: previous.id } : previous;
+    });
+  }, [conversations]);
 
   const openConversation = async item => {
     setSelected(item);

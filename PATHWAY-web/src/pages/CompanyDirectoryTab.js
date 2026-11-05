@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { PortalFormDialog } from '../components/PortalStates';
 import AdminCompanyDirectory from '../components/AdminCompanyDirectory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -29,18 +30,23 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     finally { setPreviewBusy(false); }
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
     setLoadFailed(false);
     try {
       const result = await adminRequest(readOnly ? '/admin/companies' : '/coordinator/company-directory');
+      if (!isRefreshCurrent()) return;
       setCompanies(result.companies || []);
+
     } catch (loadError) {
-      setLoadFailed(true);
+      if (!isRefreshCurrent()) return;
+      setLoadFailed(!silent);
       setError(loadError.message || 'Could not load the company directory.');
     } finally { setLoading(false); }
   }, [readOnly]);
+
+  usePortalAutoRefresh(load, { enabled: !loading && !saving && !previewBusy, scope: String(readOnly), protectInputs: true });
 
   useEffect(() => { load(); }, [load]);
 

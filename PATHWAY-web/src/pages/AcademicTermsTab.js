@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AcademicTermsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { adminRequest } from '../adminApi';
@@ -24,14 +25,17 @@ export default function AcademicTermsTab() {
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState('');
 
-  const load = useCallback(() => {
-    setLoading(true);
+  const load = useCallback(({ silent = false, isCurrent = () => true } = {}) => {
+    if (!silent) setLoading(true);
     setError('');
-    adminRequest('/admin/academic-terms')
-      .then(data => setTerms(data.terms || []))
-      .catch(e => setError(e.message))
+    return adminRequest('/admin/academic-terms')
+      .then(data => { if (isCurrent()) setTerms(data.terms || []); })
+
+      .catch(e => { if (isCurrent()) setError(e.message); })
       .finally(() => setLoading(false));
   }, []);
+
+  usePortalAutoRefresh(load, { enabled: !loading && !saving });
 
   useEffect(() => {
     load();

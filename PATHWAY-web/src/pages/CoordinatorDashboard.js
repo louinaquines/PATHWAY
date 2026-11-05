@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
@@ -134,22 +135,26 @@ export default function CoordinatorDashboard() {
     }
   };
 
-  const fetchInitialData = useCallback(async () => {
+  const fetchInitialData = useCallback(async ({ silent = false, isCurrent = () => true } = {}) => {
     if (!coordinatorId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const snap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
+      if (!isCurrent()) return;
       setSections(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       const coordSnap = await getDoc(doc(db, 'users', coordinatorId));
+      if (!isCurrent()) return;
       const coordinatorData = coordSnap.data() || {};
       setCoordinatorProfile({ id: coordinatorId, ...coordinatorData });
       setCoordDept(coordinatorData.department || '');
       const regSnap = await getDocs(query(collection(db, 'users'),
         where('role', '==', 'student'), where('department', '==', coordinatorData.department || ''),
         where('sectionId', '==', ''), where('accountApproved', '==', false)));
+      if (!isCurrent()) return;
       setPendingRegistrations(regSnap.docs.filter(d => d.data().status !== 'rejected_registration').length);
     } catch (e) {
+      if (!isCurrent()) return;
       console.error(e);
       setError('We could not load your coordinator workspace. Check your connection and try again.');
     } finally {
@@ -176,14 +181,13 @@ export default function CoordinatorDashboard() {
     setPageMetadata(activeTab, 'coordinator');
   }, [activeTab]);
 
-  const fetchStudents = async (section) => {
+  const fetchStudents = async (section, { silent = false, isCurrent = () => true } = {}) => {
     const request = ++sectionLoad.current;
-    setStudents([]);
-    setSectionRequirements([]);
-    setDocumentPreview(null);
-    setSelectedSection(section);
-    window.localStorage.setItem(SECTION_STORAGE_KEY, section.id);
-    setSelectedStudent(null);
+    if (!silent) {
+      setStudents([]); setSectionRequirements([]); setDocumentPreview(null);
+      setSelectedSection(section); window.localStorage.setItem(SECTION_STORAGE_KEY, section.id);
+      setSelectedStudent(null);
+    }
     setError('');
     try {
       const [studentSnap, reqSnap] = await Promise.all([
@@ -193,8 +197,10 @@ export default function CoordinatorDashboard() {
           where('sectionId', '==', section.id))),
         getDocs(collection(db, 'sections', section.id, 'requirements'))
       ]);
-      if (request !== sectionLoad.current) return;
-      setStudents(studentSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      if (request !== sectionLoad.current || !isCurrent()) return;
+      const nextStudents = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setStudents(nextStudents);
+      if (silent) setSelectedStudent(previous => previous ? nextStudents.find(item => item.id === previous.id) || null : null);
       const reqs = reqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       reqs.sort((a, b) => {
         return REQUIREMENT_CATEGORIES.indexOf(requirementCategory(a.category))
@@ -206,6 +212,11 @@ export default function CoordinatorDashboard() {
       if (request === sectionLoad.current) setError('We could not load this section. Please try again.');
     }
   };
+
+  usePortalAutoRefresh(async options => {
+    await fetchInitialData(options);
+    if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
+  }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
   const handleRequirement = async (studentId, reqId, status, reason = '') => {
     const request = sectionLoad.current;

@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/EvaluationTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -38,7 +39,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const loadEvaluations = useCallback(async () => {
+  const loadEvaluations = useCallback(async ({ isCurrent = () => true } = {}) => {
     const token = await auth.currentUser?.getIdToken();
     if (!token) return;
     const response = await fetch(`${API}/coordinator-evaluations`, {
@@ -46,7 +47,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     });
     if (!response.ok) throw new Error('Could not load evaluations');
     const data = await response.json();
-    setEvaluations(data.evaluations || []);
+    if (isCurrent()) setEvaluations(data.evaluations || []);
   }, []);
 
   useEffect(() => {
@@ -66,6 +67,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       .catch(error => setStatus(error.message))
       .finally(() => setLoading(false));
   }, [coordinatorId, loadEvaluations, selectedSection]);
+
+  usePortalAutoRefresh(loadEvaluations, { enabled: !loading && !busy && !refreshing, scope: selectedSection?.id || '' });
 
   const checkEmailConnection = async () => {
     setBusy(true);

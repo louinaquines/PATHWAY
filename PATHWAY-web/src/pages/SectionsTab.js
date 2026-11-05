@@ -1,3 +1,4 @@
+import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/SectionsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -108,6 +109,20 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       .catch(console.error);
     return () => { cancelled = true; };
   }, [sharedSection]);
+
+  usePortalAutoRefresh(async ({ isCurrent }) => {
+    const sectionSnap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
+    if (!isCurrent()) return;
+    setSections(sectionSnap.docs.map(item => ({ id: item.id, ...item.data() })));
+    if (!selected) return;
+    const [studentSnap, requirementsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', selected.department), where('sectionId', '==', selected.id))),
+      getDocs(collection(db, 'sections', selected.id, 'requirements')),
+    ]);
+    if (!isCurrent()) return;
+    setStudents(studentSnap.docs.map(item => ({ id: item.id, ...item.data() })));
+    setRequirements(requirementsSnap.docs.map(item => ({ id: item.id, ...item.data() })).sort((a,b) => CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category)));
+  }, { enabled: !loading && !saving && !modal && !reqModal, scope: selected?.id || '' });
 
   const fetchRequirements = async (section) => {
     setSelected(section);

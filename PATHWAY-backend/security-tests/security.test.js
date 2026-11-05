@@ -2231,3 +2231,31 @@ test('verified private endorsements are emailed only by the assigned coordinator
     assert.equal(failedAudits.size, 1);
   });
 });
+
+test('requirement deadline notifications are section-scoped and unchanged retries are silent', async () => {
+  const requirementId = 'deadline-notification-test';
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'sections', 'section-a', 'requirements', requirementId), { label: 'Medical certificate', deadline: '' });
+  });
+  const endpoint = `/coordinator/sections/section-a/requirements/${requirementId}`;
+  assert.equal((await api(endpoint, identities.coordinatorB, { deadline: '2026-11-20' }, 'PATCH')).response.status, 403);
+  assert.equal((await api(endpoint, identities.coordinatorA, { deadline: 'bad-date' }, 'PATCH')).response.status, 400);
+  const notices = async () => {
+    let result;
+    await testEnv.withSecurityRulesDisabled(async context => {
+      result = await getDocs(query(collection(context.firestore(), 'notifications'), where('type', '==', 'requirement_deadline'), where('sectionId', '==', 'section-a')));
+    });
+    return result.docs.map(item => item.data());
+  };
+  const before = (await notices()).length;
+  assert.equal((await api(endpoint, identities.coordinatorA, { deadline: '2026-11-20' }, 'PATCH')).response.status, 200);
+  const changed = await notices();
+  assert.ok(changed.length > before);
+  assert.ok(changed.some(item => item.recipientId === identities.studentA.uid && item.message.includes('Medical certificate') && item.message.includes('Nov 20, 2026')));
+  assert.ok(!changed.some(item => item.recipientId === identities.studentB.uid));
+  assert.equal((await api(endpoint, identities.coordinatorA, { deadline: '2026-11-20' }, 'PATCH')).response.status, 200);
+  assert.equal((await notices()).length, changed.length);
+  assert.equal((await api(endpoint, identities.coordinatorA, { deadline: '' }, 'PATCH')).response.status, 200);
+  assert.ok((await notices()).some(item => item.message.includes('removed the deadline')));
+});

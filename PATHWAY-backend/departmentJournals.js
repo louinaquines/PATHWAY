@@ -1,3 +1,4 @@
+const { notifyStudentUpdate } = require('./studentUpdateNotifications');
 const { problem } = require('./workplaceJournalConsent');
 function settingsValue(data) {
   if (!data) return { frequency: 'weekly', revision: 0 };
@@ -49,6 +50,12 @@ function installDepartmentJournals({ app, db, requireStaff, requireUser, allowRa
           if (body.expectedRevision !== current.revision) throw problem(409, 'Journal settings changed. Refresh and review before saving.');
           if (current.revision >= Number.MAX_SAFE_INTEGER) throw problem(503, 'Journal settings unavailable.');
           const next = { frequency: body.frequency, revision: current.revision + 1 };
+          if (current.frequency !== next.frequency) await notifyStudentUpdate(tx, db, {
+            department: profile.department, senderId: actor.uid,
+            title: 'Journal schedule updated',
+            message: `Your coordinator now requires ${next.frequency} journals. Existing entries stay unchanged. Open your logbook to check your next entry.`,
+            type: 'journal_frequency', createdAt: clock().toISOString(),
+          });
           tx.set(ref, { ...next, updatedAt: clock().toISOString(), updatedBy: actor.uid });
           audit(tx, { actorId: actor.uid, actorRole: role, action: 'journal.frequency_updated', targetType: 'department', targetId: profile.department, details: next });
           return next;

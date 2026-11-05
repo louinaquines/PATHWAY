@@ -31,6 +31,25 @@ test('department setting is scoped, versioned, fresh-authorized, and audit-atomi
   f.setAfterAuth(() => f.db.doc('users/frequency-coordinator').update({ department: 'Nursing' }));
   assert.equal((await settings('weekly', 1)).status, 403);
 });
+test('frequency changes notify the whole department once, not other departments or unchanged saves', async () => {
+  await f.db.doc('users/frequency-second-section').set({ role: 'student', department: 'IT', sectionId: 'another-section' });
+  await f.db.doc('users/frequency-outsider').set({ role: 'student', department: 'Nursing' });
+  const notices = () => f.db.collection('notifications').where('type', '==', 'journal_frequency').get();
+  const before = (await notices()).size;
+  assert.equal((await settings('daily')).status, 200);
+  const added = (await notices()).docs.slice().filter(doc => doc.data().createdAt === '2026-10-22T12:00:00.000Z');
+  assert.equal((await notices()).size, before + 2);
+  assert.ok(added.some(doc => doc.data().recipientId === f.uid));
+  assert.ok(added.some(doc => doc.data().recipientId === 'frequency-second-section'));
+  assert.equal((await settings('daily', 1)).status, 200);
+  assert.equal((await notices()).size, before + 2);
+  f.setFailAudit(true);
+  assert.equal((await settings('weekly', 2)).status, 500);
+  assert.equal((await notices()).size, before + 2);
+  await f.db.doc('users/frequency-second-section').delete();
+  await f.db.doc('users/frequency-outsider').delete();
+});
+
 test('daily submission persists period, replays safely, caps hours, and prevents concurrent duplicates', async () => {
   await settings('daily');
   assert.equal((await submit({ hours: 25 })).status, 400);

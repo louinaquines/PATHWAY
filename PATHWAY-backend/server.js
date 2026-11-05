@@ -9,6 +9,7 @@ if (process.env.PATHWAY_LOCAL_WORKFLOW === '1' && (process.env.PATHWAY_CLOUDINAR
     && process.env.FIREBASE_AUTH_EMULATOR_HOST === '127.0.0.1:9099'))) {
   require('./localCloudinaryQa').loadLocalCloudinaryQa();
 }
+const { notifyStudentUpdate } = require('./studentUpdateNotifications');
 const adminApp = require('./firebaseAdmin');
 const { getAuth }                      = require('firebase-admin/auth');
 const { FieldValue, getFirestore }     = require('firebase-admin/firestore');
@@ -2195,6 +2196,15 @@ app.patch('/coordinator/sections/:sectionId/requirements/:requirementId', requir
     await adminDb.runTransaction(async transaction => {
       const existing = await transaction.get(ref);
       if (!existing.exists) throw Object.assign(new Error('Requirement not found.'), { status: 404 });
+      if ((existing.data().deadline || '') === deadline) return;
+      await notifyStudentUpdate(transaction, adminDb, {
+        department: req.staff.data.department, sectionId: req.params.sectionId, senderId: req.staff.uid,
+        title: 'Requirement deadline updated',
+        message: deadline
+          ? `The deadline for ${existing.data().label || 'a requirement'} is now ${new Date(deadline + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}. Check your requirements.`
+          : `Your coordinator removed the deadline for ${existing.data().label || 'a requirement'}. Check your requirements.`,
+        type: 'requirement_deadline',
+      });
       transaction.update(ref, { deadline });
       transaction.set(auditRef, auditEntry({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.updated', targetType: 'sectionRequirements', targetId: req.params.requirementId, details: { sectionId: req.params.sectionId, action: 'deadline_changed' } }));
     });

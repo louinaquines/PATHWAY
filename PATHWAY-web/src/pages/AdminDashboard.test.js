@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
 import AdminDashboard from './AdminDashboard';
 import { getDocs, updateDoc } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
@@ -7,7 +8,17 @@ jest.mock('../firebase', () => ({ auth: { currentUser: { uid: 'admin-1' } }, db:
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
 jest.mock('firebase/auth', () => ({ signOut: jest.fn() }));
 jest.mock('firebase/firestore', () => ({ collection: jest.fn(), getDocs: jest.fn(), doc: jest.fn(), updateDoc: jest.fn() }));
-jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
+const render = (element, path = '/admin') => renderComponent(
+  <MemoryRouter initialEntries={[path]}>
+    <Routes><Route path="/admin/:page?" element={element} /></Routes>
+    <LocationProbe />
+  </MemoryRouter>,
+);
+function LocationProbe() {
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  return <><output aria-label="Current URL">{pathname}</output><button onClick={() => navigate(-1)}>Browser back</button></>;
+}
 jest.mock('recharts', () => Object.fromEntries(['BarChart', 'Bar', 'CartesianGrid', 'Cell', 'Legend', 'Pie', 'PieChart', 'Line', 'LineChart', 'ResponsiveContainer', 'Tooltip', 'XAxis', 'YAxis'].map(name => [name, () => null])));
 
 beforeEach(() => {
@@ -35,7 +46,8 @@ test('profile shortcut opens labeled fields and saves personal details', async (
 test('create coordinator form has labeled fields and a password visibility control', async () => {
   getDocs.mockResolvedValue({ docs: [] });
   render(<AdminDashboard />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Create Coordinator' }));
+  fireEvent.click(await screen.findByRole('button', { name: /^Coordinators/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Create Coordinator/ }));
   expect(screen.getByLabelText('First name')).toBeRequired();
   expect(screen.getByLabelText('Assigned department')).toBeRequired();
   const password = screen.getByLabelText('Initial password');
@@ -50,7 +62,7 @@ test('failed administrator load shows a visible error and allows reload', async 
   getDocs.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ docs: [] });
   render(<AdminDashboard />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not load administrator records');
-  fireEvent.click(screen.getByRole('button', { name: 'Reload records' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await screen.findByText('Recent Student Registrations');
 });
 
@@ -87,4 +99,21 @@ test('overview and student directory share department scope, with sections insid
   expect(screen.getByText('250 hrs')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '' } });
   expect(screen.getByText('Cara')).toBeInTheDocument();
+});
+
+test('student URL opens directly and deactivation requires a named confirmation', async () => {
+  getDocs.mockResolvedValueOnce({ docs: [{ id: 'student-1', data: () => ({
+    role: 'student', firstName: 'Taylor', lastName: 'Student', accountApproved: true,
+  }) }] }).mockResolvedValueOnce({ docs: [] });
+  render(<AdminDashboard />, '/admin/students');
+  expect(await screen.findByRole('heading', { name: 'Student Accounts' })).toBeInTheDocument();
+  fireEvent.click(await screen.findByLabelText('Actions for Taylor Student'));
+  fireEvent.click(screen.getByRole('button', { name: 'Deactivate account' }));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent('Taylor Student');
+  expect(adminRequest).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'System Overview' }));
+  expect(screen.getByLabelText('Current URL')).toHaveTextContent('/admin/overview');
+  fireEvent.click(screen.getByRole('button', { name: 'Browser back' }));
+  expect(screen.getByRole('heading', { name: 'Student Accounts' })).toBeInTheDocument();
 });

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import CoordinatorDashboard from './CoordinatorDashboard';
 import { adminRequest } from '../adminApi';
 import { getDocs, getDocsFromServer, getDoc } from 'firebase/firestore';
@@ -17,7 +17,7 @@ test('a notice opens a freshly assigned section absent from the initial dashboar
   adminRequest.mockImplementation(async path => path.endsWith('/analytics') ? {
     students: [{ id: 'student', name: 'Assigned student', riskTier: 'Medium', progressStatus: 'In progress', dataStatus: 'Ready' }],
   } : { records: [{ id: 'notice', title: 'Attendance risk update', studentId: 'student', sectionId: 'new-section', kind: 'assigned', riskTier: 'Medium', progressStatus: 'In progress', dataStatus: 'Ready', reasonCodes: [], read: false }], hasMore: false, cursor: null });
-  const view = render(<MemoryRouter><CoordinatorDashboard /></MemoryRouter>);
+  const view = render(<MemoryRouter initialEntries={['/coordinator/notifications']}><Routes><Route path="/coordinator/:page?" element={<CoordinatorDashboard />} /></Routes></MemoryRouter>);
   fireEvent.click(await screen.findByRole('button', { name: 'View attendance analytics' }));
   expect(await screen.findByText('Assigned student')).toBeInTheDocument();
   expect(screen.getByText('Assigned student').closest('tr')).toHaveAttribute('id', 'attendance-student-student');

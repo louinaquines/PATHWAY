@@ -9,6 +9,7 @@ import CoordinatorDashboard from './pages/CoordinatorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import SupervisorEvaluationPage from './pages/SupervisorEvaluationPage';
 import { PageSkeleton } from './components/LoadingSkeleton';
+import './pages/PortalUI.css';
 
 function ProtectedRoute({ user, role, allowedRoles, children }) {
   if (!user) return <Navigate to="/login" />;
@@ -47,12 +48,12 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/evaluate" element={<SupervisorEvaluationPage />} />
-        <Route path="/coordinator" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
+        <Route path="/coordinator/:page?" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
           <ProtectedRoute user={user} role={role} allowedRoles={['coordinator']}>
             <CoordinatorDashboard />
           </ProtectedRoute>
         } />
-        <Route path="/admin" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
+        <Route path="/admin/:page?" element={loading ? <PageSkeleton label="Initializing PATHWAY Portal" variant="dashboard" /> :
           <ProtectedRoute user={user} role={role} allowedRoles={['admin']}>
             <AdminDashboard />
           </ProtectedRoute>

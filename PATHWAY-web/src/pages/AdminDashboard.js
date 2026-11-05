@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import SystemSettingsTab from './SystemSettingsTab';
 import AcademicTermsTab from './AcademicTermsTab';
 import AuditLogsTab from './AuditLogsTab';
@@ -15,6 +15,8 @@ import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { setPageMetadata } from '../pageMetadata';
 import './AdminOverview.css';
+import AlertDialog from '../components/AlertDialog';
+import { PortalError, PortalEmpty } from '../components/PortalStates';
 import './AdminStudents.css';
 import './AdminDirectories.css';
 import './CreateCoordinator.css';
@@ -25,7 +27,21 @@ import {
 } from 'recharts';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const { page } = useParams();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const pages = {
+    overview: ['System Overview', 'Monitor student accounts, sections, and coordinator activity.'],
+    students: ['Student Accounts', 'Find and manage student accounts by department and section.'],
+    coordinators: ['Coordinators', 'Review coordinator accounts and department assignments.'],
+    companies: ['Company Directory', 'View partner companies and placement capacity.'],
+    create: ['Create Coordinator', 'Set up a coordinator account and assign its department.'],
+    terms: ['Academic Terms', 'Review academic periods and the current term.'],
+    settings: ['System Settings', 'Review system-wide configuration.'],
+    audit: ['Audit Logs', 'Review recorded administrative actions.'],
+    notifications: ['Notifications', 'Review recent account and section updates.'],
+    profile: ['Admin Profile', 'Manage your profile details.'],
+  };
+  const activeTab = Object.hasOwn(pages, page) ? page : 'overview';
   const [users, setUsers] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +57,7 @@ export default function AdminDashboard() {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('all');
   const navigate = useNavigate();
+  const setActiveTab = tab => { setNavigationOpen(false); navigate('/admin/' + tab); };
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -217,16 +234,18 @@ export default function AdminDashboard() {
       ],
     },
     {
-      title: 'Directory & Accounts',
+      title: 'People',
       items: [
         { id: 'students', icon: 'cap', label: 'Students', badge: students.length },
         { id: 'coordinators', icon: 'userCheck', label: 'Coordinators', badge: coordinators.length },
-        { id: 'companies', icon: 'building', label: 'Companies' },
-        { id: 'create', icon: 'userPlus', label: 'Create Coordinator' },
       ],
     },
     {
-      title: 'System & Security',
+      title: 'Placements',
+      items: [{ id: 'companies', icon: 'building', label: 'Companies' }],
+    },
+    {
+      title: 'Configuration',
       items: [
         { id: 'terms', icon: 'calendar', label: 'Academic Terms' },
         { id: 'settings', icon: 'settings', label: 'System Settings' },
@@ -249,7 +268,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <nav className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
+        <button type="button" className="portal-navigation-toggle portal-secondary"
+          aria-controls="portal-navigation" aria-expanded={navigationOpen}
+          onClick={() => setNavigationOpen(open => !open)}>
+          {navigationOpen ? 'Close navigation' : 'Open navigation'}
+        </button>
+        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
           {adminNavGroups.map(group => (
             <div key={group.title} className="sidebar-group">
               {group.title && <div className="sidebar-group-title">{group.title}</div>}
@@ -265,7 +289,7 @@ export default function AdminDashboard() {
                     <Icon name={item.icon} size={16} />
                     <span className="sidebar-btn-text">{item.label}</span>
                   </span>
-                  {typeof item.badge !== 'undefined' && item.badge !== null && (
+                  {item.badge > 0 && (
                     <span className="sidebar-badge">{item.badge}</span>
                   )}
                 </button>
@@ -287,8 +311,8 @@ export default function AdminDashboard() {
               <Icon name="user" size={17} label="Admin profile" />
             </div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{[users.find(user => user.id === auth.currentUser?.uid)?.firstName, users.find(user => user.id === auth.currentUser?.uid)?.lastName].filter(Boolean).join(' ') || auth.currentUser?.email || 'Administrator'}</span>
-              <span className="sidebar-user-role">Profile settings</span>
+              <span className="sidebar-user-name">{[users.find(user => user.id === auth.currentUser?.uid)?.firstName, users.find(user => user.id === auth.currentUser?.uid)?.lastName].filter(Boolean).join(' ') || auth.currentUser?.displayName || 'Administrator'}</span>
+              <span className="sidebar-user-role">System Admin</span>
             </div>
             <Icon name="chevronRight" size={14} className="sidebar-user-chevron" />
           </button>
@@ -303,19 +327,8 @@ export default function AdminDashboard() {
       <main style={s.main}>
         <header style={s.topbar}>
           <div style={s.topbarLeft}>
-            <h1 style={s.pageTitle}>
-              {activeTab === 'overview' ? 'System Overview' :
-                activeTab === 'students' ? 'Student Account Directory' :
-                    activeTab === 'coordinators' ? 'Coordinator Management' :
-                    activeTab === 'companies' ? 'Company Directory & Capacity' :
-                    activeTab === 'create' ? 'Create Coordinator Account' :
-                      activeTab === 'terms' ? 'Academic Terms & Periods' :
-                        activeTab === 'settings' ? 'Global System Configuration' :
-                          activeTab === 'audit' ? 'Security & System Audit Logs' :
-                            activeTab === 'notifications' ? 'Recent Notifications' :
-                              activeTab === 'profile' ? 'Admin Profile' :
-                                'Section Records Overview'}
-            </h1>
+            <h1 style={s.pageTitle}>{pages[activeTab][0]}</h1>
+            <p className="portal-page-description">{pages[activeTab][1]}</p>
           </div>
           {activeTab === 'overview' && (
             <div style={s.headerActions}>
@@ -382,10 +395,7 @@ export default function AdminDashboard() {
           )}
         </header>
 
-        {error && <div role="alert" style={{ margin: '16px 24px', padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239' }}>
-          {error}
-          <button type="button" onClick={fetchAll} disabled={loading || saving} style={{ marginLeft: 12 }}>Reload records</button>
-        </div>}
+        {error && <PortalError message={error} onRetry={fetchAll} retryDisabled={loading || saving} />}
 
         {!loading && activeTab === 'overview' && (
           <div style={s.dashboardToolbar} className="admin-dashboard-toolbar">
@@ -458,7 +468,7 @@ export default function AdminDashboard() {
                 </select>
               </label>
               <button type="button" style={s.exportBtn} onClick={exportDashboard}>
-                <Icon name="download" size={14} /> Export
+                <Icon name="download" size={14} /> Export student accounts CSV
               </button>
             </div>
           </div>
@@ -471,7 +481,6 @@ export default function AdminDashboard() {
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="admin-system-overview" style={s.overviewGrid}>
-                <div className="admin-overview-intro"><div><h2>System at a glance</h2><p>Monitor student accounts, academic sections, and coordinator activity.</p></div><span>Administrative overview</span></div>
                 <div className="admin-overview-metrics-wrap">
                   {/* Featured Hero Stat Cards */}
                   <div className="admin-featured-stats-grid">
@@ -537,12 +546,6 @@ export default function AdminDashboard() {
             {/* STUDENTS */}
             {activeTab === 'students' && (
               <div style={s.tabContent} className="admin-students-directory">
-                <div style={s.tabHeader}>
-                  <div>
-                    <h2 style={s.subTitle}>Student directory</h2>
-                    <p style={s.subText}>View student accounts, section assignments, and portal access.</p>
-                  </div>
-                </div>
                 <div className="admin-student-filters">
                   {departmentPicker}
                   <label style={s.dashboardSelect}>
@@ -1284,6 +1287,7 @@ function ChartEmpty({ message }) {
 
 function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [] }) {
   const [search, setSearch] = useState('');
+  const [deactivate, setDeactivate] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const sectionName = user => sections.find(section => section.id === user.sectionId)?.name || user.sectionName || 'Unassigned';
   const filtered = users.filter(u =>
@@ -1296,6 +1300,10 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
 
   return (
     <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
+      <AlertDialog open={Boolean(deactivate)} title="Deactivate account?"
+        description={deactivate ? 'Deactivate access for ' + ([deactivate.firstName, deactivate.lastName].filter(Boolean).join(' ') || deactivate.username || 'this student') + '?' : ''}
+        confirmLabel="Deactivate account" busy={saving} onCancel={() => setDeactivate(null)}
+        onConfirm={async () => { await onToggle(deactivate.id, true); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
         <input
           type="text"
@@ -1350,6 +1358,15 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
                 </td>
                 {showToggle && (
                   <td style={{ ...s.td, textAlign: 'right' }}>
+                    {user.accountApproved ? (
+                      <details className="portal-row-menu">
+                        <summary aria-label={'Actions for ' + [user.firstName, user.lastName].filter(Boolean).join(' ')}>…</summary>
+                        <button type="button" disabled={saving} onClick={event => {
+                          event.currentTarget.closest('details').open = false;
+                          setDeactivate(user);
+                        }}>Deactivate account</button>
+                      </details>
+                    ) : (
                     <button
                       type="button"
                       className={`account-action-button ${user.accountApproved ? 'account-action-deactivate' : 'account-action-activate'}`}
@@ -1365,6 +1382,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
                       <Icon name={user.accountApproved ? 'x' : 'check'} size={14} />
                       {user.accountApproved ? 'Deactivate' : 'Activate Account'}
                     </button>
+                    )}
                   </td>
                 )}
               </tr>
@@ -1372,7 +1390,8 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={5 + (studentDirectory ? 1 : 0) + (showToggle ? 1 : 0)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
-                  {users.length === 0 ? 'No accounts to display yet.' : 'No matching user records found.'}
+                  <PortalEmpty title={users.length === 0 ? 'No accounts yet' : 'No matching accounts'}
+                    description={users.length === 0 ? 'Accounts will appear here after they are created.' : 'Try changing your search or filters.'} />
                 </td>
               </tr>
             )}

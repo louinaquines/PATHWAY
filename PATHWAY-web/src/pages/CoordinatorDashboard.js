@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import SectionsTab from './SectionsTab';
 import JournalFrequencySettings from '../components/JournalFrequencySettings';
 import LogbookTab from './LogbookTab';
@@ -25,6 +25,7 @@ import { setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
+import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
@@ -64,23 +65,20 @@ const HEADER_DESCRIPTIONS = {
   clearance: 'Check completion requirements and clearance readiness.',
   profile: 'Manage your coordinator profile and account settings.',
 };
-const ACTIVE_TAB_STORAGE_KEY = 'pathway.coordinator.activeTab';
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
-
-function getSavedCoordinatorTab() {
-  const savedTab = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-  return COORDINATOR_TABS.includes(savedTab) ? savedTab : 'requirements';
-}
 
 export default function CoordinatorDashboard() {
   const [sections, setSections] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [activeTab, setActiveTab] = useState(getSavedCoordinatorTab);
+  const { page } = useParams();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const activeTab = COORDINATOR_TABS.includes(page) ? page : 'requirements';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+  const setActiveTab = tab => { setNavigationOpen(false); navigate('/coordinator/' + tab); };
   const coordinatorId = auth.currentUser ? auth.currentUser.uid : '';
   const [pendingRegistrations, setPendingRegistrations] = useState(0);
   const [rejectionModal, setRejectionModal] = useState(null); // { studentId, reqId }
@@ -175,7 +173,6 @@ export default function CoordinatorDashboard() {
 
   useEffect(() => {
     setPageMetadata(activeTab, 'coordinator');
-    window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
   }, [activeTab]);
 
   const fetchStudents = async (section) => {
@@ -319,7 +316,12 @@ export default function CoordinatorDashboard() {
           </div>
         )}
 
-        <nav className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
+        <button type="button" className="portal-navigation-toggle portal-secondary"
+          aria-controls="portal-navigation" aria-expanded={navigationOpen}
+          onClick={() => setNavigationOpen(open => !open)}>
+          {navigationOpen ? 'Close navigation' : 'Open navigation'}
+        </button>
+        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
           {coordNavGroups.map(group => (
             <div key={group.title} className="sidebar-group">
               {group.title && <div className="sidebar-group-title">{group.title}</div>}
@@ -335,7 +337,7 @@ export default function CoordinatorDashboard() {
                     <Icon name={item.icon} size={16} />
                     <span className="sidebar-btn-text">{item.label}</span>
                   </span>
-                  {typeof item.badge !== 'undefined' && item.badge !== null && (
+                  {item.badge > 0 && (
                     <span className={item.isWarning ? 'sidebar-badge sidebar-badge-warning' : 'sidebar-badge'}>
                       {item.badge}
                     </span>
@@ -359,8 +361,8 @@ export default function CoordinatorDashboard() {
               <Icon name="user" size={17} label="Coordinator profile" />
             </div>
             <div className="sidebar-user-info">
-              <span className="sidebar-user-name">{[coordinatorProfile?.firstName, coordinatorProfile?.lastName].filter(Boolean).join(' ') || auth.currentUser?.email || 'Coordinator'}</span>
-              <span className="sidebar-user-role">Profile settings</span>
+              <span className="sidebar-user-name">{[coordinatorProfile?.firstName, coordinatorProfile?.lastName].filter(Boolean).join(' ') || auth.currentUser?.displayName || 'Coordinator'}</span>
+              <span className="sidebar-user-role">Coordinator</span>
             </div>
             <Icon name="chevronRight" size={14} className="sidebar-user-chevron" />
           </button>
@@ -417,19 +419,12 @@ export default function CoordinatorDashboard() {
               title={selectedSection ? `Download ${selectedSection.name} records as an Excel file` : 'Select a section to export'}
             >
               {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
-              <span aria-live="polite">{exporting ? 'Exporting…' : 'Export Data'}</span>
+              <span aria-live="polite">{exporting ? 'Exporting…' : 'Export section records (Excel)'}</span>
             </button>
           )}
         </header>
 
-        {error && !loading && (
-          <div style={s.errorBanner} role="alert">
-            <span>{error}</span>
-            <button type="button" style={s.retryBtn} onClick={fetchInitialData}>
-              <Icon name="refresh" size={14} /> Retry
-            </button>
-          </div>
-        )}
+        {error && !loading && <PortalError message={error} onRetry={fetchInitialData} />}
 
         {loading ? (
           <PageSkeleton label="Loading coordinator data" variant="three-column" />

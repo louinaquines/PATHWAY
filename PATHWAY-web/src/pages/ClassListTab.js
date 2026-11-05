@@ -217,14 +217,18 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
                         : '—'}
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>
-                      <button
-                        style={s.removeBtn}
-                        onClick={() => setRemoveConfirm(item)}
-                        disabled={saving}
-                      >
-                        Remove
-                      </button>
-                      {item.claimedBy && <button disabled={saving} onClick={() => { setResetResult(null); setResetConfirm(item); }}>Reset password</button>}
+                      <details className="portal-row-menu">
+                        <summary aria-label={'Actions for student ' + item.id}>…</summary>
+                        <button type="button" disabled={saving} onClick={event => {
+                          event.currentTarget.closest('details').open = false;
+                          setRemoveConfirm(item);
+                        }}>Remove from roster</button>
+                        {item.claimedBy && <button type="button" disabled={saving} onClick={event => {
+                          event.currentTarget.closest('details').open = false;
+                          setResetResult(null);
+                          setResetConfirm(item);
+                        }}>Reset password</button>}
+                      </details>
                     </td>
                   </tr>
                 ))}
@@ -235,7 +239,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
       </div>
       <AlertDialog
         open={Boolean(resetConfirm)} title="Verify identity before resetting password"
-        description="Confirm that you verified this student's identity. Existing sessions will be revoked and a new password change will be required."
+        description={resetConfirm ? 'Confirm that you verified the identity of student ' + resetConfirm.id + '. Existing sessions will be revoked and a password change will be required.' : ''}
         confirmLabel="Identity verified — reset" busy={saving} onCancel={() => setResetConfirm(null)}
         onConfirm={async () => {
           setSaving(true);

@@ -1,6 +1,7 @@
 module.exports = {
   testEnvironment: 'jsdom',
   testEnvironmentOptions: { customExportConditions: ['node', 'node-addons'] },
+  moduleDirectories: ['node_modules', '<rootDir>/node_modules'],
   roots: ['<rootDir>/src'],
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
   transform: { '^.+\\.[jt]sx?$': ['babel-jest', {

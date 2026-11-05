@@ -202,6 +202,15 @@ export default function StudentDashboard({ navigation }) {
   const insets = useSafeAreaInsets();
   const studentUid = auth.currentUser?.uid;
   const approvedForOjt = hasCompletedPreDeployment(student);
+  useEffect(() => {
+    if (!studentUid || loggingOut) return;
+    return onSnapshot(query(collection(db, 'notifications'), where('recipientId', '==', studentUid)), snapshot => {
+      if (auth.currentUser?.uid === studentUid) setNotifications(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, () => {
+      if (auth.currentUser?.uid === studentUid) console.warn('Live notification updates could not connect.');
+    });
+  }, [studentUid, loggingOut]);
+
   const approvalWelcomeKey = approvedForOjt && studentUid
     ? `pathway:approval-welcome:v1:${studentUid}:${student.placementProposalId || 'initial'}` : null;
   const [welcomeCheckedKey, setWelcomeCheckedKey] = useState(null);
@@ -268,11 +277,10 @@ export default function StudentDashboard({ navigation }) {
     setPreDeploymentSummary(null);
     const summaryRequestId = ++summaryRequestRef.current;
     try {
-      const [user, att, logs, notices] = await Promise.all([
+      const [user, att, logs] = await Promise.all([
         getDoc(doc(db, 'users', uid)),
         getDocs(query(collection(db, 'users', uid, 'attendance'), orderBy('date', 'desc'))),
         getDocs(query(collection(db, 'users', uid, 'logbook'), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'notifications'), where('recipientId', '==', uid))),
       ]);
       if (!user.exists()) {
         setStudent(null);
@@ -290,7 +298,6 @@ export default function StudentDashboard({ navigation }) {
       }
       setAttendance(att.docs.map(item => ({ id: item.id, ...item.data() })));
       setLogbook(logs.docs.map(item => ({ id: item.id, ...item.data() })));
-      setNotifications(notices.docs.map(item => ({ id: item.id, ...item.data() })));
     } catch (error) {
       console.error('Unable to load student dashboard', error);
       setLoadError('Failed to load dashboard data. Check your network connection.');

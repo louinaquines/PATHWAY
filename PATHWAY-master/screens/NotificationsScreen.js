@@ -11,6 +11,7 @@ import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import RefreshableScrollView from '../components/RefreshableScrollView';
 import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, CloseIcon, SearchIcon } from '../components/Icons';
 import { postBackend } from '../services/backendApi';
+import { watchStudentInbox } from '../services/studentInboxLive';
 import { getStudentNotificationsEnabled } from '../services/studentPreferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
@@ -52,6 +53,9 @@ export default function NotificationsScreen({ navigation, route }) {
   const [chatBusy, setChatBusy] = useState(false);
   const [chatError, setChatError] = useState('');
   const listRequest = useRef(0);
+  const liveRefresh = useRef(null);
+  const loadedNoticeCount = useRef(0);
+  loadedNoticeCount.current = items.length;
   const activeChat = useRef(null);
   const noticeLock = useRef(false);
   const olderLock = useRef(false);
@@ -88,7 +92,7 @@ export default function NotificationsScreen({ navigation, route }) {
     return () => { show.remove(); hide.remove(); };
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     const request = ++listRequest.current;
     setListBusy(true);
     setListError('');
@@ -101,8 +105,19 @@ export default function NotificationsScreen({ navigation, route }) {
         postBackend('/student/assigned-coordinator', {}),
       ]);
       if (request !== listRequest.current) return;
+      let noticeRecords = notices.records;
+      let lastPage = notices;
+      if (silent) {
+        const seenCursors = new Set();
+        while (lastPage.hasMore && noticeRecords.length < loadedNoticeCount.current && !seenCursors.has(lastPage.cursor)) {
+          seenCursors.add(lastPage.cursor);
+          lastPage = await postBackend('/student/inbox/notifications', { search, cursor: lastPage.cursor });
+          if (request !== listRequest.current) return;
+          noticeRecords = mergeRecords(noticeRecords, lastPage.records);
+        }
+      }
       setNotificationsEnabled(isEnabled);
-      setItems(notices.records); setNoticePage(notices); setUnreadNotices(notices.unread);
+      setItems(noticeRecords); setNoticePage(lastPage); setUnreadNotices(notices.unread);
       setConversations(chats.conversations); setUnreadChats(chats.unread);
       setCoordinator(assignment.coordinator || null);
     } catch (error) { if (request === listRequest.current) setListError(error.message || 'Could not load your inbox.'); }
@@ -201,12 +216,21 @@ export default function NotificationsScreen({ navigation, route }) {
     setConversation({ ...item, messages: [], cursor: null, hasMore: false });
     loadChat(item);
   };
+  liveRefresh.current = async () => {
+    if (auth.currentUser?.uid !== uid) return;
+    if (noticeLock.current || olderLock.current || listBusy || chatBusy) return false;
+    await load({ silent: true });
+    if (auth.currentUser?.uid !== uid) return;
+    if (conversation && conversation.id !== 'new' && activeChat.current === conversation.id) {
+      await loadChat(conversation, { refresh: true });
+    }
+  };
   useFocusEffect(useCallback(() => {
-    if (!conversation || conversation.id === 'new') return;
-    const timer = setInterval(() => loadChat(conversation, { refresh: true }), 8000);
-    return () => clearInterval(timer);
-  }, [conversation?.id, conversation?.unread]));
-
+    if (!uid) return;
+    return watchStudentInbox(uid, () => liveRefresh.current?.(), () => {
+      if (auth.currentUser?.uid === uid) setListError('Live updates could not connect. Pull down to retry.');
+    });
+  }, [uid]));
   const sendMessage = async () => {
     const body = draft.trim();
     const sendingChat = conversation?.id;

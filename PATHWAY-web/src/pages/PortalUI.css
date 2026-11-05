@@ -63,3 +63,70 @@
   .admin-page .sidebar-nav-scroll[data-mobile-open="false"],
   .coordinator-page .sidebar-nav-scroll[data-mobile-open="false"] { display: none !important; }
 }
+
+/* Keep native selection and keyboard behavior while styling supported pickers. */
+select:not([multiple]):not([size]),
+select:not([multiple])[size="1"] {
+  appearance: none;
+  box-sizing: border-box;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 36px 8px 12px !important;
+  border: 1px solid #c7d5e6 !important;
+  border-radius: 8px !important;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center !important;
+  color: #172438 !important;
+  font-family: inherit;
+  font-size: 14px !important;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+select:not([multiple]):hover:enabled { border-color: #7497bd !important; }
+select:not([multiple]):focus-visible { outline: 2px solid #0759ba; outline-offset: 2px; }
+select:not([multiple]):disabled { opacity: .65; cursor: not-allowed; }
+.admin-dashboard-toolbar .dashboardTools { flex-wrap: wrap; min-width: 0; }
+.admin-dashboard-toolbar .dashboardTools label { min-width: 0; max-width: 100%; }
+
+@supports (appearance: base-select) and selector(select::picker(select)) {
+  select:not([multiple]):is(:not([size]), [size="1"]),
+  select:not([multiple]):is(:not([size]), [size="1"])::picker(select) {
+    appearance: base-select;
+  }
+  select:not([multiple]):is(:not([size]), [size="1"]) {
+    background: #fff !important;
+    padding-inline-end: 12px !important;
+  }
+  select:not([multiple])::picker-icon { color: #475569; }
+  select:not([multiple])::picker(select) {
+    margin-block: 4px;
+    padding: 4px;
+    border: 1px solid #c7d5e6;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 24px #0f172a24;
+    max-block-size: min(320px, 55dvh);
+    max-inline-size: calc(100vw - 24px);
+  }
+  select:not([multiple]) option {
+    min-block-size: 44px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: #172438;
+    font-size: 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  select:not([multiple]) option:hover,
+  select:not([multiple]) option:focus-visible { background: #f1f5f9; }
+  select:not([multiple]) option:checked { background: #e8f1ff; color: #084a9b; font-weight: 600; }
+  select:not([multiple]) option:disabled { color: #64748b; }
+}
+
+@media (forced-colors: active) {
+  select:not([multiple]):is(:not([size]), [size="1"]) {
+    appearance: auto;
+    background: Field !important;
+    color: FieldText !important;
+  }
+}

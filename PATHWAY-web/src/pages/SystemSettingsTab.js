@@ -56,7 +56,7 @@ export default function SystemSettingsTab() {
       const data = await adminRequest('/admin/settings', { method: 'PUT', body: JSON.stringify(settings) });
       const saved = { ...DEFAULTS, ...data.settings };
       setSettings(saved); setSavedSettings(saved);
-      setMessage('System configurations and schedule parameters saved successfully.');
+      setMessage('Settings saved.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -74,8 +74,8 @@ export default function SystemSettingsTab() {
       {message && <div role="status" style={s.success}>{message}</div>}
 
       <form onSubmit={save} style={s.form} className="admin-configuration-form">
-        <div><h3>Hours & attendance</h3><p>Default values for section creation and attendance calculations.</p></div>
-        <div style={s.grid}>
+        <div><h3>Hours & attendance</h3><p>Defaults for new sections and attendance tracking.</p></div>
+        <div style={s.grid} className="admin-settings-fields">
           <div style={s.field}>
             <label style={s.label} htmlFor="settings-required-hours">Default required OJT hours (hrs)</label>
             <input
@@ -87,7 +87,7 @@ export default function SystemSettingsTab() {
               onChange={e => update('defaultHoursRequired', e.target.value)}
               required
             />
-            <span style={s.hint}>Standard hours assigned when creating new sections</span>
+            <span style={s.hint}>Required hours assigned to new sections.</span>
           </div>
 
           <div style={s.field}>
@@ -103,7 +103,7 @@ export default function SystemSettingsTab() {
               onChange={e => update('dailyTargetHours', e.target.value)}
               required
             />
-            <span style={s.hint}>Standard expected daily internship shift</span>
+            <span style={s.hint}>Expected hours in a regular workday.</span>
           </div>
 
           <div style={s.field}>
@@ -116,7 +116,7 @@ export default function SystemSettingsTab() {
               onChange={e => update('expectedStartTime', e.target.value)}
               required
             />
-            <span style={s.hint}>Used to compute student arrival punctuality</span>
+            <span style={s.hint}>Used to check whether a student arrives on time.</span>
           </div>
 
           <div style={s.field}>
@@ -131,13 +131,13 @@ export default function SystemSettingsTab() {
               onChange={e => update('lateGraceMinutes', e.target.value)}
               required
             />
-            <span style={s.hint}>Buffer before marking an intern arrival as late</span>
+            <span style={s.hint}>Minutes allowed after the expected start time.</span>
           </div>
         </div>
 
         <div style={s.workdaysSection} className="admin-workdays">
           <h3>Expected workdays</h3>
-          <p style={s.hint}>Selected days are factored into student attendance analytics and missed shift calculations.</p>
+          <p style={s.hint}>Used to calculate attendance and missed shifts.</p>
           <div className="admin-weekday-row">
             {DAYS.map(day => {
               const active = settings.expectedWorkdays.includes(day);
@@ -170,8 +170,8 @@ export default function SystemSettingsTab() {
               style={{ width: 18, height: 18, cursor: 'pointer' }}
             />
             <div>
-              <div style={s.checkboxTitle}>Enable In-App Notifications System</div>
-              <div style={s.checkboxSub}>Allow system triggers to send notices for logbook reviews and clearances</div>
+              <div style={s.checkboxTitle}>In-app notifications</div>
+              <div style={s.checkboxSub}>Send notices for logbook reviews and clearance updates.</div>
             </div>
           </label>
         </div>

@@ -102,3 +102,47 @@
  .admin-terms .admin-term-actions { width:100%; justify-content:space-between; }
  .admin-term-form-actions { flex-wrap:wrap; }
 }
+/* System settings: compact, clearly grouped defaults. */
+.admin-page:has(.admin-settings) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.admin-page:has(.admin-settings) main > header .admin-page-heading { display:flex; flex-direction:column; align-items:flex-start !important; gap:6px; }
+.admin-page:has(.admin-settings) .portal-page-description { margin:0; font-size:14px; line-height:1.5; color:#526174; }
+.admin-configuration.admin-settings { max-width:1000px !important; }
+.admin-settings .admin-configuration-form { padding:24px !important; border-radius:12px !important; border-color:#dce2e9 !important; gap:24px !important; }
+.admin-settings h3 { font-size:16px !important; font-weight:600 !important; color:#17212f !important; margin:0 0 6px; }
+.admin-settings p { margin:0; font-size:14px !important; line-height:1.5 !important; color:#526174 !important; }
+.admin-settings .admin-settings-fields { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:24px !important; }
+.admin-settings label { font-size:14px !important; font-weight:500 !important; color:#243448 !important; }
+.admin-settings .admin-settings-fields input { height:44px; min-height:44px; font-family:inherit; font-size:14px !important; border-color:#ccd5df !important; border-radius:8px !important; background:#fff !important; }
+.admin-settings .admin-settings-fields span { margin-top:6px; font-size:13px !important; line-height:1.5 !important; color:#526174 !important; }
+.admin-settings .admin-workdays { padding-top:24px; border-color:#e5e9ef; }
+.admin-settings .admin-weekday-row { margin-top:16px; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; overflow:visible; }
+.admin-settings .admin-weekday-row button { min-width:0; min-height:44px; padding:10px 6px !important; font:inherit; font-size:13px !important; border-radius:8px !important; white-space:nowrap; }
+.admin-settings .admin-workdays button[aria-pressed='false'] { color:#526174 !important; border-color:#ccd5df !important; background:#fff !important; }
+.admin-settings .admin-workdays button[aria-pressed='true'] { color:#0752ad !important; border-color:#9bbde8 !important; background:#edf4ff !important; }
+.admin-settings .admin-notification-preference { padding:20px !important; border-radius:8px !important; border-color:#e5e9ef !important; background:#f8fafc !important; }
+.admin-settings .admin-notification-preference label { gap:12px; min-height:44px; }
+.admin-settings .admin-notification-preference label div div:first-child { color:#243448 !important; font-size:14px !important; font-weight:600 !important; }
+.admin-settings .admin-notification-preference label div div:last-child { margin-top:4px; color:#526174 !important; font-size:13px !important; line-height:1.5; }
+.admin-settings .admin-settings-savebar { gap:12px; padding:16px 0 0; border-color:#e5e9ef; font-size:14px; }
+.admin-settings .admin-settings-savebar button { min-height:44px; padding:10px 18px; font:inherit; font-size:14px !important; border-radius:8px !important; }
+@media(max-width:640px) {
+ .admin-settings .admin-configuration-form { padding:16px !important; }
+ .admin-settings .admin-settings-fields { grid-template-columns:minmax(0,1fr) !important; gap:20px !important; }
+ .admin-settings .admin-weekday-row { display:flex; overflow-x:auto; padding-bottom:8px; }
+ .admin-settings .admin-weekday-row button { flex:0 0 76px; }
+ .admin-settings .admin-settings-savebar { flex-wrap:wrap; }
+ .admin-settings .admin-settings-savebar strong { flex-basis:100%; }
+ .admin-page:has(.admin-settings) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .admin-page:has(.admin-settings) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .admin-page:has(.admin-settings) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .admin-page:has(.admin-settings) .sidebar-nav-scroll, .admin-page:has(.admin-settings) .sidebar-footer { grid-column:1 / -1; }
+ .admin-page:has(.admin-settings) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}
+.admin-settings, .admin-settings .admin-configuration-form, .admin-settings .admin-workdays { min-width:0; box-sizing:border-box; }
+@media(max-width:640px) {
+ .admin-settings .admin-weekday-row { width:100%; max-width:100%; overflow-x:auto !important; overflow-y:hidden !important; box-sizing:border-box; }
+}
+@media(max-width:640px) {
+ .admin-settings .admin-weekday-row { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:hidden !important; }
+ .admin-settings .admin-weekday-row button { position:relative; width:100%; }
+}

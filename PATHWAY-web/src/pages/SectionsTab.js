@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/SectionsTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -208,6 +209,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     }
   };
 
+  const recordsPage = useRecordPage(filteredStudents, (selected?.id || '') + ':' + searchQuery);
   if (loading) {
     return <PageSkeleton label="Loading sections" variant="three-column" />;
   }
@@ -319,17 +321,17 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   {filteredStudents.length === 0 ? (
                     <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
                   ) : (
-                  <div className="coordinator-compact-table-wrap">
+                  <> <RecordPagination pagination={recordsPage} label="Section students" /><div className="coordinator-compact-table-wrap">
                     <table className="coordinator-compact-table">
                       <thead><tr><th>Student</th><th>Student ID</th><th>Account</th></tr></thead>
-                      <tbody>{filteredStudents.map(student => <tr key={student.id}>
+                      <tbody>{recordsPage.items.map(student => <tr key={student.id}>
                         <td>{student.firstName} {student.lastName}</td><td>{student.idNumber || '—'}</td>
                         <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
                           {student.accountApproved ? 'Active' : 'Pending approval'}
                         </span></td>
                       </tr>)}</tbody>
                     </table>
-                  </div>
+                  </div></>
                 )}
 
                 <div className="section-assignment" style={t.unassignedSection}>

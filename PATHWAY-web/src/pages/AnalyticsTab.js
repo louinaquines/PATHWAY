@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AnalyticsTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -99,9 +100,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     URL.revokeObjectURL(url);
   };
 
-  if (loading) {
-    return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
-  }
+
 
   const filteredStudents = (data?.students || []).filter(student => matchesCoordinatorSearch(
     searchQuery,
@@ -110,6 +109,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     student.section,
   ));
 
+  const recordsPage = useRecordPage(filteredStudents, (selectedSection?.id || '') + ':' + searchQuery);
+  if (loading) {
+    return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
+  }
   return (
     <div className="coordinator-analytics-page" style={s.page}>
       {/* Top Header */}
@@ -161,6 +164,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
 
       {/* Student Progress Breakdown Table */}
       <div className="analytics-records" style={s.tableCard}>
+        <RecordPagination pagination={recordsPage} label="Analytics students" />
         <div style={s.cardHeader}>
           <div>
             <h3 style={s.cardTitle}>Student progress</h3>
@@ -182,7 +186,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map(st => {
+              {recordsPage.items.map(st => {
                 const percent = st.completionPercentage;
                 return (
                   <tr key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>

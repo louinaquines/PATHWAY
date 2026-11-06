@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { PortalFormDialog } from '../components/PortalStates';
 import AdminCompanyDirectory from '../components/AdminCompanyDirectory';
@@ -55,6 +56,8 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     return companies.filter(company => !term || [company.name, company.industry, company.address]
       .some(value => String(value || '').toLowerCase().includes(term)));
   }, [companies, search]);
+
+  const companyPage = useRecordPage(filteredCompanies, search);
 
   const resetForm = () => { setForm(EMPTY_FORM); setEditingId(''); setFormOpen(false); };
   const editCompany = company => {
@@ -158,8 +161,9 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
           <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
         </div>
         <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search companies…" aria-label="Search companies" style={{ ...styles.input, margin: '8px 0 12px' }} />
+        <RecordPagination pagination={companyPage} label="Partner companies" />
         {loading ? <p style={styles.empty}>Loading companies…</p> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <p style={styles.empty}>{companies.length ? 'No matching companies.' : 'No companies have been added yet.'}</p> :
-          <div style={styles.companyList}>{filteredCompanies.map(company => {
+          <div style={styles.companyList}>{companyPage.items.map(company => {
             const configured = Number.isSafeInteger(company.capacity);
             const slots = configured ? `${company.occupiedSlots} / ${company.capacity} placements` : `Capacity not configured — ${company.occupiedSlots} active placement${company.occupiedSlots === 1 ? '' : 's'}`;
             return <article className="directory-company-card" key={company.id} style={styles.companyRow}>

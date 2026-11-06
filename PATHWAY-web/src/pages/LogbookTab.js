@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
 import { useEffect, useState } from 'react';
@@ -159,6 +160,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   };
   const filteredStudents = students.filter(student => matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
 
+  const studentsPage = useRecordPage(filteredStudents, (selectedSection?.id || '') + ':' + searchQuery);
+  const entriesPage = useRecordPage(entries, selectedStudent?.id || '');
+  const attendancePage = useRecordPage(attendance, selectedStudent?.id || '');
   if (loading) {
     return <PageSkeleton label="Loading logbook data" variant="three-column" />;
   }
@@ -171,9 +175,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           Students <span className="logbook-count">{students.length}</span><p>{selectedSection?.name || 'Select a section first.'}</p>
         </div>
         <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" /></div>
+        <RecordPagination pagination={studentsPage} label="Journal students" />
         {!selectedSection && <div style={t.empty}>Choose a section in the top bar.</div>}
         {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>No students in this section.</div>}
-        {filteredStudents.map(st => (
+        {studentsPage.items.map(st => (
           <button type="button" className="logbook-select-card" aria-pressed={selectedStudent?.id === st.id}
             key={st.id}
             style={{ ...t.card, ...(selectedStudent?.id === st.id ? t.cardActive : {}) }}
@@ -211,7 +216,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             {attendanceLoading && <p role="status">Loading attendance…</p>}
             {attendanceError && <p role="alert">{attendanceError}</p>}
             {!attendanceLoading && !attendanceError && attendance.length === 0 && <p>No attendance records yet.</p>}
-            {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendance.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
+            {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><RecordPagination pagination={attendancePage} label="Attendance records" /><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendancePage.items.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
           </section>}
           {!selectedStudent && (
             <div style={t.emptyDetail}>
@@ -235,7 +240,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           )}
 
           <div style={t.entriesList} hidden={recordView !== 'journals'}>
-            {entries.map(entry => (
+            <RecordPagination pagination={entriesPage} label="Journal entries" />
+            {entriesPage.items.map(entry => (
             <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
               <div style={t.entryTop}>
                 <div>

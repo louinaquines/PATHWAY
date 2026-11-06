@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, getDocs, query, updateDoc, doc, where } from 'firebase/firestore';
@@ -126,6 +127,11 @@ export default function MessagesTab({ selectedSection }) {
     const second = threadsByStudent.get(b.id);
     return unread(second) - unread(first) || recent(second).localeCompare(recent(first));
   });
+  const visibleStudents = sortedStudents.filter(student => {
+            const thread = conversations.find(item => item.studentId === student.id);
+            return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
+          });
+  const studentsPage = useRecordPage(visibleStudents, (selectedSection?.id || '') + ':' + search);
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
   return <div className="messages-workspace">
@@ -158,12 +164,10 @@ export default function MessagesTab({ selectedSection }) {
       <header><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
+      <RecordPagination pagination={studentsPage} label="Conversations" />
       <div className="messages-panel-list" aria-busy={loading}>
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>
-          {sortedStudents.filter(student => {
-            const thread = conversations.find(item => item.studentId === student.id);
-            return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
-          }).map(student => {
+          {studentsPage.items.map(student => {
             const thread = conversations.find(item => item.studentId === student.id);
             const name = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id;
             const unread = thread?.messages.filter(message => message.recipientId === coordinatorId && !message.read).length || 0;

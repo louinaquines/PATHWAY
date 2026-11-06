@@ -141,3 +141,31 @@ select:not([multiple]):disabled { opacity: .65; cursor: not-allowed; }
 .clearance-filter[aria-pressed="true"] { background: #e8f1ff; border-color: #7497bd; }
 .analytics-schedule-edit summary, .analytics-attendance-metrics summary { cursor: pointer; color: #0759ba; }
 .analytics-exceptions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+/* Growing record sets stay bounded, readable, and contained. */
+.portal-record-pagination { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:12px 16px; color:#526174; font-size:13px; border-bottom:1px solid #e5e9ef; background:#fff; }
+.portal-record-pagination > span:first-child { margin-right:auto; font-variant-numeric:tabular-nums; }
+.portal-record-pagination button { min-height:44px; padding:8px 12px; font:inherit; white-space:nowrap; }
+.portal-record-pagination button:disabled { opacity:.55; cursor:default; }
+.admin-page main, .coordinator-page main { min-width:0; }
+:is(.admin-page,.coordinator-page) :is(td,th) { overflow-wrap:anywhere; }
+:is(.admin-page,.coordinator-page) td { max-width:360px; }
+:is(.admin-page,.coordinator-page) :is(input,select,textarea) { max-width:100%; box-sizing:border-box; }
+:is(.admin-page,.coordinator-page) :is(pre,details) { min-width:0; max-width:100%; }
+:is(.admin-page,.coordinator-page) pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+:is(.requirements-workspace,.logbook-workspace,.messages-workspace,.sections-workspace) { min-width:0; }
+:is(.requirements-student-card,.logbook-select-card,.section-select-card,.review-card,.directory-company-card) { overflow-wrap:anywhere; min-width:0; }
+:is(.requirements-students,.logbook-students,.sections-panel) { min-height:0; overflow-y:auto; }
+.review-stage-tabs, .review-actions, .pagination-group { flex-wrap:wrap; }
+.pagination-group { max-width:100%; }
+.pagination-position { font-size:13px; color:#526174; }
+@media(max-width:640px) {
+ .portal-record-pagination { padding:12px; gap:8px; }
+ .portal-record-pagination > span:first-child { flex-basis:100%; }
+ .portal-record-pagination button { flex:1; }
+ .requirements-students .portal-record-pagination { font-size:12px; }
+}
+.placement-companies :is(ul,.placement-student-list), .section-assignment { max-height:480px; overflow-y:auto; }
+.admin-term-list, .admin-directory-records, .admin-student-records, .admin-company-table-wrap, .analytics-records, .clearance-page { min-width:0; max-width:100%; box-sizing:border-box; }
+.messages-workspace .portal-record-pagination { flex-shrink:0; }
+.authorized-roster-page ul[aria-label='Import results'] { max-height:360px; overflow-y:auto; overflow-wrap:anywhere; }
+.messages-thread { overflow-wrap:anywhere; }

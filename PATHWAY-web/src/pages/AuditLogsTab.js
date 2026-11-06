@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AuditLogsTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -39,6 +40,8 @@ export default function AuditLogsTab() {
       .includes(search.toLowerCase())
   );
 
+  const recordsPage = useRecordPage(filteredLogs, search);
+
   if (loading) {
     return <PageSkeleton label="Loading security audit logs" variant="table" />;
   }
@@ -46,7 +49,7 @@ export default function AuditLogsTab() {
   return (
     <div style={s.page} className="admin-configuration admin-audit">
       <div style={s.headerRow}>
-        <p style={s.sub}>Recent administrative and automated activity.</p>
+        <p style={s.sub}>Recent administrative and automated activity. Search covers the loaded events.</p>
         <button style={s.refreshBtn} onClick={loadLogs}><Icon name="refresh" size={15} /> Refresh Logs</button>
       </div>
 
@@ -65,6 +68,7 @@ export default function AuditLogsTab() {
           <span style={s.countBadge}>{filteredLogs.length} of {logs.length} logged events</span>
         </div>
 
+        <RecordPagination pagination={recordsPage} label="Audit events" />
         {filteredLogs.length === 0 ? (
           <div style={s.empty}>
             <div style={s.emptyIcon}><Icon name="shield" size={28} label="Audit logs" /></div>
@@ -83,7 +87,7 @@ export default function AuditLogsTab() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map(log => (
+                {recordsPage.items.map(log => (
                   <tr key={log.id} style={s.tr}>
                     <td style={s.td}>
                       <span style={s.timeText}>

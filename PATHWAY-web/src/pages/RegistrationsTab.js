@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/RegistrationsTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -95,12 +96,14 @@ export default function RegistrationsTab({ department, selectedSection }) {
     student.department,
   ));
 
+  const recordsPage = useRecordPage(filteredList, String(sectionId) + ':' + tab + ':' + searchQuery);
   if (loading) {
     return <PageSkeleton label="Loading registrations" variant="cards" />;
   }
 
   return (
     <div style={r.page} className="registrations-page">
+      <RecordPagination pagination={recordsPage} label="Registrations" />
       <label><input type="checkbox" checked={unassignedOnly} disabled={saving || loading}
         onChange={event => setUnassignedOnly(event.target.checked)} /> Show unassigned registrations</label>
       <div className="registration-intro"><h2>Student accounts</h2><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
@@ -157,7 +160,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
         )}
 
         <div style={r.cardsGrid}>
-          {filteredList.map((student) => (
+          {recordsPage.items.map((student) => (
             <div className="registration-student-card" key={student.id} style={r.card}>
               <div style={r.cardMain}>
                 <div style={r.avatar}>

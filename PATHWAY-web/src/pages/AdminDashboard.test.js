@@ -117,3 +117,19 @@ test('student URL opens directly and deactivation requires a named confirmation'
   fireEvent.click(screen.getByRole('button', { name: 'Browser back' }));
   expect(screen.getByRole('heading', { name: 'Student Accounts' })).toBeInTheDocument();
 });
+
+test('large student directory pages rendered rows while search reaches the full loaded list', async () => {
+  const rows = Array.from({ length: 1003 }, (_, index) => ({ id: 'bulk-' + index, data: () => ({
+    role: 'student', firstName: 'Student', lastName: String(index).padStart(4, '0'),
+    idNumber: 'ID-' + index, accountApproved: true, department: 'Education',
+  }) }));
+  getDocs.mockResolvedValueOnce({ docs: rows }).mockResolvedValueOnce({ docs: [] });
+  render(<AdminDashboard />, '/admin/students');
+  await screen.findByText('Student 0000');
+  expect(screen.getAllByRole('row')).toHaveLength(26);
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  expect(screen.getByText('Student 0025')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'ID-1002' } });
+  expect(screen.getByText('Student 1002')).toBeInTheDocument();
+  expect(screen.getAllByRole('row')).toHaveLength(2);
+});

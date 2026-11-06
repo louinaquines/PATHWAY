@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AcademicTermsTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -70,6 +71,7 @@ export default function AcademicTermsTab() {
 
   const closeForm = () => { if (!saving) { setEditing(null); setForm(EMPTY); setFormOpen(false); setError(''); } };
 
+  const termsPage = useRecordPage(terms);
   if (loading) {
     return <PageSkeleton label="Loading academic terms" variant="table" />;
   }
@@ -153,8 +155,9 @@ export default function AcademicTermsTab() {
 
       <div style={s.listSection} className="admin-term-records">
         <h3 style={s.listTitle}>{terms.length} {terms.length === 1 ? 'academic term' : 'academic terms'}</h3>
+        <RecordPagination pagination={termsPage} label="Academic terms" />
         <div style={s.termsGrid} className="admin-term-list">
-          {terms.map(term => (
+          {termsPage.items.map(term => (
             <div className="admin-term-card" key={term.id} style={{ ...s.card, ...(term.isActive ? s.cardActive : {}) }}>
               <div style={s.cardLeft}>
                 <div style={s.termName}>{term.name}</div>

@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from './RecordPagination';
 import { useState } from 'react';
 import Icon from './Icons';
 import './PlacementCompanies.css';
@@ -24,6 +25,7 @@ export default function PlacementCompanies({ companies, students, sectionName })
   const term = search.trim().toLowerCase();
   const filtered = groups.filter(company => !term || String(company.name || '').toLowerCase().includes(term)
     || company.students.some(student => studentName(student).toLowerCase().includes(term)));
+  const companyPage = useRecordPage(filtered, sectionName + ':' + search);
   const placedCount = groups.reduce((total, company) => total + company.students.length, 0);
   return <section className="placement-companies" aria-label="Companies and assigned students">
     <div className="placement-metrics">
@@ -38,10 +40,11 @@ export default function PlacementCompanies({ companies, students, sectionName })
         <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}><Icon name="clipboard" size={17} /> List</button>
       </div>
     </div>
+    <RecordPagination pagination={companyPage} label="Assigned companies" />
     <p className="placement-results" role="status">{filtered.length} {filtered.length === 1 ? 'company' : 'companies'} · Students shown are officially assigned in {sectionName}. Capacity covers all sections.</p>
     {!filtered.length ? <div className="placement-empty"><Icon name="building" size={30} /><h3>{term ? 'No matching companies or students' : 'No companies yet'}</h3><p>{term ? 'Try another company or student name.' : 'Add a company from the Company Directory to get started.'}</p></div> :
       <div className={`placement-company-layout placement-company-layout--${view}`}>
-        {filtered.map(company => <article className="placement-company-card" key={company.id}>
+        {companyPage.items.map(company => <article className="placement-company-card" key={company.id}>
           <div className="placement-company-details">
             <div className="placement-company-heading"><div className="placement-company-icon"><Icon name="building" size={22} /></div><div><h3>{company.name || 'Unnamed company'}</h3><p>{company.industry || 'Industry not provided'}</p></div><span className={`placement-company-status ${company.active ? '' : 'placement-company-status--inactive'}`}>{company.active ? 'Active' : 'Inactive / unlisted'}</span></div>
             <dl className="placement-company-facts">

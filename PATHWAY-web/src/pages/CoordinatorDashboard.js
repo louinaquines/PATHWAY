@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -292,6 +293,7 @@ export default function CoordinatorDashboard() {
   ));
 
   const visibleReviewStudents = filteredStudents.filter(student => reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : isComplete(student)));
+  const reviewPage = useRecordPage(visibleReviewStudents, (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
     { title: 'Review', items: [
@@ -481,7 +483,8 @@ export default function CoordinatorDashboard() {
                   {selectedSection && visibleReviewStudents.length === 0 && (
                     <div style={s.empty}>{searchQuery || reviewFilter !== 'all' ? 'No students match this view.' : 'No students enrolled in this section.'}</div>
                   )}
-                  {visibleReviewStudents.map(student => {
+                  <RecordPagination pagination={reviewPage} label="Requirement students" />
+                  {reviewPage.items.map(student => {
                     const progress = requirementProgress(student.requirements, sectionRequirements);
                     return (
                     <button

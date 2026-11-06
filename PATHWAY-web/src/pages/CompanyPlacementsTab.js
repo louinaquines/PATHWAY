@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -210,6 +211,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     title: `${item.noticeTitle} — ${item.companyName || item.companySnapshot?.companyName || 'Company not provided'}`,
     createdAt: item.submittedAt || item.updatedAt || item.createdAt }));
 
+  const placementPage = useRecordPage(sortedReviews(items), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
+  const finalPage = useRecordPage(sortedReviews(finalItems), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
+  const endorsementPage = useRecordPage(endorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
+  const verifiedPage = useRecordPage(verifiedEndorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
+  const historyPage = useRecordPage(historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
     {workspace === 'reviews' && <div className="placement-review-top-toolbar">
@@ -241,7 +247,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <section hidden={!['all', 'placement'].includes(reviewStage)}>
     <div className="review-section-heading"><h3>Company placement requests</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
     {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}
-    {sortedReviews(items).map(item => <article className="review-card" key={item.id}>
+    <RecordPagination pagination={placementPage} label="Company requests" />
+    {placementPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><div><h3 style={{ margin: 0 }}>{item.companyName || 'Unnamed company'}</h3><div style={{ color: '#64748B', marginTop: 4 }}>{item.studentName || item.studentId} · {item.internshipRole || 'Role not specified'}</div></div><strong>{labels[item.status] || item.status}</strong></div>
       <p><b>Address:</b> {item.companyAddress || '—'}<br /><b>Supervisor:</b> {item.supervisorName || '—'} ({item.supervisorEmail || '—'})<br /><b>Schedule:</b> {item.startDate || '—'} to {item.endDate || '—'} · {item.workArrangement || '—'}</p>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
@@ -269,7 +276,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <section hidden={!['all', 'final'].includes(reviewStage)}>
     <div className="review-section-heading"><h3>Final review requests</h3><p>Review the saved submission before granting access to OJT tracking.</p></div>
     {sortedReviews(finalItems).length === 0 && <div className="review-empty">No final review requests match this view.</div>}
-    {sortedReviews(finalItems).map(item => <article className="review-card" key={item.id}>
+    <RecordPagination pagination={finalPage} label="Final approvals" />
+    {finalPage.items.map(item => <article className="review-card" key={item.id}>
       <h3 style={{ margin: 0 }}>Student final review</h3><p><b>Student:</b> {reviewStudentName(item)}<br /><b>Company:</b> {item.companySnapshot?.companyName || '—'}<br /><b>Supervisor:</b> {item.companySnapshot?.supervisorName || '—'}<br /><b>Requirements:</b> {item.requirementSnapshot?.filter(docItem => ['submitted', 'approved'].includes(docItem.status)).length || 0} submitted</p>
       <strong>{labels[item.status] || item.status}</strong>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
@@ -281,7 +289,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <h3 style={{ marginTop: 30 }}>Endorsement paperwork to prepare</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Approved placements awaiting a signed endorsement letter. These records are not issued documents or email deliveries.</p>
     {endorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No pending endorsement paperwork matches this view.</div>}
-    {endorsementItems.filter(matchesReview).map(item => <article className="review-card" key={item.id}>
+    <RecordPagination pagination={endorsementPage} label="Endorsements" />
+    {endorsementPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
         <span style={{ color: '#0369A1', fontWeight: 700, fontSize: 13 }}>Awaiting signed letter</span>
@@ -307,7 +316,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <p style={{ color: '#64748B', marginTop: -8 }}>Only the verified private signed copy can be emailed to the student and official company contact. Email-server acceptance is recorded separately for each recipient.</p>
     {deliveryNotice && <div role="status" style={{ padding: 12, marginBottom: 10, border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF' }}>{deliveryNotice}</div>}
     {verifiedEndorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No verified signed copies match this view.</div>}
-    {verifiedEndorsementItems.filter(matchesReview).map(item => <article className="review-card" key={item.id}>
+    <RecordPagination pagination={verifiedPage} label="Verified endorsements" />
+    {verifiedPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
         <span style={{ color: '#047857', fontWeight: 700, fontSize: 13 }}>Signed copy verified</span>
@@ -333,7 +343,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots for this section.</p>
     {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
-    {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).map(item => {
+    <RecordPagination pagination={historyPage} label="Placement history" />
+    {historyPage.items.map(item => {
       const beforeName = item.before?.companyName || 'No previous approved placement';
       const afterName = item.after?.companyName || 'Company not recorded';
       return <article key={item.id} style={{ border: '1px solid #DBEAFE', borderRadius: 12, padding: 16, marginTop: 10, background: '#fff' }}>

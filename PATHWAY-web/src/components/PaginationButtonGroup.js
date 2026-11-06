@@ -3,7 +3,8 @@ import Icon from './Icons';
 export default function PaginationButtonGroup({ page, pageCount, onPageChange }) {
   if (pageCount <= 1) return null;
 
-  const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+  const start = Math.max(1, Math.min(page - 2, pageCount - 4));
+  const pages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => start + index);
 
   return (
     <nav aria-label="Evaluation records pagination" className="pagination-group">
@@ -16,6 +17,7 @@ export default function PaginationButtonGroup({ page, pageCount, onPageChange })
       >
         <Icon name="chevronLeft" size={15} />
       </button>
+      <span className="pagination-position">Page {page} of {pageCount}</span>
       {pages.map(pageNumber => (
         <button
           type="button"

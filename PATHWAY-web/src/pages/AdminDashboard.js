@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
 import { useEffect, useState, useCallback } from 'react';
@@ -1270,6 +1271,8 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
       ))
   );
 
+  const recordsPage = useRecordPage(filtered, search + ':' + statusFilter);
+
   return (
     <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
       <AlertDialog open={Boolean(deactivate)} title="Deactivate account?"
@@ -1295,6 +1298,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
       </div>
 
       {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
+      <RecordPagination pagination={recordsPage} label="Accounts" />
       <div style={s.tableWrap}>
         <table style={s.table}>
           <thead>
@@ -1309,7 +1313,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             </tr>
           </thead>
           <tbody>
-            {filtered.map(user => (
+            {recordsPage.items.map(user => (
               <tr key={user.id} style={s.tr}>
                 <td style={s.td}>
                   <strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>

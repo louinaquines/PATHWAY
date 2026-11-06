@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -177,9 +178,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
     printable.document.close();
   };
 
-  if (loading) {
-    return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
-  }
+
 
   const readyCount = rows.filter(row => row.ready && row.clearanceStatus !== 'cleared').length;
   const clearedCount = rows.filter(row => row.clearanceStatus === 'cleared').length;
@@ -195,8 +194,13 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
   const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
 
+  const recordsPage = useRecordPage(filteredRows, (selectedSection?.id || '') + ':' + searchQuery + ':' + summaryFilter);
+  if (loading) {
+    return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
+  }
   return (
     <div style={s.page} className="clearance-page">
+      <RecordPagination pagination={recordsPage} label="Clearance students" />
       {/* Top Toolbar */}
       <div style={s.toolbar}>
         <div>
@@ -237,7 +241,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(row => (
+              {recordsPage.items.map(row => (
                 <tr key={row.id} style={s.tr}>
                   <td style={s.td}>
                     <div style={s.studentName}>{row.student || 'Unnamed student'}</div>

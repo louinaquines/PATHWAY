@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClassListTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -108,12 +109,14 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
 
   const filteredIds = ids.filter(item => item.id.toLowerCase().includes(filterQuery.toLowerCase()));
 
+  const recordsPage = useRecordPage(filteredIds, sectionId + ':' + filterQuery);
   if (loading) {
     return <PageSkeleton label="Loading authorized roster" variant="table" />;
   }
 
   return (
     <div className="authorized-roster-page" style={s.page}>
+      <RecordPagination pagination={recordsPage} label="Roster students" />
       {/* Top Banner / Card */}
       <div className="roster-import-card" style={s.card}>
         <div style={s.cardHeader}>
@@ -212,7 +215,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
               </thead>
               <tbody>
                 {filteredIds.length === 0 && <tr><td colSpan={5} style={s.td}>No matching student IDs.</td></tr>}
-                {filteredIds.map(item => (
+                {recordsPage.items.map(item => (
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>
                       <span style={s.idCode}>{item.id}</span>

@@ -63,3 +63,17 @@ test('admin directory pages companies and searches the complete directory', asyn
   fireEvent.change(screen.getByRole('combobox', { name: 'Industry' }), { target: { value: 'Technology' } });
   expect(screen.getByText('No matching companies')).toBeInTheDocument();
 });
+
+test('coordinator directory pages rows, searches later records and retains edit settings', async () => {
+  adminRequest.mockResolvedValue({companies:Array.from({length:30},(_,i)=>({id:String(i),name:'Partner '+String(i+1).padStart(2,'0'),address:'Office address',industry:'Education',active:true,capacity:5,occupiedSlots:2,availableSlots:3,geofence:{enabled:true,latitude:10,longitude:123,radiusMeters:150}}))});
+  render(<CompanyDirectoryTab readOnly={false} />);
+  expect(await screen.findByText('Partner 01')).toBeInTheDocument();
+  expect(screen.queryByText('Partner 30')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole('searchbox',{name:'Search companies'}),{target:{value:'Partner 30'}});
+  expect(screen.getByText('Partner 30')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Edit Partner 30'}));
+  expect(screen.getByLabelText('Company name')).toHaveValue('Partner 30');
+  expect(screen.getByLabelText('Require location for attendance')).toBeChecked();
+  expect(screen.getByLabelText('Latitude')).toHaveValue(10);
+  expect(adminRequest).toHaveBeenCalledTimes(1);
+});

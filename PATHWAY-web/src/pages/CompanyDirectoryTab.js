@@ -1,6 +1,6 @@
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
-import { PortalFormDialog } from '../components/PortalStates';
+import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import AdminCompanyDirectory from '../components/AdminCompanyDirectory';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminRequest } from '../adminApi';
@@ -104,28 +104,10 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     loadFailed={loadFailed} onReload={load} />;
 
   return <div className="company-directory-page" style={styles.page}>
-    {!readOnly && <section className="company-import-card" aria-label="Import company suggestions">
-      <h3>Import from a public website</h3><p>Preview suggested details, then check them before adding them to the form. Nothing is saved automatically.</p>
-      <div className="company-import-controls"><label>Company website<input type="url" placeholder="https://company.example" value={website} disabled={previewBusy} onChange={event => { setWebsite(event.target.value); setProfilePreview(null); }} /></label>
-        <button type="button" disabled={previewBusy || !website.trim()} onClick={previewWebsite}>{previewBusy ? 'Reading website…' : 'Preview details'}</button></div>
-      {profilePreview && <div className="company-import-preview"><strong>{profilePreview.name || 'Company name not found'}</strong><p>{profilePreview.description || 'Description not found.'}</p>
-        <dl><dt>Email</dt><dd>{profilePreview.email || 'Not found'}</dd><dt>Phone</dt><dd>{profilePreview.phone || 'Not found'}</dd></dl>
-        <a href={profilePreview.sourceUrl} target="_blank" rel="noopener noreferrer">View source website</a><p>{profilePreview.warning}</p>
-        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); setFormOpen(true); }}>Use suggestions in form</button>
-      </div>}
-    </section>}
-    <div style={styles.headingRow}>
-      <div>
-        <h2 style={styles.heading}>Company directory</h2>
-        <p style={styles.subheading}>{readOnly ? 'Partner companies and available internship slots. Managed by coordinators.' : 'Manage partner companies, contact details, and internship capacity.'}</p>
-      </div>
-      <div style={styles.summary}><strong>{loadFailed ? '—' : companies.length}</strong><span>companies</span></div>
-    </div>
-
+    <div className="directory-toolbar"><p><strong>{loadFailed ? '—' : companies.length}</strong> companies <span>Capacity includes placements across all sections.</span></p><button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button></div>
     {error && !formOpen && <div role="alert" style={styles.error}>{error}</div>}
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
-    {!readOnly && <button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button>}
     <div className={`company-directory-layout${readOnly || !formOpen ? ' is-readonly' : ''}`} style={{ ...styles.layout, gridTemplateColumns: 'minmax(0, 1fr)' }}>
       {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer" label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
       <form className="company-directory-form" onSubmit={onSubmit} style={styles.formCard}>
@@ -157,29 +139,33 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
 
       <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
         <div style={styles.listHeader}>
-          <div><h3 style={styles.cardTitle}>Partner companies</h3><p style={styles.help}>Capacity includes placements across all sections.</p></div>
+          <label className="directory-search">Search companies<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, industry, or address" aria-label="Search companies" style={styles.input} /></label>
           <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
         </div>
-        <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search companies…" aria-label="Search companies" style={{ ...styles.input, margin: '8px 0 12px' }} />
         <RecordPagination pagination={companyPage} label="Partner companies" />
-        {loading ? <p style={styles.empty}>Loading companies…</p> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <p style={styles.empty}>{companies.length ? 'No matching companies.' : 'No companies have been added yet.'}</p> :
-          <div style={styles.companyList}>{companyPage.items.map(company => {
-            const configured = Number.isSafeInteger(company.capacity);
-            const slots = configured ? `${company.occupiedSlots} / ${company.capacity} placements` : `Capacity not configured — ${company.occupiedSlots} active placement${company.occupiedSlots === 1 ? '' : 's'}`;
-            return <article className="directory-company-card" key={company.id} style={styles.companyRow}>
-              <div style={styles.companyMain}>
-                <div style={styles.companyNameLine}><strong>{company.name || 'Unnamed company'}</strong><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></div>
-                <div style={styles.meta}>{company.industry || (readOnly ? 'Industry not provided' : <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>)}</div>
-                <div style={styles.meta}>{company.address || 'Address not provided'}</div>
-                <div style={styles.meta}>{company.geofence?.enabled ? `Attendance area: ${company.geofence.radiusMeters} m radius` : 'Attendance location check: off'}</div>
-                {!readOnly && configured && company.capacity > 0 && <progress className="coordinator-capacity-progress" aria-label={company.name + ' placement capacity'} value={company.occupiedSlots || 0} max={company.capacity} />}
-                <div className="directory-capacity" style={styles.slots}><span>{slots}</span>{configured && <span>{company.availableSlots} available</span>}</div>
-              </div>
-              {!readOnly && <button type="button" onClick={() => editCompany(company)} style={styles.editButton}>Edit</button>}
-            </article>;
-          })}</div>}
+        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <PortalEmpty title={companies.length ? 'No matching companies.' : 'No companies have been added yet.'} description={companies.length ? 'Try another company name, industry, or address.' : 'Add a company to make it available for placements.'} /> :
+          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Placement capacity</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companyPage.items.map(company => {
+            const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
+            return <tr key={company.id}>
+              <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>
+              <td>{company.industry || <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>}</td>
+              <td><span>{configured ? company.occupiedSlots + ' / ' + company.capacity + ' placed' : 'Not configured'}</span>{configured && <><progress aria-label={company.name + ' placement capacity'} value={company.occupiedSlots || 0} max={company.capacity} /><small className={company.availableSlots === 0 ? 'capacity-full' : ''}>{company.availableSlots === 0 ? 'No available slots' : company.availableSlots + ' available'}</small></>}</td>
+              <td><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></td>
+              <td><button type="button" aria-label={'Edit ' + company.name} onClick={() => editCompany(company)} style={styles.editButton}>Edit</button></td>
+            </tr>;
+          })}</tbody></table></div>}
       </section>
     </div>
+    {!readOnly && <details className="company-import-card"><summary>Import details from a website</summary><section aria-label="Import company suggestions">
+      <p>Preview suggested details, then check them before adding them to the form. Nothing is saved automatically.</p>
+      <div className="company-import-controls"><label>Company website<input type="url" placeholder="https://company.example" value={website} disabled={previewBusy} onChange={event => { setWebsite(event.target.value); setProfilePreview(null); }} /></label>
+        <button type="button" disabled={previewBusy || !website.trim()} onClick={previewWebsite}>{previewBusy ? 'Reading website…' : 'Preview details'}</button></div>
+      {profilePreview && <div className="company-import-preview"><strong>{profilePreview.name || 'Company name not found'}</strong><p>{profilePreview.description || 'Description not found.'}</p>
+        <dl><dt>Email</dt><dd>{profilePreview.email || 'Not found'}</dd><dt>Phone</dt><dd>{profilePreview.phone || 'Not found'}</dd></dl>
+        <a href={profilePreview.sourceUrl} target="_blank" rel="noopener noreferrer">View source website</a><p>{profilePreview.warning}</p>
+        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); setFormOpen(true); }}>Use suggestions in form</button>
+      </div>}
+    </section></details>}
     <AlertDialog open={confirmDeactivate} tone="warning" title="Deactivate this company?"
       description="Students will no longer be able to submit new proposals for this company. Existing official placements and history will remain unchanged."
       confirmLabel="Deactivate company" busy={saving}
@@ -190,10 +176,6 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
 
 const styles = {
   page: { padding: 24, maxWidth: 1500, margin: '0 auto' },
-  headingRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, marginBottom: 20 },
-  heading: { margin: 0, color: '#0F172A', fontSize: 24 },
-  subheading: { maxWidth: 780, margin: '7px 0 0', color: '#64748B', lineHeight: 1.5 },
-  summary: { display: 'grid', minWidth: 100, padding: '10px 16px', border: '1px solid #DBEAFE', borderRadius: 12, background: '#EFF6FF', color: '#075985', textAlign: 'center' },
   error: { padding: 12, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginBottom: 12 },
   notice: { padding: 12, border: '1px solid #86EFAC', borderRadius: 10, background: '#F0FDF4', color: '#166534', marginBottom: 12 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', alignItems: 'start', gap: 18 },
@@ -210,12 +192,6 @@ const styles = {
   secondaryButton: { padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff', color: '#334155', fontWeight: 650, cursor: 'pointer' },
   listHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   empty: { padding: 24, color: '#64748B', textAlign: 'center' },
-  companyList: { display: 'grid', gap: 9 },
-  companyRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, padding: 14, border: '1px solid #E2E8F0', borderRadius: 10, background: '#fff' },
-  companyMain: { minWidth: 0 },
-  companyNameLine: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, color: '#0F172A' },
-  meta: { marginTop: 5, color: '#64748B', fontSize: 13, overflowWrap: 'anywhere' },
-  slots: { marginTop: 6, color: '#0369A1', fontSize: 12, fontWeight: 650 },
   activePill: { padding: '3px 8px', borderRadius: 999, background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700 },
   inactivePill: { padding: '3px 8px', borderRadius: 999, background: '#F1F5F9', color: '#475569', fontSize: 11, fontWeight: 700 },
   editButton: { padding: '7px 11px', border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF', color: '#0369A1', fontWeight: 700, cursor: 'pointer' },

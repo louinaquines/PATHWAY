@@ -564,7 +564,7 @@ export default function AdminDashboard() {
                 <div className="admin-student-summary admin-compact-student-stats">
                   <div><span>Total students</span><strong>{directoryStudents.length}</strong></div>
                   <div><span>Active accounts</span><strong>{directoryStudents.filter(student => student.accountApproved).length}</strong></div>
-                  <div><span>Pending accounts</span><strong>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</strong></div>
+                  <div><span>Pending accounts</span><strong data-zero={directoryStudents.every(student => student.accountApproved || student.status === 'rejected_registration')}>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</strong></div>
                   <div><span>Sections</span><strong>{selectedSection ? 1 : departmentSections.length}</strong></div>
                 </div>
                 <UserTable
@@ -586,6 +586,8 @@ export default function AdminDashboard() {
                     </select>
                   </label>
                   </>}
+                  hideDepartment={Boolean(departmentFilter)}
+                  hideSection={sectionFilter !== 'all'}
                   studentStatus={studentStatus}
                   onStudentStatus={setStudentStatus}
                   sections={sections}
@@ -1257,11 +1259,11 @@ function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
 }
 
-function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus }) {
+function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus, hideDepartment = false, hideSection = false }) {
   const [search, setSearch] = useState('');
   const [deactivate, setDeactivate] = useState(null);
   const statusFilter = studentStatus || 'all';
-  const showAccountId = !studentDirectory && !coordinatorDirectory || users.some(user => user.idNumber || user.employeeId);
+  const showAccountId = !studentDirectory && (!coordinatorDirectory || users.some(user => user.idNumber || user.employeeId));
   const showAccountContact = !studentDirectory && !coordinatorDirectory || users.some(user => studentDirectory ? user.username : user.email);
   const sectionName = user => sections.find(section => section.id === user.sectionId)?.name || user.sectionName || 'Unassigned';
   const filtered = users.filter(u =>
@@ -1283,7 +1285,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
         <input
           type="text"
           aria-label="Search accounts"
-          placeholder={studentDirectory ? 'Search name, student ID, username, or section...' : 'Filter by name, ID, department, or email...'}
+          placeholder={studentDirectory ? 'Search students…' : 'Filter by name, ID, department, or email...'}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={s.tableSearchInput}
@@ -1293,9 +1295,10 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="rejected">Rejected</option>
           </select>
         </>}
-        <span style={s.countBadge}>{filtered.length} record(s)</span>
+        <span style={s.countBadge}>{filtered.length} {studentDirectory ? (filtered.length === 1 ? 'student' : 'students') : 'record(s)'}</span>
       </div>
 
+      {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
       <div style={s.tableWrap}>
         <table style={s.table}>
           <thead>
@@ -1303,8 +1306,8 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
               <th style={s.th}>Name</th>
               {showAccountId && <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student / Employee ID'}</th>}
               {showAccountContact && <th style={s.th}>{studentDirectory ? 'Username' : 'Email Address'}</th>}
-              <th style={s.th}>Department</th>
-              {studentDirectory && <th style={s.th}>Section</th>}
+              <th style={s.th} hidden={studentDirectory && hideDepartment}>Department</th>
+              {studentDirectory && !hideSection && <th style={s.th}>Section</th>}
               <th style={s.th}>Account Status</th>
               {showToggle && <th style={{ ...s.th, textAlign: 'right' }}>Action</th>}
             </tr>
@@ -1314,11 +1317,12 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
               <tr key={user.id} style={s.tr}>
                 <td style={s.td}>
                   <strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
+                  {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}
                 </td>
                 {showAccountId && <td style={s.td}><span style={s.idCode}>{user.idNumber || user.employeeId || '—'}</span></td>}
                 {showAccountContact && <td style={s.td}>{(studentDirectory ? user.username : user.email) || '—'}</td>}
-                <td style={s.td}>{user.department || '—'}</td>
-                {studentDirectory && <td style={s.td}>{sectionName(user)}</td>}
+                <td style={s.td} hidden={studentDirectory && hideDepartment}>{user.department || '—'}</td>
+                {studentDirectory && !hideSection && <td style={s.td}>{sectionName(user)}</td>}
                 <td style={s.td}>
                   <span style={{
                     ...s.statusBadge,
@@ -1362,7 +1366,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={3 + Number(showAccountId) + Number(showAccountContact) + Number(studentDirectory) + Number(showToggle)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
+                <td colSpan={2 + Number(!studentDirectory || !hideDepartment) + Number(showAccountId) + Number(showAccountContact) + Number(studentDirectory && !hideSection) + Number(showToggle)} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
                   <PortalEmpty title={users.length === 0 ? 'No accounts yet' : 'No matching accounts'}
                     description={users.length === 0 ? 'Accounts will appear here after they are created.' : 'Try changing your search or filters.'} />
                 </td>

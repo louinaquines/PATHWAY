@@ -40,3 +40,39 @@
 }
 .admin-students-directory .admin-compact-student-stats strong { font-size: 14px; }
 .admin-student-records .admin-student-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Student directory: one summary, one filter row, one table. */
+.admin-students-mode { font-family: 'Segoe UI', Arial, sans-serif !important; }
+.admin-students-mode main > header .admin-page-heading { display:flex; flex-direction:column; align-items:flex-start !important; gap:6px; }
+.admin-students-mode .portal-page-description { margin:0; font-size:14px; color:#526174; line-height:1.5; }
+.admin-students-mode .admin-students-directory { background:transparent !important; border:0 !important; box-shadow:none !important; padding:0 !important; max-width:none !important; border-radius:0 !important; }
+.admin-students-mode .admin-compact-student-stats { gap:12px 24px; padding:0 0 16px; margin-bottom:0 !important; }
+.admin-students-mode .admin-compact-student-stats > div { flex-direction:row !important; gap:6px; border-radius:0; }
+.admin-students-mode .admin-compact-student-stats span { font-size:14px; color:#526174; }
+.admin-students-mode .admin-compact-student-stats strong { font-size:14px; }
+.admin-students-mode .admin-student-records { border-radius:12px; border-color:#dce2e9; overflow:visible; }
+.admin-students-mode .admin-student-filters { padding:16px !important; gap:12px; }
+.admin-students-mode .admin-student-filters > label { padding:0 !important; border:0 !important; background:transparent !important; min-width:0; }
+.admin-students-mode .admin-student-filters :is(input,select) { height:44px; min-height:44px; font:inherit !important; font-size:14px !important; color:#243448 !important; background:#fff !important; border:1px solid #ccd5df !important; border-radius:8px !important; }
+.admin-students-mode .admin-student-filters > span { font-size:13px !important; color:#526174 !important; }
+.admin-students-mode .admin-student-records th { font-size:13px !important; font-weight:600 !important; color:#526174 !important; padding:12px 16px !important; }
+.admin-students-mode .admin-student-records td { height:68px; box-sizing:border-box; padding:10px 16px !important; font-size:14px !important; }
+.admin-student-id { display:block; margin-top:4px; color:#526174; font-size:13px; font-variant-numeric:tabular-nums; }
+.admin-students-mode .admin-student-status { font-size:13px !important; }
+.admin-students-mode .portal-row-menu summary { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; min-height:44px; padding:0 !important; border:0 !important; background:transparent !important; color:#526174; font-size:22px; border-radius:8px; cursor:pointer; }
+.admin-students-mode .portal-row-menu summary:hover { background:#edf2f7 !important; }
+.admin-students-mode .portal-row-menu summary:focus-visible { outline:2px solid #075fc9; outline-offset:2px; }
+@media(max-width:640px) {
+ .admin-students-mode .admin-student-filters > label { flex:1 1 100%; }
+ .admin-students-mode .admin-student-filters > label select { width:100%; max-width:100%; }
+ .admin-students-mode .admin-student-filters > input { flex-basis:100%; }
+ .admin-students-mode .admin-student-records table { min-width:680px; }
+}
+.admin-students-mode .admin-compact-student-stats strong[data-zero='true'] { color:#667487; font-weight:400; }
+.admin-students-mode .admin-missing-usernames { margin:0; padding:10px 16px; border-top:1px solid #e5e9ef; color:#526174 !important; font-size:13px !important; background:#f8fafc; }
+@media(max-width:640px) {
+ .admin-page.admin-students-mode .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .admin-page.admin-students-mode .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .admin-students-mode .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .admin-students-mode .sidebar-nav-scroll, .admin-students-mode .sidebar-footer { grid-column:1 / -1; }
+ .admin-students-mode .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}

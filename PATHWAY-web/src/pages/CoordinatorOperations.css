@@ -48,3 +48,52 @@
 .clearance-records tbody tr:hover { background: #fbfcfe; }
 @media (max-width: 1050px) { .coordinator-messages.has-conversation { grid-template-columns: 260px minmax(0, 1fr) !important; } }
 @media (max-width: 760px) { .coordinator-messages, .evaluation-panel, .clearance-page { padding: 14px !important; } .coordinator-messages.has-conversation { grid-template-columns: 1fr !important; } .evaluation-invitation form > div { flex-wrap: wrap; } .evaluation-invitation form > div > div { flex-basis: 100% !important; min-width: 0 !important; } }
+/* Clearance: one header, compact filters, and a focused student table. */
+.coordinator-page:has(.clearance-page) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.clearance-page) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
+.clearance-toolbar { align-items:center !important; gap:16px; flex-wrap:wrap; }
+.clearance-help { max-width:650px; color:#526174; font-size:14px; line-height:1.5; }
+.clearance-help summary { display:flex; align-items:center; min-height:44px; cursor:pointer; color:#526174; text-decoration:underline; }
+.clearance-help p { margin:8px 0 0; font-size:13px; }
+.clearance-toolbar > div:last-child { gap:8px !important; flex-wrap:wrap; }
+.clearance-toolbar button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 14px !important; font:inherit; font-size:14px !important; font-weight:500 !important; border-radius:8px !important; background:#fff !important; border:1px solid #ccd5df !important; color:#243448 !important; }
+.clearance-metrics { display:grid !important; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px !important; margin-bottom:20px; }
+.clearance-metrics .clearance-filter { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:64px; padding:12px 16px; text-align:left; white-space:normal; border-radius:8px !important; border-color:#dce2e9; color:#526174; background:#fff; font-size:13px; font-weight:400 !important; }
+.clearance-metrics .clearance-filter strong { color:#17212f; font-size:20px; font-weight:600; }
+.clearance-metrics .clearance-filter strong[data-zero='true'] { color:#667487; font-weight:400; }
+.clearance-metrics .clearance-filter[aria-pressed='true'] { background:#edf4ff; border-color:#9bbde8; color:#0752ad; }
+.clearance-page .clearance-records { border-radius:12px !important; border-color:#dce2e9 !important; }
+.clearance-records > div:first-child { padding:16px !important; gap:12px; }
+.clearance-records .coordinator-search { min-height:44px; height:44px; box-sizing:border-box; border-radius:8px; }
+.clearance-records .coordinator-search input { height:100%; min-height:0; padding-block:0; font:inherit; font-size:14px; }
+.clearance-records > div:first-child > span { color:#526174 !important; font-size:13px !important; }
+.clearance-records th { padding:12px 16px !important; font-size:13px !important; font-weight:600 !important; color:#526174 !important; }
+.clearance-records td { padding:12px 16px !important; font-size:14px; height:72px; box-sizing:border-box; }
+.clearance-records td:first-child > div { font-size:14px !important; }
+.clearance-records td:first-child > span { font-family:inherit !important; color:#526174 !important; font-size:13px; }
+.clearance-records .clearance-status { display:inline-flex; align-items:center; font-size:13px !important; padding:4px 8px !important; border:0 !important; }
+.clearance-records .clearance-status[data-state='neutral'] { background:#f0f3f6 !important; color:#526174 !important; }
+.clearance-records .clearance-status[data-state='complete'] { background:#dcfce7 !important; color:#166534 !important; }
+.clearance-records .clearance-status[data-state='review'] { background:#fff3cd !important; color:#784500 !important; }
+.clearance-records .coordinator-capacity-progress { margin-top:7px; height:5px; border:0; appearance:none; border-radius:4px; overflow:hidden; background:#e5e9ef; }
+.clearance-records progress::-webkit-progress-bar { background:#e5e9ef; }
+.clearance-records progress::-webkit-progress-value { background:#075fc9; border-radius:4px; }
+.clearance-records progress::-moz-progress-bar { background:#075fc9; border-radius:4px; }
+.coordinator-page:has(.clearance-page) .requirements-topbar select.sectionPicker:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; height:44px; min-height:44px; padding:8px 12px !important; border-color:#ccd5df !important; border-radius:8px !important; background-color:#fff !important; font-size:14px !important; }
+@media(max-width:1100px) { .clearance-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:640px) {
+ .clearance-page { padding:12px !important; }
+ .clearance-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px !important; }
+ .clearance-metrics .clearance-filter { padding:12px; }
+ .clearance-records table { min-width:750px; }
+ .coordinator-page:has(.clearance-page) main > header { flex-direction:column !important; align-items:stretch !important; gap:16px; }
+ .coordinator-page:has(.clearance-page) main > header > div { min-width:0; width:100%; }
+ .coordinator-page:has(.clearance-page) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .coordinator-page:has(.clearance-page) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .coordinator-page:has(.clearance-page) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .coordinator-page:has(.clearance-page) .sidebar-nav-scroll, .coordinator-page:has(.clearance-page) .sidebar-footer { grid-column:1 / -1; }
+ .coordinator-page:has(.clearance-page) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}
+.clearance-page .clearance-metrics { grid-template-columns:repeat(5,minmax(0,1fr)) !important; }
+@media(max-width:1100px) { .clearance-page .clearance-metrics { grid-template-columns:repeat(3,minmax(0,1fr)) !important; } }
+@media(max-width:640px) { .clearance-page .clearance-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }

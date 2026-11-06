@@ -200,12 +200,10 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   }
   return (
     <div style={s.page} className="clearance-page">
-      <RecordPagination pagination={recordsPage} label="Clearance students" />
       {/* Top Toolbar */}
-      <div style={s.toolbar}>
+      <div style={s.toolbar} className="clearance-toolbar">
         <div>
-          <h2 style={s.title}>Clearance Readiness</h2>
-          <p style={s.sub}>Clearance requires approved requirements and placement, final deployment approval, completed hours, and a submitted supervisor evaluation.</p>
+          <details className="clearance-help"><summary>What is required for clearance?</summary><p style={s.sub}>Approved requirements and placement, final deployment approval, completed hours, and a submitted supervisor evaluation.</p></details>
         </div>
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={load}>Refresh</button>
@@ -219,21 +217,22 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       {/* Metrics Grid */}
       <div className="clearance-metrics" style={s.metrics}>
         {summaries.map(([id, label, value]) => <button type="button" key={id} className="portal-secondary clearance-filter"
-          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}>{label} <strong>{value}</strong></button>)}
+          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><span>{label}</span> <strong data-zero={value === 0}>{value}</strong></button>)}
       </div>
 
       {/* Table Card */}
       <div className="clearance-records" style={s.card}>
         <div style={s.searchRow}>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" />
-          <span style={s.searchCount}>{filteredRows.length} of {rows.length} record(s)</span>
+          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" placeholder="Search students…" />
+          <span style={s.searchCount}>{filteredRows.length} of {rows.length} students</span>
         </div>
+        <RecordPagination pagination={recordsPage} label="Clearance students" />
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
                 <th style={s.th}>Student Name & ID</th>
-                <th style={s.th}>Section</th>
+                {!selectedSection && <th style={s.th}>Section</th>}
                 <th style={s.th}>Requirements</th>
                 <th style={s.th}>Hours Rendered</th>
                 <th style={s.th}>Account</th>
@@ -247,15 +246,15 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
                     <div style={s.studentName}>{row.student || 'Unnamed student'}</div>
                     <span style={s.idCode}>{row.idNumber || '—'}</span>
                   </td>
-                  <td style={s.td}>{row.section}</td>
+                  {!selectedSection && <td style={s.td}>{row.section}</td>}
                   <td style={s.td}>
                     <span style={{
                       ...s.pill,
                       backgroundColor: row.requirements === 'Approved' ? COLORS.emerald50 : COLORS.yellow100,
                       color: '#000000',
                       border: `1px solid ${row.requirements === 'Approved' ? COLORS.emerald200 : COLORS.yellow300}`,
-                    }}>
-                      {row.requirements === 'Approved' ? 'Approved' : row.requirements}
+                    }} className="clearance-status" data-state={row.requirements === 'Approved' ? 'complete' : ['not_submitted', 'Not submitted'].includes(row.requirements) ? 'neutral' : 'review'}>
+                      {String(row.requirements || 'Not submitted').replace(/_/g, ' ').replace(/^./, letter => letter.toUpperCase())}
                     </span>
                   </td>
                   <td style={s.td}>
@@ -280,7 +279,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
                         Approve Clearance
                       </button>
                     ) : (
-                      <span style={s.notReadyPill}>Incomplete</span>
+                      <span style={s.notReadyPill} className="clearance-status" data-state="neutral">In progress</span>
                     )}
                   </td>
                 </tr>

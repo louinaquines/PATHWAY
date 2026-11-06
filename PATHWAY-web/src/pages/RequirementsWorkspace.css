@@ -128,3 +128,83 @@
 @media (max-width: 950px) {
   .requirements-workspace .requirements-students, .logbook-workspace .logbook-students { width: 100% !important; }
 }
+/* Requirements review: compact queue, readable documents, quiet secondary actions. */
+.coordinator-page:has(.requirements-workspace) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.requirements-workspace) main > header { gap:20px; }
+.coordinator-page:has(.requirements-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
+.coordinator-page:has(.requirements-workspace) main > header button { min-height:44px; font:inherit; font-size:14px !important; }
+.requirements-workspace { gap:20px; padding:24px; }
+.requirements-workspace > div { border-radius:12px; border-color:#dce2e9 !important; }
+.requirements-workspace .requirements-students { width:300px !important; flex-shrink:0; }
+.requirements-workspace > div > div:first-child { padding:20px !important; font-size:18px !important; font-weight:600; }
+.requirements-workspace p { font-size:13px; color:#526174; line-height:1.5; }
+.requirements-count { font-size:13px; color:#526174; background:#f0f3f6; }
+.requirements-workspace input { min-height:44px; font:inherit; font-size:14px !important; border-radius:8px !important; }
+.requirements-workspace .coordinator-review-filters { display:grid; grid-template-columns:1.4fr .65fr 1fr; padding:0 12px 12px; gap:6px; }
+.requirements-workspace .coordinator-review-filters button { min-width:0; min-height:44px; padding:8px 5px; font:inherit; font-size:13px; border-radius:8px; white-space:nowrap; color:#526174; background:#fff; border-color:#dce2e9; }
+.requirements-workspace .coordinator-review-filters button[aria-pressed='true'] { color:#0752ad; border-color:#9bbde8; background:#edf4ff; }
+.requirements-workspace .requirements-student-card { gap:8px; padding:12px; margin:6px 10px; border-radius:8px; }
+.requirements-workspace .requirements-student-card[aria-pressed='true'] { border-color:#9bbde8 !important; background:#edf4ff !important; }
+.student-card-name strong { font-size:14px; font-weight:600; }
+.student-card-name > span { font-size:13px; color:#526174; }
+.student-card-name .coordinator-queue-status { align-self:flex-start; margin-top:4px; padding:3px 7px; font-size:12px; }
+.student-card-progress-caption { margin-top:0; font-size:12px; color:#526174; }
+.student-card-percentage { font-size:15px; font-weight:600; }
+.requirements-workspace .coordinator-review-progress { padding:16px 20px; gap:12px; color:#526174; font-size:13px; }
+.requirements-workspace .coordinator-review-progress progress { height:6px; appearance:none; border:0; background:#e5e9ef; border-radius:4px; overflow:hidden; }
+.requirements-workspace progress::-webkit-progress-bar { background:#e5e9ef; }
+.requirements-workspace progress::-webkit-progress-value { background:#075fc9; border-radius:4px; }
+.requirements-workspace progress::-moz-progress-bar { background:#075fc9; border-radius:4px; }
+.requirements-workspace .requirements-document { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:start !important; padding:16px !important; gap:16px; border-radius:10px !important; border-color:#dce2e9 !important; }
+.requirements-document-main { min-width:0; gap:12px !important; }
+.requirements-document-title { color:#17212f !important; font-size:15px !important; font-weight:600 !important; line-height:1.5; margin-bottom:8px; }
+.requirements-document-icon { width:32px; height:32px; border-radius:8px; }
+.requirements-document-main > div:last-child > div:not(.requirements-document-title):not(.requirement-file-actions) { font-size:13px !important; font-weight:400 !important; line-height:1.5; }
+.requirements-document-actions { margin-left:0 !important; gap:12px !important; align-items:flex-end !important; }
+.requirements-document-actions > div { display:flex; flex-wrap:wrap; gap:8px; }
+.requirements-document-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:8px 12px !important; font:inherit; font-size:13px !important; border-radius:8px !important; box-shadow:none !important; }
+.requirements-document-actions button:first-child { background:#075fc9 !important; border:1px solid #075fc9 !important; color:#fff !important; }
+.requirements-document-actions button:last-child:not(:first-child) { background:#fff !important; border:1px solid #ccd5df !important; color:#243448 !important; }
+.requirements-document-status { font-size:12px !important; padding:4px 8px !important; border:0 !important; border-radius:6px !important; line-height:1.5; }
+.requirements-document-status[data-status='submitted'] { color:#784500 !important; background:#fff3cd !important; }
+.requirements-document-status[data-status='approved'] { color:#166534 !important; background:#dcfce7 !important; }
+.requirements-document-status[data-status='not_submitted'] { color:#526174 !important; background:#f0f3f6 !important; }
+.requirements-document-status[data-status='rejected'] { color:#991b1b !important; background:#fee2e2 !important; }
+.requirements-document .requirement-file-action { min-height:44px; border-radius:8px; font-weight:400; }
+@media(max-width:1250px) {
+ .requirements-workspace .requirements-document { grid-template-columns:minmax(0,1fr); }
+ .requirements-workspace .requirements-document > .requirements-document-actions { margin-left:44px !important; align-items:flex-start !important; flex-direction:row !important; flex-wrap:wrap; }
+}
+@media(max-width:950px) {
+ .requirements-workspace .requirements-students { width:100% !important; max-height:400px; }
+ .requirements-workspace .requirements-detail { flex:0 0 100% !important; min-width:0; }
+}
+@media(max-width:640px) {
+ .requirements-workspace { padding:12px; gap:16px; }
+ .requirements-workspace .requirements-document > .requirements-document-actions { margin-left:0 !important; }
+ .requirements-document-main { gap:8px !important; }
+ .requirements-document-icon { display:none; }
+ .requirements-document-actions { width:100%; }
+ .requirements-document-actions > div { width:100%; }
+ .requirements-document-actions button { flex:1; }
+ .coordinator-page:has(.requirements-workspace) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .coordinator-page:has(.requirements-workspace) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .coordinator-page:has(.requirements-workspace) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .coordinator-page:has(.requirements-workspace) .sidebar-nav-scroll, .coordinator-page:has(.requirements-workspace) .sidebar-footer { grid-column:1 / -1; }
+ .coordinator-page:has(.requirements-workspace) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}
+.requirements-workspace .coordinator-search { height:44px; min-height:44px; box-sizing:border-box; border-radius:8px; }
+.requirements-workspace .coordinator-search input { height:100%; min-height:0 !important; padding-block:0; }
+.requirements-workspace .requirements-category { font-size:13px !important; font-weight:600 !important; text-transform:none !important; letter-spacing:normal !important; color:#526174 !important; }
+.requirements-students .portal-record-pagination { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px; }
+.requirements-students .portal-record-pagination > span:first-child { grid-row:1; grid-column:1; margin:0; }
+.requirements-students .portal-record-pagination > span:nth-child(3) { grid-row:1; grid-column:2; text-align:right; }
+.requirements-students .portal-record-pagination button { grid-row:2; }
+.coordinator-page:has(.requirements-workspace) .section-export-button { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; box-shadow:none !important; }
+@media(max-width:1450px) {
+ .requirements-workspace .requirements-document { grid-template-columns:minmax(0,1fr); }
+ .requirements-workspace .requirements-document > .requirements-document-actions { margin-left:44px !important; align-items:center !important; flex-direction:row !important; flex-wrap:wrap; }
+}
+@media(max-width:640px) {
+ .requirements-workspace .requirements-document > .requirements-document-actions { margin-left:0 !important; }
+}

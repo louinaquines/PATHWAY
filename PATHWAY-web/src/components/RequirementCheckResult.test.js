@@ -12,3 +12,11 @@ test('coordinator review displays the reason without claiming rejection',()=>{
  expect(screen.getByText('The date is unreadable.')).toBeInTheDocument();
  expect(screen.queryByText('Rejected')).not.toBeInTheDocument();
 });
+
+test('compact review keeps findings accessible behind an expandable summary',()=>{
+ render(<RequirementCheckResult compact review={{status:'needs_review',findings:['Permission was not provided.'],checks:[]}}/>);
+ const reason=screen.getByText('Permission was not provided.');
+ expect(reason.closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByText('Coordinator review needed')).toBeInTheDocument();
+ expect(screen.getByText(/You make the approval decision/)).toBeInTheDocument();
+});

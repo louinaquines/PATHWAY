@@ -471,7 +471,7 @@ export default function CoordinatorDashboard() {
                     Students <span className="requirements-count">{filteredStudents.length}</span>
                     <p>{selectedSection?.name || 'Select a section to see its students.'}</p>
                   </div>
-                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" /></div>
+                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
                   <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">
                     {[['review', 'Needs review'], ['all', 'All'], ['complete', 'Complete']].map(([value, label]) => (
                       <button type="button" key={value} className="portal-secondary" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>
@@ -545,7 +545,7 @@ export default function CoordinatorDashboard() {
                         if (catReqs.length === 0) return null;
                         return (
                           <div key={cat} style={s.reqGroup}>
-                            <div style={s.reqGroupLabel}>{cat} Requirements</div>
+                            <div style={s.reqGroupLabel} className="requirements-category">{cat} Requirements</div>
                             <div style={s.reqCardsList}>
                               {catReqs.map(({ id, label, deadline }) => {
                                 const req = selectedStudent.requirements?.[id];
@@ -553,11 +553,11 @@ export default function CoordinatorDashboard() {
                                 const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
                                 return (
                                   <div className="requirements-document" key={id} style={s.reqRow}>
-                                    <div style={s.reqLeft}>
+                                    <div style={s.reqLeft} className="requirements-document-main">
                                       <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
                                       <div>
-                                        <div style={s.reqLabel}>{label}</div>
-                                        {status === 'submitted' && <RequirementCheckResult review={req?.autoReview} />}
+                                        <div style={s.reqLabel} className="requirements-document-title">{label}</div>
+                                        {status === 'submitted' && <RequirementCheckResult review={req?.autoReview} compact />}
                                         {deadline && (
                                           <div style={{ fontSize: 11, color: isOverdue ? COLORS.rose700 : '#000000', fontWeight: isOverdue ? 800 : 600, marginTop: 2 }}>
                                             <><Icon name="calendar" size={12} /> Deadline: {new Date(deadline).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</>
@@ -598,14 +598,14 @@ export default function CoordinatorDashboard() {
                                         )}
                                       </div>
                                     </div>
-                                    <div style={s.reqRight}>
+                                    <div style={s.reqRight} className="requirements-document-actions">
                                       <span style={{
                                         ...s.statusBadge,
                                         backgroundColor: STATUS_COLOR[status],
                                         color: '#000000',
                                         border: `1px solid ${COLORS.slate300}`,
-                                      }}>
-                                        {STATUS_TEXT[status]}
+                                      }} className="requirements-document-status" data-status={status}>
+                                        {status === 'submitted' ? 'Needs review' : STATUS_TEXT[status]}
                                       </span>
                                       {status === 'submitted' && (
                                         <div style={s.actionBtns}>

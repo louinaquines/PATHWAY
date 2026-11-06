@@ -7,6 +7,11 @@ import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './AdminConfiguration.css';
 
+function auditLabel(value) {
+  const words = String(value || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ').trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : '—';
+}
+
 export default function AuditLogsTab() {
   const [logs, setLogs]         = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -41,10 +46,7 @@ export default function AuditLogsTab() {
   return (
     <div style={s.page} className="admin-configuration admin-audit">
       <div style={s.headerRow}>
-        <div>
-          <h2 style={s.title}>Audit logs</h2>
-          <p style={s.sub}>Chronological record of sensitive actions, status modifications, and approvals.</p>
-        </div>
+        <p style={s.sub}>Recent administrative and automated activity.</p>
         <button style={s.refreshBtn} onClick={loadLogs}><Icon name="refresh" size={15} /> Refresh Logs</button>
       </div>
 
@@ -73,11 +75,11 @@ export default function AuditLogsTab() {
             <table style={s.table}>
               <thead>
                 <tr>
-                  <th style={s.th}>Timestamp</th>
+                  <th style={s.th}>Date & time</th>
                   <th style={s.th}>Action</th>
-                  <th style={s.th}>Actor & Role</th>
+                  <th style={s.th}>Performed by</th>
                   <th style={s.th}>Target</th>
-                  <th style={s.th}>Metadata Details</th>
+                  <th style={s.th}>Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,27 +98,27 @@ export default function AuditLogsTab() {
                       </span>
                     </td>
                     <td style={s.td}>
-                      <span style={s.actionBadge}>{log.action}</span>
+                      <span style={s.actionBadge} className="admin-audit-action">{auditLabel(log.action)}</span>
                     </td>
                     <td style={s.td}>
-                      <div style={s.actorText}>{log.actorId || 'system'}</div>
+                      <div style={s.actorText}>{log.actorRole === 'system' ? auditLabel(log.actorId || 'System') : log.actorId || 'System'}</div>
                       <span style={{
                         ...s.roleBadge,
                         backgroundColor: log.actorRole === 'admin' ? COLORS.rose50 : COLORS.sky50,
                         color: '#000000',
                         border: `1px solid ${log.actorRole === 'admin' ? COLORS.rose200 : COLORS.sky200}`,
                       }}>
-                        {log.actorRole || 'System'}
+                        {auditLabel(log.actorRole || 'System')}
                       </span>
                     </td>
                     <td style={s.td}>
-                      <strong style={{ color: '#000000' }}>{log.targetType}</strong>
+                      <strong style={{ color: '#000000' }}>{auditLabel(log.targetType)}</strong>
                       {log.targetId && (
                         <div style={s.targetIdCode}>ID: {log.targetId}</div>
                       )}
                     </td>
                     <td style={s.td}>
-                      <details className="admin-audit-details"><summary>View details</summary><pre style={s.detailsPre}>
+                      <details className="admin-audit-details"><summary>View details</summary><code className="admin-audit-raw-action">{log.action}</code><pre style={s.detailsPre}>
                         {JSON.stringify(log.details || {}, null, 2)}
                       </pre></details>
                     </td>

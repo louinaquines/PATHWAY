@@ -146,3 +146,35 @@
  .admin-settings .admin-weekday-row { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); overflow:hidden !important; }
  .admin-settings .admin-weekday-row button { position:relative; width:100%; }
 }
+/* Audit logs: readable activity first; technical values remain in details. */
+.admin-page:has(.admin-audit) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.admin-page:has(.admin-audit) main > header .admin-page-heading { display:flex; flex-direction:column; align-items:flex-start !important; gap:6px; }
+.admin-page:has(.admin-audit) .portal-page-description { margin:0; color:#526174; font-size:14px; line-height:1.5; }
+.admin-configuration.admin-audit { max-width:none !important; min-width:0; }
+.admin-audit > div:first-child { align-items:center !important; }
+.admin-audit > div:first-child p { margin:0; color:#526174 !important; font-size:14px !important; }
+.admin-audit > div:first-child button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 16px !important; font:inherit; font-size:14px !important; border-radius:8px !important; color:#243448 !important; border-color:#ccd5df !important; }
+.admin-audit .admin-audit-records { padding:0 !important; border-radius:12px !important; border-color:#dce2e9 !important; overflow:hidden; }
+.admin-audit-records > div:first-child { padding:16px; margin-bottom:0 !important; gap:12px !important; }
+.admin-audit-records > div:first-child input { min-height:44px; font:inherit; font-size:14px !important; background:#fff !important; border-color:#ccd5df !important; border-radius:8px !important; }
+.admin-audit-records > div:first-child span { font-size:13px !important; color:#526174 !important; }
+.admin-audit-records > div:last-child:has(table) { border:0 !important; border-top:1px solid #e5e9ef !important; border-radius:0 !important; }
+.admin-audit-records th { font-size:13px !important; color:#526174 !important; font-weight:600 !important; padding:12px 16px !important; }
+.admin-audit-records td { padding:14px 16px !important; font-size:14px; }
+.admin-audit-records td:first-child span { font:inherit !important; font-size:13px !important; color:#526174 !important; }
+.admin-audit-records td:nth-child(2) .admin-audit-action { background:transparent !important; padding:0 !important; color:#243448 !important; font:inherit !important; font-weight:500 !important; line-height:1.5; }
+.admin-audit-records td:nth-child(3) > div { font-family:inherit !important; font-size:13px !important; color:#243448 !important; overflow-wrap:anywhere; }
+.admin-audit-records td:nth-child(3) > span { display:inline-block; margin-top:6px; font-size:12px !important; color:#526174 !important; background:#f0f3f6 !important; border-radius:5px !important; padding:3px 7px !important; }
+.admin-audit-records td:nth-child(4) > strong { font-family:inherit; font-size:14px !important; }
+.admin-audit-records td:nth-child(4) > div { margin-top:5px; color:#526174 !important; font-size:12px !important; overflow-wrap:anywhere; }
+.admin-audit-details summary { display:inline-flex; align-items:center; min-height:44px; font-size:13px; color:#075fc9; }
+.admin-audit-raw-action { display:block; margin:8px 0; color:#526174; font-size:12px; overflow-wrap:anywhere; }
+.admin-audit-details pre { font-size:12px; max-width:360px; }
+@media(max-width:640px) {
+ .admin-audit-records table { min-width:950px; }
+ .admin-page:has(.admin-audit) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .admin-page:has(.admin-audit) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .admin-page:has(.admin-audit) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .admin-page:has(.admin-audit) .sidebar-nav-scroll, .admin-page:has(.admin-audit) .sidebar-footer { grid-column:1 / -1; }
+ .admin-page:has(.admin-audit) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}

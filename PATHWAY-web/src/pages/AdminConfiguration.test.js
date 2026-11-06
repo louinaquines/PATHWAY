@@ -31,7 +31,8 @@ test('workday controls expose their selected state and preserve save payload', a
 test('audit search filters events and metadata is expandable', async () => {
   adminRequest.mockResolvedValue({ logs: [{ id: 'event-1', action: 'account_created', actorId: 'admin-1', actorRole: 'admin', targetType: 'user', createdAt: '2026-10-07T00:00:00Z', details: { verified: true } }] });
   render(<AuditLogsTab />);
-  expect(await screen.findByText('account_created')).toBeInTheDocument();
+  expect(await screen.findByText('Account created')).toBeInTheDocument();
+  expect(screen.getByText('account_created').closest('details')).not.toHaveAttribute('open');
   expect(screen.getByText('View details').closest('details')).not.toHaveAttribute('open');
   fireEvent.change(screen.getByLabelText('Search audit logs'), { target: { value: 'no-match' } });
   expect(screen.getByText('No audit records match your query.')).toBeInTheDocument();

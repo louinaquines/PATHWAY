@@ -6,7 +6,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './AdminConfiguration.css';
-import { PortalError, PortalFormDialog } from '../components/PortalStates';
+import { PortalEmpty, PortalError, PortalFormDialog } from '../components/PortalStates';
 
 const EMPTY = { name: '', startDate: '', endDate: '', isActive: false };
 
@@ -142,7 +142,7 @@ export default function AcademicTermsTab() {
           <span style={{ color: '#000000', fontWeight: 700 }}>Set as active for new sections</span>
         </label>
 
-        <div style={s.btnRow}>
+        <div style={s.btnRow} className="admin-term-form-actions">
           <button type="submit" className="admin-configuration-save" style={s.button} disabled={saving}>
             {saving ? 'Saving...' : editing ? 'Save Changes' : '+ Create Academic Term'}
           </button>
@@ -152,8 +152,8 @@ export default function AcademicTermsTab() {
       </form></PortalFormDialog>}
 
       <div style={s.listSection} className="admin-term-records">
-        <h3 style={s.listTitle}>Recorded Academic Terms ({terms.length})</h3>
-        <div style={s.termsGrid}>
+        <h3 style={s.listTitle}>{terms.length} {terms.length === 1 ? 'academic term' : 'academic terms'}</h3>
+        <div style={s.termsGrid} className="admin-term-list">
           {terms.map(term => (
             <div className="admin-term-card" key={term.id} style={{ ...s.card, ...(term.isActive ? s.cardActive : {}) }}>
               <div style={s.cardLeft}>
@@ -162,7 +162,7 @@ export default function AcademicTermsTab() {
                   <Icon name="calendar" size={14} /> {formatDate(term.startDate)} to {formatDate(term.endDate)}
                 </div>
               </div>
-              <div style={s.actions}>
+              <div style={s.actions} className="admin-term-actions">
                 {term.isActive && (
                   <span style={s.activeBadge}><Icon name="check" size={13} /> Active Term</span>
                 )}
@@ -173,7 +173,7 @@ export default function AcademicTermsTab() {
             </div>
           ))}
           {terms.length === 0 && (
-            <div style={s.empty}>No academic terms configured yet.</div>
+            <PortalEmpty title="No academic terms yet" description="Create a term to define the dates for new section rosters." />
           )}
         </div>
       </div>

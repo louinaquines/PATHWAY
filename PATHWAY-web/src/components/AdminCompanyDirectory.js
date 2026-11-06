@@ -30,7 +30,7 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
     <div className="admin-company-summary">
       <span><strong>{companies.length}</strong> companies</span>
       <span><strong>{companies.filter(company => company.active).length}</strong> active</span>
-      <span>Capacity includes placements across all sections.</span>
+      <span className="admin-company-capacity-note">Capacity includes placements across all sections.</span>
     </div>
     <div className="admin-company-filters">
       <label>Search companies<input type="search" value={search} placeholder="Name, industry, or address"
@@ -49,16 +49,16 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
       description={companies.length ? 'Try another search, industry, or status.' : 'Companies added by coordinators will appear here.'} /> : <>
       <div className="admin-company-table-wrap">
         <table className="coordinator-compact-table">
-          <thead><tr><th>Company</th><th>Industry</th><th>Address</th><th>Placement capacity</th><th>Available slots</th><th>Status</th></tr></thead>
+          <thead><tr><th>Company</th><th>Industry</th><th>Address</th><th>Placements</th><th>Available slots</th><th>Status</th></tr></thead>
           <tbody>{visible.map(company => {
             const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
             return <tr key={company.id}>
               <td><strong>{company.name || '—'}</strong></td>
               <td>{company.industry?.trim() || '—'}</td><td>{company.address || '—'}</td>
-              <td>{configured ? <><span>{company.occupiedSlots ?? 0} / {company.capacity}</span>
+              <td>{configured ? <><span className="admin-company-capacity-value">{company.occupiedSlots ?? 0} / {company.capacity}<small> occupied</small></span>
                 <progress className="coordinator-capacity-progress" aria-label={company.name + ' capacity'}
                   value={company.occupiedSlots ?? 0} max={company.capacity} /></> : 'Not configured'}</td>
-              <td>{configured ? company.availableSlots ?? Math.max(0, company.capacity - (company.occupiedSlots || 0)) : '—'}</td>
+              <td className="admin-company-slots" data-zero={configured && (company.availableSlots ?? Math.max(0, company.capacity - (company.occupiedSlots || 0))) === 0}>{configured ? company.availableSlots ?? Math.max(0, company.capacity - (company.occupiedSlots || 0)) : '—'}</td>
               <td><span className="coordinator-queue-status" data-status={company.active ? 'complete' : 'neutral'}>
                 {company.active ? 'Active' : 'Inactive'}</span></td>
             </tr>;

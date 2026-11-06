@@ -76,3 +76,48 @@
  .admin-coordinators-directory .admin-directory-summary { grid-column:1; grid-row:1; }
  .admin-coordinators-directory > div:first-child { grid-column:1; grid-row:2; }
 }
+/* Admin company directory: align with the other account directories. */
+.admin-page:has(.admin-company-directory) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.admin-page:has(.admin-company-directory) main > header .admin-page-heading { display:flex; flex-direction:column; align-items:flex-start !important; gap:6px; }
+.admin-page:has(.admin-company-directory) .portal-page-description { margin:0; color:#526174; font-size:14px; line-height:1.5; }
+.admin-companies-screen .admin-company-directory { padding:0; gap:20px; }
+.admin-company-summary { color:#526174; font-size:14px; gap:8px 24px; }
+.admin-company-summary strong { color:#17212f; font-weight:600; }
+.admin-company-summary .admin-company-capacity-note { margin-left:auto; color:#526174; font-size:13px; }
+.admin-company-filters { gap:12px; }
+.admin-company-filters label { font-size:13px; color:#526174; gap:6px; }
+.admin-company-filters :is(input,select,button) { height:44px; min-height:44px; box-sizing:border-box; font:inherit; font-size:14px; border-radius:8px !important; }
+.admin-company-filters :is(input,select) { border:1px solid #ccd5df !important; background:#fff; color:#243448; }
+.admin-company-filters > button { padding:8px 16px; color:#243448; border-color:#ccd5df; }
+.admin-company-table-wrap { border-color:#dce2e9; }
+.admin-company-table-wrap table { width:100%; }
+.admin-company-table-wrap th { background:#f8fafc !important; color:#526174 !important; font-size:13px !important; font-weight:600 !important; padding:12px 16px !important; white-space:nowrap; }
+.admin-company-table-wrap td { height:68px; box-sizing:border-box; padding:12px 16px !important; font-size:14px !important; color:#243448; border-color:#e5e9ef !important; }
+.admin-company-table-wrap td strong { color:#17212f; font-weight:600; }
+.admin-company-capacity-value { display:block; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.admin-company-capacity-value small { color:#526174; font-size:13px; }
+.admin-company-table-wrap .coordinator-capacity-progress { display:block; width:100%; min-width:100px; height:5px; margin-top:7px; border:0; border-radius:4px; background:#e5e9ef; overflow:hidden; appearance:none; accent-color:#075fc9; }
+.admin-company-table-wrap progress::-webkit-progress-bar { background:#e5e9ef; border-radius:4px; }
+.admin-company-table-wrap progress::-webkit-progress-value { background:#075fc9; border-radius:4px; }
+.admin-company-table-wrap progress::-moz-progress-bar { background:#075fc9; border-radius:4px; }
+.admin-company-slots { font-variant-numeric:tabular-nums; font-weight:600; }
+.admin-company-slots[data-zero='true'] { color:#667487; font-weight:400; }
+.admin-company-table-wrap .coordinator-queue-status { font-size:13px; padding:5px 9px; border-radius:6px; }
+.admin-company-pagination { color:#526174; font-size:13px; gap:12px; }
+.admin-company-pagination button { min-height:44px; font:inherit; font-size:14px; color:#243448; padding:8px 14px; border-color:#ccd5df; }
+.admin-company-pagination button:disabled { color:#667487; background:#f2f4f7; border-color:#e1e6ec; cursor:default; }
+@media(max-width:800px) {
+ .admin-company-summary .admin-company-capacity-note { flex-basis:100%; margin-left:0; }
+ .admin-company-filters label:first-child { flex-basis:100%; }
+ .admin-company-filters label { flex:1 1 130px; }
+ .admin-company-filters select { width:100%; }
+ .admin-company-table-wrap table { min-width:850px; }
+ .admin-company-pagination > span:first-child { flex-basis:100%; }
+}
+@media(max-width:640px) {
+ .admin-page:has(.admin-company-directory) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .admin-page:has(.admin-company-directory) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .admin-page:has(.admin-company-directory) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .admin-page:has(.admin-company-directory) .sidebar-nav-scroll, .admin-page:has(.admin-company-directory) .sidebar-footer { grid-column:1 / -1; }
+ .admin-page:has(.admin-company-directory) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}

@@ -31,7 +31,7 @@ export default function AdminDashboard() {
   const { page } = useParams();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const pages = {
-    overview: ['System Overview', 'Monitor student accounts, sections, and coordinator activity.'],
+    overview: ['System Overview', 'Student accounts, sections and coordinator activity.'],
     students: ['Student Accounts', 'Find and manage student accounts by department and section.'],
     coordinators: ['Coordinators', 'Review coordinator accounts and department assignments.'],
     companies: ['Company Directory', 'View partner companies and placement capacity.'],
@@ -347,12 +347,12 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main style={s.main}>
         <header style={s.topbar}>
-          <div style={s.topbarLeft}>
+          <div style={s.topbarLeft} className="admin-page-heading">
             <h1 style={s.pageTitle}>{pages[activeTab][0]}</h1>
             <p className="portal-page-description">{pages[activeTab][1]}</p>
           </div>
           {activeTab === 'overview' && (
-            <div style={s.headerActions}>
+            <div style={s.headerActions} className="admin-overview-actions">
               <div style={s.headerPopoverAnchor}>
                 <button type="button" style={s.toolbarIconBtn} aria-label="Notifications" onClick={() => { setNotificationOpen(value => !value); setProfileOpen(false); }}>
                   <Icon name="bell" size={16} />
@@ -426,7 +426,7 @@ export default function AdminDashboard() {
                 <span className="sr-only">Search dashboard records</span>
                 <input
                   type="search"
-                  placeholder="Search students, sections, or coordinators..."
+                  placeholder="Search students, sections or coordinators"
                   value={dashboardSearch}
                   onFocus={() => setDashboardSearchOpen(true)}
                   onKeyDown={event => {
@@ -482,14 +482,14 @@ export default function AdminDashboard() {
               <label style={s.dashboardSelect}>
                 <Icon name="filter" size={14} />
                 <span>Group by</span>
-                <select value={dashboardPeriod} onChange={event => setDashboardPeriod(event.target.value)}>
+                <select aria-label="Group registrations by" value={dashboardPeriod} onChange={event => setDashboardPeriod(event.target.value)}>
                   <option value="day">Day</option>
                   <option value="month">Month</option>
                   <option value="year">Year</option>
                 </select>
               </label>
-              <button type="button" style={s.exportBtn} onClick={exportDashboard}>
-                <Icon name="download" size={14} /> Export student accounts CSV
+              <button type="button" style={s.exportBtn} onClick={exportDashboard} aria-label="Export student accounts CSV">
+                <Icon name="download" size={14} /> Export students CSV
               </button>
             </div>
           </div>
@@ -498,29 +498,29 @@ export default function AdminDashboard() {
         {loading ? (
           <PageSkeleton label="Loading admin management data" variant="dashboard" />
         ) : (
-          <div style={s.content}>
+          <div style={s.content} className={activeTab === 'overview' ? 'admin-overview-content' : undefined}>
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="admin-system-overview" style={s.overviewGrid}>
-                <section aria-labelledby="admin-attention-heading">
-                  <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>
-                  <div className="admin-attention-grid">
-                    <button type="button" onClick={() => openStudents('pending')}>
-                      <span>Pending approvals</span><strong data-zero={scopedPending === 0}>{scopedPending}</strong>
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}>
-                      <span>Sections without a coordinator</span><strong data-zero={unassignedSections === 0}>{unassignedSections}</strong>
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}>Review student hours</button>
-                    <button type="button" onClick={() => setActiveTab('companies')}>Review company capacity</button>
-                  </div>
-                </section>
                 <dl className="admin-compact-stats" aria-label="Overview statistics">
                   <div><dt>Students</dt><dd>{departmentStudents.length}</dd></div>
                   <div><dt>Sections</dt><dd>{departmentSections.length}</dd></div>
                   <div><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd></div>
-                  <div><dt>Average rendered hours</dt><dd>{averageHours} of {averageTarget} hrs</dd></div>
+                  <div><dt>Average hours rendered</dt><dd>{averageHours}<span> of {averageTarget} hrs</span></dd></div>
                 </dl>
+                <section className="admin-attention" aria-labelledby="admin-attention-heading">
+                  <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>
+                  <div className="admin-attention-grid">
+                    <button type="button" onClick={() => openStudents('pending')}>
+                      <span>Pending approvals</span><strong data-zero={scopedPending === 0}>{scopedPending}</strong><Icon name="chevronRight" size={14} />
+                    </button>
+                    <button type="button" onClick={() => openStudents('all')}>
+                      <span>Sections without a coordinator</span><strong data-zero={unassignedSections === 0}>{unassignedSections}</strong><Icon name="chevronRight" size={14} />
+                    </button>
+                    <button type="button" onClick={() => openStudents('all')}><span>Student hours</span><Icon name="chevronRight" size={14} /></button>
+                    <button type="button" onClick={() => setActiveTab('companies')}><span>Company capacity</span><Icon name="chevronRight" size={14} /></button>
+                  </div>
+                </section>
                 <AdminCharts
                   departmentData={departmentData}
                   accountStatusData={accountStatusData}
@@ -1110,6 +1110,18 @@ function getRegistrationData(students, period = 'month') {
   return months;
 }
 
+function DepartmentAxisLabel({ x, y, payload }) {
+  const lines = [''];
+  String(payload.value).split(' ').forEach(word => {
+    const last = lines.length - 1;
+    if (lines[last] && (lines[last] + ' ' + word).length > 23) lines.push(word);
+    else lines[last] += (lines[last] ? ' ' : '') + word;
+  });
+  return <text x={x - 8} y={y} textAnchor="end" fill="#475569" fontSize={13}>
+    {lines.map((line, index) => <tspan key={index} x={x - 8} dy={index === 0 ? 4 - (lines.length - 1) * 8 : 16}>{line}</tspan>)}
+  </text>;
+}
+
 function AdminCharts({ departmentData, accountStatusData, registrationData, period }) {
   const hasStudents = departmentData.length > 0;
   const hasAccounts = accountStatusData.length > 0;
@@ -1131,18 +1143,18 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
   };
 
   const renderChart = (type, expanded = false) => {
-    const chartBox = expanded ? s.chartModalBox : s.chartBox;
+    const chartBox = expanded ? s.chartModalBox : { ...s.chartBox, height: type === 'registration' ? 240 : Math.max(240, departmentData.length * 56) };
     if (type === 'department') {
       if (!hasStudents) return <ChartEmpty message="No student records yet." />;
       return (
         <div style={chartBox}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={departmentData} margin={{ top: 12, right: 18, left: expanded ? 0 : -16, bottom: expanded ? 48 : 28 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.slate200} />
-              <XAxis dataKey="department" angle={expanded ? -18 : -25} textAnchor="end" interval={0} height={expanded ? 72 : 58} tick={{ fontSize: expanded ? 12 : 10, fill: COLORS.slate700 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: COLORS.slate700 }} />
+            <BarChart layout="vertical" data={departmentData} barSize={20} margin={{ top: 12, right: 20, left: 0, bottom: 4 }}>
+              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#e5eaf0" />
+              <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 13, fill: '#475569' }} />
+              <YAxis type="category" dataKey="department" width={176} axisLine={false} tickLine={false} interval={0} tick={<DepartmentAxisLabel />} />
               <Tooltip />
-              <Bar dataKey="students" name="Students" fill={COLORS.sky600} radius={[5, 5, 0, 0]} />
+              <Bar dataKey="students" name="Students" fill="#075fc9" radius={[0, 3, 3, 0]} label={{ position: 'right', fill: '#475569', fontSize: 13 }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1159,7 +1171,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
                 {accountStatusData.map(item => <Cell key={item.name} fill={item.color} />)}
               </Pie>
               <Tooltip />
-              <Legend verticalAlign="bottom" height={expanded ? 42 : 28} />
+              <Legend verticalAlign="bottom" height={expanded ? 42 : 28} wrapperStyle={{ fontSize: 13 }} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -1171,10 +1183,10 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={registrationData} margin={{ top: 12, right: 18, left: expanded ? 0 : -16, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.slate200} />
-            <XAxis dataKey="month" tick={{ fontSize: expanded ? 13 : 11, fill: COLORS.slate700 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: COLORS.slate700 }} />
+            <XAxis dataKey="month" tick={{ fontSize: 13, fill: COLORS.slate700 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 13, fill: COLORS.slate700 }} />
             <Tooltip />
-            <Line type="monotone" dataKey="registrations" name="Registrations" stroke={COLORS.sky600} strokeWidth={expanded ? 4 : 3} dot={false} />
+            <Line type="monotone" dataKey="registrations" name="Registrations" stroke="#075fc9" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

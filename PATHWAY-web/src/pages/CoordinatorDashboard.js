@@ -418,7 +418,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {activeTab !== 'profile' && (
+            {!['profile', 'requirements'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -469,7 +469,10 @@ export default function CoordinatorDashboard() {
                 <div className="requirements-students" style={s.col2}>
                   <div style={s.colHeader}>
                     Students <span className="requirements-count">{filteredStudents.length}</span>
-                    <p>{selectedSection?.name || 'Select a section to see its students.'}</p>
+                    <select aria-label="Current section" className="requirements-queue-section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
+                      {sections.length === 0 && <option value="">No assigned sections</option>}
+                      {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+                    </select>
                   </div>
                   <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
                   <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">

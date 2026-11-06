@@ -39,3 +39,40 @@
 .admin-company-table-wrap { overflow-x: auto; border: 1px solid #d9e2ee; border-radius: 12px; background: white; }
 .admin-company-pagination { justify-content: flex-end; font-size: 14px; color: #475569; }
 .admin-company-pagination > span:first-child { margin-inline-end: auto; }
+/* Coordinators use the same quiet directory layout as Students. */
+.admin-page:has(.admin-coordinators-directory) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.admin-page:has(.admin-coordinators-directory) main > header .admin-page-heading { display:flex; flex-direction:column; align-items:flex-start !important; gap:6px; }
+.admin-page:has(.admin-coordinators-directory) .portal-page-description { margin:0; color:#526174; font-size:14px; line-height:1.5; }
+.admin-page .admin-coordinators-directory { background:transparent !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; padding:0 !important; max-width:none !important; }
+.admin-coordinators-directory > div:first-child { align-items:center; margin-bottom:16px !important; }
+.admin-coordinators-directory .admin-coordinator-intro { margin:0; color:#526174 !important; font-size:14px !important; }
+.admin-coordinators-directory > div:first-child button { min-height:44px; font:inherit; font-size:14px !important; border-radius:8px !important; }
+.admin-coordinators-directory .admin-directory-summary { display:flex; flex-wrap:wrap; gap:12px 24px; margin-bottom:20px; }
+.admin-coordinators-directory .admin-directory-summary > div { display:flex; flex-direction:row; align-items:baseline; gap:6px; padding:0; border:0; background:transparent; border-radius:0; }
+.admin-coordinators-directory .admin-directory-summary span { color:#526174; font-size:14px; }
+.admin-coordinators-directory .admin-directory-summary strong { color:#17212f; font-size:14px; font-weight:600; }
+.admin-coordinators-directory .admin-directory-records { border:1px solid #dce2e9; border-radius:12px; }
+.admin-coordinators-directory .admin-directory-search { padding:16px !important; gap:12px; }
+.admin-coordinators-directory .admin-directory-search input { height:44px; min-height:44px; box-sizing:border-box; font:inherit; font-size:14px !important; color:#243448 !important; background:#fff !important; border-color:#ccd5df !important; border-radius:8px !important; }
+.admin-coordinators-directory .admin-directory-search > span { color:#526174 !important; font-size:13px !important; white-space:nowrap; }
+.admin-coordinators-directory .admin-directory-records th { padding:12px 16px !important; font-size:13px !important; color:#526174 !important; font-weight:600 !important; }
+.admin-coordinators-directory .admin-directory-records td { height:64px; box-sizing:border-box; padding:12px 16px !important; font-size:14px !important; color:#243448 !important; }
+.admin-coordinators-directory .admin-directory-records td > .admin-student-status { padding:5px 9px !important; font-size:13px !important; }
+@media(max-width:640px) {
+ .admin-page:has(.admin-coordinators-directory) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .admin-page:has(.admin-coordinators-directory) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .admin-page:has(.admin-coordinators-directory) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .admin-page:has(.admin-coordinators-directory) .sidebar-nav-scroll, .admin-page:has(.admin-coordinators-directory) .sidebar-footer { grid-column:1 / -1; }
+ .admin-page:has(.admin-coordinators-directory) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+ .admin-coordinators-directory .admin-directory-records table { min-width:680px; }
+ .admin-coordinators-directory .admin-directory-search input { flex-basis:100%; }
+}
+.admin-coordinators-directory { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0 16px; }
+.admin-coordinators-directory > div:first-child { grid-column:2; grid-row:1; margin-bottom:20px !important; }
+.admin-coordinators-directory .admin-directory-summary { grid-column:1; grid-row:1; align-self:center; }
+.admin-coordinators-directory .admin-directory-records { grid-column:1 / -1; min-width:0; }
+@media(max-width:640px) {
+ .admin-coordinators-directory { grid-template-columns:minmax(0,1fr); }
+ .admin-coordinators-directory .admin-directory-summary { grid-column:1; grid-row:1; }
+ .admin-coordinators-directory > div:first-child { grid-column:1; grid-row:2; }
+}

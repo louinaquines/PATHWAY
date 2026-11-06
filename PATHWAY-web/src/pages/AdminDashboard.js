@@ -597,12 +597,8 @@ export default function AdminDashboard() {
 
             {/* COORDINATORS */}
             {['coordinators', 'create'].includes(activeTab) && (
-              <div style={s.tabContent} className="admin-directory-screen">
+              <div style={s.tabContent} className="admin-directory-screen admin-coordinators-directory">
                 <div style={s.tabHeader}>
-                  <div>
-                    <h2 style={s.subTitle}>Coordinators</h2>
-                    <p style={s.subText}>Faculty accounts and their assigned departments.</p>
-                  </div>
                   <button style={s.addCoordinatorBtn} onClick={() => setActiveTab('create')}>
                     + Create Coordinator
                   </button>
@@ -1285,7 +1281,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
         <input
           type="text"
           aria-label="Search accounts"
-          placeholder={studentDirectory ? 'Search students…' : 'Filter by name, ID, department, or email...'}
+          placeholder={studentDirectory ? 'Search students…' : coordinatorDirectory ? 'Search coordinators…' : 'Filter by name, ID, department, or email...'}
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={s.tableSearchInput}
@@ -1295,7 +1291,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
             <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="rejected">Rejected</option>
           </select>
         </>}
-        <span style={s.countBadge}>{filtered.length} {studentDirectory ? (filtered.length === 1 ? 'student' : 'students') : 'record(s)'}</span>
+        <span style={s.countBadge}>{filtered.length} {studentDirectory ? (filtered.length === 1 ? 'student' : 'students') : coordinatorDirectory ? (filtered.length === 1 ? 'coordinator' : 'coordinators') : 'record(s)'}</span>
       </div>
 
       {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
@@ -1329,7 +1325,7 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
                     backgroundColor: user.accountApproved ? COLORS.emerald50 : COLORS.yellow100,
                     color: '#000000',
                     border: `1px solid ${user.accountApproved ? COLORS.emerald200 : COLORS.yellow300}`,
-                  }} className={studentDirectory ? `admin-student-status ${user.accountApproved ? 'is-active' : user.status === 'rejected_registration' ? 'is-rejected' : 'is-pending'}` : undefined}>
+                  }} className={studentDirectory || coordinatorDirectory ? `admin-student-status ${user.accountApproved ? 'is-active' : studentDirectory && user.status === 'rejected_registration' ? 'is-rejected' : 'is-pending'}` : undefined}>
                     {user.accountApproved ? 'Active' : studentDirectory && user.status === 'rejected_registration' ? 'Rejected' : 'Pending'}
                   </span>
                 </td>

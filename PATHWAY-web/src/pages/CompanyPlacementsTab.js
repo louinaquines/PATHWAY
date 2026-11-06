@@ -225,10 +225,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         suppliedItems={error ? [] : placementNotices} onRefresh={load}
         onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
     </div>}
-    <CompanyConversations sectionId={selectedSection?.id} />
+    <details className="placement-email-disclosure"><summary>Company email <span>View replies and conversations</span></summary><CompanyConversations sectionId={selectedSection?.id} /></details>
     <div className="placement-page-header">
-      <div><h2 style={{ margin: 0 }}>Company Placements</h2>
-      <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Company details, assigned students, and placement reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
+      <div>
+      <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Assignments and reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
       <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
     </div>
     <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">

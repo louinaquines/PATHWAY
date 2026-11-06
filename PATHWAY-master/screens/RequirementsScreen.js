@@ -1,5 +1,5 @@
 // screens/RequirementsScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -19,7 +19,7 @@ import { auth, db } from '../firebaseConfig';
 import { BACKEND_URL, requestBackend } from '../services/backendApi';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
 import { studentAlert as Alert } from '../services/studentAlert';
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
 import { COLORS, SHADOWS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
@@ -101,6 +101,23 @@ export default function RequirementsScreen({ navigation, route }) {
 
   const currentUser = auth?.currentUser;
   const uid = currentUser?.uid;
+  const liveRequirements = useRef(null);
+
+  useEffect(() => {
+    liveRequirements.current = null;
+    if (!uid || loggingOut) return;
+    return onSnapshot(doc(db, 'users', uid), snapshot => {
+      if (auth.currentUser?.uid !== uid) return;
+      const profile = snapshot.data() || {};
+      liveRequirements.current = profile.requirements || {};
+      setCanEditRequirements(profile.accountApproved === true && profile.preDeploymentStatus !== 'approved');
+      setRequirementsEligible(profile.requirementsStatus === 'approved');
+      setRequirements(previous => previous.map(item => ({ ...item,
+        ...(profile.requirements?.[item.id] || { status: 'not_submitted', fileUrl: null, fileName: null, fileSize: null, submittedAt: null }),
+        autoReview: profile.requirements?.[item.id]?.autoReview || null,
+      })));
+    }, () => console.warn('Document status updates could not connect.'));
+  }, [uid, loggingOut]);
 
   const handleLogout = logout;
 
@@ -141,7 +158,7 @@ export default function RequirementsScreen({ navigation, route }) {
       const userData = userSnap.data() || {};
       setCanEditRequirements(userData.accountApproved === true && userData.preDeploymentStatus !== 'approved');
       setRequirementsEligible(userData.requirementsStatus === 'approved');
-      const saved = userData.requirements || {};
+      const saved = liveRequirements.current || userData.requirements || {};
 
       let sectionReqs = [];
       const sectionId = userData.sectionId;
@@ -166,6 +183,7 @@ export default function RequirementsScreen({ navigation, route }) {
           required: r.required !== false,
           fileTypeHint: r.fileTypeHint || 'PDF or Word (Max 5MB)',
           status: userSaved.status || 'not_submitted',
+          autoReview: userSaved.autoReview || null,
           fileUrl: userSaved.fileUrl || null,
           fileName: userSaved.fileName || null,
           fileSize: userSaved.fileSize || null,
@@ -351,21 +369,28 @@ export default function RequirementsScreen({ navigation, route }) {
         Alert.alert('File too large', 'Choose a document smaller than 5 MB.');
         return;
       }
+      const aiReviewConsent = /\.(pdf|png|jpe?g)$/i.test(file.name || '') && await new Promise(resolve => {
+        Alert.alert('Optional automatic AI checks',
+          'Allow this file and your profile name/student ID to be sent to Anthropic for document checklist checks? The file may contain personal or sensitive information. AI cannot verify authenticity or approve it. Your coordinator makes the decision. You can upload without AI.',
+          [{ text: 'Without AI', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Allow AI checks', onPress: () => resolve(true) }]);
+      });
       setUploadingId(docItem.id);
       if (!uid) throw new Error('Please sign in again.');
       const authorization = await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}/upload-signature`);
       const uploaded = await uploadCloudinaryFile(file, authorization);
       const saved = await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}`, {
-        method: 'PUT', payload: { status: 'submitted', ...uploaded, fileName: file.name },
+        method: 'PUT', payload: { status: 'submitted', ...uploaded, fileName: file.name, aiReviewConsent, aiReviewConsentVersion: '1' },
       });
 
-      const updated = requirements.map(r =>
+      const liveResult = liveRequirements.current?.[docItem.id];
+      const autoReview = liveResult?.submittedAt === saved.submittedAt ? liveResult.autoReview : saved.autoReview;
+      setRequirements(previous => previous.map(r =>
         r.id === docItem.id
-          ? { ...r, status: 'submitted', fileUrl: saved.fileUrl, fileName: saved.fileName, fileSize: saved.fileSize, submittedAt: saved.submittedAt,
+          ? { ...r, status: 'submitted', fileUrl: saved.fileUrl, fileName: saved.fileName, fileSize: saved.fileSize, submittedAt: saved.submittedAt, autoReview,
             cloudinaryDeliveryType: docItem.id === 'endorsement_letter' ? 'authenticated' : null }
           : r
-      );
-      setRequirements(updated);
+      ));
 
       setUploadingId(null);
 
@@ -587,7 +612,7 @@ export default function RequirementsScreen({ navigation, route }) {
                   {docItem.status === 'submitted' && (
                     <View style={styles.pendingBadge}>
                       <Text style={styles.pendingBadgeIcon}>•</Text>
-                      <Text style={styles.pendingBadgeText}>In review</Text>
+                      <Text style={styles.pendingBadgeText}>{['queued', 'checking'].includes(docItem.autoReview?.status) ? 'AI checking' : 'In review'}</Text>
                     </View>
                   )}
 
@@ -607,6 +632,14 @@ export default function RequirementsScreen({ navigation, route }) {
 
                   <ChevronIcon size={16} color={COLORS.textMuted} expanded={isExpanded} />
                 </View>
+
+                {isExpanded && docItem.status === 'submitted' && docItem.autoReview && (
+                  <View style={{ padding: 12, backgroundColor: '#eff6ff', borderRadius: 8, marginTop: 8 }}>
+                    <Text style={{ color: COLORS.primary, fontWeight: '700' }}>{docItem.autoReview.status === 'checks_passed' ? 'Checks passed — approval pending' : ['queued', 'checking'].includes(docItem.autoReview.status) ? 'AI checking your document' : 'Coordinator review needed'}</Text>
+                    <Text style={{ marginTop: 4, color: COLORS.textMuted }}>Automatic checks are advisory. Your coordinator makes the approval decision.</Text>
+                    {(docItem.autoReview.findings || []).map((finding, index) => <Text key={index} style={{ marginTop: 4, color: COLORS.textMuted }}>{finding}</Text>)}
+                  </View>
+                )}
 
                 {expandedRequirementId === docItem.id && isUploading && (
                   <View style={styles.uploadingBox}>

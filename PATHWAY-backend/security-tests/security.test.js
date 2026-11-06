@@ -624,6 +624,7 @@ test('server-owned review and company-mail subcollections deny direct client acc
     'sections/section-a/reviewChecks/release-check',
     'sections/section-a/companyConversations/release-check',
     'sections/section-a/companyConversations/release-check/replyAttempts/release-check',
+    'requirementCheckJobs/release-check',
   ];
   await testEnv.withSecurityRulesDisabled(async context => {
     for (const selected of paths) await setDoc(doc(context.firestore(), selected), { testOnly: true });
@@ -1123,6 +1124,11 @@ test('Cloudinary upload authorization is server-signed, student-scoped, and sing
   }, 'PUT');
   assert.equal(finalized.response.status, 200, JSON.stringify(finalized.data));
   assert.equal(finalized.data.fileSize, '0.5 MB');
+  assert.equal(finalized.data.autoReview.status, 'needs_review');
+  assert.equal(finalized.data.autoReview.reason, 'consent_required');
+  assert.equal((await api('/requirements/application_form', identities.studentA, {
+    status: 'submitted', aiReviewConsent: true, aiReviewConsentVersion: 'outdated',
+  }, 'PUT')).response.status, 400);
   const documentBytes = Buffer.from('%PDF-1.7\nverified ordinary requirement\n%%EOF');
   asset.asset_id = 'ordinary-document-asset-000001';
   cloudinaryDownloadAssets.set(asset.asset_id, documentBytes);

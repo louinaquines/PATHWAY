@@ -28,6 +28,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
+import RequirementCheckResult from '../components/RequirementCheckResult';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
 import { downloadSectionExcel } from '../sectionExport';
@@ -553,6 +554,7 @@ export default function CoordinatorDashboard() {
                                       <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
                                       <div>
                                         <div style={s.reqLabel}>{label}</div>
+                                        {status === 'submitted' && <RequirementCheckResult review={req?.autoReview} />}
                                         {deadline && (
                                           <div style={{ fontSize: 11, color: isOverdue ? COLORS.rose700 : '#000000', fontWeight: isOverdue ? 800 : 600, marginTop: 2 }}>
                                             <><Icon name="calendar" size={12} /> Deadline: {new Date(deadline).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</>

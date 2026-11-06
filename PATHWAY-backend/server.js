@@ -255,7 +255,8 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
   try {
     const { userRef } = await getEditableRequirement(req.user.uid, requirementId);
     if (status === 'submitted') {
-      const { intentId, publicId, version, signature, fileName } = req.body || {};
+      const { intentId, publicId, version, signature, fileName, aiReviewConsent = false, aiReviewConsentVersion } = req.body || {};
+      if (typeof aiReviewConsent !== 'boolean' || (aiReviewConsent && aiReviewConsentVersion !== '1')) return res.status(400).json({ error: 'Confirm the current AI file-sharing notice before enabling automatic checking.' });
       if (typeof fileName !== 'string' || !fileName.trim() || fileName.trim().length > 180) {
         return res.status(400).json({ error: 'Enter a valid file name.' });
       }
@@ -267,6 +268,7 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
         return res.status(409).json({ error: 'The signed letter upload authorization is outdated. Start the upload again.' });
       }
       const submittedAt = new Date().toISOString();
+      let autoReview;
       await adminDb.runTransaction(async transaction => {
         const intentPlacementProposalId = authenticatedEndorsement ? verified.intent.placementProposalId : null;
         const endorsementRef = intentPlacementProposalId
@@ -300,16 +302,20 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
           }
         }
         const previousRequirement = freshUser.data().requirements?.[requirementId] || {};
-        transaction.update(userRef, { [`requirements.${requirementId}`]: {
+        const requirement = {
           status: 'submitted', fileUrl: authenticatedEndorsement ? null : verified.asset.secure_url, fileName: fileName.trim(),
           fileSize: formatFileSize(verified.asset.bytes), uploadedBytes: verified.asset.bytes,
           cloudinaryPublicId: verified.asset.public_id, cloudinaryVersion: verified.asset.version, submittedAt,
+          ...(verified.asset.asset_id ? { cloudinaryAssetId: verified.asset.asset_id } : {}), cloudinaryResourceType: verified.asset.resource_type,
+          aiReviewConsent, ...(aiReviewConsent ? { aiReviewConsentVersion: '1', aiReviewConsentedAt: submittedAt } : {}),
           ...(authenticatedEndorsement ? {
             cloudinaryAssetId: verified.asset.asset_id,
             cloudinaryDeliveryType: 'authenticated',
             placementProposalId: intentPlacementProposalId,
           } : {}),
-        } });
+        };
+        autoReview = await requirementChecks.queue(transaction, { studentId: req.user.uid, student: freshUser.data(), requirementId, requirement });
+        transaction.update(userRef, { [`requirements.${requirementId}`]: { ...requirement, autoReview } });
         transaction.update(verified.intentRef, { status: 'used', usedAt: Date.now() });
         writeAuditInTransaction(transaction, {
           actorId: req.user.uid, actorRole: 'student', action: 'requirement.submitted',
@@ -322,7 +328,7 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
         });
       });
       return res.json({ success: true, fileUrl: authenticatedEndorsement ? null : verified.asset.secure_url, fileName: fileName.trim(),
-        fileSize: formatFileSize(verified.asset.bytes), submittedAt });
+        fileSize: formatFileSize(verified.asset.bytes), submittedAt, autoReview });
     }
 
     await adminDb.runTransaction(async transaction => {
@@ -2677,6 +2683,29 @@ app.post('/evaluation/:token/submit', async (req, res) => {
 });
 
 const anthropicAnalysis = require('./anthropicAnalysis').createAnthropicAnalysis();
+const requirementChecks = require('./requirementChecks').createRequirementChecks({
+  db: adminDb, ai: anthropicAnalysis, audit: writeAuditInTransaction,
+  enabled: () => process.env.REQUIREMENT_AI_ENABLED !== '0' && process.env.ANTHROPIC_ENABLED === '1'
+    && require('./anthropicAnalysis').configErrors(process.env).length === 0,
+  getBytes: async ({ studentId, requirementId, requirement }) => {
+    const config = cloudinaryConfig();
+    if (!config || !requirement.cloudinaryPublicId?.startsWith(`pathway/requirements/${studentId}/${requirementId}-`)
+      || !['raw','image'].includes(requirement.cloudinaryResourceType)
+      || !Number.isSafeInteger(requirement.uploadedBytes) || requirement.uploadedBytes < 1 || requirement.uploadedBytes > MAX_UPLOAD_BYTES) throw new Error('Verified file unavailable');
+    const deliveryType = requirement.cloudinaryDeliveryType === 'authenticated' ? 'authenticated' : 'upload';
+    const asset = await fetchCloudinaryAsset({ ...config, resourceType: requirement.cloudinaryResourceType, publicId: requirement.cloudinaryPublicId, deliveryType });
+    if (!validateAssetMetadata(asset, { cloudName: config.cloudName, expectedPublicId: requirement.cloudinaryPublicId, expectedVersion: requirement.cloudinaryVersion, kind: 'requirement', expectedDeliveryType: deliveryType })
+      || asset.asset_id !== requirement.cloudinaryAssetId || asset.bytes !== requirement.uploadedBytes) throw new Error('File changed');
+    const bytes = await fetchCloudinaryAssetDownload({ ...config, assetId: asset.asset_id, fileName: requirement.fileName });
+    if (bytes.length !== requirement.uploadedBytes) throw new Error('File size mismatch');
+    return bytes;
+  },
+});
+if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATOR_HOST) {
+  const checkPendingRequirements = () => requirementChecks.run().catch(() => console.warn('Automatic document checking paused; coordinator review remains available.'));
+  setInterval(checkPendingRequirements, 5000).unref();
+  checkPendingRequirements();
+}
 require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
 require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });

@@ -218,14 +218,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const historyPage = useRecordPage(historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
-    {workspace === 'reviews' && <div className="placement-review-top-toolbar">
-      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
-        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
-      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
-        suppliedItems={error ? [] : placementNotices} onRefresh={load}
-        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
-    </div>}
-    <details className="placement-email-disclosure"><summary>Company email <span>View replies and conversations</span></summary><CompanyConversations sectionId={selectedSection?.id} /></details>
+
     <div className="placement-page-header">
       <div>
       <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Assignments and reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
@@ -235,6 +228,14 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
       <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews{items.filter(item => item.status === 'pending_review').length ? ` (${items.filter(item => item.status === 'pending_review').length})` : ''}</button>
     </div>
+    {workspace === 'reviews' && <div className="placement-review-top-toolbar">
+      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
+        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
+      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
+        suppliedItems={error ? [] : placementNotices} onRefresh={load}
+        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
+    </div>}
+
     {error && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
     {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} companies={companies} students={assignedStudents} sectionName={selectedSection.name} />}
     {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>
@@ -360,6 +361,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     })}
     </section>
     </div>
+    <details className="placement-email-disclosure"><summary>Company email <span>View replies and conversations</span></summary><CompanyConversations sectionId={selectedSection?.id} /></details>
     <AlertDialog
       open={Boolean(reviewConfirm)}
       tone={reviewConfirm?.status === 'approved' ? 'warning' : 'danger'}

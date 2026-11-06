@@ -418,7 +418,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -671,7 +671,7 @@ export default function CoordinatorDashboard() {
               </div>
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
-            {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
+            {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}

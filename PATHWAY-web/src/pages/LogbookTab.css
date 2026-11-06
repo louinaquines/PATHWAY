@@ -67,3 +67,49 @@
 @media (max-width: 900px) {
   .logbook-workspace .logbook-students { width: 100% !important; }
 }
+/* Logbook review follows the Requirements queue layout. */
+.coordinator-page:has(.logbook-workspace) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.logbook-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
+.logbook-workspace { padding:24px; gap:20px; }
+.logbook-workspace > .logbook-students, .logbook-workspace > .logbook-detail { border-radius:12px; border-color:#dce2e9 !important; }
+.logbook-workspace .logbook-students { width:300px !important; flex-shrink:0; }
+.logbook-workspace .logbook-panel-header { padding:20px !important; font-size:18px !important; font-weight:600; }
+.logbook-panel-header p { font-size:13px; color:#526174; }
+.logbook-count { color:#526174; background:#f0f3f6; font-size:13px; }
+.coordinator-page .logbook-workspace select.logbook-queue-section:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; width:100%; height:44px; min-height:44px; margin:0 0 -8px; padding:0 24px 0 0 !important; border:0 !important; border-radius:4px !important; background-color:transparent !important; color:#526174 !important; font:inherit; font-size:13px !important; font-weight:400; }
+.logbook-workspace .coordinator-search { height:44px; min-height:44px; box-sizing:border-box; border-radius:8px; }
+.logbook-workspace .coordinator-search input { height:100%; min-height:0; padding-block:0; font:inherit; font-size:14px; }
+.logbook-students .portal-record-pagination { display:grid; grid-template-columns:1fr 1fr; padding:12px; gap:8px; }
+.logbook-students .portal-record-pagination > span:first-child { grid-row:1; grid-column:1; margin:0; }
+.logbook-students .portal-record-pagination > span:nth-child(3) { grid-row:1; grid-column:2; text-align:right; }
+.logbook-students .portal-record-pagination button { grid-row:2; }
+.logbook-workspace .logbook-select-card { padding:12px !important; margin:6px 10px; border-radius:8px; }
+.logbook-select-card[aria-pressed='true'] { background:#edf4ff !important; border-color:#9bbde8 !important; }
+.logbook-select-card > div:first-child { font-size:14px !important; }
+.logbook-select-card > div:last-child { font-size:13px !important; color:#526174 !important; }
+.logbook-detail-content { padding:20px !important; }
+.logbook-record-toolbar { gap:12px; flex-wrap:wrap; align-items:center; }
+.logbook-record-switch { margin-bottom:0; border-radius:8px; }
+.logbook-record-switch button { font-weight:500; font-size:14px; }
+.logbook-workspace .logbook-entry-card { border-radius:10px !important; border-color:#dce2e9 !important; padding:16px !important; }
+.logbook-entry-card button { min-height:44px; font:inherit; font-size:13px; border-radius:8px !important; }
+.logbook-entry-card button:last-child { color:#243448 !important; border-color:#ccd5df !important; }
+.logbook-workspace .coordinator-attendance h3 { margin-top:20px; font-size:16px; font-weight:600; }
+.logbook-workspace .coordinator-attendance :is(th,td) { font-size:13px; padding:12px 16px; }
+.coordinator-page:has(.logbook-workspace) .section-export-button { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; min-height:44px; font:inherit; font-size:14px !important; box-shadow:none !important; }
+@media(max-width:950px) { .logbook-workspace { flex-wrap:wrap; overflow-y:auto !important; align-content:flex-start; } .logbook-workspace .logbook-students { width:100% !important; max-height:400px; } .logbook-workspace .logbook-detail { flex:0 0 100% !important; overflow:visible !important; } }
+@media(max-width:640px) {
+ .logbook-workspace { padding:12px; gap:16px; }
+ .logbook-detail-content { padding:16px !important; }
+ .coordinator-page:has(.logbook-workspace) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .coordinator-page:has(.logbook-workspace) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .coordinator-page:has(.logbook-workspace) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .coordinator-page:has(.logbook-workspace) .sidebar-nav-scroll, .coordinator-page:has(.logbook-workspace) .sidebar-footer { grid-column:1 / -1; }
+ .coordinator-page:has(.logbook-workspace) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}
+@media(max-width:640px) {
+ .coordinator-page:has(.logbook-workspace) main > header { flex-direction:column !important; align-items:stretch !important; gap:16px; }
+ .coordinator-page:has(.logbook-workspace) main > header > div { width:100%; min-width:0; }
+ .coordinator-page:has(.logbook-workspace) #logbook-header-actions { width:100%; }
+ .coordinator-page:has(.logbook-workspace) .section-export-button { width:100%; justify-content:center; white-space:normal; }
+}

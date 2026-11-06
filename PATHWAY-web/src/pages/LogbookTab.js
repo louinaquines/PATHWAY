@@ -18,7 +18,7 @@ import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
-export default function LogbookTab({ coordinatorId, selectedSection: sharedSection }) {
+export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
@@ -172,9 +172,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       {/* Col 2: Students */}
       <div className="logbook-students" style={t.col2}>
         <div className="logbook-panel-header" style={t.colHeader}>
-          Students <span className="logbook-count">{students.length}</span><p>{selectedSection?.name || 'Select a section first.'}</p>
+          Students <span className="logbook-count">{students.length}</span><select className="logbook-queue-section" aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''} onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
+            {!sections.length && <option value="">No assigned sections</option>}
+            {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+          </select>
         </div>
-        <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" /></div>
+        <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
         <RecordPagination pagination={studentsPage} label="Journal students" />
         {!selectedSection && <div style={t.empty}>Choose a section in the top bar.</div>}
         {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>No students in this section.</div>}
@@ -193,7 +196,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       {/* Col 3: Logbook Entries */}
       <div className="logbook-detail" style={t.col3}>
         <div className="logbook-panel-header logbook-detail-header" style={t.colHeader}>
-          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Journals'}
+          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Student records'}
           <p>{selectedStudent ? 'Review journal reports and reported hours.' : 'Select a student to view their submissions.'}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -222,7 +225,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="book" size={28} label="Logbook" /></div>
               <h3 style={t.emptyTitle}>Select a Student</h3>
-              <p style={t.emptySub}>Select a section and student to review their journal submissions and hours.</p>
+              <p style={t.emptySub}>Choose a student from the list to review attendance and journals.</p>
             </div>
           )}
 

@@ -400,7 +400,7 @@ export default function CoordinatorDashboard() {
           <div style={s.topbarLeft} className="topbarLeft">
             <div className="coordinator-header-title"><div className="coordinator-title-settings-row"><h1 style={s.pageTitle}>
               {activeTab === 'requirements' ? 'Requirements Approval' :
-                activeTab === 'sections' ? 'Sections Management' :
+                activeTab === 'sections' ? 'Sections & Roster' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
                             activeTab === 'placements' ? 'Company Placements' :
                               activeTab === 'companies' ? 'Company Directory' :
@@ -418,7 +418,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>

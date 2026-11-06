@@ -226,7 +226,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           <button style={t.addBtn} onClick={() => setModal(true)}>+ New Section</button>
         </div>
         <div style={t.searchWrap}>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" />
+          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" placeholder="Search sections or students…" />
         </div>
 
         <div style={t.secList}>
@@ -284,14 +284,14 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 </div>
               </div>
 
-              <form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+              <details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
                 <label style={t.label}>Group chat link
                   <input name="messengerLink" type="url" maxLength={500} style={t.input}
                     defaultValue={chatHref} placeholder="https://m.me/j/…" />
                 </label>
                 <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
                 {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
-              </form>
+              </form></details>
               <div className="section-view-toggle" style={t.viewToggle}>
                 <button
                   aria-pressed={view === 'students'}
@@ -314,8 +314,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             {view === 'students' && (
               <div style={t.viewContent}>
                 <div style={t.subHeaderRow}>
-                  <h3 style={t.sectionLabel}>Enrolled students</h3>
-                  <span style={t.studentCountText}>{students.length} Student(s)</span>
+                  <h3 style={t.sectionLabel}>Student roster</h3>
+
                 </div>
 
                   {filteredStudents.length === 0 ? (

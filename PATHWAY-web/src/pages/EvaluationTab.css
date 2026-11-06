@@ -60,3 +60,48 @@
   .evaluation-panel .evaluation-records-actions { justify-content: space-between; }
   .evaluation-panel .evaluation-records-actions .coordinator-search { width: 100%; }
 }
+/* Supervisor evaluations: restrained form and record hierarchy. */
+.coordinator-page:has(.evaluation-panel) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.evaluation-panel) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
+.evaluation-panel { min-width:0; gap:20px !important; }
+.evaluation-panel > .evaluation-invitation, .evaluation-panel > .evaluation-records-card { padding:24px !important; border-radius:12px !important; border-color:#dce2e9 !important; box-shadow:none !important; }
+.evaluation-panel .evaluation-invitation-header { gap:12px !important; margin-bottom:24px !important; align-items:center !important; }
+.evaluation-panel .evaluation-invitation-header h2 { font-size:18px !important; font-weight:600 !important; color:#17212f !important; }
+.evaluation-panel .evaluation-invitation-header p { color:#526174 !important; font-size:14px !important; line-height:1.5; }
+.evaluation-panel .evaluation-invitation-header > div:first-child { width:36px !important; height:36px !important; border-radius:8px !important; background:#edf4ff !important; }
+.evaluation-panel .evaluation-builder-launch { max-width:280px !important; }
+.evaluation-panel .evaluation-builder-launch span { color:#526174; font-size:13px; }
+.evaluation-panel .evaluation-builder-launch button { min-height:44px; border-color:#ccd5df !important; color:#243448 !important; border-radius:8px; }
+.evaluation-invitation > form { gap:20px !important; }
+.evaluation-invitation > form > div:not(.evaluation-form-actions) { gap:20px !important; }
+.evaluation-invitation label { font-size:14px !important; font-weight:500 !important; color:#243448 !important; }
+.evaluation-invitation :is(input,select) { height:44px; min-height:44px; border:1px solid #ccd5df !important; border-radius:8px !important; font:inherit; font-size:14px !important; background:#fff !important; }
+.evaluation-panel .evaluation-form-actions button { min-height:44px; padding:10px 16px !important; font:inherit; font-size:14px; font-weight:500; border-radius:8px !important; box-shadow:none !important; }
+.evaluation-panel .evaluation-form-actions button[type='submit'] { background:#075fc9 !important; }
+.evaluation-panel .evaluation-form-actions .evaluation-connection-button { color:#526174 !important; border-color:#ccd5df !important; }
+.evaluation-panel .evaluation-records-header h3 { font-size:16px !important; font-weight:600 !important; color:#17212f !important; }
+.evaluation-panel .evaluation-records-header p { font-size:13px !important; color:#526174 !important; }
+.evaluation-panel .evaluation-records-actions .coordinator-search { min-height:44px; height:44px; width:260px; }
+.evaluation-panel .evaluation-records-utilities { flex-wrap:wrap; }
+.evaluation-panel .evaluation-records-utilities button { min-height:44px !important; border-radius:8px !important; font-size:13px !important; }
+.evaluation-panel .evaluation-record { border-radius:10px !important; border-color:#dce2e9 !important; }
+.evaluation-panel .evaluation-record h4 { font-size:16px !important; font-weight:600 !important; }
+@media(max-width:800px) {
+ .evaluation-panel .evaluation-invitation-header .evaluation-builder-launch { flex-basis:100%; align-items:flex-start; text-align:left; margin-left:0; max-width:none !important; }
+ .evaluation-invitation > form > div:not(.evaluation-form-actions) { flex-direction:column; }
+ .evaluation-invitation > form > div > div { min-width:0; }
+}
+@media(max-width:640px) {
+ .evaluation-panel { padding:12px !important; }
+ .evaluation-panel > .evaluation-invitation, .evaluation-panel > .evaluation-records-card { padding:16px !important; }
+ .evaluation-panel .evaluation-form-actions > button { width:100%; flex-basis:100%; }
+ .evaluation-panel .evaluation-records-actions { width:100% !important; }
+ .evaluation-panel .evaluation-records-actions .coordinator-search { width:100%; }
+ .coordinator-page:has(.evaluation-panel) main > header { flex-direction:column !important; align-items:stretch !important; gap:16px; }
+ .coordinator-page:has(.evaluation-panel) main > header > div { min-width:0; width:100%; }
+ .coordinator-page:has(.evaluation-panel) .sidebar-container { display:grid !important; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; padding:12px 16px !important; }
+ .coordinator-page:has(.evaluation-panel) .sidebar-container .sidebar-brand { padding:0 !important; margin:0 !important; border:0 !important; gap:8px !important; }
+ .coordinator-page:has(.evaluation-panel) .portal-navigation-toggle { width:auto; margin:0; padding:10px; font-size:13px; }
+ .coordinator-page:has(.evaluation-panel) .sidebar-nav-scroll, .coordinator-page:has(.evaluation-panel) .sidebar-footer { grid-column:1 / -1; }
+ .coordinator-page:has(.evaluation-panel) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
+}

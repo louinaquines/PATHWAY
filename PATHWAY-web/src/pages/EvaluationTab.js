@@ -195,16 +195,16 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
           <div>
             <h2 style={styles.title}>Request an evaluation</h2>
             <p style={styles.sub}>
-              Send a secure evaluation invitation directly to the supervisor's email.
+              Prepare a private invitation for the student’s supervisor.
             </p>
           </div>
-          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)}>Create evaluation</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
+          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)} aria-label="Create evaluation">Edit questions</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
         </div>
 
         <form onSubmit={createLink} style={styles.form}>
           <div style={styles.formRow}>
             <div style={styles.field}>
-              <label style={styles.label}>Select Enrolled Student</label>
+              <label style={styles.label}>Student</label>
               <select
                 aria-label="Select enrolled student"
                 required
@@ -222,7 +222,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>Host Company / Organization</label>
+              <label style={styles.label}>Host company</label>
               <input
                 required
                 placeholder="e.g. Acme Tech Solutions Inc."
@@ -236,7 +236,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
 
           <div style={styles.formRow}>
             <div style={styles.field}>
-              <label style={styles.label}>Supervisor Full Name</label>
+              <label style={styles.label}>Supervisor name</label>
               <input
                 required
                 placeholder="e.g. John Doe, Senior Dev"
@@ -248,7 +248,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
             </div>
 
             <div style={styles.field}>
-              <label style={styles.label}>Supervisor Email Address</label>
+              <label style={styles.label}>Supervisor email</label>
               <input
                 type="email"
                 required
@@ -302,11 +302,11 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       <div className="evaluation-records-card" style={styles.card}>
           <div className="evaluation-records-header" style={styles.recordsHeader}>
           <div>
-            <h3 style={styles.title}>Submitted & Pending Evaluations</h3>
-            <p style={styles.sub}>{evaluations.length} evaluation record(s)</p>
+            <h3 style={styles.title}>Evaluation records</h3>
+            <p style={styles.sub}>{evaluations.length} {evaluations.length === 1 ? 'evaluation' : 'evaluations'}</p>
           </div>
           <div className="evaluation-records-actions" style={styles.recordsActions}>
-            <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search evaluations" />
+            <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search evaluations" placeholder="Search evaluations…" />
             <div className="evaluation-records-utilities" style={styles.recordsUtilityRow}>
               <PaginationButtonGroup
                 align="right"

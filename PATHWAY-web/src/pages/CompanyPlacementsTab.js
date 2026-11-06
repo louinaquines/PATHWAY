@@ -1,3 +1,5 @@
+import { PortalFormDialog } from '../components/PortalStates';
+import { placementStudentQueue } from '../placementStudentQueue';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useState } from 'react';
@@ -33,6 +35,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [endorsementDraft, setEndorsementDraft] = useState(null);
   const [reasons, setReasons] = useState({});
   const [reviewStage, setReviewStage] = useState('all');
+  const [queueFilter, setQueueFilter] = useState('action');
+  const [selectedQueueStudent, setSelectedQueueStudent] = useState(null);
+  useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); }, [selectedSection?.id]);
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
@@ -194,8 +199,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const matchesReview = item => {
     const term = reviewSearch.trim().toLowerCase();
-    return (!term || [reviewStudentName(item), item.studentId, item.companyName, item.companySnapshot?.companyName, item.supervisorName, item.companySnapshot?.supervisorName].some(value => String(value || '').toLowerCase().includes(term)))
-      && (reviewStatus === 'all' || item.status === reviewStatus);
+    return (!term || selectedQueueStudent || [reviewStudentName(item), item.studentId, item.companyName, item.companySnapshot?.companyName, item.supervisorName, item.companySnapshot?.supervisorName].some(value => String(value || '').toLowerCase().includes(term)))
+      && (reviewStatus === 'all' || item.status === reviewStatus)
+      && item.studentId === selectedQueueStudent;
   };
   const sortedReviews = records => [...records].filter(matchesReview).sort((a, b) =>
     Number(b.status === 'pending_review') - Number(a.status === 'pending_review')
@@ -211,6 +217,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     title: `${item.noticeTitle} — ${item.companyName || item.companySnapshot?.companyName || 'Company not provided'}`,
     createdAt: item.submittedAt || item.updatedAt || item.createdAt }));
 
+  const queueRows = placementStudentQueue({ placements: items, finals: finalItems, endorsements: endorsementItems, verified: verifiedEndorsementItems, history: historyItems, nameFor: reviewStudentName });
+  const queueTerm = reviewSearch.trim().toLowerCase();
+  const filteredQueue = queueRows.filter(row => (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
+    && [row.name, row.id, row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm)));
+  const queuePage = useRecordPage(filteredQueue, (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
+  const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent);
+  const openStudent = row => { setSelectedQueueStudent(row.id); setReviewStage(queueFilter === 'history' ? 'history' : 'all'); setReviewStatus('all'); };
   const placementPage = useRecordPage(sortedReviews(items), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const finalPage = useRecordPage(sortedReviews(finalItems), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const endorsementPage = useRecordPage(endorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
@@ -226,14 +239,14 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>
     <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
       <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
-      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews{items.filter(item => item.status === 'pending_review').length ? ` (${items.filter(item => item.status === 'pending_review').length})` : ''}</button>
+      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews</button>
     </div>
     {workspace === 'reviews' && <div className="placement-review-top-toolbar">
       <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
         label="Search placement reviews by student or company" placeholder="Search student name or company…" />
       <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
         suppliedItems={error ? [] : placementNotices} onRefresh={load}
-        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
+        onOpen={(student, item) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />
     </div>}
 
     {error && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
@@ -244,9 +257,24 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
-    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', "Endorsements (" + (endorsementItems.length + verifiedEndorsementItems.length) + ")"], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewSearch(''); setReviewStatus(['placement', 'final'].includes(value) ? 'pending_review' : 'all'); }}>{label}</button>)}</div>
-    <section hidden={!['all', 'placement'].includes(reviewStage)}>
-    <div className="review-section-heading"><h3>Company placement requests</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
+    <div className="placement-queue-filters" role="group" aria-label="Placement queue">
+      {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setQueueFilter(value); setSelectedQueueStudent(null); }}>
+        {label} <span>{queueRows.filter(row => value === 'action' ? row.needsAction : value === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>
+      </button>)}
+    </div>
+    <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous placement decisions, grouped by student.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
+    <RecordPagination pagination={queuePage} label="Placement students" />
+    <div className="placement-queue-table"><table><thead><tr><th>Student</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
+      {queuePage.items.map(row => <tr key={row.id}><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
+    </tbody></table>{!filteredQueue.length && <div className="review-empty">{reviewSearch ? 'No students match this search.' : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
+    {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} onCancel={() => setSelectedQueueStudent(null)}>
+      <header><div><h2>{selectedQueue.name}</h2><p>Placement tasks and decisions</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
+      <div className="placement-task-overview"><strong>Next: {selectedQueue.current.step}</strong><ul>{selectedQueue.tasks.filter(task=>task.needsAction).map(task=><li key={task.stage+task.record.id}>{task.step}</li>)}</ul></div>
+      <div className="placement-detail-tabs" role="group" aria-label="Student placement details"><button type="button" aria-pressed={reviewStage==='all'} onClick={()=>setReviewStage('all')}>Tasks & decisions</button><button type="button" aria-pressed={reviewStage==='history'} onClick={()=>setReviewStage('history')}>History</button></div>
+      <div className="placement-detail-body">
+
+    <section hidden={reviewStage !== 'all' || !items.some(item=>item.studentId===selectedQueueStudent)}>
+    <div className="review-section-heading"><h3>Review placement</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
     {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}
     <RecordPagination pagination={placementPage} label="Company requests" />
     {placementPage.items.map(item => <article className="review-card" key={item.id}>
@@ -274,8 +302,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </>}
     </article>)}
     </section>
-    <section hidden={!['all', 'final'].includes(reviewStage)}>
-    <div className="review-section-heading"><h3>Final review requests</h3><p>Review the saved submission before granting access to OJT tracking.</p></div>
+    <section hidden={reviewStage !== 'all' || !finalItems.some(item=>item.studentId===selectedQueueStudent)}>
+    <div className="review-section-heading"><h3>Review OJT access</h3><p>Review the saved submission before granting access to OJT tracking.</p></div>
     {sortedReviews(finalItems).length === 0 && <div className="review-empty">No final review requests match this view.</div>}
     <RecordPagination pagination={finalPage} label="Final approvals" />
     {finalPage.items.map(item => <article className="review-card" key={item.id}>
@@ -286,8 +314,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       {item.status === 'pending_review' && <div className="review-decision"><label>Feedback for this student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>Approve final review</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Reject</button></div></div>}
     </article>)}
     </section>
-    <section hidden={!['all', 'endorsement'].includes(reviewStage)}>
-    <h3 style={{ marginTop: 30 }}>Endorsement paperwork to prepare</h3>
+    <section hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}>
+    <h3 style={{ marginTop: 30 }}>Endorsement letter</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Approved placements awaiting a signed endorsement letter. These records are not issued documents or email deliveries.</p>
     {endorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No pending endorsement paperwork matches this view.</div>}
     <RecordPagination pagination={endorsementPage} label="Endorsements" />
@@ -313,7 +341,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         </button>
       </div>
     </article>)}
-    <h3 style={{ marginTop: 30 }}>Signed endorsement copies verified</h3>
+    <h3 style={{ marginTop: 30 }}>Signed letter & delivery</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Only the verified private signed copy can be emailed to the student and official company contact. Email-server acceptance is recorded separately for each recipient.</p>
     {deliveryNotice && <div role="status" style={{ padding: 12, marginBottom: 10, border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF' }}>{deliveryNotice}</div>}
     {verifiedEndorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No verified signed copies match this view.</div>}
@@ -340,7 +368,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </button>}
     </article>)}
     </section>
-    <section hidden={!['all', 'history'].includes(reviewStage)}>
+    <section hidden={reviewStage !== 'history'}>
     <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots for this section.</p>
     {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
@@ -360,6 +388,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </article>;
     })}
     </section>
+      </div>
+    </PortalFormDialog>}
     </div>
     <details className="placement-email-disclosure"><summary>Company email <span>View replies and conversations</span></summary><CompanyConversations sectionId={selectedSection?.id} /></details>
     <AlertDialog

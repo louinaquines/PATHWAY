@@ -23,3 +23,10 @@ Search and section/status filters run before pagination. Counts and exports stil
 - This release changes frontend rendering only. It does not introduce server-side pagination, extend API response limits, or load-test the production backend.
 - Audit history currently exposes only the recent events returned by the API. Paging cannot recover records omitted by that API.
 - Message-history fetching/rendering and student mobile app behavior are unchanged. Database-scale performance and real-device mobile app testing remain separate work.
+
+## Student placement queue
+- Placement reviews starts on Needs action. Each student appears once, including concurrent placement, access-review and endorsement records.
+- Search by student or company; change Needs action / Completed / History; check Previous and Next with more than 25 students.
+- Open a student and verify all their tasks remain available. Check close/Escape, small-screen scrolling and history.
+- Test decisions and retry using fictional records. Live approval and email delivery require separate authorized workflow testing.
+- Pagination bounds displayed rows, not database reads. Existing section queries load the whole section; server-side cursor pagination and backend load testing remain necessary before claiming large-scale performance.

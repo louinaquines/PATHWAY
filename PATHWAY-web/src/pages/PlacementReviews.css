@@ -115,3 +115,37 @@
 .placement-email-disclosure .company-mail-empty { margin-bottom:0; }
 .placement-page .placement-review-top-toolbar { margin:0 0 16px; }
 @media(max-width:640px) { .placement-page .placement-workspace-tabs { gap:16px; } }
+.placement-queue-filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.placement-queue-filters button, .placement-detail-tabs button { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:8px 14px; border:1px solid #dce2e9; border-radius:8px; background:#fff; color:#526174; font:inherit; font-size:14px; cursor:pointer; }
+.placement-queue-filters button[aria-pressed='true'], .placement-detail-tabs button[aria-pressed='true'] { background:#edf4ff; color:#0752ad; border-color:#9bbde8; }
+.placement-queue-filters span { background:#f0f3f6; padding:2px 6px; border-radius:5px; font-size:13px; color:#526174; }
+.placement-queue-help { font-size:13px; color:#526174; line-height:1.5; margin:0 0 16px; }
+.placement-queue-table { overflow-x:auto; border:1px solid #dce2e9; border-radius:12px; background:#fff; }
+.placement-queue-table table { width:100%; border-collapse:collapse; font-size:14px; }
+.placement-queue-table th { text-align:left; padding:12px 16px; color:#526174; background:#f8fafc; font-size:13px; font-weight:600; }
+.placement-queue-table td { padding:12px 16px; border-top:1px solid #e5e9ef; color:#243448; }
+.placement-queue-table td small { display:block; color:#526174; font-size:12px; margin-top:5px; }
+.placement-queue-table td button { font-size:13px; white-space:nowrap; }
+.placement-student-detail { position:fixed; inset:0 0 0 auto; margin:0; width:min(780px,100vw); height:100dvh; max-height:100dvh; max-width:100vw; padding:0; border:0; border-left:1px solid #dce2e9; background:#f8fafc; color:#243448; box-sizing:border-box; overflow-y:auto; }
+.placement-student-detail::backdrop { background:#17212f66; }
+.placement-student-detail > header { display:flex; align-items:center; justify-content:space-between; gap:16px; position:sticky; top:0; z-index:3; padding:20px; background:#fff; border-bottom:1px solid #dce2e9; }
+.placement-student-detail h2 { margin:0; font-size:20px; font-weight:600; overflow-wrap:anywhere; }
+.placement-student-detail header p { margin:6px 0 0; color:#526174; font-size:13px; }
+.placement-task-overview { margin:20px; padding:16px; background:#fff; border:1px solid #dce2e9; border-radius:8px; font-size:14px; }
+.placement-task-overview ul { margin:8px 0 0; padding-left:20px; font-size:13px; color:#526174; }
+.placement-detail-tabs { display:flex; gap:8px; padding:0 20px; }
+.placement-detail-body { padding:0 20px 24px; }
+.placement-student-detail .review-card { padding:16px; background:#fff; border:1px solid #dce2e9; border-radius:10px; margin-top:12px; font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
+.placement-student-detail .review-section-heading h3, .placement-student-detail h3 { font-size:16px; }
+.placement-student-detail .review-actions button { min-height:44px; padding:10px 12px; border:1px solid #ccd5df; border-radius:8px; background:#fff; color:#243448; cursor:pointer; }
+.placement-student-detail .review-actions .review-approve { background:#075fc9; color:#fff; border-color:#075fc9; }
+.placement-student-detail .review-actions .review-reject { color:#991b1b; }
+.placement-student-detail input { display:block; width:100%; padding:10px 12px; min-height:44px; box-sizing:border-box; border:1px solid #ccd5df; border-radius:8px; font:inherit; }
+.placement-student-detail .review-decision label { font-size:13px; }
+.placement-student-detail .review-empty { background:#fff; border-radius:8px; font-size:13px; }
+@media(max-width:640px) { .placement-queue-table table { min-width:650px; } .placement-student-detail > header { padding:16px; } .placement-detail-body { padding:0 16px 20px; } .placement-task-overview { margin:16px; } }
+
+.placement-queue-table td small { font-size:13px; }
+.placement-student-detail select:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; gap:12px; padding:10px 12px; font-size:14px; }
+
+.placement-student-detail select:not([multiple]):not([size]) { display:inline-flex !important; flex-direction:row; }

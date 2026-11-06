@@ -23,11 +23,11 @@ describe('coordinator decision retries', () => {
     getDocs.mockResolvedValueOnce(snapshot([{ id: 'qa-request', sectionId: 'section-1', studentId: 'qa-student', studentName: 'Journey QA', status: 'pending_review', companyName: 'QA Host' }]));
     adminRequest.mockImplementation(url => Promise.resolve(url === '/coordinator/company-directory' ? { companies: [] } : { history: [] }));
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
-    expect(await screen.findByRole('button', { name: 'Placement Reviews (1)' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByText(/Journey QA/).some(element => element.closest('article'))).toBe(true);
+    expect(await screen.findByRole('button', { name: 'Placement Reviews' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByText('Journey QA').some(element => element.closest('tr'))).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Companies' }));
     fireEvent.click(screen.getByRole('button', { name: 'Review pending placements (1)' }));
-    expect(screen.getAllByText(/Journey QA/).some(element => element.closest('article'))).toBe(true);
+    expect(screen.getAllByText('Journey QA').some(element => element.closest('tr'))).toBe(true);
   });
 
   test('queue shortcuts, search, and student-specific feedback keep reviews easy to navigate', async () => {
@@ -38,14 +38,16 @@ describe('coordinator decision retries', () => {
     ])).mockResolvedValueOnce(snapshot([{ id: 'final', sectionId: 'section-1', studentName: 'Taylor Student', studentId: 'taylor', status: 'pending_review', companySnapshot: { companyName: 'Final Host' } }])).mockResolvedValueOnce(snapshot([]));
     adminRequest.mockImplementation(url => Promise.resolve(url === '/coordinator/company-directory' ? { companies: [] } : { history: [] }));
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: /^Company requests/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review placement for Alex Student' }));
     const alex = screen.getByRole('textbox', { name: 'Placement feedback for Alex Student' });
     fireEvent.change(alex, { target: { value: 'Correct your dates.' } });
-    expect(screen.getByRole('textbox', { name: 'Placement feedback for Sam Student' })).toHaveValue('');
+    expect(screen.queryByRole('textbox', { name: 'Placement feedback for Sam Student' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Beta Host' } });
     expect(screen.queryByText('Alpha Host')).not.toBeInTheDocument();
     expect(screen.getByText('Beta Host')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /^Final approvals/ }));
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Review OJT access for Taylor Student' }));
     expect(screen.getByRole('button', { name: 'Approve final review' })).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'Final review feedback for Taylor Student' })).toHaveValue('');
   });
@@ -66,6 +68,7 @@ describe('coordinator decision retries', () => {
     });
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
     fireEvent.click(await screen.findByRole('button', { name: /Placement Reviews/ }));
+    fireEvent.click(await screen.findByRole('button', { name: (kind === 'placement' ? 'Review placement' : 'Review OJT access') + ' for Taylor Student' }));
     const reason = await screen.findByPlaceholderText('Reason for changes or rejection');
     fireEvent.change(reason, { target: { value: 'Correct the placement dates.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));

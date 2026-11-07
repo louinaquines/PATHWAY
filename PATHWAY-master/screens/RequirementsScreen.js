@@ -82,6 +82,8 @@ const DEFAULT_PREDEPLOYMENT_DOCS = [
 ];
 
 export default function RequirementsScreen({ navigation, route }) {
+  const reachedStep = Math.max(1, Math.min(4, Number(route?.params?.reachedStep) || 1));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const isDocumentHub = route?.name === 'StudentRequirements';
   const { width } = useWindowDimensions();
   const isNarrowScreen = width < 360;
@@ -356,6 +358,7 @@ export default function RequirementsScreen({ navigation, route }) {
   };
 
   const handlePickAndUpload = async (docItem) => {
+    if (readOnlyStep) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
@@ -401,6 +404,7 @@ export default function RequirementsScreen({ navigation, route }) {
   };
 
   const handleDelete = (docItem) => {
+    if (readOnlyStep) return;
     Alert.alert(
       'Remove Document',
       `Are you sure you want to remove "${docItem.fileName || docItem.label}"?`,
@@ -504,13 +508,15 @@ export default function RequirementsScreen({ navigation, route }) {
 
         {!isDocumentHub && <PreDeploymentStepper
           activeStep={1}
+          reachedStep={reachedStep}
           onStepPress={step => {
             if (step === 1) setActiveStep(1);
-            if (step === 2) navigation.navigate('Company');
-            if (step === 3) navigation.navigate('Review');
-            if (step === 4) navigation.navigate('Approval');
+            if (step === 2) navigation.navigate('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 3) navigation.navigate('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
+            if (step === 4) navigation.navigate('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
         />}
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         {activeStep === 1 && <>
           <View style={styles.checklistCard}>
@@ -674,7 +680,7 @@ export default function RequirementsScreen({ navigation, route }) {
                       </TouchableOpacity>
                       {canEditRequirements && docItem.status !== 'approved' && <TouchableOpacity
                         style={styles.trashAction}
-                        onPress={event => { event.stopPropagation(); handleDelete(docItem); }}
+                        disabled={readOnlyStep} onPress={event => { event.stopPropagation(); handleDelete(docItem); }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         activeOpacity={0.7}
                       >
@@ -714,7 +720,7 @@ export default function RequirementsScreen({ navigation, route }) {
                     {isRejected && canEditRequirements && (
                       <TouchableOpacity
                         style={styles.resubmitButton}
-                        onPress={() => handlePickAndUpload(docItem)}
+                        disabled={readOnlyStep} onPress={() => handlePickAndUpload(docItem)}
                         activeOpacity={0.75}
                       >
                         <RefreshIcon size={16} color={COLORS.secondary} />
@@ -756,7 +762,7 @@ export default function RequirementsScreen({ navigation, route }) {
         {!isDocumentHub && <View style={styles.footerSection}>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
-            onPress={() => navigation.navigate('Company')}
+            onPress={() => navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
             activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel="Continue to company selection"

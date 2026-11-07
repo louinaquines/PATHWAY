@@ -43,7 +43,9 @@ const statusText = {
 
 const EMPTY_COMPANY = {};
 
-export default function ReviewScreen({ navigation }) {
+export default function ReviewScreen({ navigation, route }) {
+  const reachedStep = Math.max(3, Math.min(4, Number(route?.params?.reachedStep) || 3));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +193,7 @@ export default function ReviewScreen({ navigation }) {
     !['pending_review', 'approved'].includes(request?.status);
 
   const submit = async () => {
-    if (!ready || saving) return;
+    if (readOnlyStep || !ready || saving) return;
     setSaving(true);
     try {
       const canResubmitExisting = request?.id && ['needs_revision', 'rejected'].includes(request.status);
@@ -203,7 +205,7 @@ export default function ReviewScreen({ navigation }) {
       Alert.alert(
         'Submitted for Coordinator Review',
         'Your application was submitted for final review.',
-        [{ text: 'View Approval Status', onPress: () => navigation.replace('Approval') }]
+        [{ text: 'View Approval Status', onPress: () => navigation.replace('Approval', readOnlyStep ? { readOnlyStep: 4 < reachedStep, reachedStep } : { readOnlyStep: false }) }]
       );
     } catch (error) {
       console.error('Final review submission error:', error);
@@ -293,12 +295,14 @@ export default function ReviewScreen({ navigation }) {
 
         <PreDeploymentStepper
           activeStep={3}
+          reachedStep={reachedStep}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 2) navigation.replace('Company');
-            if (step === 4) navigation.replace('Approval');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 2) navigation.replace('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 4) navigation.replace('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
         />
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         {/* Review status adapts to draft, pending, revision, superseded, and approved states. */}
         <Card title="Submission status" icon={<FileIcon size={20} color={COLORS.primary} />}>
@@ -351,7 +355,7 @@ export default function ReviewScreen({ navigation }) {
           action={(
             <TouchableOpacity
               style={styles.editAction}
-              onPress={() => navigation.replace('Requirements')}
+              onPress={() => navigation.replace('Requirements', readOnlyStep ? { readOnlyStep: 1 < reachedStep, reachedStep } : { readOnlyStep: false })}
               accessibilityRole="button"
               accessibilityLabel="Edit required documents"
             >
@@ -425,7 +429,7 @@ export default function ReviewScreen({ navigation }) {
           action={(
             <TouchableOpacity
               style={styles.editAction}
-              onPress={() => navigation.replace('Company')}
+              onPress={() => navigation.replace('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
               accessibilityRole="button"
               accessibilityLabel="Edit company placement"
             >
@@ -463,7 +467,7 @@ export default function ReviewScreen({ navigation }) {
         <View style={[styles.actions, narrow && styles.actionsStacked]}>
           <TouchableOpacity
             style={[styles.secondaryBtn, narrow && styles.stackedAction]}
-            onPress={() => navigation.replace('Company')}
+            onPress={() => navigation.replace('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
             activeOpacity={0.8}
             accessibilityRole="button"
           >
@@ -472,9 +476,9 @@ export default function ReviewScreen({ navigation }) {
 
           <MotionTouchableOpacity
             style={[styles.primaryBtn, narrow && styles.stackedAction, !ready && !requestPending && !requestApproved && styles.disabledBtn]}
-            disabled={(!ready && !requestPending && !requestApproved) || saving}
+            disabled={readOnlyStep || (!ready && !requestPending && !requestApproved) || saving}
             onPress={() => {
-              if (requestPending || requestApproved) navigation.replace('Approval');
+              if (requestPending || requestApproved) navigation.replace('Approval', readOnlyStep ? { readOnlyStep: 4 < reachedStep, reachedStep } : { readOnlyStep: false });
               else submit();
             }}
             activeOpacity={0.85}

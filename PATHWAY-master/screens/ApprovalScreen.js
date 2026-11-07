@@ -27,7 +27,9 @@ import {
   ArrowRightIcon,
 } from '../components/Icons';
 
-export default function ApprovalScreen({ navigation }) {
+export default function ApprovalScreen({ navigation, route }) {
+  const reachedStep = Math.max(4, Math.min(4, Number(route?.params?.reachedStep) || 4));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState(null);
   const [menu, setMenu] = useState(false);
@@ -129,12 +131,14 @@ export default function ApprovalScreen({ navigation }) {
 
         <PreDeploymentStepper
           activeStep={4}
+          reachedStep={reachedStep}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 2) navigation.replace('Company');
-            if (step === 3) navigation.replace('Review');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 2) navigation.replace('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 3) navigation.replace('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
           }}
         />
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         <View style={[styles.statusCard, status === 'approved' && styles.statusCardApproved]}>
           <View style={styles.statusHeader}>
@@ -197,7 +201,7 @@ export default function ApprovalScreen({ navigation }) {
           ) : needsReviewAction ? (
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() => navigation.replace('Review')}
+              onPress={() => navigation.replace('Review', readOnlyStep ? { readOnlyStep: 3 < reachedStep, reachedStep } : { readOnlyStep: false })}
               activeOpacity={0.85}
               accessibilityRole="button"
             >

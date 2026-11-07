@@ -1,0 +1,4 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('fs');const vm=require('vm');const path=require('path');const source=fs.readFileSync(path.join(__dirname,'../../PATHWAY-master/components/preDeploymentNavigation.js'),'utf8').replace('export function','function');const can=vm.runInNewContext(source+';canOpenPreDeploymentStep');
+test('future steps cannot be opened at any stage',()=>{for(let active=1;active<=4;active++)for(let step=active;step<=4;step++)assert.equal(can(step,active),false);});
+test('previous steps can be revisited and current reached step remains reachable',()=>{assert.equal(can(1,3),true);assert.equal(can(2,3),true);assert.equal(can(3,1,3),true);assert.equal(can(4,1,3),false);});
+test('invalid steps remain locked',()=>{for(const step of [0,5,-1,1.5,'2',NaN])assert.equal(can(step,2),false);});

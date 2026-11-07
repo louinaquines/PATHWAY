@@ -61,7 +61,9 @@ const statusLabel = {
   rejected: 'Resubmit',
 };
 
-export default function CompanyScreen({ navigation }) {
+export default function CompanyScreen({ navigation, route }) {
+  const reachedStep = Math.max(2, Math.min(4, Number(route?.params?.reachedStep) || 2));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const { width } = useWindowDimensions();
   const isNarrow = width < 360;
   const [loading, setLoading] = useState(true);
@@ -189,6 +191,7 @@ export default function CompanyScreen({ navigation }) {
   };
 
   const saveProposal = async (status) => {
+    if (readOnlyStep) return;
     if (cleared || loadFailed || loading) return;
     if (status === 'pending_review' && !validateSubmission()) return;
     if (proposalStatus === 'approved') return;
@@ -230,7 +233,7 @@ export default function CompanyScreen({ navigation }) {
   };
 
   const canEdit = ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
-  const showEditor = !cleared && !loadFailed && (canEdit || placementChangeMode);
+  const showEditor = !readOnlyStep && !cleared && !loadFailed && (canEdit || placementChangeMode);
   const placementApproved = proposalStatus === 'approved';
   const placementNeedsAttention = ['needs_revision', 'rejected'].includes(proposalStatus);
   const placementUnderReview = proposalStatus === 'pending_review';
@@ -268,13 +271,15 @@ export default function CompanyScreen({ navigation }) {
 
         <PreDeploymentStepper
           activeStep={2}
+          reachedStep={reachedStep}
           completedSteps={requirementsComplete ? [1] : []}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 3) navigation.replace('Review');
-            if (step === 4) navigation.replace('Approval');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 3) navigation.replace('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
+            if (step === 4) navigation.replace('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
         />
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         <View style={styles.statusCard}>
           {loadFailed && <TouchableOpacity accessibilityRole="button" onPress={loadCompanyData}><Text style={styles.secondaryButtonText}>Retry loading placement</Text></TouchableOpacity>}
@@ -407,7 +412,7 @@ export default function CompanyScreen({ navigation }) {
             </View>
             <TouchableOpacity
               style={styles.reviewStepBtn}
-              onPress={() => navigation.navigate('Review')}
+              onPress={() => navigation.navigate('Review', readOnlyStep ? { readOnlyStep: 3 < reachedStep, reachedStep } : { readOnlyStep: false })}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Continue to final review"

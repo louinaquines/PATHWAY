@@ -167,7 +167,8 @@ async function loadPreDeploymentSummary(uid, profile) {
       needsChanges: needsChangesCount,
     },
     placement: {
-      status: profile.placementStatus || latestProposal?.status || 'not_started',
+      status: profile.placementStatus === 'approved' ? 'approved'
+        : (latestProposal?.status === 'approved' ? 'not_started' : latestProposal?.status || profile.placementStatus || 'not_started'),
       companyName: profile.company || profile.companyName || latestProposal?.companyName || '',
       supervisorName: profile.supervisorName || latestProposal?.supervisorName || '',
     },
@@ -538,7 +539,7 @@ export default function StudentDashboard({ navigation }) {
             onChangePassword={() => navigation.navigate('ChangePassword')}
             onOpenScreen={name => navigation.navigate(name)}
           />
-          : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onRequestPlacementChange={() => navigation.navigate('Company')} />)}
+          : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onViewPlacement={() => navigation.navigate('Company')} />)}
       </Animated.View>
       </StudentRefreshContext.Provider>
 
@@ -697,9 +698,11 @@ function Gate({
       ? student.preDeploymentStatus
       : 'not_submitted');
   const accountApproved = summary?.accountApproved ?? (student?.accountApproved === true);
+  const requirementsSubmitted = requirementsStatus === 'approved'
+    || (requirements?.total > 0 && requirements.received === requirements.total);
   const activeStep = !accountApproved
     ? null
-    : requirementsStatus !== 'approved'
+    : !requirementsSubmitted
       ? 0
       : placementStatus !== 'approved'
         ? 1
@@ -707,7 +710,7 @@ function Gate({
           ? 3
           : 2;
   const progressPercent = activeStep == null ? 0 : Math.round((activeStep / totalSteps) * 100);
-  const canOpenCompany = accountApproved && requirementsStatus === 'approved';
+  const canOpenCompany = accountApproved && requirementsSubmitted;
   const canOpenReview = canOpenCompany && placementStatus === 'approved';
   const formatStatus = value => ({
     approved: 'Approved',
@@ -1497,7 +1500,7 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
 
 function MetricLine({ label, value, warning }) { return <View style={styles.metricLine}><Text style={styles.metricLineLabel}>{label}</Text><Text style={[styles.metricLineValue, warning && { color: COLORS.warningDark }]}>{value}</Text></View>; }
 
-function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPlacementChange }) {
+function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onViewPlacement }) {
   const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
   const approved = Boolean(student?.accountApproved);
 
@@ -1555,12 +1558,12 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         {student?.company && (
           <MotionTouchableOpacity
             style={styles.placementRequestButton}
-            onPress={onRequestPlacementChange}
+            onPress={onViewPlacement}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="Request a placement change"
+            accessibilityLabel="View company placement"
           >
-            <Text style={styles.placementRequestText}>Request a placement change</Text>
+            <Text style={styles.placementRequestText}>View company placement</Text>
             <ChevronRightIcon size={16} color={COLORS.secondary} />
           </MotionTouchableOpacity>
         )}

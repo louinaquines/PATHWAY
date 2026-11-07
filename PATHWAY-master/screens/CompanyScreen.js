@@ -58,7 +58,7 @@ const statusLabel = {
   pending_review: 'In review',
   approved: 'Approved',
   needs_revision: 'Needs update',
-  rejected: 'Resubmit',
+  rejected: 'Declined',
 };
 
 export default function CompanyScreen({ navigation, route }) {
@@ -79,7 +79,7 @@ export default function CompanyScreen({ navigation, route }) {
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
   const { loggingOut, logout } = useStudentLogout(navigation);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [placementChangeMode, setPlacementChangeMode] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -132,11 +132,14 @@ export default function CompanyScreen({ navigation, route }) {
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0];
 
       if (userData.placementStatus === 'approved' && (userData.company || userData.companyName)) {
+        setProposalId(null);
+        setReviewReason('');
+        setRequestOpen(false);
         setProposalStatus('approved');
         setForm({ ...EMPTY_FORM, ...userData, companyName: userData.company || userData.companyName });
       } else if (latest) {
         setProposalId(latest.id);
-        setProposalStatus(userData.placementStatus === 'approved' ? 'approved' : latest.status || 'draft');
+        setProposalStatus(latest.status === 'approved' ? 'not_started' : latest.status || 'draft');
         setReviewReason(latest.reviewReason || '');
         setForm({ ...EMPTY_FORM, ...latest });
       } else if (userSnap.exists() && userData.company) {
@@ -194,7 +197,7 @@ export default function CompanyScreen({ navigation, route }) {
   };
 
   const saveProposal = async (status) => {
-    if (readOnlyStep) return;
+    if (!showEditor || saving) return;
     if (cleared || loadFailed || loading) return;
     if (status === 'pending_review' && !validateSubmission()) return;
     if (proposalStatus === 'approved') return;
@@ -206,12 +209,12 @@ export default function CompanyScreen({ navigation, route }) {
         status,
         ...(proposalId ? { proposalId } : {}),
       };
-      const saved = await postBackend('/student/company-proposals', payload);
+      const saved = await postBackend('/student/placement-requests', payload);
       setProposalId(saved.id);
       setProposalStatus(status);
-      if (status === 'pending_review') setPlacementChangeMode(false);
+      if (status === 'pending_review') setRequestOpen(false);
       if (status === 'draft') Alert.alert('Draft saved', 'You can edit it later.');
-      if (status === 'pending_review') Alert.alert('Submitted', 'Your company placement is under review.', [
+      if (status === 'pending_review') Alert.alert('Submitted', 'Your coordinator will review your suggested placement.', [
         { text: 'Done', style: 'cancel' },
         { text: 'Back to dashboard', onPress: () => navigation.replace('StudentDashboard') },
       ]);
@@ -225,28 +228,19 @@ export default function CompanyScreen({ navigation, route }) {
 
   const handleLogout = logout;
 
-  const startPlacementChange = () => {
-    if (cleared || loadFailed) return;
-    const { id, status, createdAt, updatedAt, reviewReason: previousReason, studentId, studentName, department, sectionId, ...draft } = form;
-    setProposalId(null);
-    setProposalStatus('draft');
-    setReviewReason('');
-    setPlacementChangeMode(true);
-    setForm({ ...EMPTY_FORM, ...draft, status: 'draft', companyId: '' });
-  };
-
-  const canEdit = ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
-  const showEditor = !readOnlyStep && !cleared && !loadFailed && (canEdit || placementChangeMode);
+  const canRequest = !readOnlyStep && !cleared && !loadFailed
+    && ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
+  const showEditor = canRequest && requestOpen;
   const placementApproved = proposalStatus === 'approved';
   const placementNeedsAttention = ['needs_revision', 'rejected'].includes(proposalStatus);
   const placementUnderReview = proposalStatus === 'pending_review';
   const placementStatusMessage = {
     not_started: 'Your coordinator has not assigned a company yet.',
-    draft: 'Contact your coordinator to confirm your company assignment.',
-    pending_review: 'Your company placement is under review.',
+    draft: 'Your request draft has not been sent.',
+    pending_review: 'Your coordinator is reviewing your request.',
     approved: 'Your company placement is approved.',
-    needs_revision: 'Your coordinator needs to update your placement details.',
-    rejected: 'Contact your coordinator about your placement.',
+    needs_revision: 'Your coordinator asked you to update your request.',
+    rejected: 'Your request was declined. You can wait for an assignment or suggest another placement.',
   }[proposalStatus] || 'Your placement status will appear here.';
 
   if (loggingOut) {
@@ -269,7 +263,7 @@ export default function CompanyScreen({ navigation, route }) {
         <View style={styles.pageHeading}>
           <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 2</Text>
           <Text variant="heading" style={styles.heading}>Company Placement</Text>
-          <Text style={styles.pageDescription}>View the company and supervisor assigned by your coordinator.</Text>
+          <Text style={styles.pageDescription}>Wait for your coordinator to assign a company, or suggest a placement for review.</Text>
         </View>
 
         <PreDeploymentStepper
@@ -333,14 +327,17 @@ export default function CompanyScreen({ navigation, route }) {
             <View style={styles.pendingIcon}><FileIcon size={18} color={COLORS.warningDark} /></View>
             <View style={styles.pendingCopy}>
               <Text style={styles.sectionTitle}>What happens next</Text>
-              <Text style={styles.pendingText}>Wait for your coordinator’s review before resubmitting.</Text>
+              <Text style={styles.pendingText}>Wait for your coordinator to approve or decline your request{form.companyName ? ' for ' + form.companyName : ''}.</Text>
             </View>
           </View>
         )}
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{placementApproved ? 'Assigned company' : 'Waiting for your coordinator'}</Text>
-          <Text style={styles.sectionDescription}>Your coordinator will assign your company and supervisor. You can continue to Final Review once your placement is confirmed. Contact your coordinator if any details need updating.</Text>
+          <Text style={styles.sectionDescription}>You can continue to Final Review once your coordinator confirms your placement.</Text>
+          {!placementApproved && !loadFailed && <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={loadCompanyData}>
+            <Text style={styles.secondaryButtonText}>Check placement status</Text>
+          </TouchableOpacity>}
           {placementApproved && <>
             <Text style={styles.cardTitle}>{form.companyName || 'Company details pending'}</Text>
             <Text style={styles.cardSubtitle}>{form.companyAddress || 'Address not provided'}</Text>
@@ -348,6 +345,77 @@ export default function CompanyScreen({ navigation, route }) {
             <Text style={styles.cardSubtitle}>Schedule: {form.startDate || 'Not provided'} to {form.endDate || 'Not provided'}</Text>
           </>}
         </View>
+
+        {canRequest && <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: requestOpen }}
+          style={styles.secondaryButton} onPress={() => setRequestOpen(open => !open)}>
+          <Text style={styles.secondaryButtonText}>{requestOpen ? 'Hide placement request' : 'Suggest a placement (optional)'}</Text>
+        </TouchableOpacity>}
+
+        {showEditor && (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardSectionHeading}>
+                <View style={styles.sectionIcon}><SearchIcon size={18} color={COLORS.primary} /></View>
+                <View style={styles.flex}>
+                  <Text style={styles.sectionTitle}>Suggest a company</Text>
+                  <Text style={styles.sectionDescription}>Choose a listed company or enter your own suggestion.</Text>
+                </View>
+              </View>
+              <View style={styles.searchBarContainer}>
+                <SearchIcon size={18} color={COLORS.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search name, address, or industry"
+                  placeholderTextColor={COLORS.textPlaceholder}
+                />
+              </View>
+              {!search.trim() && (
+                <View style={styles.directoryHint}>
+                  <BuildingIcon size={15} color={COLORS.secondary} />
+                  <Text style={styles.directoryHintText}>{activeCompanyCount} active {activeCompanyCount === 1 ? 'company' : 'companies'} in the directory</Text>
+                </View>
+              )}
+              {search.trim() !== '' && filteredCompanies.map(company => (
+                <TouchableOpacity key={company.id} style={styles.companyResult} onPress={() => selectCompany(company)} activeOpacity={0.8}>
+                  <View style={styles.companyResultIcon}><BuildingIcon size={18} color={COLORS.secondary} /></View>
+                  <View style={styles.flex}><Text style={styles.companyResultName}>{company.name}</Text><Text style={styles.companyResultMeta} numberOfLines={1}>{company.industry || 'Industry not listed'} · {company.address || 'Address not listed'}</Text><Text style={styles.companyResultSlots}>{company.availableSlots ?? '—'} internship slots</Text></View>
+                  <ArrowRightIcon size={16} color={COLORS.primary} />
+                </TouchableOpacity>
+              ))}
+              {search.trim() !== '' && filteredCompanies.length === 0 && <Text style={styles.emptyText}>No companies found. Enter company details below.</Text>}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardSectionHeading}>
+                <View style={styles.sectionIcon}><BuildingIcon size={18} color={COLORS.primary} /></View>
+                <View style={styles.flex}>
+                  <Text style={styles.sectionTitle}>{form.companyId ? 'Selected company' : 'Company details'}</Text>
+                  <Text style={styles.sectionDescription}>{form.companyId ? 'Check the company details and complete the form.' : 'Complete the form for coordinator review.'}</Text>
+                </View>
+              </View>
+              <Text style={styles.formGroupTitle}>COMPANY</Text>
+              <Field label="Company name" value={form.companyName} onChangeText={value => updateField('companyName', value)} editable={showEditor} />
+              <Field label="Company address" value={form.companyAddress} onChangeText={value => updateField('companyAddress', value)} editable={showEditor} />
+              <Field label="Industry or type" value={form.companyIndustry} onChangeText={value => updateField('companyIndustry', value)} editable={showEditor} />
+              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Company email" value={form.companyEmail} onChangeText={value => updateField('companyEmail', value)} editable={showEditor} half={!isNarrow} /><Field label="Company phone" value={form.companyPhone} onChangeText={value => updateField('companyPhone', value)} editable={showEditor} half={!isNarrow} /></View>
+              <Text style={styles.formGroupTitle}>Supervisor</Text>
+              <Field label="Supervisor name" value={form.supervisorName} onChangeText={value => updateField('supervisorName', value)} editable={showEditor} />
+              <Field label="Position" value={form.supervisorPosition} onChangeText={value => updateField('supervisorPosition', value)} editable={showEditor} />
+              <View style={[styles.row, isNarrow && styles.formColumn]}><Field label="Supervisor email" value={form.supervisorEmail} onChangeText={value => updateField('supervisorEmail', value)} editable={showEditor} half={!isNarrow} /><Field label="Supervisor phone" value={form.supervisorPhone} onChangeText={value => updateField('supervisorPhone', value)} editable={showEditor} half={!isNarrow} /></View>
+              <Text style={styles.formGroupTitle}>INTERNSHIP DETAILS</Text>
+              <Field label="Internship role or department" value={form.internshipRole} onChangeText={value => updateField('internshipRole', value)} editable={showEditor} />
+              <View style={[styles.row, isNarrow && styles.formColumn]}><PlacementDateField label="Start date" value={form.startDate} onChangeText={value => { updateField('startDate', value); if (form.endDate && form.endDate < value) updateField('endDate', ''); }} editable={showEditor} half={!isNarrow} /><PlacementDateField label="End date" value={form.endDate} onChangeText={value => updateField('endDate', value)} editable={showEditor} half={!isNarrow} minimumDate={form.startDate} /></View>
+              <WorkArrangementField value={form.workArrangement} onChange={value => updateField('workArrangement', value)} editable={showEditor && !saving} />
+              <Field label="Additional notes" value={form.notes} onChangeText={value => updateField('notes', value)} editable={showEditor} multiline />
+              <View style={[styles.actionRow, isNarrow && styles.actionColumn]}>
+                <TouchableOpacity accessibilityRole="button" style={[styles.secondaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('draft')} disabled={saving}><Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save draft'}</Text></TouchableOpacity>
+                <MotionTouchableOpacity accessibilityRole="button" style={[styles.primaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('pending_review')} disabled={saving}><Text style={styles.primaryButtonText}>{saving ? 'Submitting...' : 'Send request'}</Text></MotionTouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
 
         {proposalStatus === 'approved' && (
           <View style={styles.approvedCard}>
@@ -368,9 +436,6 @@ export default function CompanyScreen({ navigation, route }) {
               <Text style={styles.reviewStepBtnText}>Continue to final review</Text>
               <ArrowRightIcon size={17} color={COLORS.textOnPrimary} />
             </TouchableOpacity>
-            {!cleared && <TouchableOpacity accessibilityRole="button" style={styles.changeRequestBtn} onPress={startPlacementChange} activeOpacity={0.85}>
-              <Text style={styles.secondaryButtonText}>Request placement change</Text>
-            </TouchableOpacity>}
           </View>
         )}
       </ScrollView>

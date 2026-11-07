@@ -515,6 +515,160 @@ function snapshotText(value, maxLength = 500) {
 
 app.post('/student/company-proposals', requireUser, require('./coordinatorAssignmentPolicy').coordinatorAssignmentOnly);
 
+app.post('/student/placement-requests', requireUser, async (req, res) => {
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
+  if (!allowRate(req, res, { limit: 30, windowMs: 60 * 60_000, key: request => `placement-proposal:${request.user.uid}` })) return;
+  const { proposalId = '', status } = req.body || {};
+  if (!['draft', 'pending_review'].includes(status)) return res.status(400).json({ error: 'Invalid placement proposal status.' });
+  if (proposalId && (typeof proposalId !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(proposalId))) {
+    return res.status(400).json({ error: 'Invalid placement proposal.' });
+  }
+
+  let fields;
+  let companyId;
+  try {
+    fields = Object.fromEntries(Object.entries(placementProposalFields)
+      .map(([field, maxLength]) => [field, boundedText(req.body?.[field], field, maxLength)]));
+    companyId = boundedText(req.body?.companyId, 'company', 120);
+    if (companyId && !/^[A-Za-z0-9_-]{1,120}$/.test(companyId)) throw Object.assign(new Error('Invalid company.'), { status: 400 });
+    for (const field of companyId ? ['supervisorEmail'] : ['companyEmail', 'supervisorEmail']) {
+      if (fields[field] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields[field])) {
+        throw Object.assign(new Error(`Enter a valid ${field === 'companyEmail' ? 'company' : 'supervisor'} email.`), { status: 400 });
+      }
+    }
+    if (!isIsoDate(fields.startDate) || !isIsoDate(fields.endDate)) {
+      throw Object.assign(new Error('Enter valid placement dates in YYYY-MM-DD format.'), { status: 400 });
+    }
+    if (fields.startDate && fields.endDate && fields.endDate < fields.startDate) {
+      throw Object.assign(new Error('The placement end date must be on or after its start date.'), { status: 400 });
+    }
+  } catch (error) {
+    return res.status(error.status || 400).json({ error: error.message || 'Invalid placement details.' });
+  }
+
+  const studentRef = adminDb.collection('users').doc(req.user.uid);
+  const proposalRef = proposalId ? adminDb.collection('companyProposals').doc(proposalId) : adminDb.collection('companyProposals').doc();
+  const companyRef = companyId ? adminDb.collection('companies').doc(companyId) : null;
+  const now = new Date().toISOString();
+  try {
+    const saved = await adminDb.runTransaction(async transaction => {
+      const studentSnap = await transaction.get(studentRef);
+      if (!studentSnap.exists || studentSnap.data().role !== 'student' || studentSnap.data().accountApproved !== true) {
+        throw Object.assign(new Error('An approved student account is required to submit a placement.'), { status: 403 });
+      }
+      const student = studentSnap.data();
+      if (typeof student.sectionId !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(student.sectionId)
+        || typeof student.department !== 'string' || !student.department.trim()) {
+        throw Object.assign(new Error('Your section assignment is required before submitting a placement.'), { status: 409 });
+      }
+      const sectionRef = adminDb.collection('sections').doc(student.sectionId);
+      assertRecordsOpen(student);
+      if (student.placementStatus === 'approved') throw Object.assign(new Error('Your coordinator has already assigned your placement.'), { status: 409 });
+      const pending = await transaction.get(adminDb.collection('companyProposals').where('studentId', '==', req.user.uid).where('status', '==', 'pending_review').limit(1));
+      if (!pending.empty) throw Object.assign(new Error('A placement request is already under review.'), { status: 409 });
+      const sectionSnap = await transaction.get(sectionRef);
+      if (!sectionSnap.exists || sectionSnap.data().department !== student.department || !sectionSnap.data().coordinatorId) {
+        throw Object.assign(new Error('Your assigned coordinator could not be verified.'), { status: 409 });
+      }
+      const coordinatorId = sectionSnap.data().coordinatorId;
+      const [coordinatorSnap, existingSnap, companySnap] = await Promise.all([
+        transaction.get(adminDb.collection('users').doc(coordinatorId)),
+        proposalId ? transaction.get(proposalRef) : Promise.resolve(null),
+        companyRef ? transaction.get(companyRef) : Promise.resolve(null),
+      ]);
+      if (!coordinatorSnap.exists || coordinatorSnap.data().role !== 'coordinator'
+        || coordinatorSnap.data().department !== student.department) {
+        throw Object.assign(new Error('Your assigned coordinator could not be verified.'), { status: 409 });
+      }
+
+      const existing = existingSnap?.exists ? existingSnap.data() : null;
+      if (proposalId && !existing) throw Object.assign(new Error('Placement proposal not found.'), { status: 404 });
+      if (existing && (existing.studentId !== req.user.uid || existing.sectionId !== student.sectionId
+        || existing.department !== student.department)) {
+        throw Object.assign(new Error('Placement proposal not found.'), { status: 404 });
+      }
+      if (existing && !['draft', 'needs_revision', 'rejected'].includes(existing.status)) {
+        throw Object.assign(new Error('This placement proposal can no longer be edited.'), { status: 409 });
+      }
+
+      let savedFields = { ...fields, companyId };
+      if (companyRef) {
+        if (!companySnap?.exists || companySnap.data().active === false || companySnap.data().status === 'inactive') {
+          throw Object.assign(new Error('Choose an active company from the directory.'), { status: 400 });
+        }
+        const company = companySnap.data();
+        savedFields = {
+          ...savedFields,
+          companyName: boundedText(company.name, 'company name', placementProposalFields.companyName),
+          companyAddress: boundedText(company.address, 'company address', placementProposalFields.companyAddress),
+          companyIndustry: boundedText(company.industry, 'company industry', placementProposalFields.companyIndustry),
+          companyEmail: boundedText(company.email, 'company email', placementProposalFields.companyEmail),
+          companyPhone: boundedText(company.phone, 'company phone', placementProposalFields.companyPhone),
+        };
+      }
+      if (status === 'pending_review') {
+        const required = ['companyName', 'companyAddress', 'supervisorName', 'supervisorEmail', 'internshipRole', 'startDate', 'endDate'];
+        if (required.some(field => !savedFields[field])) {
+          throw Object.assign(new Error(companyRef
+            ? 'The selected company or placement details are incomplete. Contact your coordinator if directory data is missing.'
+            : 'Complete the required placement details before submitting.'), { status: companyRef ? 409 : 400 });
+        }
+        if (companyRef) {
+          const company = companySnap.data();
+          const capacity = Number(company.capacity);
+          if (!Number.isSafeInteger(capacity) || capacity < 1) {
+            throw Object.assign(new Error('This company is not accepting placements yet. Ask your coordinator to contact the administrator.'), { status: 409 });
+          }
+          const stayingAtCompany = student.placementStatus === 'approved' && student.companyId === companyId;
+          const assigned = await transaction.get(adminDb.collection('users').where('companyId', '==', companyId));
+          const occupied = assigned.docs.filter(item => item.data().role === 'student' && item.data().placementStatus === 'approved').length;
+          if (!stayingAtCompany && occupied >= capacity) {
+            throw Object.assign(new Error('This company has no internship slots available. Choose another company or contact your coordinator.'), { status: 409 });
+          }
+        }
+      }
+
+      const data = {
+        ...savedFields,
+        studentId: req.user.uid,
+        studentName: placementStudentName(student),
+        department: student.department,
+        sectionId: student.sectionId,
+        coordinatorId,
+        status,
+        reviewReason: status === 'pending_review' ? '' : (existing?.reviewReason || ''),
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        submittedAt: status === 'pending_review' ? now : (existing?.submittedAt || null),
+        reviewedBy: null,
+        reviewedAt: null,
+      };
+      transaction.set(proposalRef, data);
+      if (status === 'pending_review') {
+        const isResubmission = existing && ['needs_revision', 'rejected'].includes(existing.status);
+        transaction.set(adminDb.collection('notifications').doc(), {
+          recipientId: coordinatorId, senderId: req.user.uid, senderRole: 'student',
+          title: 'Company placement request',
+          message: `${data.studentName} submitted a company placement for review.`,
+          type: 'placement', read: false, createdAt: now,
+        });
+        writeAuditInTransaction(transaction, {
+          actorId: req.user.uid, actorRole: 'student',
+          action: isResubmission ? 'placement.resubmitted' : 'placement.submitted',
+          targetType: 'companyProposals', targetId: proposalRef.id,
+          details: { sectionId: student.sectionId },
+        });
+      }
+      return { id: proposalRef.id, status };
+    });
+    return res.status(proposalId ? 200 : 201).json({ success: true, ...saved });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error);
+    return res.status(500).json({ error: 'Could not save the company placement proposal.' });
+  }
+});
+
 app.post('/student/final-reviews', requireUser, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
   if (!allowRate(req, res, { limit: 12, windowMs: 60 * 60_000, key: request => `final-review-submission:${request.user.uid}` })) return;
@@ -1134,10 +1288,15 @@ app.post('/coordinator/endorsements/:proposalId/send', requireStaff, async (req,
   }
 });
 
-app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, async (req, res) => {
+app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, decideCompanyPlacement);
+app.post('/coordinator/sections/:sectionId/placements/:studentId/assign', requireStaff, decideCompanyPlacement);
+
+async function decideCompanyPlacement(req, res) {
+  const directAssignment = req.params.studentId !== undefined;
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 40, windowMs: 60 * 60_000, key: request => `placement-review:${request.staff.uid}` })) return;
-  const { status, reason = '' } = req.body || {};
+  const { reason = '' } = req.body || {};
+  const status = directAssignment ? 'approved' : req.body?.status;
   const requestedCompanyId = req.body?.companyId;
   if (requestedCompanyId !== undefined && (typeof requestedCompanyId !== 'string'
     || !/^[A-Za-z0-9_-]{1,120}$/.test(requestedCompanyId))) {
@@ -1146,18 +1305,41 @@ app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, a
   const note = typeof reason === 'string' ? reason.trim().slice(0, 2000) : '';
   if (!['approved', 'needs_revision', 'rejected'].includes(status)) return res.status(400).json({ error: 'Invalid placement decision.' });
   if (status !== 'approved' && !note) return res.status(400).json({ error: 'A reason is required for this decision.' });
-  const proposalRef = adminDb.collection('companyProposals').doc(req.params.proposalId);
+  let assignmentFields;
+  if (directAssignment) {
+    if (![req.params.studentId, req.params.sectionId, requestedCompanyId].every(value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(value))) {
+      return res.status(400).json({ error: 'Choose a valid section, student, and company.' });
+    }
+    try {
+      assignmentFields = Object.fromEntries(['supervisorName', 'supervisorEmail', 'internshipRole', 'startDate', 'endDate', 'workArrangement']
+        .map(field => [field, boundedText(req.body?.[field], field, placementProposalFields[field])]));
+      const { supervisorEmail, startDate, endDate } = assignmentFields;
+      if (Object.values(assignmentFields).some(value => !value) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supervisorEmail)
+        || !isIsoDate(startDate) || !isIsoDate(endDate) || endDate < startDate
+        || !['On-site', 'Remote', 'Hybrid'].includes(assignmentFields.workArrangement)) {
+        throw new Error('Complete the assignment with a valid supervisor email, schedule, and work arrangement.');
+      }
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+  }
+  const proposals = adminDb.collection('companyProposals');
+  const proposalRef = directAssignment ? proposals.doc() : proposals.doc(req.params.proposalId);
   const coordinatorRef = adminDb.collection('users').doc(req.staff.uid);
   const now = new Date().toISOString();
   try {
     await adminDb.runTransaction(async transaction => {
-      const proposalSnap = await transaction.get(proposalRef);
-      if (!proposalSnap.exists) throw Object.assign(new Error('Placement proposal not found.'), { status: 404 });
-      const proposal = proposalSnap.data();
-      const studentRef = adminDb.collection('users').doc(proposal.studentId);
+      const proposalSnap = directAssignment ? null : await transaction.get(proposalRef);
+      if (!directAssignment && !proposalSnap.exists) throw Object.assign(new Error('Placement proposal not found.'), { status: 404 });
+      const studentRef = adminDb.collection('users').doc(directAssignment ? req.params.studentId : proposalSnap.data().studentId);
       const [studentSnap, coordinatorSnap] = await Promise.all([transaction.get(studentRef), transaction.get(coordinatorRef)]);
       if (!studentSnap.exists || studentSnap.data().role !== 'student') throw Object.assign(new Error('Student not found.'), { status: 404 });
       const student = studentSnap.data();
+      const proposal = directAssignment ? {
+        ...assignmentFields, studentId: studentRef.id, studentName: placementStudentName(student),
+        sectionId: req.params.sectionId, department: student.department,
+        coordinatorId: req.staff.uid, source: 'coordinator_assignment', createdAt: now,
+      } : proposalSnap.data();
       if (!coordinatorSnap.exists || coordinatorSnap.data().role !== 'coordinator'
         || coordinatorSnap.data().department !== student.department || !student.sectionId
         || proposal.sectionId !== student.sectionId || proposal.department !== student.department) {
@@ -1168,7 +1350,13 @@ app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, a
         || sectionSnap.data().department !== coordinatorSnap.data().department) {
         throw Object.assign(new Error('You can only review placement proposals from your assigned sections.'), { status: 403 });
       }
-      if (proposal.status !== 'pending_review') throw Object.assign(new Error('This placement proposal has already been reviewed.'), { status: 409 });
+      if (directAssignment) {
+        if (student.accountApproved !== true || student.placementStatus === 'approved') {
+          throw Object.assign(new Error('Choose an active student who has no assigned placement.'), { status: 409 });
+        }
+        const pending = await transaction.get(proposals.where('studentId', '==', studentRef.id).where('status', '==', 'pending_review').limit(1));
+        if (!pending.empty) throw Object.assign(new Error('Review the student’s pending request before assigning a placement.'), { status: 409 });
+      } else if (proposal.status !== 'pending_review') throw Object.assign(new Error('This placement proposal has already been reviewed.'), { status: 409 });
       assertRecordsOpen(student);
       const decisionFields = { status, reviewReason: note, reviewedBy: req.staff.uid, reviewedAt: now, updatedAt: now };
       let needsFreshFinalReview = false;
@@ -1327,7 +1515,8 @@ app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, a
           },
         });
       }
-      transaction.update(proposalRef, decisionFields);
+      if (directAssignment) transaction.create(proposalRef, { ...proposal, ...decisionFields });
+      else transaction.update(proposalRef, decisionFields);
       transaction.set(adminDb.collection('notifications').doc(), {
         recipientId: proposal.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: `Company placement ${status === 'needs_revision' ? 'needs changes' : status}`,
@@ -1350,7 +1539,7 @@ app.post('/coordinator/company-placements/:proposalId/decision', requireStaff, a
     console.error(error);
     return res.status(500).json({ error: 'Could not process this placement review.' });
   }
-});
+}
 
 app.post('/coordinator/student-roster', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });

@@ -28,6 +28,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [verifiedEndorsementItems, setVerifiedEndorsementItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
   const [draftBusy, setDraftBusy] = useState('');
   const [deliveryBusy, setDeliveryBusy] = useState('');
   const [deliveryConfirm, setDeliveryConfirm] = useState(null);
@@ -37,7 +39,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [reviewStage, setReviewStage] = useState('all');
   const [queueFilter, setQueueFilter] = useState('action');
   const [selectedQueueStudent, setSelectedQueueStudent] = useState(null);
-  useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); }, [selectedSection?.id]);
+  useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); setAssignmentOpen(false); }, [selectedSection?.id]);
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
@@ -101,6 +103,30 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   useEffect(() => { setEndorsementDraft(null); }, [selectedSection?.id]);
   useEffect(() => { setDeliveryConfirm(null); setDeliveryNotice(''); }, [selectedSection?.id]);
   useEffect(() => { setReasons({}); setReviewConfirm(null); setReviewSearch(''); setReviewStatus('all'); }, [selectedSection?.id]);
+
+  const pendingStudents = new Set(items.filter(item => item.status === 'pending_review').map(item => item.studentId));
+  const waitingStudents = assignedStudents.filter(student => student.sectionId === selectedSection?.id
+    && student.accountApproved === true && student.placementStatus !== 'approved'
+    && student.clearanceStatus !== 'cleared' && !pendingStudents.has(student.id));
+  const activeCompanies = companies.filter(company => company.active !== false && company.status !== 'inactive');
+
+  const assignPlacement = async event => {
+    event.preventDefault();
+    if (busy || !selectedSection?.id) return;
+    const { studentId, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
+    setBusy('assignment');
+    setAssignmentError('');
+    try {
+      await adminRequest('/coordinator/sections/' + encodeURIComponent(selectedSection.id)
+        + '/placements/' + encodeURIComponent(studentId) + '/assign', {
+        method: 'POST', body: JSON.stringify(fields),
+      });
+      setAssignmentOpen(false);
+      await load();
+    } catch (error) {
+      setAssignmentError(error.message || 'Unable to assign this placement.');
+    } finally { setBusy(''); }
+  };
 
   const review = async (item, status) => {
     const note = (reasons[`placement:${item.id}`] || '').trim();
@@ -235,7 +261,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <div className="placement-page-header">
       <div>
       <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Assignments and reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
-      <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
+      <div className="review-actions">
+        <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
+        {selectedSection && !error && <button type="button" className="portal-primary" disabled={!!busy}
+          onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
+      </div>
     </div>
     <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
       <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
@@ -256,6 +286,40 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
+    {assignmentOpen && selectedSection && <PortalFormDialog className="placement-student-detail" label="Assign placement"
+      onCancel={() => { if (!busy) setAssignmentOpen(false); }}>
+      <header><div><h2>Assign placement</h2><p>{selectedSection.name}</p></div></header>
+      <form className="placement-detail-body" onSubmit={assignPlacement}>
+        <p>Use Placement Reviews for students with a pending request.</p>
+        {!waitingStudents.length && <p>No students are waiting for a direct assignment in this section.</p>}
+        {!activeCompanies.length && <p>Add an active company in Company Directory before assigning a placement.</p>}
+        <fieldset className="placement-assignment-fields" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
+          <label>Student<select name="studentId" required defaultValue=""><option value="" disabled>Choose a student</option>
+            {waitingStudents.map(student => <option key={student.id} value={student.id}>
+              {[student.firstName, student.lastName].filter(Boolean).join(' ') || student.name || 'Student'} · {student.idNumber || student.id}
+            </option>)}
+          </select></label>
+          <label>Company<select name="companyId" required defaultValue=""><option value="" disabled>Choose a company</option>
+            {activeCompanies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select></label>
+          <label>Supervisor name<input name="supervisorName" required maxLength={160} /></label>
+          <label>Supervisor email<input name="supervisorEmail" type="email" required maxLength={254} /></label>
+          <label>Internship role or department<input name="internshipRole" required maxLength={160} /></label>
+          <label>Work arrangement<select name="workArrangement" required defaultValue="">
+            <option value="" disabled>Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option>
+          </select></label>
+          <label>Start date<input name="startDate" type="date" required /></label>
+          <label>End date<input name="endDate" type="date" required /></label>
+        </fieldset>
+        {assignmentError && <p role="alert">{assignmentError}</p>}
+        <div className="review-actions">
+          <button type="button" disabled={!!busy} onClick={() => setAssignmentOpen(false)}>Cancel</button>
+          <button type="submit" className="review-approve" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
+            {busy === 'assignment' ? 'Assigning…' : 'Confirm assignment'}
+          </button>
+        </div>
+      </form>
+    </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     <div className="placement-queue-filters" role="group" aria-label="Placement queue">
       {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setQueueFilter(value); setSelectedQueueStudent(null); }}>

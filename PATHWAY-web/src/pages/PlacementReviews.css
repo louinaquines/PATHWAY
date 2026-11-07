@@ -149,3 +149,6 @@
 .placement-student-detail select:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; width:100%; min-height:44px; gap:12px; padding:10px 12px; font-size:14px; }
 
 .placement-student-detail select:not([multiple]):not([size]) { display:inline-flex !important; flex-direction:row; }
+
+.placement-assignment-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:16px; border:0; padding:0; margin:16px 0; }
+.placement-assignment-fields label { display:grid; gap:6px; font-size:14px; }

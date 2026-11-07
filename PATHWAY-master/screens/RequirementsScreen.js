@@ -761,7 +761,7 @@ export default function RequirementsScreen({ navigation, route }) {
 
         {/* ── Footer Navigation / Submit Button ── */}
         {!isDocumentHub && <View style={styles.footerSection}>
-          <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for your coordinator to assign your company.' : 'Submit all required pre-deployment documents to continue.'}</Text>
+          <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for a company assignment or send an optional placement request.' : 'Submit all required pre-deployment documents to continue.'}</Text>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
             disabled={!canContinueToAssignment}

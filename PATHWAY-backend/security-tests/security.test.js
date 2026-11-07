@@ -1642,26 +1642,29 @@ test('company directory is coordinator-managed and admins have read-only oversig
   });
 });
 
-test('student placement drafts, submissions, and resubmissions are validated and audited by the backend', async () => {
-  const student = identities.placementStudent;
-  const unauthenticated = await api('/student/company-proposals', null, { status: 'draft' });
+test('student placement requests and coordinator assignments preserve ownership and official placement state', async () => {
+  const student = await createIdentity('placementRequestStudent', 'student', 'Department A', 'section-a');
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'users', student.uid), student.profile);
+  });
+  const unauthenticated = await api('/student/placement-requests', null, { status: 'draft' });
   assert.equal(unauthenticated.response.status, 401);
-  const wrongRole = await api('/student/company-proposals', identities.coordinatorA, { status: 'draft' });
+  const wrongRole = await api('/student/placement-requests', identities.coordinatorA, { status: 'draft' });
   assert.equal(wrongRole.response.status, 403);
-  const invalidDate = await api('/student/company-proposals', student, { status: 'draft', startDate: '2026-02-31' });
+  const invalidDate = await api('/student/placement-requests', student, { status: 'draft', startDate: '2026-02-31' });
   assert.equal(invalidDate.response.status, 400);
-  const foreignProposal = await api('/student/company-proposals', student, {
+  const foreignProposal = await api('/student/placement-requests', student, {
     proposalId: 'proposal-b', status: 'draft', companyName: 'Not mine',
   });
   assert.equal(foreignProposal.response.status, 404);
 
-  const draft = await api('/student/company-proposals', student, {
+  const draft = await api('/student/placement-requests', student, {
     status: 'draft', companyName: 'New proposal draft', notes: 'Student-authored notes',
   });
   assert.equal(draft.response.status, 201, JSON.stringify(draft.data));
   assert.equal(draft.data.status, 'draft');
 
-  const submitted = await api('/student/company-proposals', student, {
+  const submitted = await api('/student/placement-requests', student, {
     proposalId: draft.data.id, status: 'pending_review', companyId: 'company-b',
     companyName: 'Forged directory name', companyAddress: 'Forged directory address',
     companyIndustry: 'Forged industry', companyEmail: 'forged@example.test', companyPhone: '000',
@@ -1690,7 +1693,7 @@ test('student placement drafts, submissions, and resubmissions are validated and
     status: 'needs_revision', reason: 'Please confirm the proposed placement details.',
   });
   assert.equal(revision.response.status, 200, JSON.stringify(revision.data));
-  const resubmitted = await api('/student/company-proposals', student, {
+  const resubmitted = await api('/student/placement-requests', student, {
     proposalId: draft.data.id, status: 'pending_review', companyId: 'company-b',
     supervisorName: 'Supervisor B', supervisorEmail: 'supervisor@approved.test',
     internshipRole: 'Software Intern', startDate: '2026-10-01', endDate: '2027-03-31',
@@ -1710,6 +1713,33 @@ test('student placement drafts, submissions, and resubmissions are validated and
     assert.equal(notifications.size, 2);
     assert.equal(submittedAudit.size, 1);
     assert.equal(resubmittedAudit.size, 1);
+  });
+  const assignmentPath = '/coordinator/sections/section-a/placements/' + student.uid + '/assign';
+  const assignment = { companyId: 'company-b', supervisorName: 'Supervisor B',
+    supervisorEmail: 'supervisor@approved.test', internshipRole: 'Software Intern',
+    startDate: '2026-10-01', endDate: '2027-03-31', workArrangement: 'On-site' };
+  assert.equal((await api(assignmentPath, student, assignment)).response.status, 403);
+  assert.equal((await api(assignmentPath, identities.coordinatorB, assignment)).response.status, 403);
+  assert.equal((await api(assignmentPath, identities.coordinatorA, assignment)).response.status, 409);
+  const declined = await api('/coordinator/company-placements/' + draft.data.id + '/decision', identities.coordinatorA, {
+    status: 'rejected', reason: 'An alternative placement is available.',
+  });
+  assert.equal(declined.response.status, 200);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const profile = await getDoc(doc(context.firestore(), 'users', student.uid));
+    assert.notEqual(profile.data().placementStatus, 'approved');
+  });
+  const assigned = await api(assignmentPath, identities.coordinatorA, assignment);
+  assert.equal(assigned.response.status, 200, JSON.stringify(assigned.data));
+  assert.equal((await api(assignmentPath, identities.coordinatorA, assignment)).response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    const profile = (await getDoc(doc(store, 'users', student.uid))).data();
+    assert.equal(profile.placementStatus, 'approved');
+    assert.equal(profile.companyId, 'company-b');
+    const official = await getDoc(doc(store, 'companyProposals', profile.placementProposalId));
+    assert.equal(official.data().source, 'coordinator_assignment');
+    assert.equal((await getDoc(doc(store, 'endorsements', profile.endorsementId))).exists(), true);
   });
 });
 

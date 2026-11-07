@@ -44,7 +44,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       const scopedSections = selectedSection ? sections.filter(section => section.id === selectedSection.id) : [];
       if (!scopedSections.length) { setRows([]); setError('This section is not assigned to you.'); return; }
       const evaluationResult = await adminRequest('/coordinator-evaluations');
-      if (!isRefreshCurrent()) return;
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       const evaluatedStudents = new Set((evaluationResult.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
       const groups = await Promise.all(scopedSections.map(async section => {
         const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
@@ -70,11 +70,12 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
           };
         });
       }));
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       setRows(groups.flat());
     } catch (e) {
-      if (!isRefreshCurrent()) return;
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       console.error(e);
-      setError('Could not load clearance records.');
+      setError(e.message || 'Could not load clearance records.');
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
@@ -222,14 +223,14 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       {/* Metrics Grid */}
       <div className="clearance-metrics" style={s.metrics}>
         {summaries.map(([id, label, value]) => <button type="button" key={id} className="portal-secondary clearance-filter"
-          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><span>{label}</span> <strong data-zero={value === 0}>{value}</strong></button>)}
+          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><span>{label}</span> <strong data-zero={value === 0}>{error && !rows.length ? '—' : value}</strong></button>)}
       </div>
 
       {/* Table Card */}
       <div className="clearance-records" style={s.card}>
         <div style={s.searchRow}>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" placeholder="Search students…" />
-          <span style={s.searchCount}>{filteredRows.length} of {rows.length} students</span>
+          <span style={s.searchCount}>{error && !rows.length ? 'Records unavailable' : filteredRows.length + ' of ' + rows.length + ' students'}</span>
         </div>
         <RecordPagination pagination={recordsPage} label="Clearance students" />
         <div style={s.tableWrap}>
@@ -292,7 +293,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             </tbody>
           </table>
           {!filteredRows.length && (
-            <div style={s.empty}>{searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
+            <div style={s.empty}>{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
           )}
         </div>
       </div>

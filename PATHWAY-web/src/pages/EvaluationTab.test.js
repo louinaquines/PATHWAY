@@ -72,3 +72,18 @@ test('a preparation failure retains the completed invitations so retry only prep
   const requests = fetch.mock.calls.filter(([url]) => url.endsWith('/create-evaluation-token'));
   expect(requests.map(([, options]) => JSON.parse(options.body).studentId)).toEqual(['amy', 'ben', 'ben']);
 });
+
+test('evaluation-history failure does not hide the assigned-company roster', async () => {
+  fetch.mockImplementation((url) => {
+    if (url.endsWith('/coordinator-evaluations')) return Promise.resolve({ ok: false, status: 503,
+      json: async () => ({ error: 'The server could not verify access. Please try again shortly.' }) });
+    throw new Error('Unexpected request');
+  });
+  render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  const company = await screen.findByRole('combobox', { name: 'Company' });
+  expect(screen.getByRole('option', { name: 'Host Company' })).toBeInTheDocument();
+  fireEvent.change(company, { target: { value: 'id:host' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Students' }));
+  expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+  expect(await screen.findByText('The server could not verify access. Please try again shortly.')).toBeVisible();
+});

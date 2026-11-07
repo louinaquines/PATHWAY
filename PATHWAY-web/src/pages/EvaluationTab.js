@@ -2,7 +2,8 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/EvaluationTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { db } from '../firebase';
+import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import PaginationButtonGroup from '../components/PaginationButtonGroup';
@@ -13,7 +14,6 @@ import './EvaluationTab.css';
 import { defaultEvaluationForm } from './EvaluationFormBuilder';
 import EvaluationBuilderDialog from './EvaluationBuilderDialog';
 
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const EVALUATIONS_PER_PAGE = 5;
 
 export default function EvaluationTab({ coordinatorId, selectedSection, sections = [], onSectionChange }) {
@@ -44,27 +44,20 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadEvaluations = useCallback(async ({ isCurrent = () => true } = {}) => {
-    const token = await auth.currentUser?.getIdToken();
-    if (!token) return;
-    const response = await fetch(`${API}/coordinator-evaluations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) throw new Error('Could not load evaluations');
-    const data = await response.json();
+    const data = await adminRequest('/coordinator-evaluations');
     if (isCurrent()) setEvaluations(data.evaluations || []);
   }, []);
 
   useEffect(() => {
     if (!coordinatorId) return;
     let active = true;
+    setEvaluations([]);
     setStudents([]); setSelectedStudentIds([]); setCompanyKey(''); setPreparedInvitations([]);
     setInvitation(null); setLink(''); setStatus('');
     setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
     if (!selectedSection?.id) { setLoading(false); return; }
-    Promise.all([
-      getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId))),
-      loadEvaluations(),
-    ]).then(async ([snapshot]) => {
+    loadEvaluations({ isCurrent: () => active }).catch(error => { if (active) setStatus(error.message); });
+    getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId))).then(async snapshot => {
       if (!snapshot.docs.some(section => section.id === selectedSection.id)) throw new Error('This section is not assigned to you.');
       const roster = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', selectedSection.id)));
       if (active) setStudents(roster.docs.map(item => ({ ...item.data(), id: item.id })));
@@ -77,12 +70,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const checkEmailConnection = async () => {
     setBusy(true);
     try {
-      const token = await auth.currentUser.getIdToken();
-      const response = await fetch(`${API}/coordinator/email-connection`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not verify email connection.');
+      const data = await adminRequest('/coordinator/email-connection', { method: 'POST' });
       setStatus(data.message);
     } catch (error) { setStatus(error.message); }
     finally { setBusy(false); }
@@ -118,14 +106,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     if (busy || !remainingStudents.length || mixedSupervisors) return;
     setBusy(true); setStatus('Preparing invitations…');
     try {
-      const token = await auth.currentUser.getIdToken();
       for (const student of remainingStudents) {
-        const response = await fetch(API + '/create-evaluation-token', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body: JSON.stringify({ ...form, studentId: student.id, formDefinition }),
+        const data = await adminRequest('/create-evaluation-token', {
+          method: 'POST', body: JSON.stringify({ ...form, studentId: student.id, formDefinition }),
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Could not prepare the invitation.');
         const item = { id: data.id, token: data.token, studentId: student.id,
           studentName: [student.firstName, student.lastName].filter(Boolean).join(' '),
           email: form.supervisorEmail, supervisorName: form.supervisorName };
@@ -145,13 +129,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     setBusy(true);
     setStatus('Sending evaluation email…');
     try {
-      const token = await auth.currentUser.getIdToken();
-      const response = await fetch(`${API}/coordinator/evaluations/${encodeURIComponent(invitation.id)}/email`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ token: invitation.token, message: emailMessage }),
+      await adminRequest('/coordinator/evaluations/' + encodeURIComponent(invitation.id) + '/email', {
+        method: 'POST', body: JSON.stringify({ token: invitation.token, message: emailMessage }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not send evaluation email.');
       setEmailSent(true);
       setPreparedInvitations(previous => previous.map(item => item.id === invitation.id ? { ...item, sent: true } : item));
       setStatus('Sent: the email server accepted the invitation. This does not confirm that the supervisor has read it.');

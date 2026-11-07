@@ -324,7 +324,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     <div className="placement-queue-filters" role="group" aria-label="Placement queue">
       {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
-        {label} <span>{queueRows.filter(row => value === 'action' ? row.needsAction : value === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>
+        {label} <span>{error ? '—' : queueRows.filter(row => value === 'action' ? row.needsAction : value === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>
       </button>)}
     </div>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}
@@ -332,7 +332,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <RecordPagination pagination={queuePage} label="Placement students" />
     <div className="placement-queue-table"><table><thead><tr><th>Student</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
       {queuePage.items.map(row => <tr key={row.id}><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
-    </tbody></table>{!filteredQueue.length && <div className="review-empty">{reviewSearch ? 'No students match this search.' : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
+    </tbody></table>{!filteredQueue.length && <div className="review-empty">{error ? 'Placement records could not load. Use Refresh placements to try again.' : reviewSearch ? 'No students match this search.' : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
     {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} onCancel={() => setSelectedQueueStudent(null)}>
       <header><div><h2>{selectedQueue.name}</h2><p>Placement tasks and decisions</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
       <div className="placement-task-overview"><strong>Next: {selectedQueue.current.step}</strong><ul>{selectedQueue.tasks.filter(task=>task.needsAction).map(task=><li key={task.stage+task.record.id}>{task.step}</li>)}</ul></div>

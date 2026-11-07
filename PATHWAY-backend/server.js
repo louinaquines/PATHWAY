@@ -69,21 +69,8 @@ function allowRate(req, res, { limit, windowMs, key }) {
   return true;
 }
 
-async function requireUser(req, res, next) {
-  try {
-    const header = req.headers.authorization || '';
-    if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required' });
-    const decoded = await adminAuth.verifyIdToken(header.slice(7), true);
-    const snap = await adminDb.collection('users').doc(decoded.uid).get();
-    if (!snap.exists) return res.status(403).json({ error: 'User profile not found' });
-    if (snap.data().role === 'student' && (snap.data().passwordChangeRequired === true
-      || (snap.data().passwordEpoch && decoded.passwordEpoch !== snap.data().passwordEpoch))) {
-      return res.status(403).json({ error: 'Change your password and sign in again before accessing student records.' });
-    }
-    req.user = { uid: decoded.uid, role: snap.data().role, data: snap.data() };
-    return next();
-  } catch (e) { return res.status(401).json({ error: 'Invalid authentication token' }); }
-}
+const { createRequireUser, reportUnavailable } = require('./requestAuthentication');
+const requireUser = createRequireUser({ auth: adminAuth, db: adminDb });
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
 require('./departmentJournals').installDepartmentJournals({ app, db: adminDb, requireStaff, requireUser, allowRate, audit: writeAuditInTransaction });
@@ -99,7 +86,7 @@ setInterval(async () => {
   try {
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction });
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction, queued: true });
-  } catch { console.error('Support reconciliation unavailable'); }
+  } catch (error) { reportUnavailable(console.error, 'Support reconciliation unavailable', error); }
   finally { supportReconciliationRunning = false; }
 }, 60000).unref();
 let supportCleanupRunning = false;
@@ -107,7 +94,7 @@ setInterval(async () => {
   if (supportCleanupRunning || !cloudinaryConfig()) return;
   supportCleanupRunning = true;
   try { await cleanupSupportAttachments({ db: adminDb, uploads: supportUploads }); }
-  catch { console.error('Support attachment cleanup unavailable'); }
+  catch (error) { reportUnavailable(console.error, 'Support attachment cleanup unavailable', error); }
   finally { supportCleanupRunning = false; }
 }, 60000).unref();
 
@@ -2744,7 +2731,7 @@ const requirementChecks = require('./requirementChecks').createRequirementChecks
   },
 });
 if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATOR_HOST) {
-  const checkPendingRequirements = () => requirementChecks.run().catch(() => console.warn('Automatic document checking paused; coordinator review remains available.'));
+  const checkPendingRequirements = () => requirementChecks.run().catch(error => reportUnavailable(console.warn, 'Automatic document checking paused; coordinator review remains available.', error));
   setInterval(checkPendingRequirements, 5000).unref();
   checkPendingRequirements();
 }

@@ -1,8 +1,9 @@
+import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/NotificationsTab.js
-import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { collection, getDocs, query, where, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -20,6 +21,10 @@ export default function NotificationsTab({ userId, onOpenAttendanceRisk }) {
 
 function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
   const { isCurrent, onDenied } = access;
+  const inboxCursor = useRef(null);
+  const pageBusy = useRef(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [olderBusy, setOlderBusy] = useState(false);
   const [items, setItems]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [sections, setSections]     = useState([]);
@@ -41,10 +46,11 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
     if (!silent) setLoading(true);
     setLoadError('');
     try {
-      const snap = await getDocs(query(collection(db, 'notifications'), where('recipientId', '==', userId)));
+      const page = await readPortalPage(query(collection(db, 'notifications'), where('recipientId', '==', userId), orderBy('createdAt', 'desc')));
       if (!isRefreshCurrent()) return;
       if (!isCurrent()) return;
-      setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))));
+      if (!silent || !inboxCursor.current) { inboxCursor.current = page.cursor; setHasOlder(page.hasMore); }
+      setItems(previous => (silent ? mergePortalRecords(previous, page.records) : page.records).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))));
     } catch (e) {
       if (!isRefreshCurrent()) return;
       if (!isCurrent()) return;
@@ -107,6 +113,17 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
     } catch (failure) { if (isCurrent()) { if (failure.code === 'permission-denied') onDenied(); else setLoadError('Could not mark this notification as read. Please try again.'); } }
   };
 
+  const loadOlder = async () => {
+    if (pageBusy.current || !hasOlder) return;
+    pageBusy.current = true; setOlderBusy(true);
+    try {
+      const page = await readPortalPage(query(collection(db, 'notifications'), where('recipientId', '==', userId), orderBy('createdAt', 'desc')), inboxCursor.current);
+      if (!isCurrent()) return;
+      inboxCursor.current = page.cursor; setHasOlder(page.hasMore);
+      setItems(previous => mergePortalRecords(previous, page.records).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));
+    } catch { setLoadError('Could not load older notifications. Try again.'); }
+    finally { pageBusy.current = false; setOlderBusy(false); }
+  };
   const filteredItems = items.filter(item => matchesCoordinatorSearch(searchQuery, item.title, item.message, item.type));
   const inboxPage = useRecordPage(filteredItems, userId + ':' + searchQuery);
 
@@ -206,6 +223,8 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
           </button>
         </div>
 
+<p>Search and unread counts cover loaded notifications.</p>
+        {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older notifications…' : 'Load older notifications'}</button>}
         <RecordPagination pagination={inboxPage} label="Inbox notifications" />
         {loadError && <p role="alert">{loadError}</p>}
         {!loadError && !filteredItems.length ? (

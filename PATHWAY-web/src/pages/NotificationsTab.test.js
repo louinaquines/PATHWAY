@@ -8,7 +8,7 @@ import NotificationsTab from './NotificationsTab';
 jest.mock('../firebase', () => ({ db: {}, auth: { currentUser: { uid: 'coord-a' } } }));
 jest.mock('firebase/auth', () => ({ onAuthStateChanged: jest.fn(() => () => {}) }));
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
-jest.mock('firebase/firestore', () => ({ onSnapshot: jest.fn(() => () => {}), collection: jest.fn(), query: jest.fn(), where: jest.fn(), getDocs: jest.fn(), updateDoc: jest.fn(), doc: jest.fn() }));
+jest.mock('firebase/firestore', () => ({ onSnapshot: jest.fn(() => () => {}), collection: jest.fn(), query: jest.fn(), where: jest.fn(), getDocs: jest.fn(), orderBy: jest.fn(), limit: jest.fn(), startAfter: jest.fn(), updateDoc: jest.fn(), doc: jest.fn() }));
 
 const notice = { id: 'notice-a', studentId: 'student', sectionId: 'section-a', title: 'Attendance risk update', kind: 'opened', riskTier: 'High', progressStatus: 'In progress', dataStatus: 'Ready', reasonCodes: ['PROJECTED_SHORTFALL'], ruleVersion: 'attendance-risk-v1', asOf: '2026-10-21', createdAt: '2026-10-21', read: false };
 beforeEach(() => { jest.clearAllMocks(); auth.currentUser = { uid: 'coord-a' }; getDocs.mockResolvedValue({ docs: [] }); adminRequest.mockReset(); });

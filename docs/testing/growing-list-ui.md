@@ -33,3 +33,11 @@ Search and section/status filters run before pagination. Counts and exports stil
 
 ## Follow-up growing lists
 Notification inbox, section picker, unassigned-student lists and unread-message dialogs now render at most 25 records per page. Individual conversations render 50 messages per page, newest page first and chronological within each page. All older loaded messages remain accessible. Background data loading is unchanged; these are rendering bounds, not server-side cursor pagination. Production database load testing is still required. No claim of crash-proof or unlimited capacity is made.
+
+## Database-pagination rollout (2026-11-07)
+- Notification inbox and coordinator message history now use indexed Firestore cursor queries: 50 records plus one look-ahead per request. Older loaded data remains reachable; refresh merges records by ID.
+- Live index inventory confirmed recipientId/createdAt and participantIds/createdAt indexes exist. No production student records were read during verification.
+- Search, previews and unread counts explicitly describe their loaded-history scope. Global server-side search and conversation-summary counters remain follow-up work.
+- Local Firestore emulator: 5,000 fictional records, 20 concurrent readers, 100 bounded queries; max 51 documents/query, p50 254 ms, p95 1,120 ms, elapsed 2,209 ms. These are emulator measurements, not production capacity or complete API end-to-end load results.
+- Synthetic cursor traversal: 10,000 records across 200 pages, no missing records; oversized requests rejected, refresh duplicates merged.
+- Remaining: server pagination/search/export coverage for other collections, production-like API load tests, conversation summaries, and real-browser/device verification. Do not describe the entire system as scalability-complete.

@@ -1,7 +1,8 @@
+import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { collection, getDocs, query, updateDoc, doc, where } from 'firebase/firestore';
+import { collection, getDocs, query, updateDoc, doc, where, orderBy } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import './MessagesTab.css';
@@ -10,6 +11,10 @@ const formatDate = value => value ? new Date(value).toLocaleString('en-PH', { mo
 
 export default function MessagesTab({ selectedSection }) {
   const coordinatorId = auth.currentUser?.uid;
+  const historyCursor = useRef(null);
+  const historyBusy = useRef(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [olderBusy, setOlderBusy] = useState(false);
   const [items, setItems] = useState([]);
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -40,10 +45,12 @@ export default function MessagesTab({ selectedSection }) {
       return;
     }
     try {
-      const messageSnap = await getDocs(query(collection(db, 'messages'), where('participantIds', 'array-contains', coordinatorId)));
+      const messagePage = await readPortalPage(query(collection(db, 'messages'), where('participantIds', 'array-contains', coordinatorId), orderBy('createdAt', 'desc')));
       if (!isRefreshCurrent()) return;
       if (version !== loadVersion.current) return;
-      setItems(messageSnap.docs.map(item => ({ id: item.id, ...item.data(), body: item.data().body || item.data().message || '' })).sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
+      if (!silent || !historyCursor.current) { historyCursor.current = messagePage.cursor; setHasOlder(messagePage.hasMore); }
+      const normalized = messagePage.records.map(item=>({...item,body:item.body || item.message || ''}));
+      setItems(previous=>(silent ? mergePortalRecords(previous,normalized) : normalized).sort((a,b)=>String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
       if (selectedSection?.id) {
         const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', selectedSection.id)));
       if (!isRefreshCurrent()) return;
@@ -134,6 +141,16 @@ export default function MessagesTab({ selectedSection }) {
   const studentsPage = useRecordPage(visibleStudents, (selectedSection?.id || '') + ':' + search);
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
+  const loadOlder = async () => {
+    if (historyBusy.current || !hasOlder) return;
+    const version=loadVersion.current; historyBusy.current=true;setOlderBusy(true);
+    try { const page=await readPortalPage(query(collection(db,'messages'),where('participantIds','array-contains',coordinatorId),orderBy('createdAt','desc')),historyCursor.current);
+      if(version!==loadVersion.current)return;
+      historyCursor.current=page.cursor;setHasOlder(page.hasMore);
+      setItems(previous=>mergePortalRecords(previous,page.records.map(item=>({...item,body:item.body || item.message || ''}))).sort((a,b)=>String(a.createdAt || '').localeCompare(String(b.createdAt || ''))));
+    } catch { if(version===loadVersion.current)setError('Could not load older messages. Try again.'); }
+    finally {historyBusy.current=false;setOlderBusy(false);}
+  };
   const alertsPage = useRecordPage([...messageAlerts].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))), selectedSection?.id);
   const threadPage = useRecordPage([...(selected?.messages || [])].reverse(), selected?.id, 50);
   return <div className="messages-workspace">
@@ -167,6 +184,8 @@ export default function MessagesTab({ selectedSection }) {
 </header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
+<p className="messages-empty-copy">Previews and unread counts cover loaded messages.</p>
+      {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older messages…' : 'Load older messages'}</button>}
       <RecordPagination pagination={studentsPage} label="Conversations" />
       <div className="messages-panel-list" aria-busy={loading}>
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>

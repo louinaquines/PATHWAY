@@ -16,7 +16,6 @@ const { FieldValue, getFirestore }     = require('firebase-admin/firestore');
 
 const adminAuth = getAuth(adminApp);
 const adminDb   = getFirestore(adminApp);
-
 const express = require('express');
 const cors    = require('cors');
 const crypto  = require('crypto');
@@ -69,8 +68,17 @@ function allowRate(req, res, { limit, windowMs, key }) {
   return true;
 }
 
-const { createRequireUser, reportUnavailable } = require('./requestAuthentication');
-const requireUser = createRequireUser({ auth: adminAuth, db: adminDb });
+const { createRequireUser, reportUnavailable, createRetryTask } = require('./requestAuthentication');
+function logAuthenticationFailure(label, diagnostic) {
+  // The SDK resolves the target lazily, during the first database request.
+  let projectId = 'unresolved';
+  try {
+    const resolved = adminDb.projectId;
+    if (typeof resolved === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(resolved)) projectId = resolved;
+  } catch { /* Initialization may itself have failed. */ }
+  console.error(label, { ...diagnostic, projectId, database: '(default)' });
+}
+const requireUser = createRequireUser({ auth: adminAuth, db: adminDb, log: logAuthenticationFailure });
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
 require('./departmentJournals').installDepartmentJournals({ app, db: adminDb, requireStaff, requireUser, allowRate, audit: writeAuditInTransaction });
@@ -79,25 +87,23 @@ const { createSupportUploads, cleanupSupportAttachments } = require('./workplace
 const supportUploads = createSupportUploads();
 require('./workplaceSupport').installWorkplaceSupport({ app, db: adminDb, requireUser, requireStaff, allowRate, audit: writeAuditInTransaction, uploads: supportUploads });
 const { reconcileSupport, markSupportAssignment } = require('./workplaceSupportNotifications');
-let supportReconciliationRunning = false;
-setInterval(async () => {
-  if (supportReconciliationRunning) return;
-  supportReconciliationRunning = true;
-  try {
+const reconcileSupportTask = createRetryTask({
+  intervalMs: 60000,
+  task: async () => {
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction });
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction, queued: true });
-  } catch (error) { reportUnavailable(console.error, 'Support reconciliation unavailable', error); }
-  finally { supportReconciliationRunning = false; }
-}, 60000).unref();
-let supportCleanupRunning = false;
-setInterval(async () => {
-  if (supportCleanupRunning || !cloudinaryConfig()) return;
-  supportCleanupRunning = true;
-  try { await cleanupSupportAttachments({ db: adminDb, uploads: supportUploads }); }
-  catch (error) { reportUnavailable(console.error, 'Support attachment cleanup unavailable', error); }
-  finally { supportCleanupRunning = false; }
-}, 60000).unref();
-
+  },
+  onError: error => reportUnavailable(console.error, 'Support reconciliation unavailable', error),
+});
+setInterval(reconcileSupportTask, 60000).unref();
+const cleanupSupportTask = createRetryTask({
+  intervalMs: 60000,
+  task: async () => {
+    if (cloudinaryConfig()) await cleanupSupportAttachments({ db: adminDb, uploads: supportUploads });
+  },
+  onError: error => reportUnavailable(console.error, 'Support attachment cleanup unavailable', error),
+});
+setInterval(cleanupSupportTask, 60000).unref();
 
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
@@ -2731,8 +2737,12 @@ const requirementChecks = require('./requirementChecks').createRequirementChecks
   },
 });
 if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATOR_HOST) {
-  const checkPendingRequirements = () => requirementChecks.run().catch(error => reportUnavailable(console.warn, 'Automatic document checking paused; coordinator review remains available.', error));
-  setInterval(checkPendingRequirements, 5000).unref();
+  const checkPendingRequirements = createRetryTask({
+    intervalMs: 60000,
+    task: () => requirementChecks.run(),
+    onError: error => reportUnavailable(console.warn, 'Automatic document checking unavailable', error),
+  });
+  setInterval(checkPendingRequirements, 60000).unref();
   checkPendingRequirements();
 }
 require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });

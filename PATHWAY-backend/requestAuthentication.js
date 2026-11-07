@@ -9,7 +9,16 @@ function safeErrorCode(error) {
 }
 
 function reportUnavailable(log, label, error, stage) {
-  log(label, { ...(stage ? { stage } : {}), code: safeErrorCode(error) });
+  const code = safeErrorCode(error);
+  const details = String(error?.details || '') + ' ' + String(error?.message || '');
+  let reason;
+  if (code === '8' || code === 'resource-exhausted') {
+    reason = /received message larger|message.*too large/i.test(details) ? 'message_too_large'
+      : /bandwidth/i.test(details) ? 'bandwidth_exhausted'
+      : /quota/i.test(details) ? 'quota_exceeded'
+      : /rate limit|too many requests/i.test(details) ? 'rate_limited' : 'resource_exhausted';
+  }
+  log(label, { ...(stage ? { stage } : {}), code, ...(reason ? { reason } : {}) });
 }
 
 function createRequireUser({ auth, db, log = console.error }) {
@@ -42,4 +51,20 @@ function createRequireUser({ auth, db, log = console.error }) {
   };
 }
 
-module.exports = { createRequireUser, reportUnavailable };
+function createRetryTask({ task, intervalMs, onError, now = Date.now }) {
+  let running = false, nextAttempt = 0, failures = 0;
+  return async () => {
+    if (running || now() < nextAttempt) return;
+    running = true;
+    try {
+      await task();
+      failures = 0;
+      nextAttempt = now() + intervalMs;
+    } catch (error) {
+      failures++;
+      nextAttempt = now() + Math.min(900000, Math.max(60000, intervalMs) * 2 ** Math.min(failures - 1, 4));
+      onError(error);
+    } finally { running = false; }
+  };
+}
+module.exports = { createRequireUser, reportUnavailable, createRetryTask };

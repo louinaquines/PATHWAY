@@ -135,12 +135,6 @@ export default function MessagesTab({ selectedSection }) {
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
   return <div className="messages-workspace">
-    <div className="messages-alert-toolbar">
-      <button className="messages-alert-trigger" type="button" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Message notifications
-        {messageAlerts.length > 0 && <span className="messages-alert-count">{messageAlerts.length}</span>}
-      </button>
-    </div>
     <dialog ref={alertsDialog} className="messages-alert-dialog" aria-labelledby="message-alert-title" onCancel={() => setAlertsOpen(false)} onClose={() => setAlertsOpen(false)} onClick={event => { if (event.target === event.currentTarget) setAlertsOpen(false); }}>
       <header className="messages-alert-dialog-header"><div className="notification-hero"><span className="notification-hero-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z" /><path d="M7 10h10M7 14h6" /></svg></span><div><span className="notification-eyebrow">STUDENT MESSAGES</span><h2 id="message-alert-title">Message notifications</h2><p>{selectedSection?.name || 'Current section'}</p></div></div><button type="button" className="messages-close" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}>✕</button></header>
       <div className="messages-alert-dialog-body">
@@ -161,7 +155,13 @@ export default function MessagesTab({ selectedSection }) {
       </div>
     </dialog>
     <section className="messages-students">
-      <header><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></header>
+      <header><div><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></div>    <div className="messages-alert-toolbar">
+      <button className="messages-alert-trigger" type="button" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Message notifications
+        {messageAlerts.length > 0 && <span className="messages-alert-count">{messageAlerts.length}</span>}
+      </button>
+    </div>
+</header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
       <RecordPagination pagination={studentsPage} label="Conversations" />
@@ -190,7 +190,7 @@ export default function MessagesTab({ selectedSection }) {
           {selected.messages.map(message => <div key={message.id} className={`messages-bubble-row${message.senderId === coordinatorId ? ' is-outgoing' : ''}`}><div className="messages-bubble"><div>{message.body}</div><small>{formatDate(message.createdAt)}</small></div></div>)}
         </div>
         <div className="messages-composer"><textarea aria-label="Message reply" value={draft} onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); if (!event.repeat) send(); } }} placeholder={selected.messages.length ? 'Write a reply...' : 'Write a message...'} rows={2} /><button type="button" onClick={send} disabled={!draft.trim() || sending}>{sending ? 'Sending...' : 'Send'}</button></div>
-      </> : <div className="messages-welcome"><h2>Your conversations</h2><p>Choose a section, then a student to read or send messages.</p></div>}
+      </> : <div className="messages-welcome"><h2>Your conversations</h2><p>Select a student to read messages or start a conversation.</p></div>}
     </section>
   </div>;
 }

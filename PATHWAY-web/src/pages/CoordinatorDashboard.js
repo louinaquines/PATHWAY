@@ -433,7 +433,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook', 'sections'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -699,7 +699,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
             {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
-            {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
+            {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
           </div>
         )}

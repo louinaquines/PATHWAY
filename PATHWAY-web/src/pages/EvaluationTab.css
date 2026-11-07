@@ -112,3 +112,23 @@
  .coordinator-page:has(.evaluation-panel) .requirements-topbar .sectionPickerLabel { flex-direction:row; width:100%; }
  .coordinator-page:has(.evaluation-panel) .requirements-topbar select.sectionPicker:not([multiple]):not([size]) { flex:1; width:auto; min-width:0; }
 }
+
+.evaluation-section-control { display:grid; gap:6px; width:min(240px,100%); font-size:14px; font-weight:600; }
+.evaluation-section-control select:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; height:44px; padding:8px 12px !important; width:100%; }
+.evaluation-students-trigger { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:44px; padding:10px 12px; border:1px solid #ccd5df; border-radius:8px; background:#fff; color:#243448; font:inherit; text-align:left; cursor:pointer; }
+.evaluation-students-trigger:disabled { color:#526174; background:#f6f8fb; cursor:default; }
+.evaluation-student-options { max-height:250px; overflow:auto; margin-top:6px; padding:10px; border:1px solid #ccd5df; border-radius:8px; background:#fff; }
+.evaluation-student-options > label { display:flex; align-items:center; gap:10px; min-height:44px; padding:6px; font-size:14px; }
+.evaluation-student-options input { width:18px; height:18px; min-height:18px; flex:none; }
+.evaluation-student-options small { display:block; color:#526174; font-size:13px; }
+.evaluation-field-note, .evaluation-prepared p { color:#526174; font-size:13px; }
+.evaluation-prepared { margin-top:16px; padding:16px; border:1px solid #dce2e9; border-radius:8px; }
+.evaluation-prepared-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.evaluation-prepared-heading h3 { margin:0; font-size:16px; }
+.evaluation-prepared-list { display:flex; flex-wrap:wrap; gap:8px; }
+.evaluation-prepared-list button[aria-pressed='true'] { background:#edf4fd; border-color:#075fc9; color:#075fc9; }
+.evaluation-students-trigger > svg { transform: rotate(90deg); flex-shrink:0; }
+.evaluation-invitation select:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; min-height:44px; }
+.evaluation-panel .evaluation-invitation .evaluation-students-trigger { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; box-shadow:none !important; font-weight:400; }
+.evaluation-panel .evaluation-invitation .evaluation-students-trigger:disabled { background:#f6f8fb !important; color:#526174 !important; }
+.evaluation-panel .evaluation-invitation .evaluation-student-options .portal-secondary { background:#fff !important; color:#0759ba !important; border:1px solid #ccd5df !important; }

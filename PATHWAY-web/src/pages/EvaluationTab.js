@@ -16,7 +16,7 @@ import EvaluationBuilderDialog from './EvaluationBuilderDialog';
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 const EVALUATIONS_PER_PAGE = 5;
 
-export default function EvaluationTab({ coordinatorId, selectedSection }) {
+export default function EvaluationTab({ coordinatorId, selectedSection, sections = [], onSectionChange }) {
   const [students, setStudents]       = useState([]);
   const [formDefinition, setFormDefinition] = useState(defaultEvaluationForm);
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -27,6 +27,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     supervisorEmail: '',
     companyName: '',
   });
+  const [companyKey, setCompanyKey] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [preparedInvitations, setPreparedInvitations] = useState([]);
+  const [selectionOpen, setSelectionOpen] = useState(false);
   const [link, setLink]               = useState('');
   const [invitation, setInvitation] = useState(null);
   const [emailMessage, setEmailMessage] = useState('');
@@ -52,22 +56,22 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
 
   useEffect(() => {
     if (!coordinatorId) return;
+    let active = true;
+    setStudents([]); setSelectedStudentIds([]); setCompanyKey(''); setPreparedInvitations([]);
+    setInvitation(null); setLink(''); setStatus('');
+    setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
+    if (!selectedSection?.id) { setLoading(false); return; }
     Promise.all([
       getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId))),
       loadEvaluations(),
-    ])
-      .then(async ([sectionSnap]) => {
-        const studentSnaps = await Promise.all(sectionSnap.docs.map(section =>
-          getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)))
-        ));
-        const assigned = studentSnaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-          .filter(student => !selectedSection || student.sectionId === selectedSection.id);
-        setStudents([...new Map(assigned.map(student => [student.id, student])).values()]);
-      })
-      .catch(error => setStatus(error.message))
-      .finally(() => setLoading(false));
-  }, [coordinatorId, loadEvaluations, selectedSection]);
-
+    ]).then(async ([snapshot]) => {
+      if (!snapshot.docs.some(section => section.id === selectedSection.id)) throw new Error('This section is not assigned to you.');
+      const roster = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', selectedSection.id)));
+      if (active) setStudents(roster.docs.map(item => ({ ...item.data(), id: item.id })));
+    }).catch(error => { if (active) setStatus(error.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [coordinatorId, loadEvaluations, selectedSection?.id]);
   usePortalAutoRefresh(loadEvaluations, { enabled: !loading && !busy && !refreshing, scope: selectedSection?.id || '' });
 
   const checkEmailConnection = async () => {
@@ -84,43 +88,58 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     finally { setBusy(false); }
   };
 
-  const createLink = async event => {
-    event.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    setInvitation(null);
-    setEmailSent(false);
-    setStatus('Generating secure evaluation link...');
-    setLink('');
-    setCopied(false);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const response = await fetch(`${API}/create-evaluation-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          ...form,
-          formDefinition,
-          studentName: students.find(student => student.id === form.studentId)?.firstName || '',
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Could not create evaluation link');
-      const generatedLink = `${window.location.origin}/evaluate?token=${data.token}`;
-      setLink(generatedLink);
-      setInvitation({ id: data.id, token: data.token, email: form.supervisorEmail, supervisorName: form.supervisorName });
-      setStatus('Invitation prepared. Confirm the recipient below and send the email directly from PATHWAY.');
-      await loadEvaluations();
-    } catch (error) {
-      setStatus(error.message);
-    } finally {
-      setBusy(false);
-    }
+  const companyFor = student => student.companyId ? 'id:' + student.companyId : 'name:' + (student.company || student.companyName || '').trim();
+  const placedStudents = students.filter(student => student.placementStatus === 'approved' && (student.company || student.companyName || '').trim());
+  const companies = [...new Map(placedStudents.map(student => [companyFor(student), student.company || student.companyName])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]));
+  const companyStudents = placedStudents.filter(student => companyFor(student) === companyKey)
+    .sort((a, b) => [a.firstName, a.lastName].join(' ').localeCompare([b.firstName, b.lastName].join(' ')));
+  const selectedStudents = companyStudents.filter(student => selectedStudentIds.includes(student.id));
+  const supervisorEmails = new Set(selectedStudents.map(student => (student.supervisorEmail || '').trim().toLowerCase()).filter(Boolean));
+  const mixedSupervisors = supervisorEmails.size > 1;
+  const preparedIds = new Set(preparedInvitations.map(item => item.studentId));
+  const remainingStudents = selectedStudents.filter(student => !preparedIds.has(student.id));
+
+  const updateSelection = ids => {
+    setSelectedStudentIds(ids);
+    const selected = companyStudents.filter(student => ids.includes(student.id));
+    const emails = new Set(selected.map(student => (student.supervisorEmail || '').trim().toLowerCase()).filter(Boolean));
+    setForm(previous => ({ ...previous, supervisorName: emails.size <= 1 ? selected.find(student => student.supervisorName)?.supervisorName || '' : '',
+      supervisorEmail: emails.size <= 1 ? [...emails][0] || '' : '' }));
   };
 
+  const showInvitation = item => {
+    setInvitation(item); setLink(window.location.origin + '/evaluate?token=' + item.token);
+    setEmailSent(item.sent === true); setCopied(false);
+  };
+
+  const createLink = async event => {
+    event.preventDefault();
+    if (busy || !remainingStudents.length || mixedSupervisors) return;
+    setBusy(true); setStatus('Preparing invitations…');
+    try {
+      const token = await auth.currentUser.getIdToken();
+      for (const student of remainingStudents) {
+        const response = await fetch(API + '/create-evaluation-token', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ ...form, studentId: student.id, formDefinition }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Could not prepare the invitation.');
+        const item = { id: data.id, token: data.token, studentId: student.id,
+          studentName: [student.firstName, student.lastName].filter(Boolean).join(' '),
+          email: form.supervisorEmail, supervisorName: form.supervisorName };
+        setPreparedInvitations(previous => [...previous, item]);
+        showInvitation(item);
+      }
+      setSelectionOpen(false);
+      setStatus('Invitations prepared. Check the recipient before sending each email.');
+    } catch (error) { setStatus(error.message); }
+    finally {
+      setBusy(false);
+      try { await loadEvaluations(); } catch (_) { /* Keep prepared invitations visible. */ }
+    }
+  };
   const sendEmail = async () => {
     if (!invitation || busy || emailSent) return;
     setBusy(true);
@@ -134,6 +153,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not send evaluation email.');
       setEmailSent(true);
+      setPreparedInvitations(previous => previous.map(item => item.id === invitation.id ? { ...item, sent: true } : item));
       setStatus('Sent: the email server accepted the invitation. This does not confirm that the supervisor has read it.');
     } catch (error) { setStatus(error.message); }
     finally {
@@ -166,7 +186,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
     }
   };
 
-  const filteredEvaluations = evaluations.filter(item => matchesCoordinatorSearch(
+  const studentIds = new Set(students.map(student => student.id));
+  const filteredEvaluations = evaluations.filter(item => studentIds.has(item.studentId) && matchesCoordinatorSearch(
     searchQuery,
     item.studentName,
     item.studentId,
@@ -202,38 +223,46 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
         </div>
 
         <form onSubmit={createLink} style={styles.form}>
+          <label className="evaluation-section-control">Section
+            <select aria-label="Current section" disabled={busy || !sections.length} value={selectedSection?.id || ''}
+              onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
+              {!sections.length && <option value="">No assigned sections</option>}
+              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+          </label>
           <div style={styles.formRow}>
             <div style={styles.field}>
-              <label style={styles.label}>Student</label>
-              <select
-                aria-label="Select enrolled student"
-                required
-                value={form.studentId}
-                onChange={e => setForm({ ...form, studentId: e.target.value })}
-                style={styles.select}
-              >
-                <option value="">Select student...</option>
-                {students.map(student => (
-                  <option key={student.id} value={student.id}>
-                    {student.firstName} {student.lastName} ({student.idNumber || student.id})
-                  </option>
-                ))}
+              <label htmlFor="evaluation-company" style={styles.label}>Company</label>
+              <select id="evaluation-company" required disabled={busy || preparedInvitations.length > 0} value={companyKey} style={styles.select}
+                onChange={event => {
+                  setCompanyKey(event.target.value); setSelectedStudentIds([]); setSelectionOpen(false);
+                  setForm({ studentId: '', companyName: companies.find(([key]) => key === event.target.value)?.[1] || '', supervisorName: '', supervisorEmail: '' });
+                }}>
+                <option value="">Select company</option>
+                {companies.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
               </select>
+              {!companies.length && <p className="evaluation-field-note">No students in this section have an assigned company.</p>}
             </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>Host company</label>
-              <input
-                required
-                placeholder="e.g. Acme Tech Solutions Inc."
-                aria-label="Host company"
-                value={form.companyName}
-                onChange={e => setForm({ ...form, companyName: e.target.value })}
-                style={styles.input}
-              />
+            <div style={styles.field} className="evaluation-student-picker">
+              <label style={styles.label} id="evaluation-students-label">Students</label>
+              <button type="button" className="evaluation-students-trigger" aria-labelledby="evaluation-students-label"
+                aria-expanded={selectionOpen} disabled={!companyKey || busy || preparedInvitations.length > 0}
+                onClick={() => setSelectionOpen(open => !open)}>
+                {selectedStudentIds.length ? selectedStudentIds.length + ' selected' : 'Select students'} <Icon name="chevronRight" size={16} />
+              </button>
+              {selectionOpen && <div className="evaluation-student-options">
+                <button type="button" className="portal-secondary" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
+                  {selectedStudentIds.length === companyStudents.length ? 'Clear selection' : 'Select all'}
+                </button>
+                {companyStudents.map(student => <label key={student.id}>
+                  <input type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
+                    updateSelection(event.target.checked ? [...selectedStudentIds, student.id] : selectedStudentIds.filter(id => id !== student.id))} />
+                  <span>{[student.firstName, student.lastName].filter(Boolean).join(' ')}<small>{student.idNumber || student.id}</small></span>
+                </label>)}
+              </div>}
             </div>
           </div>
-
+          {mixedSupervisors && <p role="alert">These students have different supervisors. Select students with the same supervisor for each request.</p>}
           <div style={styles.formRow}>
             <div style={styles.field}>
               <label style={styles.label}>Supervisor name</label>
@@ -242,6 +271,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                 placeholder="e.g. John Doe, Senior Dev"
                 aria-label="Supervisor full name"
                 value={form.supervisorName}
+                disabled={busy || preparedInvitations.length > 0}
                 onChange={e => setForm({ ...form, supervisorName: e.target.value })}
                 style={styles.input}
               />
@@ -255,6 +285,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
                 placeholder="supervisor@company.com"
                 aria-label="Supervisor email address"
                 value={form.supervisorEmail}
+                disabled={busy || preparedInvitations.length > 0}
                 onChange={e => setForm({ ...form, supervisorEmail: e.target.value })}
                 style={styles.input}
               />
@@ -262,8 +293,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
           </div>
 
           <div className="evaluation-form-actions">
-          <button type="submit" disabled={busy} style={styles.generateBtn}>
-            {busy ? 'Please wait…' : 'Prepare Evaluation Email'}
+          <button type="submit" disabled={busy || mixedSupervisors || !remainingStudents.length} style={styles.generateBtn}>
+            {busy ? 'Please wait…' : 'Prepare invitations'}
           </button>
           <button className="evaluation-connection-button" type="button" onClick={checkEmailConnection} disabled={busy}>
             Check email connection
@@ -277,6 +308,18 @@ export default function EvaluationTab({ coordinatorId, selectedSection }) {
           </div>
         )}
 
+        {preparedInvitations.length > 0 && <section className="evaluation-prepared">
+          <div className="evaluation-prepared-heading"><h3>Prepared invitations</h3>
+            <button type="button" className="portal-secondary" disabled={busy} onClick={() => {
+              setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectedStudentIds([]); setCompanyKey(''); setStatus('');
+              setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
+            }}>New request</button></div>
+          <p>Each student has a separate link. Select a student below to review and send their invitation.</p>
+          <div className="evaluation-prepared-list">{preparedInvitations.map(item => <button type="button" key={item.id}
+            className="portal-secondary" aria-pressed={invitation?.id === item.id} disabled={busy} onClick={() => showInvitation(item)}>
+            {item.studentName}{item.sent ? ' · Sent' : ''}
+          </button>)}</div>
+        </section>}
         {link && (
           <div style={styles.linkCard}>
             <div style={styles.linkTop}>

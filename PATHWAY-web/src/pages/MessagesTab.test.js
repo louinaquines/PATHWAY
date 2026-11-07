@@ -7,7 +7,7 @@ jest.mock('../firebase', () => ({ auth: { currentUser: { uid: 'coordinator-1' } 
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(), query: jest.fn(), where: jest.fn(),
-  getDocs: jest.fn(), orderBy: jest.fn(), limit: jest.fn(), startAfter: jest.fn(), updateDoc: jest.fn(), doc: jest.fn(),
+  getDocs: jest.fn(), orderBy: jest.fn(), limit: jest.fn(), startAfter: jest.fn(), updateDoc: jest.fn().mockResolvedValue(undefined), doc: jest.fn(),
 }));
 
 beforeEach(() => jest.clearAllMocks());
@@ -92,7 +92,7 @@ test('no section selection leaves conversations unloaded', async () => {
 });
 
 
-test('incoming messages appear without refresh and preserve an unsent reply', async () => {
+test('paused polling does not reload incoming messages or disturb an unsent reply', async () => {
   jest.useFakeTimers();
   try {
     const students = { docs: [{ id: 'avery', data: () => ({ firstName: 'Avery', lastName: 'Student' }) }] };
@@ -101,12 +101,9 @@ test('incoming messages appear without refresh and preserve an unsent reply', as
     fireEvent.click(await screen.findByRole('button', { name: 'Avery Student' }));
     const reply = screen.getByRole('textbox', { name: 'Message reply' });
     fireEvent.change(reply, { target: { value: 'My unsent reply' } }); reply.focus();
-    getDocs.mockResolvedValueOnce({ docs: [{ id: 'live-message', data: () => ({
-      studentId: 'avery', conversationId: 'avery__coordinator-1', recipientId: 'coordinator-1',
-      body: 'New student message', read: false, createdAt: '2026-11-05T11:00:00Z',
-    }) }] }).mockResolvedValueOnce(students);
+    getDocs.mockClear();
     await act(async () => { jest.advanceTimersByTime(10000); });
-    expect(screen.getByRole('log', { name: 'Conversation' })).toHaveTextContent('New student message');
+    expect(getDocs).not.toHaveBeenCalled();
     expect(screen.getByRole('textbox', { name: 'Message reply' })).toHaveValue('My unsent reply');
   } finally { jest.useRealTimers(); }
 });

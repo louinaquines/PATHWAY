@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 
-// Background reads update data in place; they never reload or remount the page.
+// Temporarily pause background polling to conserve the daily Firestore read quota.
+const AUTO_REFRESH_ENABLED = false;
 export default function usePortalAutoRefresh(refresh, { enabled = true, scope = '', protectInputs = true, intervalMs = 10000 } = {}) {
   const latest = useRef({ refresh, enabled, protectInputs });
   latest.current = { refresh, enabled, protectInputs };
   useEffect(() => {
+    if (!AUTO_REFRESH_ENABLED) return;
     let active = true, busy = false;
     const isCurrent = () => active && latest.current.enabled
       && !(latest.current.protectInputs && document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'));

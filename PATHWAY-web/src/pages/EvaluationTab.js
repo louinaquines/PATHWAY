@@ -90,6 +90,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const companyStudents = placedStudents.filter(student => companyFor(student) === companyKey)
     .sort((a, b) => [a.firstName, a.lastName].join(' ').localeCompare([b.firstName, b.lastName].join(' ')));
   const selectedStudents = companyStudents.filter(student => selectedStudentIds.includes(student.id));
+  const selectedNames = selectedStudents.map(student => [student.firstName, student.lastName].filter(Boolean).join(' ') || student.idNumber || student.id);
+  const allStudentsSelected = selectedNames.length > 1 && selectedNames.length === companyStudents.length;
+  const selectionSummary = !selectedNames.length ? 'Select students' : allStudentsSelected ? 'All ' + selectedNames.length + ' students selected' : selectedNames.slice(0, 2).join(', ') + (selectedNames.length > 2 ? ' +' + (selectedNames.length - 2) + ' more' : '');
   const supervisorEmails = new Set(selectedStudents.map(student => (student.supervisorEmail || '').trim().toLowerCase()).filter(Boolean));
   const mixedSupervisors = supervisorEmails.size > 1;
   const preparedIds = new Set(preparedInvitations.map(item => item.studentId));
@@ -235,7 +238,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               <button type="button" className="evaluation-students-trigger" aria-labelledby="evaluation-students-label"
                 aria-expanded={selectionOpen} aria-controls="evaluation-student-options" disabled={!companyKey || busy || preparedInvitations.length > 0}
                 onClick={() => setSelectionOpen(open => !open)}>
-                {selectedStudentIds.length ? selectedStudentIds.length + ' selected' : 'Select students'} <Icon name="chevronRight" size={16} />
+                <span className="evaluation-selection-summary" title={selectedNames.join(', ')}>
+                  <span className="evaluation-selection-desktop">{selectionSummary}</span>
+                  <span className="evaluation-selection-mobile">{allStudentsSelected || !selectedNames.length ? selectionSummary : selectedNames[0] + (selectedNames.length > 1 ? ' +' + (selectedNames.length - 1) + ' more' : '')}</span>
+                </span><Icon name="chevronRight" size={16} />
               </button>
               {selectionOpen && <div id="evaluation-student-options" className="evaluation-student-options" role="group" aria-label="Company students">
                 <div className="evaluation-selection-toolbar"><span aria-live="polite">{selectedStudentIds.length} of {companyStudents.length} selected</span><button type="button" className="evaluation-select-all" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>

@@ -102,3 +102,19 @@ test('student dropdown dismisses outside and with Escape while preserving select
   expect(trigger).toHaveAttribute('aria-expanded', 'false');
   expect(trigger).toHaveFocus();
 });
+
+test('selection summary shows names, overflow count and all-students state', async () => {
+  const expanded = [roster[0], roster[1], ...['Cara','Dina'].map(name => ({ ...roster[0], id: name.toLowerCase(), firstName: name }))];
+  getDocs.mockImplementation(path => Promise.resolve(snapshot(path === 'sections' ? [section] : expanded)));
+  const { container } = render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Students' }));
+  const boxes = screen.getAllByRole('checkbox');
+  const summary = () => container.querySelector('.evaluation-selection-desktop').textContent;
+  fireEvent.click(boxes[0]); expect(summary()).toBe('Amy');
+  fireEvent.click(boxes[1]); expect(summary()).toBe('Amy, Ben');
+  fireEvent.click(boxes[2]); expect(summary()).toBe('Amy, Ben +1 more');
+  fireEvent.click(boxes[3]); expect(summary()).toBe('All 4 students selected');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+  expect(summary()).toBe('Select students');
+});

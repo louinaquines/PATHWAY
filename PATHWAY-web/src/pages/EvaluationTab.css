@@ -145,3 +145,7 @@
 .evaluation-panel .evaluation-invitation .evaluation-selection-toolbar .evaluation-select-all { min-height:32px; height:auto; width:auto; margin:0; padding:5px 8px !important; border:0 !important; border-radius:6px; background:transparent !important; color:#075fc9 !important; box-shadow:none !important; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
 .evaluation-panel .evaluation-invitation .evaluation-selection-toolbar .evaluation-select-all:hover { background:#eef5ff !important; }
 .evaluation-select-all:focus-visible { outline:2px solid #075fc9; outline-offset:2px; }
+
+.evaluation-selection-summary { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.evaluation-selection-mobile { display:none; }
+@media(max-width:600px) { .evaluation-selection-desktop { display:none; } .evaluation-selection-mobile { display:inline; } }

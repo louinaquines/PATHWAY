@@ -123,7 +123,7 @@
 @media(max-width:1100px) { .analytics-metrics { grid-template-columns:repeat(3,minmax(0,1fr)) !important; } }
 @media(max-width:640px) { .coordinator-analytics-page { padding:12px !important; } .analytics-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } .analytics-schedule-edit > summary { flex-wrap:wrap; } }
 
-.authorized-roster-drawer { position: fixed; inset: 0 auto 0 0; margin: 0; width: min(1120px, 94vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; border-right: 1px solid #dce3ec; background: #f7f9fc; color: #152238; box-sizing: border-box; overflow: auto; font: inherit; }
+.authorized-roster-drawer { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(1120px, 94vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; padding: 0; border: 0; border-left: 1px solid #dce3ec; background: #f7f9fc; color: #152238; box-sizing: border-box; overflow: auto; font: inherit; }
 .authorized-roster-drawer::backdrop { background: rgb(15 23 42 / 35%); }
 .roster-drawer-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 24px; background: white; border-bottom: 1px solid #e1e7ef; }
 .roster-drawer-header h2 { margin: 0; font-size: 22px; font-weight: 650; }

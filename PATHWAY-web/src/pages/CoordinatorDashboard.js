@@ -1,3 +1,4 @@
+import { PortalFormDialog } from '../components/PortalStates';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
@@ -107,6 +108,8 @@ export default function CoordinatorDashboard() {
   }, [activeTab, overviewView, location.key]);
   const [exporting, setExporting] = useState(false);
   const [attendanceTarget, setAttendanceTarget] = useState(null);
+  const [rosterOpen, setRosterOpen] = useState(false);
+  const [rosterBusy, setRosterBusy] = useState(false);
   const attendanceNavigation = useRef(0);
   const sectionLoad = useRef(0);
   useEffect(() => () => { attendanceNavigation.current++; }, [activeTab, coordinatorId]);
@@ -427,7 +430,7 @@ export default function CoordinatorDashboard() {
                             activeTab === 'evaluations' ? 'Supervisor Evaluations' :
                               activeTab === 'clearance' ? 'Clearance Readiness' :
                                 activeTab === 'profile' ? 'Coordinator Profile' : ''}
-            </h1>{activeTab === 'sections' && <JournalFrequencySettings key={auth.currentUser?.uid} />}</div><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
+            </h1></div><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
             {activeTab === 'requirements' && pendingCount > 0 && (
               <span style={s.pendingBadge}>
                 {pendingCount} Pending Review
@@ -444,7 +447,7 @@ export default function CoordinatorDashboard() {
             )}
           </div>
           {['sections', 'classlist'].includes(activeTab) && <button type="button" className="portal-secondary"
-            onClick={() => setActiveTab(activeTab === 'sections' ? 'classlist' : 'sections')}>
+            onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
             {activeTab === 'sections' ? 'Authorized roster' : 'Back to sections'}
           </button>}
           {['requirements', 'sections'].includes(activeTab) && (
@@ -690,7 +693,11 @@ export default function CoordinatorDashboard() {
                 </div>
               </div>
             )}
-            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
+            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
+            {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Authorized roster" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
+              <header className="roster-drawer-header"><div><h2>Authorized roster</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
+              <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
+            </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}

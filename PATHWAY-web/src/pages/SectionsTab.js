@@ -22,7 +22,7 @@ function groupChatHref(value) {
   }
 }
 
-export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange }) {
+export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
   const [selected, setSelected]         = useState(null);
@@ -286,14 +286,14 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 </div>
               </div>
 
-              <details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+              <div className="section-management-actions">{journalSettings}<details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
                 <label style={t.label}>Group chat link
                   <input name="messengerLink" type="url" maxLength={500} style={t.input}
                     defaultValue={chatHref} placeholder="https://m.me/j/…" />
                 </label>
                 <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
                 {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
-              </form></details>
+              </form></details></div>
               <div className="section-view-toggle" style={t.viewToggle}>
                 <button
                   aria-pressed={view === 'students'}

@@ -107,3 +107,6 @@
 .sections-panel .portal-record-pagination > span:nth-of-type(2) { display:none; }
 .sections-panel .portal-record-pagination button { padding:8px !important; font-size:13px; }
 .sections-workspace .section-select, .sections-detail td { overflow-wrap:anywhere; }
+
+.section-management-actions { display: flex; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.section-management-actions .journal-frequency-trigger { min-height: 42px; padding: 10px 14px; border: 1px solid #cbd7e6; border-radius: 8px; background: white; color: #075fc9; font: inherit; font-size: 14px; }

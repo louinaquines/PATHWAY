@@ -1,7 +1,7 @@
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClassListTab.js
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLORS, THEME } from '../theme';
@@ -12,8 +12,11 @@ import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
 import './CoordinatorRecords.css';
 
-export default function ClassListTab({ department, coordinatorId, selectedSection }) {
+export default function ClassListTab({ department, coordinatorId, selectedSection, onBusyChange }) {
   const [sections, setSections] = useState([]);
+  const confirmHost = useRef(null);
+  const loadVersion = useRef(0);
+
   const [sectionId, setSectionId] = useState(selectedSection?.id || '');
   const [outcomes, setOutcomes] = useState([]);
   const [resetResult, setResetResult] = useState(null);
@@ -23,11 +26,13 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
   const [student, setStudent] = useState({ idNumber: '', firstName: '', lastName: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
+  useEffect(() => { onBusyChange?.(saving); }, [saving, onBusyChange]);
   const [message, setMessage] = useState('');
   const [filterQuery, setFilterQuery] = useState('');
   const [removeConfirm, setRemoveConfirm] = useState(null);
 
   const loadIds = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    const version = ++loadVersion.current;
     if (!department || !sectionId) { setIds([]); setLoading(false); return; }
 
     if (!silent) setLoading(true);
@@ -38,18 +43,18 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
         where('sectionId', '==', sectionId),
         where('active', '==', true)
       ));
-      if (!isRefreshCurrent()) return;
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       setIds(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id)));
     } catch (e) {
       if (!isRefreshCurrent()) return;
       console.error(e);
       setMessage('Could not load the authorized class list.');
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current && isRefreshCurrent()) setLoading(false);
     }
   }, [department, sectionId]);
 
-  usePortalAutoRefresh(loadIds, { enabled: !loading && !saving, scope: sectionId || '', protectInputs: true });
+  usePortalAutoRefresh(loadIds, { enabled: !loading && !saving, scope: sectionId || '', protectInputs: true, intervalMs: 60000 });
 
   useEffect(() => {
     loadIds();
@@ -116,7 +121,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
 
   return (
     <div className="authorized-roster-page" style={s.page}>
-      <RecordPagination pagination={recordsPage} label="Roster students" />
+      <div className="roster-section-filter"><label>Section<select aria-label="Assigned section" value={sectionId} onChange={e => { setSectionId(e.target.value); setIds([]); setFilterQuery(''); setOutcomes([]); setResetResult(null); }} disabled={saving}><option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label></div>
       {/* Top Banner / Card */}
       <div className="roster-import-card" style={s.card}>
         <div style={s.cardHeader}>
@@ -130,12 +135,6 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
         </div>
 
         <div style={s.inputSection}>
-          {selectedSection && <p style={s.help}>Import into {selectedSection.name}</p>}
-          {!selectedSection && <>
-          <label style={s.label}>Assigned section</label>
-          <select aria-label="Assigned section" value={sectionId} onChange={e => setSectionId(e.target.value)} disabled={saving}>
-            <option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-          </select></>}
           {[
             ['idNumber', 'Student ID', 'e.g. 24228132'],
             ['firstName', 'First name', 'Enter first name'],
@@ -186,6 +185,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
 
       {/* Roster List Card */}
       <div className="roster-records-card" style={s.card}>
+        <RecordPagination pagination={recordsPage} label="Roster students" />
         <div style={s.listHeader}>
           <div>
             <h3 style={s.subtitle}>Authorized students</h3>
@@ -248,7 +248,8 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           </div>
         )}
       </div>
-      <AlertDialog
+      <div ref={confirmHost} />
+      <AlertDialog portalTarget={confirmHost.current || undefined}
         open={Boolean(resetConfirm)} title="Verify identity before resetting password"
         description={resetConfirm ? 'Confirm that you verified the identity of student ' + resetConfirm.id + '. Existing sessions will be revoked and a password change will be required.' : ''}
         confirmLabel="Identity verified — reset" busy={saving} onCancel={() => setResetConfirm(null)}

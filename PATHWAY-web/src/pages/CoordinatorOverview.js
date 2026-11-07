@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
+import { completedHoursSummary } from '../completedHoursSummary';
 import { canAssignPlacement, isReadyForClearance } from '../coordinatorOverviewData';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { PortalEmpty, PortalError } from '../components/PortalStates';
 import Icon from '../components/Icons';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import './AdminOverview.css';
 import './CoordinatorOverview.css';
 
 async function countPendingJournals(students, isCurrent) {
@@ -64,6 +66,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
 
   if (!section) return <PortalEmpty title="No section assigned" description="Your overview will appear when a section is assigned to you." />;
   if (!summary) return <PageSkeleton label="Loading overview" />;
+  const hours = completedHoursSummary(students, [section]);
   const tasks = [
     ['requirements', 'requirements', 'Requirements awaiting review', requirementsCount, 'students'],
     ['placements', 'assign', 'Students waiting for a company assignment', summary.waitingCount, 'students'],
@@ -71,23 +74,31 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     ['logbook', 'journals', 'Logbooks awaiting review', summary.journalCount, 'entries'],
     ['clearance', 'ready', 'Students ready for clearance', summary.clearanceCount, 'students'],
   ];
-  return <section className="coordinator-overview" aria-labelledby="overview-attention-title">
-    <div className="coordinator-overview-heading">
-      <h2 id="overview-attention-title">Needs attention</h2>
-      <button type="button" className="portal-secondary" onClick={() => load()}>Refresh counts</button>
-    </div>
-    {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
-    {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
-    <ul>
-      {tasks.map(([page, view, label, count, unit]) => <li key={view}>
-        <button type="button" onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
-          <span>{label}</span>
-          <span className="overview-task-count" data-zero={count === 0}>{count == null ? 'Unavailable' : count}
-            {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
-          </span>
-          <Icon name="chevronRight" size={16} />
-        </button>
-      </li>)}
-    </ul>
+  return <section className="coordinator-overview" aria-label="Section overview">
+    <dl className="admin-compact-stats" aria-label="Section summary">
+      <div><dt>Students</dt><dd>{students.length}</dd></div>
+      <div><dt>Assigned placements</dt><dd>{students.filter(student => student.placementStatus === 'approved').length}</dd></div>
+      <div><dt>Completed required hours</dt><dd>{hours.completed}<span> of {hours.total} students</span></dd></div>
+      <div><dt>Cleared</dt><dd>{students.filter(student => student.clearanceStatus === 'cleared').length}</dd></div>
+    </dl>
+    <section className="admin-attention" aria-labelledby="overview-attention-title">
+      <div className="coordinator-overview-heading">
+        <h2 id="overview-attention-title">Needs attention</h2>
+        <button type="button" className="portal-secondary" onClick={() => load()}>Refresh counts</button>
+      </div>
+      {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
+      {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
+      <div className="admin-attention-grid coordinator-attention-grid">
+        {tasks.map(([page, view, label, count, unit]) =>
+          <button key={view} type="button" onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
+            <span>{label}</span>
+            <strong data-zero={count === 0} data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
+              {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
+            </strong>
+            <Icon name="chevronRight" size={14} />
+          </button>
+        )}
+      </div>
+    </section>
   </section>;
 }

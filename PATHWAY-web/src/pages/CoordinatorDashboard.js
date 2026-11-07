@@ -309,7 +309,7 @@ export default function CoordinatorDashboard() {
   const reviewPage = useRecordPage(visibleReviewStudents, (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
-    { title: 'Overview', items: [{ id: 'overview', icon: 'dashboard', label: 'Overview' }] },
+    { title: '', items: [{ id: 'overview', icon: 'dashboard', label: 'Overview' }] },
     { title: 'Review', items: [
         { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
         { id: 'logbook', icon: 'book', label: 'Logbook' },

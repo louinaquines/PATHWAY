@@ -30,3 +30,6 @@ Search and section/status filters run before pagination. Counts and exports stil
 - Open a student and verify all their tasks remain available. Check close/Escape, small-screen scrolling and history.
 - Test decisions and retry using fictional records. Live approval and email delivery require separate authorized workflow testing.
 - Pagination bounds displayed rows, not database reads. Existing section queries load the whole section; server-side cursor pagination and backend load testing remain necessary before claiming large-scale performance.
+
+## Follow-up growing lists
+Notification inbox, section picker, unassigned-student lists and unread-message dialogs now render at most 25 records per page. Individual conversations render 50 messages per page, newest page first and chronological within each page. All older loaded messages remain accessible. Background data loading is unchanged; these are rendering bounds, not server-side cursor pagination. Production database load testing is still required. No claim of crash-proof or unlimited capacity is made.

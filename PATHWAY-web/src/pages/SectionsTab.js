@@ -210,6 +210,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   };
 
   const recordsPage = useRecordPage(filteredStudents, (selected?.id || '') + ':' + searchQuery);
+  const sectionsPage = useRecordPage(filteredSections, searchQuery);
   if (loading) {
     return <PageSkeleton label="Loading sections" variant="three-column" />;
   }
@@ -233,7 +234,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           {filteredSections.length === 0 && (
             <div style={t.empty}>{searchQuery ? 'No matching sections.' : 'Create your first section to get started.'}</div>
           )}
-          {filteredSections.map(sec => (
+          <RecordPagination pagination={sectionsPage} label="Sections" />
+          {sectionsPage.items.map(sec => (
             <div
               className="section-list-card"
               data-selected={selected?.id === sec.id}
@@ -572,12 +574,14 @@ function UnassignedStudents({ sectionId, department, onAssign }) {
     }
   };
 
+  const unassignedPage = useRecordPage(unassigned, sectionId);
   if (loading) return <InlineSkeleton label="Loading unassigned students" />;
   if (unassigned.length === 0) return <div style={{ color: '#000000', fontSize: 13, padding: 12 }}>No unassigned students found.</div>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {unassigned.map(st => (
+      <RecordPagination pagination={unassignedPage} label="Unassigned students" />
+      {unassignedPage.items.map(st => (
         <div key={st.id} style={t.unassignedRow}>
           <div>
             <div style={t.studentName}>{st.firstName} {st.lastName}</div>

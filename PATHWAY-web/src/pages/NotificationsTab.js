@@ -1,3 +1,4 @@
+import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/NotificationsTab.js
 import { useEffect, useState, useCallback } from 'react';
@@ -107,6 +108,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
   };
 
   const filteredItems = items.filter(item => matchesCoordinatorSearch(searchQuery, item.title, item.message, item.type));
+  const inboxPage = useRecordPage(filteredItems, userId + ':' + searchQuery);
 
   if (loading) {
     return <PageSkeleton label="Loading notifications" variant="cards" />;
@@ -116,7 +118,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
     <div style={s.page} className="notifications-page">
       <div className="notification-workspace-header">
         <div className={`notification-switch is-${workspace}`} role="tablist" aria-label="Notification workspace">
-          
+
           <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
           <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Broadcast announcement</button>
         </div>
@@ -204,6 +206,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
           </button>
         </div>
 
+        <RecordPagination pagination={inboxPage} label="Inbox notifications" />
         {loadError && <p role="alert">{loadError}</p>}
         {!loadError && !filteredItems.length ? (
           <div style={s.empty}>
@@ -214,7 +217,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
           </div>
         ) : (
           <div style={s.itemsWrap}>
-            {filteredItems.map(item => (
+            {inboxPage.items.map(item => (
               <button type="button"
                 key={item.id}
                 style={{ ...s.item, ...(item.read ? {} : s.unread) }}

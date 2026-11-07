@@ -103,3 +103,7 @@
 .coordinator-page:has(.sections-workspace) :is(h1,h2,h3,h4,p,span,label,input,button,summary,a,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
 .sections-workspace :is(h3,h4,strong) { font-weight:600 !important; }
 .sections-workspace :is(p,label,small) { font-weight:400 !important; }
+.sections-panel .portal-record-pagination { display:grid; grid-template-columns:1fr auto auto; gap:6px; padding:8px !important; font-size:13px; }
+.sections-panel .portal-record-pagination > span:nth-of-type(2) { display:none; }
+.sections-panel .portal-record-pagination button { padding:8px !important; font-size:13px; }
+.sections-workspace .section-select, .sections-detail td { overflow-wrap:anywhere; }

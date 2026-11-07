@@ -122,3 +122,8 @@
 .messages-bubble { font-size:14px !important; line-height:1.6; overflow-wrap:anywhere; }
 .coordinator-page:has(.messages-workspace) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; min-height:44px; height:44px; padding:8px 12px !important; background:#fff !important; font-size:14px !important; }
 @media(max-width:760px) { .messages-workspace { grid-template-columns:minmax(0,1fr) !important; grid-template-rows:auto minmax(320px,1fr) !important; padding:12px; } .messages-students { max-height:360px; } }
+
+/* Keep growing content inside its own panel. */
+.messages-workspace .messages-thread .portal-record-pagination { position:sticky; top:0; z-index:1; background:#fff; flex-wrap:wrap; font-size:13px; padding:8px; }
+.messages-workspace .messages-thread .portal-record-pagination button { min-height:44px; }
+.messages-workspace .messages-bubble { max-width:100%; overflow-wrap:anywhere; white-space:pre-wrap; }

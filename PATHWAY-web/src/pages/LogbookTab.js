@@ -219,12 +219,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <RecordPagination pagination={studentsPage} label="Students" />
           <div className="logbook-roster-scroll">
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
-              <thead><tr><th scope="col">Student</th><th scope="col">Student ID</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
+              <thead><tr><th scope="col">ID</th><th scope="col">Name of Student</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
               <tbody>{studentsPage.items.map(student => {
                 const name = [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student';
                 return <tr key={student.id}>
-                  <th scope="row">{name}</th>
                   <td>{student.idNumber || '—'}</td>
+                  <th scope="row">{name}</th>
                   <td><button type="button" aria-label={'View attendance for ' + name} onClick={() => openRecords(student, 'attendance')}>View <Icon name="chevronRight" size={14} /></button></td>
                   <td><button type="button" aria-label={'View journal for ' + name} onClick={() => openRecords(student, 'journals')}>View <Icon name="chevronRight" size={14} /></button></td>
                 </tr>;

@@ -184,7 +184,7 @@ export default function MessagesTab({ selectedSection }) {
 </header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
-<p className="messages-empty-copy">Previews and unread counts cover loaded messages.</p>
+
       {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older messages…' : 'Load older messages'}</button>}
       <RecordPagination pagination={studentsPage} label="Conversations" />
       <div className="messages-panel-list" aria-busy={loading}>

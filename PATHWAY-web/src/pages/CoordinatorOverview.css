@@ -1,0 +1,10 @@
+.coordinator-overview { width:100%; max-width:960px; margin:24px; color:#17243a; }
+.coordinator-overview-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.coordinator-overview-heading h2 { margin:0; font-size:20px; }
+.coordinator-overview ul { padding:0; list-style:none; background:#fff; border:1px solid #dce2e9; border-radius:12px; }
+.coordinator-overview li + li { border-top:1px solid #e3e8ef; }
+.coordinator-overview li button { display:grid; grid-template-columns:minmax(0,1fr) auto 16px; align-items:center; gap:12px; width:100%; min-height:52px; padding:12px 16px; text-align:left; font:inherit; color:inherit; background:transparent; border:0; border-radius:8px; cursor:pointer; }
+.coordinator-overview li button:hover { background:#f3f7fc; }
+.coordinator-overview li button:focus-visible { outline:2px solid #075fc9; outline-offset:-3px; }
+.overview-task-count { font-weight:600; color:#0756b4; }
+.overview-task-count[data-zero="true"] { color:#526174; font-weight:400; }

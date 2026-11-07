@@ -1,4 +1,5 @@
 import { PortalFormDialog } from '../components/PortalStates';
+import { canAssignPlacement } from '../coordinatorOverviewData';
 import { placementStudentQueue } from '../placementStudentQueue';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -16,7 +17,7 @@ import './PlacementReviews.css';
 
 const labels = { draft: 'Draft', pending_review: 'Pending review', needs_revision: 'Needs revision', rejected: 'Rejected', approved: 'Approved', superseded: 'Superseded by placement change' };
 
-export default function CompanyPlacementsTab({ department, selectedSection, students = [] }) {
+export default function CompanyPlacementsTab({ department, selectedSection, students = [], overviewView }) {
   const [items, setItems] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [assignedStudents, setAssignedStudents] = useState([]);
@@ -29,6 +30,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const [requestsOnly, setRequestsOnly] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
   const [draftBusy, setDraftBusy] = useState('');
   const [deliveryBusy, setDeliveryBusy] = useState('');
@@ -39,7 +41,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [reviewStage, setReviewStage] = useState('all');
   const [queueFilter, setQueueFilter] = useState('action');
   const [selectedQueueStudent, setSelectedQueueStudent] = useState(null);
-  useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); setAssignmentOpen(false); }, [selectedSection?.id]);
+  useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); setAssignmentOpen(overviewView === 'assign'); setRequestsOnly(overviewView === 'requests'); }, [selectedSection?.id, overviewView]);
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
@@ -106,8 +108,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const pendingStudents = new Set(items.filter(item => item.status === 'pending_review').map(item => item.studentId));
   const waitingStudents = assignedStudents.filter(student => student.sectionId === selectedSection?.id
-    && student.accountApproved === true && student.placementStatus !== 'approved'
-    && student.clearanceStatus !== 'cleared' && !pendingStudents.has(student.id));
+    && canAssignPlacement(student, pendingStudents));
   const activeCompanies = companies.filter(company => company.active !== false && company.status !== 'inactive');
 
   const assignPlacement = async event => {
@@ -245,7 +246,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const queueRows = placementStudentQueue({ placements: items, finals: finalItems, endorsements: endorsementItems, verified: verifiedEndorsementItems, history: historyItems, nameFor: reviewStudentName });
   const queueTerm = reviewSearch.trim().toLowerCase();
-  const filteredQueue = queueRows.filter(row => (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
+  const filteredQueue = queueRows.filter(row => (!requestsOnly || pendingStudents.has(row.id)) && (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
     && [row.name, row.id, row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm)));
   const queuePage = useRecordPage(filteredQueue, (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
   const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent);
@@ -322,10 +323,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     <div className="placement-queue-filters" role="group" aria-label="Placement queue">
-      {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setQueueFilter(value); setSelectedQueueStudent(null); }}>
+      {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
         {label} <span>{queueRows.filter(row => value === 'action' ? row.needsAction : value === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>
       </button>)}
     </div>
+    {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}
     <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous placement decisions, grouped by student.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
     <RecordPagination pagination={queuePage} label="Placement students" />
     <div className="placement-queue-table"><table><thead><tr><th>Student</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>

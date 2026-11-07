@@ -18,7 +18,7 @@ import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
-export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange }) {
+export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
@@ -27,7 +27,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [loading, setLoading]                 = useState(true);
   const [searchQuery, setSearchQuery]         = useState('');
   const [rejectConfirm, setRejectConfirm]     = useState(null);
-  const [recordView, setRecordView] = useState('attendance');
+  const [recordView, setRecordView] = useState(openJournals ? 'journals' : 'attendance');
+  const [pendingOnly, setPendingOnly] = useState(Array.isArray(pendingStudentIds));
   const [attendance, setAttendance] = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
@@ -158,10 +159,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     approved: 'Approved',
     rejected: 'Rejected',
   };
-  const filteredStudents = students.filter(student => matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
+  const pendingIds = new Set(pendingStudentIds);
+  const filteredStudents = students.filter(student => (!pendingOnly || pendingIds.has(student.id)) && matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
 
   const studentsPage = useRecordPage(filteredStudents, (selectedSection?.id || '') + ':' + searchQuery);
-  const entriesPage = useRecordPage(entries, selectedStudent?.id || '');
+  const visibleEntries = pendingOnly ? entries.filter(entry => entry.status === 'pending') : entries;
+  const entriesPage = useRecordPage(visibleEntries, (selectedStudent?.id || '') + ':' + pendingOnly);
   const attendancePage = useRecordPage(attendance, selectedStudent?.id || '');
   if (loading) {
     return <PageSkeleton label="Loading logbook data" variant="three-column" />;
@@ -180,7 +183,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
         <RecordPagination pagination={studentsPage} label="Journal students" />
         {!selectedSection && <div style={t.empty}>Choose a section in the top bar.</div>}
-        {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>No students in this section.</div>}
+        {pendingOnly && <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students and journals</button>}
+        {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>{pendingOnly ? 'No students with pending logbooks match this view.' : 'No students match this view.'}</div>}
         {studentsPage.items.map(st => (
           <button type="button" className="logbook-select-card" aria-pressed={selectedStudent?.id === st.id}
             key={st.id}
@@ -234,11 +238,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             catch (failure) { setAnalysisError(failure.message); }
           }} />}
           {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weekly completeness</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
-          {selectedStudent && recordView === 'journals' && entries.length === 0 && (
+          {selectedStudent && recordView === 'journals' && visibleEntries.length === 0 && (
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="clipboard" size={28} label="No entries" /></div>
               <h3 style={t.emptyTitle}>No Entries Submitted</h3>
-              <p style={t.emptySub}>This student has not submitted any logbook entries yet.</p>
+              <p style={t.emptySub}>{pendingOnly ? 'This student has no logbooks awaiting review.' : 'This student has not submitted any logbook entries yet.'}</p>
             </div>
           )}
 

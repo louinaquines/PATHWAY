@@ -1,4 +1,5 @@
 const descriptions = {
+  overview: 'See what needs attention in your PATHWAY section.',
   login: 'Secure staff access to the PATHWAY OJT management portal.',
   requirements: 'Review and manage student OJT requirements in PATHWAY.',
   sections: 'Manage OJT sections, requirements, and student assignments in PATHWAY.',

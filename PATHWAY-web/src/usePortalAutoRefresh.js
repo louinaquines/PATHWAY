@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // Background reads update data in place; they never reload or remount the page.
-export default function usePortalAutoRefresh(refresh, { enabled = true, scope = '', protectInputs = true } = {}) {
+export default function usePortalAutoRefresh(refresh, { enabled = true, scope = '', protectInputs = true, intervalMs = 10000 } = {}) {
   const latest = useRef({ refresh, enabled, protectInputs });
   latest.current = { refresh, enabled, protectInputs };
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function usePortalAutoRefresh(refresh, { enabled = true, scope = 
       catch { /* Existing page loaders retain their own error presentation. */ }
       finally { busy = false; }
     };
-    const timer = window.setInterval(run, 10000);
+    const timer = window.setInterval(run, intervalMs);
     window.addEventListener('focus', run);
     window.addEventListener('online', run);
     document.addEventListener('visibilitychange', run);
@@ -28,5 +28,5 @@ export default function usePortalAutoRefresh(refresh, { enabled = true, scope = 
       window.removeEventListener('online', run);
       document.removeEventListener('visibilitychange', run);
     };
-  }, [scope]);
+  }, [scope, intervalMs]);
 }

@@ -4,7 +4,7 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import SectionsTab from './SectionsTab';
 import JournalFrequencySettings from '../components/JournalFrequencySettings';
 import LogbookTab from './LogbookTab';
@@ -14,6 +14,7 @@ import AnalyticsTab from './AnalyticsTab';
 import NotificationsTab from './NotificationsTab';
 import EvaluationTab from './EvaluationTab';
 import ClearanceTab from './ClearanceTab';
+import CoordinatorOverview from './CoordinatorOverview';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
@@ -52,8 +53,9 @@ const STATUS_TEXT = {
   rejected: 'Rejected',
 };
 
-const COORDINATOR_TABS = ['requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
+const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const HEADER_DESCRIPTIONS = {
+  overview: 'See what needs attention in the selected section.',
   requirements: 'Review student documents and submission status.',
   sections: 'Manage class sections, students, and requirements.',
   logbook: 'Review student attendance and journals.',
@@ -77,6 +79,9 @@ export default function CoordinatorDashboard() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [reviewFilter, setReviewFilter] = useState('all');
   const { page } = useParams();
+  const location = useLocation();
+  const overviewView = selectedSection && location.state?.sectionId === selectedSection.id ? location.state.view : undefined;
+  const [loadedSectionId, setLoadedSectionId] = useState(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const activeTab = COORDINATOR_TABS.includes(page) ? page : 'requirements';
   const [loading, setLoading] = useState(true);
@@ -94,6 +99,12 @@ export default function CoordinatorDashboard() {
   const [coordinatorProfile, setCoordinatorProfile] = useState(null);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    if (activeTab === 'requirements' && overviewView === 'requirements') {
+      setReviewFilter('review');
+      setSearchQuery('');
+    }
+  }, [activeTab, overviewView, location.key]);
   const [exporting, setExporting] = useState(false);
   const [attendanceTarget, setAttendanceTarget] = useState(null);
   const attendanceNavigation = useRef(0);
@@ -186,6 +197,7 @@ export default function CoordinatorDashboard() {
   const fetchStudents = async (section, { silent = false, isCurrent = () => true } = {}) => {
     const request = ++sectionLoad.current;
     if (!silent) {
+      setLoadedSectionId(null);
       setStudents([]); setSectionRequirements([]); setDocumentPreview(null);
       setSelectedSection(section); window.localStorage.setItem(SECTION_STORAGE_KEY, section.id);
       setSelectedStudent(null);
@@ -209,6 +221,7 @@ export default function CoordinatorDashboard() {
           - REQUIREMENT_CATEGORIES.indexOf(requirementCategory(b.category));
       });
       setSectionRequirements(reqs);
+      setLoadedSectionId(section.id);
     } catch (e) {
       console.error(e);
       if (request === sectionLoad.current) setError('We could not load this section. Please try again.');
@@ -296,6 +309,7 @@ export default function CoordinatorDashboard() {
   const reviewPage = useRecordPage(visibleReviewStudents, (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
+    { title: 'Overview', items: [{ id: 'overview', icon: 'dashboard', label: 'Overview' }] },
     { title: 'Review', items: [
         { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
         { id: 'logbook', icon: 'book', label: 'Logbook' },
@@ -399,7 +413,8 @@ export default function CoordinatorDashboard() {
         <header style={s.topbar} className="topbar requirements-topbar">
           <div style={s.topbarLeft} className="topbarLeft">
             <div className="coordinator-header-title"><div className="coordinator-title-settings-row"><h1 style={s.pageTitle}>
-              {activeTab === 'requirements' ? 'Requirements Approval' :
+              {activeTab === 'overview' ? 'Overview' :
+                activeTab === 'requirements' ? 'Requirements Approval' :
                 activeTab === 'sections' ? 'Sections & Roster' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
                             activeTab === 'placements' ? 'Company Placements' :
@@ -448,7 +463,7 @@ export default function CoordinatorDashboard() {
           )}
         </header>
 
-        {error && !loading && <PortalError message={error} onRetry={fetchInitialData} />}
+        {error && !loading && <PortalError message={error} onRetry={() => activeTab === 'overview' && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
           <PageSkeleton label="Loading coordinator data" variant="three-column" />
@@ -463,6 +478,12 @@ export default function CoordinatorDashboard() {
           </div>
         ) : (
           <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
+            {activeTab === 'overview' && (selectedSection && loadedSectionId !== selectedSection.id
+              ? !error && <PageSkeleton label="Loading section overview" />
+              : <CoordinatorOverview key={selectedSection?.id} section={selectedSection} students={students}
+                  requirementsCount={reviewQueue.length} onOpen={(tab, view, pendingStudentIds) => navigate('/coordinator/' + tab, {
+                    state: { sectionId: selectedSection.id, view, ...(view === 'journals' ? { pendingStudentIds } : {}) },
+                  })} />)}
             {activeTab === 'requirements' && (
               <div className="requirements-workspace" style={s.threeCol}>
                 {/* Column 2: Students */}
@@ -671,8 +692,8 @@ export default function CoordinatorDashboard() {
               </div>
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} />}
-            {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'placements' && <CompanyPlacementsTab department={coordDept} selectedSection={selectedSection} students={students} />}
+            {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
+            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} students={students} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
@@ -680,7 +701,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
             {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} />}
-            {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
+            {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
           </div>
         )}
       </main>

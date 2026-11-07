@@ -4,6 +4,7 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { isReadyForClearance } from '../coordinatorOverviewData';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
@@ -23,12 +24,12 @@ export function escapeReportText(value) {
   }[character]));
 }
 
-export default function ClearanceTab({ coordinatorId, selectedSection }) {
+export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all' }) {
   const loadVersion = useRef(0);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
-  const [summaryFilter, setSummaryFilter] = useState('all');
+  const [summaryFilter, setSummaryFilter] = useState(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
@@ -64,9 +65,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
             required,
             hours: hours ? 'Complete' : 'Incomplete',
             account: student.accountApproved ? 'Approved' : 'Pending',
-            ready: student.accountApproved && requirements && hours
-              && student.preDeploymentStatus === 'approved' && student.placementStatus === 'approved'
-              && evaluatedStudents.has(d.id),
+            ready: isReadyForClearance({ ...student, id: d.id }, section, evaluatedStudents),
             clearanceStatus: student.clearanceStatus || 'not_cleared',
           };
         });
@@ -85,10 +84,10 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
 
 
   useEffect(() => {
-    setRows([]); setSearchQuery(''); setSummaryFilter('all');
+    setRows([]); setSearchQuery(''); setSummaryFilter(initialFilter);
     load();
     return () => { loadVersion.current += 1; };
-  }, [load]);
+  }, [load, initialFilter]);
 
   const markCleared = async row => {
     if (!row.ready || row.clearanceStatus === 'cleared') return;

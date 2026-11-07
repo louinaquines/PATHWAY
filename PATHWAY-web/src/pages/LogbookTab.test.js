@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { getDocs, onSnapshot } from 'firebase/firestore';
 import LogbookTab from './LogbookTab';
+import { adminRequest } from '../adminApi';
+
+jest.mock('../adminApi', () => ({ adminRequest: jest.fn().mockResolvedValue({}) }));
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../components/DtrReviewDialog', () => ({ student, onClose }) => <div role="dialog">DTR for {student.firstName}<button onClick={onClose}>Close comparison</button></div>);
@@ -15,24 +18,37 @@ test('coordinator sees phone attendance in Philippine time even without journal 
     next(snapshot([{ id: '2026-10-08', date: '2026-10-08', timeIn: '2026-10-07T18:45:38.775Z', timeOut: '2026-10-07T18:47:13.086Z', hoursToday: 0.03 }]));
     return unsubscribe;
   });
-  const header = document.createElement('div');
-  header.id = 'logbook-header-actions';
-  document.body.appendChild(header);
   const view = render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
-  expect(await within(header).findByRole('button', { name: 'Export student records (Excel)' })).toBeDisabled();
-  expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();
-  fireEvent.click(await screen.findByRole('button', { name: /Journey QA/ }));
-  expect(within(header).getByRole('button', { name: 'Export student records (Excel)' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Compare DTR' }));
-  expect(screen.getByRole('dialog')).toHaveTextContent('DTR for Journey');
+  const table = await screen.findByRole('table', { name: 'Students in QA Section' });
+  expect(within(table).getByRole('columnheader', { name: 'Journal' })).toBeVisible();
+  fireEvent.click(within(table).getByRole('button', { name: 'View attendance for Journey QA' }));
+  const drawer = await screen.findByRole('dialog', { name: 'Records for Journey QA' });
+  expect(within(drawer).getByRole('button', { name: 'Export student records (Excel)' })).toBeEnabled();
+  fireEvent.click(within(drawer).getByRole('button', { name: 'Compare DTR' }));
+  expect(screen.getByText('DTR for Journey')).toBeVisible();
   expect(await screen.findByText('2:45:38 AM')).toBeVisible();
   expect(screen.getByText('2:47:13 AM')).toBeVisible();
   expect(screen.getByText('0.03')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: /^Journals/ }));
+  fireEvent.click(within(drawer).getByRole('button', { name: 'Close comparison' }));
+  fireEvent.click(within(drawer).getByRole('button', { name: 'Close records' }));
+  fireEvent.click(within(table).getByRole('button', { name: 'View journal for Journey QA' }));
+  expect(await screen.findByText('No Entries Submitted')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  expect(screen.getByText('No Entries Submitted')).toBeVisible();
   view.unmount();
-  header.remove();
   expect(unsubscribe).toHaveBeenCalled();
+});
+
+test('a pending journal can be rejected inside the records drawer', async () => {
+  getDocs.mockResolvedValueOnce(snapshot([{ id: 'student', firstName: 'Sample', lastName: 'Student' }]))
+    .mockResolvedValueOnce(snapshot([{ id: 'journal', frequency: 'daily', status: 'pending', hours: 2, rawNotes: 'Sample report' }]));
+  onSnapshot.mockImplementation((reference, next) => { next(snapshot([])); return () => {}; });
+  render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'View journal for Sample Student' }));
+  const drawer = await screen.findByRole('dialog', { name: 'Records for Sample Student' });
+  fireEvent.click(await within(drawer).findByRole('button', { name: 'Reject Entry' }));
+  const confirm = within(drawer).getByRole('alertdialog');
+  fireEvent.click(within(confirm).getByRole('button', { name: 'Reject entry' }));
+  expect(await within(drawer).findByText('Revision needed')).toBeVisible();
+  expect(adminRequest).toHaveBeenCalledWith('/coordinator/students/student/logbook/journal/decision',
+    expect.objectContaining({ method: 'POST', body: '{"status":"rejected"}' }));
 });

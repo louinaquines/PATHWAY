@@ -19,6 +19,7 @@ export default function AlertDialog({
   onConfirm,
   onCancel,
   children,
+  portalTarget = document.body,
 }) {
   const cancelRef = useRef(null);
 
@@ -74,7 +75,7 @@ export default function AlertDialog({
         </div>
       </section>
     </div>,
-    document.body,
+    portalTarget,
   );
 }
 

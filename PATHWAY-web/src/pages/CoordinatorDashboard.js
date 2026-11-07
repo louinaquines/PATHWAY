@@ -447,7 +447,6 @@ export default function CoordinatorDashboard() {
             onClick={() => setActiveTab(activeTab === 'sections' ? 'classlist' : 'sections')}>
             {activeTab === 'sections' ? 'Authorized roster' : 'Back to sections'}
           </button>}
-          {activeTab === 'logbook' && <div id="logbook-header-actions" />}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
               type="button"

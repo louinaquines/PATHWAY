@@ -1,8 +1,8 @@
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
+import { PortalFormDialog } from '../components/PortalStates';
 import DtrReviewDialog from '../components/DtrReviewDialog';
 import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -21,6 +21,10 @@ import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
+  const [entriesLoading, setEntriesLoading] = useState(false);
+  const [entriesError, setEntriesError] = useState('');
+  const entryRequest = useRef(0);
+  const confirmHost = useRef(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [saving, setSaving]                   = useState(false);
@@ -40,10 +44,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [analysisError, setAnalysisError] = useState('');
   useEffect(() => {
     let active = true; setAnalysis(null); setAnalysisError('');
-    if (selectedStudent?.id) adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)
+    if (selectedStudent?.id && recordView === 'journals') adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)
       .then(data => { if (active) setAnalysis(data); }).catch(failure => { if (active) setAnalysisError(failure.message); });
     return () => { active = false; };
-  }, [selectedStudent?.id, entries]);
+  }, [selectedStudent?.id, entries, recordView]);
   const exportStudentRecords = async () => {
     if (!selectedStudent || !selectedSection || exporting) return;
     const student = selectedStudent;
@@ -104,18 +108,41 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedSection?.id]);
 
-  const fetchEntries = async (student, { isCurrent = () => true } = {}) => {
-    setSelectedStudent(student);
+  const fetchEntries = async (student, { silent = false, isCurrent = () => true } = {}) => {
+    const request = ++entryRequest.current;
+    const current = () => request === entryRequest.current && isCurrent();
+    if (!silent) {
+      setEntriesLoading(true);
+      setEntriesError('');
+    }
     try {
       const snap = await getDocs(collection(db, 'users', student.id, 'logbook'));
-      if (!isCurrent()) return;
+      if (!current()) return;
       const sorted = snap.docs
         .map(d => ({ id: d.id, ...d.data() }))
         .sort((a, b) => String(b.periodStart || b.createdAt || '').localeCompare(String(a.periodStart || a.createdAt || '')));
       setEntries(sorted);
+      setEntriesError('');
     } catch (e) {
-      console.error(e);
+      if (current()) setEntriesError('Could not load journal entries.');
+    } finally {
+      if (request === entryRequest.current) setEntriesLoading(false);
     }
+  };
+
+  const openRecords = (student, view) => {
+    setSelectedStudent(student);
+    setRecordView(view);
+    setEntries([]);
+    setExportError('');
+    fetchEntries(student);
+  };
+
+  const closeRecords = () => {
+    if (saving || rejectConfirm) return;
+    entryRequest.current++;
+    setSelectedStudent(null);
+    setEntries([]);
   };
 
   usePortalAutoRefresh(async options => {
@@ -171,46 +198,53 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   }
 
   return (
-    <div className="logbook-workspace" style={t.page}>
-      {/* Col 2: Students */}
-      <div className="logbook-students" style={t.col2}>
-        <div className="logbook-panel-header" style={t.colHeader}>
-          Students <span className="logbook-count">{students.length}</span><select className="logbook-queue-section" aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''} onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-            {!sections.length && <option value="">No assigned sections</option>}
-            {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-          </select>
+    <div className="logbook-workspace logbook-table-page">
+      <section className="logbook-roster" aria-label="Student roster">
+        <div className="logbook-roster-toolbar">
+          <label className="logbook-section-field"><span>Section</span>
+            <select aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''}
+              onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
+              {!sections.length && <option value="">No assigned sections</option>}
+              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+          </label>
+          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search name or ID" />
+          <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection}
+            onOpen={student => openRecords(student, 'journals')} />
         </div>
-        <div style={t.searchWrap}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
-        <RecordPagination pagination={studentsPage} label="Journal students" />
-        {!selectedSection && <div style={t.empty}>Choose a section in the top bar.</div>}
-        {pendingOnly && <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students and journals</button>}
-        {selectedSection && filteredStudents.length === 0 && <div style={t.empty}>{pendingOnly ? 'No students with pending logbooks match this view.' : 'No students match this view.'}</div>}
-        {studentsPage.items.map(st => (
-          <button type="button" className="logbook-select-card" aria-pressed={selectedStudent?.id === st.id}
-            key={st.id}
-            style={{ ...t.card, ...(selectedStudent?.id === st.id ? t.cardActive : {}) }}
-            onClick={() => fetchEntries(st)}
-          >
-            <div style={t.cardTitle}>{st.firstName} {st.lastName}</div>
-            <div style={t.cardSub}>ID {st.idNumber || 'not provided'}</div>
+        {pendingOnly && <div className="logbook-pending-filter"><span>Pending journals</span>
+          <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
+        </div>}
+        {!selectedSection ? <p className="logbook-table-empty">Choose a section to see its students.</p> : <>
+          <RecordPagination pagination={studentsPage} label="Students" />
+          <div className="logbook-roster-scroll">
+            <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
+              <thead><tr><th scope="col">Student</th><th scope="col">Student ID</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
+              <tbody>{studentsPage.items.map(student => {
+                const name = [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student';
+                return <tr key={student.id}>
+                  <th scope="row">{name}</th>
+                  <td>{student.idNumber || '—'}</td>
+                  <td><button type="button" aria-label={'View attendance for ' + name} onClick={() => openRecords(student, 'attendance')}>View <Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View journal for ' + name} onClick={() => openRecords(student, 'journals')}>View <Icon name="chevronRight" size={14} /></button></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+          {!filteredStudents.length && <p className="logbook-table-empty">{pendingOnly ? 'No students with pending journals match this view.' : 'No students match this view.'}</p>}
+        </>}
+      </section>
+      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords}>
+        <header className="logbook-drawer-heading">
+          <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
+          <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
+          <button type="button" className="portal-secondary" aria-label="Close records" disabled={saving} onClick={closeRecords}>Close</button>
+        </header>
+        <div className="logbook-drawer-export">
+          <button type="button" className="portal-secondary" disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
+            <Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Export student records (Excel)'}
           </button>
-        ))}
-      </div>
-
-      {/* Col 3: Logbook Entries */}
-      <div className="logbook-detail" style={t.col3}>
-        <div className="logbook-panel-header logbook-detail-header" style={t.colHeader}>
-          <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Student records'}
-          <p>{selectedStudent ? 'Review journal reports and reported hours.' : 'Select a student to view their submissions.'}</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {document.getElementById('logbook-header-actions') && createPortal(
-              <button type="button" className="section-export-button" disabled={!selectedStudent || !selectedSection || exporting} onClick={exportStudentRecords} aria-busy={exporting} title={selectedStudent ? 'Download selected student records as an Excel file' : 'Select a student to export'}><Icon name="download" size={18} />{exporting ? 'Exporting…' : 'Export student records (Excel)'}</button>,
-              document.getElementById('logbook-header-actions'))}
-            <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => { setRecordView('journals'); fetchEntries(student); }} />
-          </div>
         </div>
-
         <div className="logbook-detail-content" style={t.entriesScroll}>
           {exportError && <p role="alert">{exportError}</p>}
           {selectedStudent && <div className="logbook-record-toolbar"><div className="logbook-record-switch" role="group" aria-label="Student record type">
@@ -225,20 +259,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             {!attendanceLoading && !attendanceError && attendance.length === 0 && <p>No attendance records yet.</p>}
             {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><RecordPagination pagination={attendancePage} label="Attendance records" /><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendancePage.items.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
           </section>}
-          {!selectedStudent && (
-            <div style={t.emptyDetail}>
-              <div style={t.emptyIcon}><Icon name="book" size={28} label="Logbook" /></div>
-              <h3 style={t.emptyTitle}>Select a Student</h3>
-              <p style={t.emptySub}>Choose a student from the list to review attendance and journals.</p>
-            </div>
-          )}
-
           {selectedStudent && recordView === 'journals' && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
             try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }
             catch (failure) { setAnalysisError(failure.message); }
           }} />}
           {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weekly completeness</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
-          {selectedStudent && recordView === 'journals' && visibleEntries.length === 0 && (
+          {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
+          {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
+          {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
             <div style={t.emptyDetail}>
               <div style={t.emptyIcon}><Icon name="clipboard" size={28} label="No entries" /></div>
               <h3 style={t.emptyTitle}>No Entries Submitted</h3>
@@ -246,7 +274,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </div>
           )}
 
-          <div style={t.entriesList} hidden={recordView !== 'journals'}>
+          <div style={t.entriesList} hidden={recordView !== 'journals' || entriesLoading || !!entriesError}>
             <RecordPagination pagination={entriesPage} label="Journal entries" />
             {entriesPage.items.map(entry => (
             <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
@@ -303,92 +331,26 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             ))}
           </div>
         </div>
-      </div>
-      <AlertDialog
-      open={Boolean(rejectConfirm)}
-      title="Reject this logbook entry?"
-      description="The student will be notified and can revise and resubmit this journal entry."
-      confirmLabel="Reject entry"
-      busy={saving}
-      onCancel={() => setRejectConfirm(null)}
-      onConfirm={async () => {
-        const saved = await handleAction(rejectConfirm.id, 'rejected');
-        if (saved) setRejectConfirm(null);
-      }}
-      />
+        <div ref={confirmHost} />
+        <AlertDialog
+        portalTarget={confirmHost.current || undefined}
+        open={Boolean(rejectConfirm)}
+        title="Reject this logbook entry?"
+        description="The student will be notified and can revise and resubmit this journal entry."
+        confirmLabel="Reject entry"
+        busy={saving}
+        onCancel={() => setRejectConfirm(null)}
+        onConfirm={async () => {
+          const saved = await handleAction(rejectConfirm.id, 'rejected');
+          if (saved) setRejectConfirm(null);
+        }}
+        />
+      </PortalFormDialog>}
     </div>
   );
 }
 
 const t = {
-  page: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden',
-    backgroundColor: COLORS.slate50,
-  },
-  col1: {
-    width: 275,
-    borderRight: `1px solid ${COLORS.slate200}`,
-    backgroundColor: COLORS.white,
-    overflowY: 'auto',
-    flexShrink: 0,
-  },
-  col2: {
-    width: 325,
-    borderRight: `1px solid ${COLORS.slate200}`,
-    backgroundColor: COLORS.slate50,
-    overflowY: 'auto',
-    flexShrink: 0,
-  },
-  col3: {
-    flex: 1,
-    overflow: 'hidden',
-    backgroundColor: COLORS.white,
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-  },
-  colHeader: {
-    fontSize: 11,
-    fontWeight: 800,
-    color: '#000000',
-    letterSpacing: '0.06em',
-    padding: '14px 16px 8px',
-    borderBottom: `1px solid ${COLORS.slate200}`,
-    backgroundColor: COLORS.white,
-    position: 'sticky',
-    top: 0,
-    zIndex: 2,
-  },
-  searchWrap: {
-    padding: '10px 12px 4px',
-    backgroundColor: COLORS.white,
-  },
-  card: {
-    padding: '12px 16px',
-    borderBottom: `1px solid ${COLORS.slate200}`,
-    cursor: 'pointer',
-  },
-  cardActive: {
-    backgroundColor: COLORS.sky50,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 800,
-    color: '#000000',
-  },
-  cardSub: {
-    fontSize: 11,
-    color: '#000000',
-    marginTop: 2,
-  },
-  empty: {
-    color: '#000000',
-    fontSize: 13,
-    padding: 20,
-    textAlign: 'center',
-  },
   emptyDetail: {
     display: 'flex',
     flexDirection: 'column',
@@ -471,25 +433,6 @@ const t = {
     borderRadius: THEME.radius.md,
     border: `1px solid ${COLORS.slate300}`,
   },
-  detailsWrap: {
-    marginTop: 12,
-  },
-  rawToggle: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: '#000000',
-    cursor: 'pointer',
-  },
-  rawNotesBox: {
-    fontSize: 13,
-    color: '#000000',
-    marginTop: 8,
-    padding: 12,
-    backgroundColor: COLORS.white,
-    borderRadius: THEME.radius.sm,
-    border: `1px solid ${COLORS.slate300}`,
-    lineHeight: 1.5,
-  },
   actionRow: {
     display: 'flex',
     gap: 10,
@@ -515,22 +458,5 @@ const t = {
     cursor: 'pointer',
     fontWeight: 800,
     fontSize: 13,
-  },
-  loadingWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 60,
-    gap: 12,
-    color: '#000000',
-  },
-  spinner: {
-    width: 24,
-    height: 24,
-    border: `3px solid ${COLORS.sky200}`,
-    borderTopColor: COLORS.sky600,
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
   },
 };

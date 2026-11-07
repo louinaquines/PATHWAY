@@ -93,7 +93,7 @@
 .logbook-roster thead th { padding-block: 12px; color: #526174; background: #f6f8fb; font-weight: 600; }
 .logbook-roster tbody th { font-weight: 600; }
 .logbook-roster tbody tr:hover { background: #f8fbff; }
-.logbook-roster td button { display: grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; gap: 6px; width: 100%; min-height: 44px; padding: 0 4px; color: #0759ba; background: none; border: 0; font: inherit; white-space: normal; text-align: left; cursor: pointer; }
+.logbook-roster td button { display: grid; grid-template-columns: minmax(0, 1fr) 14px; align-items: center; gap: 4px; width: 8.5em; max-width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 4px; color: #0759ba; background: none; border: 0; font: inherit; white-space: normal; text-align: left; cursor: pointer; }
 .logbook-roster td button:hover { text-decoration: underline; }
 .logbook-table-empty { margin: 0; padding: 20px 16px; color: #526174; }
 .logbook-record-drawer {

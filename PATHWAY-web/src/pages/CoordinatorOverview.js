@@ -65,25 +65,25 @@ export default function CoordinatorOverview({ section, students, requirementsCou
   if (!section) return <PortalEmpty title="No section assigned" description="Your overview will appear when a section is assigned to you." />;
   if (!summary) return <PageSkeleton label="Loading overview" />;
   const tasks = [
-    ['requirements', 'requirements', 'Requirements awaiting review', requirementsCount, 'students'],
-    ['placements', 'assign', 'Students waiting for a company assignment', summary.waitingCount, 'students'],
-    ['placements', 'requests', 'Placement requests awaiting a decision', summary.placementCount, 'requests'],
-    ['logbook', 'journals', 'Logbooks awaiting review', summary.journalCount, 'entries'],
-    ['clearance', 'ready', 'Students ready for clearance', summary.clearanceCount, 'students'],
+    ['requirements', 'requirements', 'Review requirements', requirementsCount, 'students'],
+    ['placements', 'assign', 'Assign companies', summary.waitingCount, 'students'],
+    ['placements', 'requests', 'Review placement requests', summary.placementCount, 'requests'],
+    ['logbook', 'journals', 'Review logbooks', summary.journalCount, 'entries'],
+    ['clearance', 'ready', 'Clear students', summary.clearanceCount, 'students'],
   ];
   return <section className="coordinator-overview" aria-label="Section overview">
     <SectionCharts students={students} section={section} />
     <section className="coordinator-queue" aria-labelledby="overview-attention-title">
       <div className="coordinator-overview-heading">
-        <div><h2 id="overview-attention-title">Needs attention</h2><p>Open a queue to review work for this section.</p></div>
-        <button type="button" className="portal-secondary" onClick={() => load()}><Icon name="refresh" size={15} /> Refresh counts</button>
+        <h2 id="overview-attention-title">Needs attention</h2>
+        <button type="button" className="portal-secondary" onClick={() => load()}><Icon name="refresh" size={15} /> Refresh</button>
       </div>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
       <div className="coordinator-attention-grid">
-        {tasks.map(([page, view, label, count, unit]) =>
+        {[...tasks].sort((a, b) => Number(a[3] === 0) - Number(b[3] === 0)).map(([page, view, label, count, unit]) =>
           <button key={view} type="button" onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
-            <span className="coordinator-queue-label"><span className="coordinator-queue-icon"><Icon name={page === 'placements' ? 'building' : page === 'logbook' ? 'book' : page === 'clearance' ? 'cap' : 'clipboard'} size={16} /></span>{label}</span>
+            <span className="coordinator-queue-label">{label}</span>
             <strong data-zero={count === 0} data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
               {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
             </strong>

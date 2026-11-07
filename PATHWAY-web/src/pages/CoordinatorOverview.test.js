@@ -20,10 +20,10 @@ test('Overview shows separate assignment and request counts and opens the pendin
   adminRequest.mockResolvedValue({ evaluations: [] });
   const onOpen = jest.fn();
   render(<CoordinatorOverview section={section} students={students} requirementsCount={1} onOpen={onOpen} />);
-  expect(await screen.findByRole('button', { name: 'Students waiting for a company assignment 1 student' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Placement requests awaiting a decision 1 request' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'Assign companies 1 student' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Review placement requests 1 request' })).toBeVisible();
   expect(where).toHaveBeenCalledWith('sectionId', '==', 'section-a');
-  fireEvent.click(screen.getByRole('button', { name: 'Logbooks awaiting review 2 entries' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review logbooks 2 entries' }));
   expect(onOpen).toHaveBeenCalledWith('logbook', 'journals', ['requested']);
 });
 
@@ -33,7 +33,7 @@ test('a failed count is unavailable and never makes the section look caught up',
   adminRequest.mockResolvedValue({ evaluations: [] });
   render(<CoordinatorOverview section={section} students={students} requirementsCount={0} onOpen={jest.fn()} />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Some counts could not load');
-  expect(screen.getByRole('button', { name: 'Placement requests awaiting a decision Unavailable' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Review placement requests Unavailable' })).toBeVisible();
   expect(screen.queryByText(/caught up/)).not.toBeInTheDocument();
 });
 

@@ -339,8 +339,8 @@ export default function CompanyScreen({ navigation, route }) {
         )}
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{placementApproved ? 'Assigned company' : 'Waiting for company assignment'}</Text>
-          <Text style={styles.sectionDescription}>Your coordinator assigns your company and supervisor. Contact your coordinator if any details need updating.</Text>
+          <Text style={styles.sectionTitle}>{placementApproved ? 'Assigned company' : 'Waiting for your coordinator'}</Text>
+          <Text style={styles.sectionDescription}>Your coordinator will assign your company and supervisor. You can continue to Final Review once your placement is confirmed. Contact your coordinator if any details need updating.</Text>
           {placementApproved && <>
             <Text style={styles.cardTitle}>{form.companyName || 'Company details pending'}</Text>
             <Text style={styles.cardSubtitle}>{form.companyAddress || 'Address not provided'}</Text>

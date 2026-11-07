@@ -447,6 +447,7 @@ export default function RequirementsScreen({ navigation, route }) {
 
   const visibleRequirements = isDocumentHub ? requirements : requirements.filter(item => !item.category || /pre|deploy/i.test(item.category));
   const requiredRequirements = visibleRequirements.filter(item => item.required !== false);
+  const canContinueToAssignment = requiredRequirements.length > 0 && requiredRequirements.every(item => ['submitted', 'approved'].includes(item.status));
   const requiredCount = requiredRequirements.length;
   const approvedCount = requiredRequirements.filter(item => item.status === 'approved').length;
   const inReviewCount = requiredRequirements.filter(item => item.status === 'submitted').length;
@@ -760,14 +761,16 @@ export default function RequirementsScreen({ navigation, route }) {
 
         {/* ── Footer Navigation / Submit Button ── */}
         {!isDocumentHub && <View style={styles.footerSection}>
+          <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for your coordinator to assign your company.' : 'Submit all required pre-deployment documents to continue.'}</Text>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
-            onPress={() => navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
+            disabled={!canContinueToAssignment}
+            onPress={() => { if (canContinueToAssignment) navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false }); }}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Continue to company selection"
+            accessibilityLabel="Continue to company assignment"
           >
-            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company placement</Text>
+            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company assignment</Text>
           </MotionTouchableOpacity>
         </View>}
         </>}

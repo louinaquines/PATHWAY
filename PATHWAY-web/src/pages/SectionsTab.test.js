@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { getDocs } from 'firebase/firestore';
 import SectionsTab from './SectionsTab';
 import { adminRequest } from '../adminApi';
@@ -54,4 +54,22 @@ test('a legacy placeholder is hidden and the coordinator can replace it with a M
   expect(adminRequest).toHaveBeenCalledWith('/coordinator/sections/section-a/group-chat', {
     method: 'PATCH', body: JSON.stringify({ messengerLink }),
   });
+});
+
+test('year and section choices update the name and use the assigned department', async () => {
+  adminRequest.mockResolvedValue({});
+  render(<SectionsTab coordinatorId="coord-a" department="Computer Studies" selectedSection={section} />);
+  fireEvent.click(await screen.findByRole('button', { name: /New Section/ }));
+  const name = screen.getByLabelText('Section Name & Year');
+  fireEvent.change(name, { target: { value: 'BSIT' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Year' }), { target: { value: '4' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Section' }), { target: { value: 'A' } });
+  expect(name).toHaveValue('BSIT - 4A');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Section' }), { target: { value: 'B' } });
+  expect(name).toHaveValue('BSIT - 4B');
+  expect(screen.queryByText('Department / College')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByPlaceholderText('e.g. 486'), { target: { value: '480' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Create Section' }));
+  await waitFor(() => expect(screen.queryByText('Create New Section')).not.toBeInTheDocument());
+  expect(adminRequest).toHaveBeenCalledWith('/coordinator/sections', { method: 'POST', body: JSON.stringify({ name: 'BSIT - 4B', department: 'Computer Studies', hoursRequired: 480, messengerLink: '' }) });
 });

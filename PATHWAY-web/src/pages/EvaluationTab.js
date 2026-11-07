@@ -1,6 +1,6 @@
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/EvaluationTab.js
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
@@ -31,6 +31,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [preparedInvitations, setPreparedInvitations] = useState([]);
   const [selectionOpen, setSelectionOpen] = useState(false);
+  const studentPicker = useRef(null);
+  useEffect(() => {
+    if (!selectionOpen) return;
+    const dismiss = event => { if (!studentPicker.current?.contains(event.target)) setSelectionOpen(false); };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [selectionOpen]);
   const [link, setLink]               = useState('');
   const [invitation, setInvitation] = useState(null);
   const [emailMessage, setEmailMessage] = useState('');
@@ -223,14 +230,14 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               </select>
               {!companies.length && <p className="evaluation-field-note">No students in this section have an assigned company.</p>}
             </div>
-            <div style={styles.field} className="evaluation-student-picker">
+            <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
               <label style={styles.label} id="evaluation-students-label">Students</label>
               <button type="button" className="evaluation-students-trigger" aria-labelledby="evaluation-students-label"
-                aria-expanded={selectionOpen} disabled={!companyKey || busy || preparedInvitations.length > 0}
+                aria-expanded={selectionOpen} aria-controls="evaluation-student-options" disabled={!companyKey || busy || preparedInvitations.length > 0}
                 onClick={() => setSelectionOpen(open => !open)}>
                 {selectedStudentIds.length ? selectedStudentIds.length + ' selected' : 'Select students'} <Icon name="chevronRight" size={16} />
               </button>
-              {selectionOpen && <div className="evaluation-student-options">
+              {selectionOpen && <div id="evaluation-student-options" className="evaluation-student-options" role="group" aria-label="Company students">
                 <button type="button" className="portal-secondary" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
                   {selectedStudentIds.length === companyStudents.length ? 'Clear selection' : 'Select all'}
                 </button>

@@ -693,7 +693,7 @@ export default function CoordinatorDashboard() {
                 </div>
               </div>
             )}
-            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
+            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
             {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Authorized roster" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
               <header className="roster-drawer-header"><div><h2>Authorized roster</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />

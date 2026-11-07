@@ -87,3 +87,18 @@ test('evaluation-history failure does not hide the assigned-company roster', asy
   expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   expect(await screen.findByText('The server could not verify access. Please try again shortly.')).toBeVisible();
 });
+
+test('student dropdown dismisses outside and with Escape while preserving selections', async () => {
+  render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
+  const trigger = screen.getByRole('button', { name: 'Students' });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
+  fireEvent.pointerDown(document.body);
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(trigger);
+  expect(screen.getAllByRole('checkbox').every(box => box.checked)).toBe(true);
+  fireEvent.keyDown(trigger, { key: 'Escape' });
+  expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  expect(trigger).toHaveFocus();
+});

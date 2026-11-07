@@ -132,3 +132,10 @@
 .evaluation-panel .evaluation-invitation .evaluation-students-trigger { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; box-shadow:none !important; font-weight:400; }
 .evaluation-panel .evaluation-invitation .evaluation-students-trigger:disabled { background:#f6f8fb !important; color:#526174 !important; }
 .evaluation-panel .evaluation-invitation .evaluation-student-options .portal-secondary { background:#fff !important; color:#0759ba !important; border:1px solid #ccd5df !important; }
+
+.evaluation-student-picker { position:relative; min-width:0; }
+.evaluation-student-picker:has(.evaluation-student-options) { z-index:10; }
+.evaluation-student-picker .evaluation-student-options { position:absolute; top:100%; left:0; right:0; z-index:20; max-height:260px; box-sizing:border-box; box-shadow:0 8px 24px rgb(15 23 42 / 12%); }
+.evaluation-student-options > label { cursor:pointer; border-radius:6px; }
+.evaluation-student-options > label:hover { background:#f3f6fa; }
+.evaluation-student-options > label:has(input:checked) { background:#eef5ff; }

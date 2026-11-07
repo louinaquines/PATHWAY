@@ -22,7 +22,7 @@ function groupChatHref(value) {
   }
 }
 
-export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings }) {
+export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, department }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
   const [selected, setSelected]         = useState(null);
@@ -33,20 +33,20 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [modal, setModal]               = useState(false);
   const [reqModal, setReqModal]         = useState(null); // null | 'add'
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [form, setForm]                 = useState({ name: '', department: '', hoursRequired: '', messengerLink: '' });
+  const [form, setForm]                 = useState({ name: '', year: '', section: '', hoursRequired: '', messengerLink: '' });
   const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
   const [searchQuery, setSearchQuery]   = useState('');
 
-  const DEPARTMENTS = [
-    'College of Business and Accountancy',
-    'College of Engineering',
-    'College of Hospitality and Tourism Management',
-    'College of Nursing',
-    'College of Customs Administration',
-    'College of Teacher Education',
-    'College of Criminology',
-    'College of Computer Studies',
-  ];
+  function updateSectionChoice(key, value) {
+    setForm(previous => {
+      const next = { ...previous, [key]: value };
+      const suffix = previous.year || previous.section ? ' - ' + previous.year + previous.section : '';
+      const base = suffix && previous.name.endsWith(suffix) ? previous.name.slice(0, -suffix.length)
+        : previous.name === previous.year + previous.section ? '' : previous.name;
+      next.name = base + (next.year || next.section ? (base ? ' - ' : '') + next.year + next.section : '');
+      return next;
+    });
+  }
 
   const [chatSave, setChatSave] = useState(null);
   const chatHref = groupChatHref(selected?.messengerLink);
@@ -147,17 +147,18 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   };
 
   const handleCreate = async () => {
-    if (!form.name || !form.department || !form.hoursRequired) return;
+    const assignedDepartment = department || sharedSection?.department;
+    if (!form.name.trim() || !assignedDepartment || !form.year || !form.section || !form.hoursRequired) return;
     setSaving(true);
     try {
       await adminRequest('/coordinator/sections', {
         method: 'POST',
         body: JSON.stringify({
-          name: form.name.trim(), department: form.department, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
+          name: form.name.trim(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
         }),
       });
       setModal(false);
-      setForm({ name: '', department: '', hoursRequired: '', messengerLink: '' });
+      setForm({ name: '', year: '', section: '', hoursRequired: '', messengerLink: '' });
       fetchSections();
     } catch (e) {
       console.error(e);
@@ -427,26 +428,18 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Create New Section</h2>
             <div style={t.field}>
-              <label style={t.label}>Section Name / Code</label>
+              <label htmlFor="new-section-name" style={t.label}>Section Name & Year</label>
               <input
                 style={t.input}
-                placeholder="e.g. BSIT-4A-OJT"
+                id="new-section-name" placeholder="e.g. BSIT - 4A"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
               />
             </div>
-            <div style={t.field}>
-              <label style={t.label}>Department / College</label>
-              <select
-                style={t.select}
-                value={form.department}
-                onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                required
-              >
-                <option value="">Select department...</option>
-                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+            <div className="section-year-choices">
+              <label style={t.label}>Year<select aria-label="Year" style={t.select} value={form.year} onChange={e => updateSectionChoice('year', e.target.value)} required disabled={saving}><option value="">Select year</option>{[1, 2, 3, 4].map(year => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}</select></label>
+              <label style={t.label}>Section<select aria-label="Section" style={t.select} value={form.section} onChange={e => updateSectionChoice('section', e.target.value)} required disabled={saving}><option value="">Select section</option>{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => <option key={letter} value={letter}>{letter}</option>)}</select></label>
             </div>
             <div style={t.field}>
               <label style={t.label}>Required OJT Hours</label>

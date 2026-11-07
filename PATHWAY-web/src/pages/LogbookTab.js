@@ -18,6 +18,8 @@ import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
+const studentDisplayName = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
@@ -189,7 +191,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const pendingIds = new Set(pendingStudentIds);
   const filteredStudents = students.filter(student => (!pendingOnly || pendingIds.has(student.id)) && matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
 
-  const studentsPage = useRecordPage(filteredStudents, (selectedSection?.id || '') + ':' + searchQuery);
+  const sortedStudents = filteredStudents.sort((a, b) =>
+    studentDisplayName(a).localeCompare(studentDisplayName(b), undefined, { sensitivity: 'base' })
+    || String(a.idNumber || a.id).localeCompare(String(b.idNumber || b.id))
+  );
+  const studentsPage = useRecordPage(sortedStudents, (selectedSection?.id || '') + ':' + searchQuery);
   const visibleEntries = pendingOnly ? entries.filter(entry => entry.status === 'pending') : entries;
   const entriesPage = useRecordPage(visibleEntries, (selectedStudent?.id || '') + ':' + pendingOnly);
   const attendancePage = useRecordPage(attendance, selectedStudent?.id || '');
@@ -221,7 +227,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
               <thead><tr><th scope="col">ID</th><th scope="col">Name of Student</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
               <tbody>{studentsPage.items.map(student => {
-                const name = [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Student';
+                const name = studentDisplayName(student) || 'Student';
                 return <tr key={student.id}>
                   <td>{student.idNumber || '—'}</td>
                   <th scope="row">{name}</th>

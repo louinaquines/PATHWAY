@@ -118,3 +118,16 @@ test('selection summary shows names, overflow count and all-students state', asy
   fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
   expect(summary()).toBe('Select students');
 });
+
+test('clicking a student name toggles its checkbox without dismissing the dropdown', async () => {
+  render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
+  const trigger = screen.getByRole('button', { name: 'Students' });
+  fireEvent.click(trigger);
+  fireEvent.blur(trigger, { relatedTarget: null });
+  fireEvent.click(screen.getByText('Amy'));
+  expect(screen.getByRole('checkbox', { name: /Amy/ })).toBeChecked();
+  expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(screen.getByText('Amy', { selector: '.evaluation-student-options span' }));
+  expect(screen.getByRole('checkbox', { name: /Amy/ })).not.toBeChecked();
+});

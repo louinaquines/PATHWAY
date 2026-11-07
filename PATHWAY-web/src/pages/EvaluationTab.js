@@ -233,7 +233,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               </select>
               {!companies.length && <p className="evaluation-field-note">No students in this section have an assigned company.</p>}
             </div>
-            <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
+            <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
               <label style={styles.label} id="evaluation-students-label">Students</label>
               <button type="button" className="evaluation-students-trigger" aria-labelledby="evaluation-students-label"
                 aria-expanded={selectionOpen} aria-controls="evaluation-student-options" disabled={!companyKey || busy || preparedInvitations.length > 0}
@@ -247,8 +247,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 <div className="evaluation-selection-toolbar"><span aria-live="polite">{selectedStudentIds.length} of {companyStudents.length} selected</span><button type="button" className="evaluation-select-all" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
                   {selectedStudentIds.length === companyStudents.length ? 'Clear selection' : 'Select all'}
                 </button></div>
-                {companyStudents.map(student => <label key={student.id}>
-                  <input type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
+                {companyStudents.map(student => <label key={student.id} htmlFor={`evaluation-student-${student.id}`}>
+                  <input id={`evaluation-student-${student.id}`} type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
                     updateSelection(event.target.checked ? [...selectedStudentIds, student.id] : selectedStudentIds.filter(id => id !== student.id))} />
                   <span>{[student.firstName, student.lastName].filter(Boolean).join(' ')}<small>{student.idNumber || student.id}</small></span>
                 </label>)}

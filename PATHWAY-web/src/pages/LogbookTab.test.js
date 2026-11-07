@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { getDocs, onSnapshot } from 'firebase/firestore';
+import { getDocs, getDocsFromServer, onSnapshot } from 'firebase/firestore';
 import LogbookTab from './LogbookTab';
 import { adminRequest } from '../adminApi';
 
@@ -7,8 +7,13 @@ jest.mock('../adminApi', () => ({ adminRequest: jest.fn().mockResolvedValue({}) 
 
 jest.mock('../firebase', () => ({ db: {} }));
 jest.mock('../components/DtrReviewDialog', () => ({ student, onClose }) => <div role="dialog">DTR for {student.firstName}<button onClick={onClose}>Close comparison</button></div>);
-jest.mock('firebase/firestore', () => ({ collection: jest.fn(), query: jest.fn(), where: jest.fn(), getDocs: jest.fn(), onSnapshot: jest.fn() }));
-const snapshot = records => ({ docs: records.map(record => ({ id: record.id, data: () => record })) });
+jest.mock('firebase/firestore', () => ({ collection: jest.fn((db, ...path) => path.join('/')),
+  query: jest.fn((path, ...constraints) => ({ path, constraints })), where: jest.fn(),
+  limit: jest.fn(value => ({ limit: value })), orderBy: jest.fn(field => ({ field })), startAfter: jest.fn(),
+  getDocs: jest.fn(), getDocsFromServer: jest.fn(), onSnapshot: jest.fn() }));
+const snapshot = records => ({ size: records.length, docs: records.map(record => ({ id: record.id, data: () => record })) });
+
+beforeEach(() => { getDocsFromServer.mockReset().mockResolvedValue(snapshot([])); });
 
 test('coordinator sees phone attendance in Philippine time even without journal submissions', async () => {
   getDocs.mockResolvedValue(snapshot([]));
@@ -55,4 +60,21 @@ test('a pending journal can be rejected inside the records drawer', async () => 
   expect(await within(drawer).findByText('Revision needed')).toBeVisible();
   expect(adminRequest).toHaveBeenCalledWith('/coordinator/students/student/logbook/journal/decision',
     expect.objectContaining({ method: 'POST', body: '{"status":"rejected"}' }));
+});
+
+test('the roster shows the latest attendance date and latest submitted journal, excluding drafts', async () => {
+  getDocs.mockResolvedValueOnce(snapshot([{ id: 'sample', firstName: 'Sample', lastName: 'Student' }]));
+  getDocsFromServer.mockImplementation(({ path, constraints }) => {
+    if (path.endsWith('/attendance')) return Promise.resolve(snapshot([{ id: '2026-11-05', date: '2026-11-05' }]));
+    if (constraints.some(item => item?.field === 'submittedAt')) {
+      return Promise.resolve(snapshot([{ id: 'submitted', status: 'approved', submittedAt: '2026-11-05T19:00:00Z' }]));
+    }
+    return Promise.resolve(snapshot([
+      { id: 'draft', status: 'draft', createdAt: '2026-11-07T12:00:00Z' },
+      { id: 'legacy', status: 'pending', createdAt: '2026-11-04T12:00:00Z' },
+    ]));
+  });
+  render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
+  expect(await screen.findByRole('button', { name: 'View attendance for Sample Student, Nov 5, 2026' })).toBeVisible();
+  expect(await screen.findByRole('button', { name: 'View journal for Sample Student, Nov 6, 2026' })).toBeVisible();
 });

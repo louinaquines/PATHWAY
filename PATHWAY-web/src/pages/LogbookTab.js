@@ -1,10 +1,10 @@
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
 import DtrReviewDialog from '../components/DtrReviewDialog';
-import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -19,6 +19,57 @@ import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
 const studentDisplayName = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+
+const rosterDateFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric',
+});
+const submittedJournalStatuses = new Set(['pending', 'submitted', 'approved', 'rejected']);
+
+function recordDate(value) {
+  if (!value) return null;
+  const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+async function latestJournalDate(records, field, isCurrent) {
+  // Read past drafts in small pages without downloading a student's journal history.
+  const pageSize = 5;
+  let cursor;
+  while (isCurrent()) {
+    const page = await getDocsFromServer(query(records, orderBy(field, 'desc'),
+      ...(cursor ? [startAfter(cursor)] : []), limit(pageSize)));
+    for (const item of page.docs) {
+      const data = item.data();
+      if (!submittedJournalStatuses.has(data.status)) continue;
+      const date = recordDate(data[field]);
+      if (date) return date;
+    }
+    if (page.docs.length < pageSize) break;
+    cursor = page.docs[page.docs.length - 1];
+  }
+  return null;
+}
+
+async function latestRosterRecords(studentId, isCurrent) {
+  const attendance = collection(db, 'users', studentId, 'attendance');
+  const journals = collection(db, 'users', studentId, 'logbook');
+  const [punch, journal] = await Promise.allSettled([
+    getDocsFromServer(query(attendance, orderBy('date', 'desc'), limit(1))).then(page => {
+      const record = page.docs[0];
+      return recordDate(record?.data().date || record?.id);
+    }),
+    Promise.all([
+      latestJournalDate(journals, 'submittedAt', isCurrent),
+      latestJournalDate(journals, 'createdAt', isCurrent),
+    ]).then(([submitted, created]) => submitted && (!created || submitted > created) ? submitted : created),
+  ]);
+  return { attendance: dateLabel(punch, 'No attendance'), journals: dateLabel(journal, 'No journal') };
+}
+
+function dateLabel(result, empty) {
+  if (result.status === 'rejected') return { text: 'Unavailable' };
+  return result.value ? { text: rosterDateFormat.format(result.value), dated: true } : { text: empty };
+}
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [students, setStudents]               = useState([]);
@@ -196,6 +247,30 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     || String(a.idNumber || a.id).localeCompare(String(b.idNumber || b.id))
   );
   const studentsPage = useRecordPage(sortedStudents, (selectedSection?.id || '') + ':' + searchQuery);
+  const visibleStudentIds = JSON.stringify(studentsPage.items.map(student => student.id));
+  const rosterScope = (selectedSection?.id || '') + ':' + visibleStudentIds;
+  const [rosterSummary, setRosterSummary] = useState(null);
+  const loadRosterSummary = useCallback(async ({ isCurrent = () => true } = {}) => {
+    const ids = JSON.parse(visibleStudentIds);
+    const summaries = {};
+    for (let i = 0; i < ids.length && isCurrent(); i += 5) {
+      await Promise.all(ids.slice(i, i + 5).map(async id => {
+        summaries[id] = await latestRosterRecords(id, isCurrent);
+      }));
+    }
+    if (isCurrent()) setRosterSummary({ scope: rosterScope, summaries });
+  }, [visibleStudentIds, rosterScope]);
+
+  useEffect(() => {
+    let active = true;
+    loadRosterSummary({ isCurrent: () => active });
+    return () => { active = false; };
+  }, [loadRosterSummary]);
+  usePortalAutoRefresh(loadRosterSummary, {
+    enabled: !loading && rosterSummary?.scope === rosterScope,
+    scope: rosterScope, intervalMs: 60000,
+  });
+
   const visibleEntries = pendingOnly ? entries.filter(entry => entry.status === 'pending') : entries;
   const entriesPage = useRecordPage(visibleEntries, (selectedStudent?.id || '') + ':' + pendingOnly);
   const attendancePage = useRecordPage(attendance, selectedStudent?.id || '');
@@ -228,11 +303,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               <thead><tr><th scope="col">ID</th><th scope="col">Name of Student</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
               <tbody>{studentsPage.items.map(student => {
                 const name = studentDisplayName(student) || 'Student';
+                const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
                 return <tr key={student.id}>
                   <td>{student.idNumber || '—'}</td>
                   <th scope="row">{name}</th>
-                  <td><button type="button" aria-label={'View attendance for ' + name} onClick={() => openRecords(student, 'attendance')}>View <Icon name="chevronRight" size={14} /></button></td>
-                  <td><button type="button" aria-label={'View journal for ' + name} onClick={() => openRecords(student, 'journals')}>View <Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
                 </tr>;
               })}</tbody>
             </table>

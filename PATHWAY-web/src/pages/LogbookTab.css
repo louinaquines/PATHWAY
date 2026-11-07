@@ -93,7 +93,7 @@
 .logbook-roster thead th { padding-block: 12px; color: #526174; background: #f6f8fb; font-weight: 600; }
 .logbook-roster tbody th { font-weight: 600; }
 .logbook-roster tbody tr:hover { background: #f8fbff; }
-.logbook-roster td button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: #0759ba; background: none; border: 0; font: inherit; white-space: nowrap; cursor: pointer; }
+.logbook-roster td button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px; color: #0759ba; background: none; border: 0; font: inherit; white-space: normal; text-align: left; cursor: pointer; }
 .logbook-roster td button:hover { text-decoration: underline; }
 .logbook-table-empty { margin: 0; padding: 20px 16px; color: #526174; }
 .logbook-record-drawer {
@@ -123,3 +123,4 @@
 .logbook-record-empty { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 12px 16px; border: 1px solid #dce2e9; border-radius: 8px; background: #fff; color: #526174; }
 .logbook-detail-content .logbook-record-empty p { margin: 0; font-size: 14px; }
 @media (max-width: 460px) { .logbook-drawer-title-row, .logbook-drawer-toolbar { padding-inline: 16px; } }
+.logbook-roster td button svg { flex-shrink: 0; }

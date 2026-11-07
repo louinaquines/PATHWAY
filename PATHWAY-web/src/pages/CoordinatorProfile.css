@@ -41,3 +41,28 @@
 .coordinator-profile-container .admin-profile-security-item-label { color: #697991 !important; font-size: 11px !important; font-weight: 400 !important; }
 .coordinator-profile-container .admin-profile-security-item-val { color: #152238 !important; font-size: 14px !important; font-weight: 600 !important; }
 @media (max-width: 600px) { .coordinator-profile-container .admin-profile-hero { padding: 18px !important; } .coordinator-profile-container .admin-profile-hero-left { flex-wrap: wrap; } .coordinator-profile-container .admin-profile-grid, .coordinator-profile-container .admin-profile-security-grid { grid-template-columns: 1fr !important; } }
+/* Profile: compact account summary and readable form controls. */
+.coordinator-page:has(.coordinator-profile-container), .coordinator-profile-container, .coordinator-profile-container * { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.coordinator-profile-container) main > header h1 { font-size:22px !important; font-weight:600 !important; }
+.coordinator-profile-container { width:100%; max-width:1000px !important; box-sizing:border-box; padding:24px !important; gap:20px !important; }
+.coordinator-profile-container .admin-profile-hero { padding:20px !important; border-radius:12px !important; border-color:#dce2e9 !important; }
+.coordinator-profile-container .admin-profile-hero-left { gap:16px; min-width:0; }
+.coordinator-profile-container .admin-profile-hero-avatar { width:56px !important; height:56px !important; border-radius:12px !important; font-size:20px !important; }
+.coordinator-profile-container .admin-profile-hero-details { min-width:0; }
+.coordinator-profile-container .admin-profile-hero-details h2 { font-size:22px !important; font-weight:600 !important; margin:0 0 8px; overflow-wrap:anywhere; }
+.coordinator-profile-container .admin-profile-hero-meta { flex-wrap:wrap; gap:8px; }
+.coordinator-profile-container .admin-profile-hero-meta > span { font-size:13px !important; overflow-wrap:anywhere; }
+.coordinator-profile-container .admin-profile-tag { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; font-size:13px !important; }
+.coordinator-profile-container .admin-profile-card { padding:20px !important; border-radius:12px !important; border-color:#dce2e9 !important; }
+.coordinator-profile-container .admin-profile-card-header { padding-bottom:16px !important; margin-bottom:20px !important; }
+.coordinator-profile-container .admin-profile-card-title { font-size:16px !important; font-weight:600 !important; }
+.coordinator-profile-container .admin-profile-card-subtitle { margin-top:6px; font-size:13px !important; color:#526174 !important; line-height:1.6; }
+.coordinator-profile-container .admin-profile-grid { gap:20px !important; }
+.coordinator-profile-container .admin-profile-label { font-size:13px !important; color:#526174 !important; }
+.coordinator-profile-container .admin-profile-input { min-height:44px; padding:10px 12px !important; font-size:14px !important; border-radius:8px !important; color:#243448 !important; }
+.coordinator-profile-container .admin-profile-input-readonly { color:#526174 !important; opacity:1; -webkit-text-fill-color:#526174; background:#f3f5f8 !important; }
+.coordinator-profile-container .admin-profile-actions { margin-top:20px; padding-top:16px; border-top:1px solid #e5e9ef; }
+.coordinator-profile-container .admin-profile-save-btn { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:10px 16px; font-size:14px !important; font-weight:500 !important; border-radius:8px !important; }
+.coordinator-profile-container .admin-profile-security-item { border-radius:8px !important; padding:16px !important; }
+.coordinator-profile-container .admin-profile-security-item-label { font-size:13px !important; color:#526174 !important; }
+@media(max-width:640px) { .coordinator-profile-container { padding:12px !important; } .coordinator-profile-container .admin-profile-card { padding:16px !important; } .coordinator-profile-container .admin-profile-hero-left { flex-wrap:nowrap; align-items:flex-start; } }

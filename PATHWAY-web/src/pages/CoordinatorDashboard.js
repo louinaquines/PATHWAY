@@ -787,7 +787,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
 
         <div className="admin-profile-grid">
           <div className="admin-profile-field">
-            <label htmlFor="coordinator-first-name" className="admin-profile-label">First Name</label>
+            <label htmlFor="coordinator-first-name" className="admin-profile-label">First name</label>
             <input
               id="coordinator-first-name"
               className="admin-profile-input"
@@ -799,7 +799,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label htmlFor="coordinator-last-name" className="admin-profile-label">Last Name</label>
+            <label htmlFor="coordinator-last-name" className="admin-profile-label">Last name</label>
             <input
               id="coordinator-last-name"
               className="admin-profile-input"
@@ -811,18 +811,18 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label htmlFor="coordinator-email" className="admin-profile-label">Email Address (Read-Only)</label>
+            <label htmlFor="coordinator-email" className="admin-profile-label">Email · read only</label>
             <input
               id="coordinator-email"
               className="admin-profile-input admin-profile-input-readonly"
               value={auth.currentUser?.email || ''}
               disabled
-              title="Email is managed by authentication service"
+              title="Contact your system administrator to change your email."
             />
           </div>
 
           <div className="admin-profile-field">
-            <label htmlFor="coordinator-department" className="admin-profile-label">Assigned Department (Read-Only)</label>
+            <label htmlFor="coordinator-department" className="admin-profile-label">Department · read only</label>
             <input
               id="coordinator-department"
               className="admin-profile-input admin-profile-input-readonly"
@@ -833,7 +833,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           </div>
 
           <div className="admin-profile-field">
-            <label htmlFor="coordinator-phone" className="admin-profile-label">Phone Number (Optional)</label>
+            <label htmlFor="coordinator-phone" className="admin-profile-label">Phone number (optional)</label>
             <input
               id="coordinator-phone"
               type="tel"

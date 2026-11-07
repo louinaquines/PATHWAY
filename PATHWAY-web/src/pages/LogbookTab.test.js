@@ -32,7 +32,7 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   fireEvent.click(within(drawer).getByRole('button', { name: 'Close comparison' }));
   fireEvent.click(within(drawer).getByRole('button', { name: 'Close records' }));
   fireEvent.click(within(table).getByRole('button', { name: 'View journal for Journey QA' }));
-  expect(await screen.findByText('No Entries Submitted')).toBeVisible();
+  expect(await screen.findByText('No journals submitted yet.')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();
   view.unmount();
   expect(unsubscribe).toHaveBeenCalled();

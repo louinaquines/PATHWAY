@@ -236,27 +236,33 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       </section>
       {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords}>
         <header className="logbook-drawer-heading">
-          <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
-          <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
-          <button type="button" className="portal-secondary" aria-label="Close records" disabled={saving} onClick={closeRecords}>Close</button>
+          <div className="logbook-drawer-title-row">
+            <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
+              <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
+            <button type="button" className="portal-secondary" aria-label="Close records" disabled={saving} onClick={closeRecords}>Close</button>
+          </div>
+          <div className="logbook-drawer-toolbar">
+            <div className="logbook-drawer-tabs" role="group" aria-label="Student record type">
+              <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance <span>{attendanceLoading ? '–' : attendance.length}</span></button>
+              <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals <span>{entriesLoading ? '–' : entries.length}</span></button>
+            </div>
+            <button type="button" className="portal-secondary logbook-drawer-download" aria-label="Export student records (Excel)"
+              disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
+              <Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}
+            </button>
+          </div>
         </header>
-        <div className="logbook-drawer-export">
-          <button type="button" className="portal-secondary" disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
-            <Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Export student records (Excel)'}
-          </button>
-        </div>
         <div className="logbook-detail-content" style={t.entriesScroll}>
           {exportError && <p role="alert">{exportError}</p>}
-          {selectedStudent && <div className="logbook-record-toolbar"><div className="logbook-record-switch" role="group" aria-label="Student record type">
-            <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance ({attendance.length})</button>
-            <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals ({entries.length})</button>
-          </div>{recordView === 'attendance' && <button type="button" className="logbook-export" title="Compare a submitted daily time record with PATHWAY attendance." onClick={() => setDtrStudent(selectedStudent)}><Icon name="clipboard" size={16} />Compare DTR</button>}</div>}
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
-            <h3>Attendance records</h3><p>Time-in and time-out are shown in Philippine time. Attendance hours are separate from journal hours.</p>
+            <div className="logbook-attendance-heading">
+              <p>Times shown in Philippine time.</p>
+              <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare DTR</button>
+            </div>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
             {attendanceError && <p role="alert">{attendanceError}</p>}
-            {!attendanceLoading && !attendanceError && attendance.length === 0 && <p>No attendance records yet.</p>}
+            {!attendanceLoading && !attendanceError && attendance.length === 0 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>No attendance records yet.</p></div>}
             {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><RecordPagination pagination={attendancePage} label="Attendance records" /><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendancePage.items.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
           </section>}
           {selectedStudent && recordView === 'journals' && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
@@ -267,10 +273,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
           {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
           {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
-            <div style={t.emptyDetail}>
-              <div style={t.emptyIcon}><Icon name="clipboard" size={28} label="No entries" /></div>
-              <h3 style={t.emptyTitle}>No Entries Submitted</h3>
-              <p style={t.emptySub}>{pendingOnly ? 'This student has no logbooks awaiting review.' : 'This student has not submitted any logbook entries yet.'}</p>
+            <div className="logbook-record-empty">
+              <Icon name="book" size={18} />
+              <p>{pendingOnly ? 'No journals awaiting review.' : 'No journals submitted yet.'}</p>
             </div>
           )}
 
@@ -351,29 +356,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 }
 
 const t = {
-  emptyDetail: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 60,
-    textAlign: 'center',
-  },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: 800,
-    color: '#000000',
-    margin: '0 0 6px',
-  },
-  emptySub: {
-    fontSize: 13,
-    color: '#000000',
-    maxWidth: 340,
-  },
   entriesList: {
     padding: 24,
     display: 'flex',

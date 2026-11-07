@@ -118,13 +118,13 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       {/* Top Header */}
       <div style={s.headerRow}>
         <div>
-          <h2 style={s.title}>Cohort overview</h2>
+
           <p style={s.sub}>Student hours, completion, and reported attendance for {selectedSection?.name || 'your assigned sections'}.</p>
         </div>
         <div className="analytics-actions" style={s.actions}>
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
-            <Icon name="download" size={15} /> Export CSV Report
+            <Icon name="download" size={15} /> Export analytics CSV
           </button>
         </div>
       </div>
@@ -157,14 +157,13 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <MetricCard label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
           <MetricCard label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
           <MetricCard label="High-risk Interns" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Total server-credited hours" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
-          <MetricCard label="Cohort Average" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
+          <MetricCard label="Credited hours" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
+          <MetricCard label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
         </div>
       )}
 
       {/* Student Progress Breakdown Table */}
       <div className="analytics-records" style={s.tableCard}>
-        <RecordPagination pagination={recordsPage} label="Analytics students" />
         <div style={s.cardHeader}>
           <div>
             <h3 style={s.cardTitle}>Student progress</h3>
@@ -173,15 +172,16 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
         </div>
 
+        <RecordPagination pagination={recordsPage} label="Analytics students" />
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Student Intern</th>
-                <th style={s.th}>Section</th>
-                <th style={s.th}>Server-credited / Target</th>
-                <th style={s.th}>Progress Indicator</th>
-                <th style={s.th}>Attendance Metrics</th>
+                <th style={s.th}>Student</th>
+                {!selectedSection?.id && <th style={s.th}>Section</th>}
+                <th style={s.th}>Credited / Required</th>
+                <th style={s.th}>Progress</th>
+                <th style={s.th}>Attendance</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
               </tr>
             </thead>
@@ -194,7 +194,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       <div style={s.studentName}>{st.name}</div>
                       <span style={s.idCode}>{st.idNumber}</span>
                     </td>
-                    <td style={s.td}>{st.section}</td>
+                    {!selectedSection?.id && <td style={s.td}>{st.section}</td>}
                     <td style={s.td}>
                       <strong>{st.hoursRendered ?? 'Unavailable'}</strong> / {st.hoursRequired ?? 'Unavailable'} hrs
                     </td>
@@ -254,7 +254,7 @@ function MetricCard({ label, value }) {
   return (
     <div className="analytics-metric-card" style={s.metricCard}>
       <div style={s.metricLabel}>{label}</div>
-      <div className={value === 'Unavailable' ? 'analytics-metric-unavailable' : undefined} style={s.metricValue}>{value}</div>
+      <div className={value === 'Unavailable' ? 'analytics-metric-unavailable' : undefined} style={s.metricValue}>{value === 'Unavailable' ? '—' : value}</div>
     </div>
   );
 }

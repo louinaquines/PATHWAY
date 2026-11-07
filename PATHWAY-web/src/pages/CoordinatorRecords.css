@@ -94,3 +94,31 @@
 .registrations-page button { min-height:44px; }
 .coordinator-page:has(.registrations-page) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; height:44px; min-height:44px; padding:8px 12px !important; font-size:14px !important; background:#fff !important; }
 @media(max-width:640px) { .registrations-page { padding:12px !important; } .registration-search-row { flex-wrap:wrap; } .registrations-page .registration-tabs { gap:12px !important; } }
+/* Analytics presentation; calculations and source records remain unchanged. */
+.coordinator-page:has(.coordinator-analytics-page), .coordinator-page:has(.coordinator-analytics-page) :is(h1,h2,h3,p,span,label,button,input,summary,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.coordinator-analytics-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
+.coordinator-analytics-page button { min-height:44px; font-size:14px; font-weight:500 !important; }
+.coordinator-analytics-page > div:first-child { margin-bottom:12px !important; }
+.coordinator-analytics-page > div:first-child p { margin:0 !important; color:#526174 !important; font-size:14px !important; }
+.analytics-actions { gap:8px !important; }
+.coordinator-analytics-page .analytics-actions button:last-child { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; }
+.analytics-schedule { padding:0 !important; border-radius:12px !important; margin:16px 0 !important; }
+.analytics-schedule-edit > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:16px 20px; font-size:14px !important; color:#243448 !important; cursor:pointer; }
+.analytics-schedule-edit > summary strong { margin-left:auto; color:#0752ad; font-size:14px; }
+.analytics-schedule-edit[open] { padding-bottom:20px; }
+.analytics-schedule-edit > :not(summary) { margin:12px 20px; }
+.analytics-metrics { grid-template-columns:repeat(6,minmax(0,1fr)) !important; gap:12px !important; margin:16px 0 !important; }
+.analytics-metric-card { padding:16px !important; border-radius:10px !important; box-shadow:none !important; min-width:0; }
+.analytics-metric-card > div:first-child { color:#526174 !important; font-size:13px !important; }
+.analytics-metric-card > div:last-child { font-size:24px !important; font-weight:600 !important; margin-top:8px !important; }
+.analytics-metric-unavailable { color:#697586 !important; }
+.analytics-records { border-radius:12px !important; overflow:hidden; }
+.analytics-records > div:first-child { padding:16px 20px !important; }
+.analytics-records h3 { font-size:16px !important; font-weight:600 !important; }
+.analytics-records p { color:#526174 !important; font-size:13px !important; line-height:1.5; }
+.analytics-records th { font-size:13px !important; font-weight:600 !important; color:#526174 !important; white-space:nowrap; }
+.analytics-records td { padding:14px 16px !important; font-size:14px !important; vertical-align:top; }
+.analytics-attendance-metrics > summary { min-height:44px; display:flex; align-items:center; color:#0752ad; font-size:13px; cursor:pointer; }
+.coordinator-page:has(.coordinator-analytics-page) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; height:44px; min-height:44px; padding:8px 12px !important; background:#fff !important; font-size:14px !important; }
+@media(max-width:1100px) { .analytics-metrics { grid-template-columns:repeat(3,minmax(0,1fr)) !important; } }
+@media(max-width:640px) { .coordinator-analytics-page { padding:12px !important; } .analytics-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } .analytics-schedule-edit > summary { flex-wrap:wrap; } }

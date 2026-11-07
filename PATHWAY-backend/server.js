@@ -1961,7 +1961,7 @@ async function requireAdmin(req, res, next) {
 const AUDIT_ACTIONS = new Set([
   'workplace_support.submitted', 'workplace_support.acknowledge', 'workplace_support.contact',
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
-  'account.activation_changed', 'coordinator.created',
+  'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
   'company.created', 'company.updated', 'evaluation.email_accepted', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
@@ -1993,6 +1993,8 @@ function auditEntry({ actorId, actorRole, action, targetType, targetId, details 
 function writeAuditInTransaction(transaction, event) {
   transaction.set(adminDb.collection('auditLogs').doc(), auditEntry(event));
 }
+
+require('./coordinatorAccounts').installCoordinatorAccounts({ app, db: adminDb, auth: adminAuth, requireAdmin, audit: writeAuditInTransaction });
 
 app.patch('/admin/students/:studentId/account-status', requireAdmin, async (req, res) => {
   const { accountApproved } = req.body || {};

@@ -102,7 +102,7 @@ export default function AdminDashboard() {
     setSaving(true);
     setError('');
     try {
-      await adminRequest(`/admin/students/${encodeURIComponent(userId)}/account-status`, {
+      await adminRequest(`/admin/${['coordinator','inactive_coordinator'].includes(users.find(u=>u.id===userId)?.role) ? 'coordinators' : 'students'}/${encodeURIComponent(userId)}/account-status`, {
         method: 'PATCH',
         body: JSON.stringify({ accountApproved: !currentStatus }),
       });
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
   };
 
   const students = users.filter(u => u.role === 'student');
-  const coordinators = users.filter(u => u.role === 'coordinator');
+  const coordinators = users.filter(u => ['coordinator','inactive_coordinator'].includes(u.role));
   const pending = students.filter(u => !u.accountApproved && u.status !== 'rejected_registration');
   const departments = [...new Set([...students, ...coordinators, ...sections].map(item => item.department).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
@@ -613,7 +613,8 @@ export default function AdminDashboard() {
                   users={coordinators}
                   saving={saving}
                   onToggle={handleToggleAccount}
-                  showToggle={false}
+                  onDelete={async id => { await adminRequest(`/admin/coordinators/${encodeURIComponent(id)}`, { method: 'DELETE' }); setUsers(previous=>previous.filter(user=>user.id!==id)); }}
+                  showToggle
                   coordinatorDirectory
                 />
               </div>
@@ -1256,9 +1257,12 @@ function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
 }
 
-function UserTable({ users, saving, onToggle, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus, hideDepartment = false, hideSection = false }) {
+function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus, hideDepartment = false, hideSection = false }) {
   const [search, setSearch] = useState('');
   const [deactivate, setDeactivate] = useState(null);
+  const [remove, setRemove] = useState(null);
+  const [removeError, setRemoveError] = useState('');
+  const [removing, setRemoving] = useState(false);
   const statusFilter = studentStatus || 'all';
   const showAccountId = !studentDirectory && (!coordinatorDirectory || users.some(user => user.idNumber || user.employeeId));
   const showAccountContact = !studentDirectory && !coordinatorDirectory || users.some(user => studentDirectory ? user.username : user.email);
@@ -1275,10 +1279,12 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
 
   return (
     <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
-      <AlertDialog open={Boolean(deactivate)} title="Deactivate account?"
-        description={deactivate ? 'Deactivate access for ' + ([deactivate.firstName, deactivate.lastName].filter(Boolean).join(' ') || deactivate.username || 'this student') + '?' : ''}
-        confirmLabel="Deactivate account" busy={saving} onCancel={() => setDeactivate(null)}
-        onConfirm={async () => { await onToggle(deactivate.id, true); setDeactivate(null); }} />
+      {removeError && <div role="alert">{removeError}</div>}
+      <AlertDialog open={Boolean(remove)} title="Delete coordinator account?" description={remove ? `Delete sign-in access for ${[remove.firstName,remove.lastName].filter(Boolean).join(' ')}? This cannot be undone. Historical records remain. Reassign all sections first.` : ''} confirmLabel="Delete coordinator" busy={removing} onCancel={()=>setRemove(null)} onConfirm={async()=>{setRemoving(true);setRemoveError('');try{await onDelete(remove.id);setRemove(null);}catch(e){setRemoveError(e.message);}finally{setRemoving(false);}}} />
+      <AlertDialog open={Boolean(deactivate)} title={deactivate?.accountApproved ? "Deactivate account?" : "Activate account?"}
+        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + ([deactivate.firstName, deactivate.lastName].filter(Boolean).join(' ') || deactivate.username || 'this student') + '?' : ''}
+        confirmLabel={deactivate?.accountApproved ? "Deactivate account" : "Activate account"} busy={saving} onCancel={() => setDeactivate(null)}
+        onConfirm={async () => { await onToggle(deactivate.id, deactivate.accountApproved); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
         {directoryFilters}
         <input
@@ -1335,13 +1341,14 @@ function UserTable({ users, saving, onToggle, showToggle, studentDirectory = fal
                 </td>
                 {showToggle && (
                   <td style={{ ...s.td, textAlign: 'right' }}>
-                    {user.accountApproved ? (
+                    {user.accountApproved || coordinatorDirectory ? (
                       <details className="portal-row-menu">
                         <summary aria-label={'Actions for ' + [user.firstName, user.lastName].filter(Boolean).join(' ')}>…</summary>
                         <button type="button" disabled={saving} onClick={event => {
                           event.currentTarget.closest('details').open = false;
                           setDeactivate(user);
-                        }}>Deactivate account</button>
+                        }}>{user.accountApproved ? 'Deactivate account' : 'Activate account'}</button>
+                        {coordinatorDirectory && <button type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setRemoveError('');setRemove(user);}}>Delete coordinator</button>}
                       </details>
                     ) : (
                     <button

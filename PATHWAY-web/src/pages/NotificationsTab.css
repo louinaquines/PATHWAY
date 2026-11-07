@@ -23,3 +23,27 @@
 .attendance-risk-panel button:disabled { opacity: .55; cursor: not-allowed; }
 .attendance-risk-panel button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
 @media (max-width: 640px) { .attendance-risk-panel { padding: 16px; } .attendance-risk-panel button { max-width: 100%; } }
+/* Quiet inbox and explicit workspace tabs. */
+.coordinator-page:has(.notifications-page), .notifications-page, .notifications-page * { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.notifications-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
+.notifications-page { gap:16px !important; padding:24px !important; }
+.notification-workspace-header { gap:0; }
+.notifications-page .notification-switch { display:flex; width:100%; gap:24px; padding:0; background:transparent; border:0; border-bottom:1px solid #dce2e9; border-radius:0; }
+.notifications-page .notification-switch button { min-height:48px; padding:12px 0; color:#526174; font-size:14px; font-weight:500; border-radius:0; border-bottom:3px solid transparent; }
+.notifications-page .notification-switch button[aria-selected='true'] { color:#0752ad; border-bottom-color:#075fc9; }
+.notification-switch button span { display:inline-block; margin-left:6px; padding:2px 6px; border-radius:5px; background:#edf1f5; color:#526174; font-size:13px; }
+.notifications-page [role='tabpanel'], .notifications-page .attendance-risk-panel { border-radius:12px !important; padding:20px !important; border-color:#dce2e9 !important; }
+.notifications-page h2 { font-size:18px !important; font-weight:600 !important; }
+.notifications-page h3, .notifications-page h4 { font-size:16px !important; font-weight:600 !important; }
+.notifications-page p, .notifications-page small { color:#526174 !important; font-size:13px !important; line-height:1.6; }
+.notifications-page label { font-size:13px !important; font-weight:500 !important; }
+.notifications-page button, .notifications-page input, .notifications-page select { min-height:44px; font-size:14px; }
+.notifications-page textarea { font-size:14px; line-height:1.6; }
+.notifications-page .notification-inbox-item { display:block; width:100%; box-sizing:border-box; border:0 !important; border-bottom:1px solid #e5e9ef !important; border-radius:0 !important; padding:16px !important; background:#fff !important; color:#243448 !important; }
+.notifications-page .notification-inbox-item[data-unread='true'] { background:#f1f6ff !important; box-shadow:inset 3px 0 #075fc9; }
+.notification-inbox-item > div:first-child { gap:12px; flex-wrap:wrap; }
+.notification-inbox-item > div:first-child > div { font-size:14px !important; font-weight:600 !important; }
+.notification-inbox-item > div:first-child > span { color:#526174 !important; font-size:13px !important; white-space:nowrap; }
+.notification-inbox-item > div:last-child { color:#526174 !important; font-size:14px !important; line-height:1.6; }
+.coordinator-page:has(.notifications-page) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; min-height:44px; height:44px; padding:8px 12px !important; background:#fff !important; font-size:14px !important; }
+@media(max-width:640px) { .notifications-page { padding:12px !important; } .notifications-page [role='tabpanel'], .notifications-page .attendance-risk-panel { padding:16px !important; } .notifications-page .notification-switch { gap:16px; } }

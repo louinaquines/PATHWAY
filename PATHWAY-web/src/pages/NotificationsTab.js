@@ -114,9 +114,9 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
 
   return (
     <div style={s.page} className="notifications-page">
-      <div className="notification-workspace-header"><div><h2>Announcements & alerts</h2><p>Review your inbox or send an announcement to an assigned section.</p></div>
+      <div className="notification-workspace-header">
         <div className={`notification-switch is-${workspace}`} role="tablist" aria-label="Notification workspace">
-          <span className="notification-switch-slider" aria-hidden="true" />
+          
           <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
           <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Broadcast announcement</button>
         </div>
@@ -195,7 +195,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
       <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>
           <div style={s.listHeader}>
           <div>
-            <h2 style={s.listTitle}>Coordinator Notification Inbox</h2>
+            <h2 style={s.listTitle}>Activity inbox</h2>
             <p style={s.sub}>Your activity alerts. Click a notification to mark it read.</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />

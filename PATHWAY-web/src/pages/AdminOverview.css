@@ -94,3 +94,4 @@
 @media (max-width: 380px) {
  .admin-overview-mode .dashboardTools { grid-template-columns: minmax(0, 1fr); }
 }
+.admin-compact-stats .hours-completion-note { margin:6px 0 0; color:#526174; font-size:13px; line-height:1.5; }

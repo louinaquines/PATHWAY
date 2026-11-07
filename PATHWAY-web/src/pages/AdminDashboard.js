@@ -1,3 +1,4 @@
+import { completedHoursSummary } from '../completedHoursSummary';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
@@ -162,15 +163,7 @@ export default function AdminDashboard() {
 
   const scopedPending = pending.filter(inDepartment).length;
   const unassignedSections = departmentSections.filter(section => !coordinators.some(user => user.id === section.coordinatorId)).length;
-  const averageHours = departmentStudents.length
-    ? (departmentStudents.reduce((sum, student) => sum + (Number(student.hoursRendered) || 0), 0) / departmentStudents.length).toFixed(1)
-    : '—';
-  const hourTargets = departmentStudents.map(student =>
-    Number(student.hoursRequired) || Number(sections.find(section => section.id === student.sectionId)?.hoursRequired)
-  ).filter(target => Number.isFinite(target) && target > 0);
-  const averageTarget = hourTargets.length === departmentStudents.length && hourTargets.length
-    ? String(Number((hourTargets.reduce((sum, target) => sum + target, 0) / hourTargets.length).toFixed(1)))
-    : '—';
+  const hoursCompletion = completedHoursSummary(departmentStudents, sections);
   const openStudents = status => {
     setSectionFilter('all');
     setStudentStatus(status);
@@ -507,7 +500,7 @@ export default function AdminDashboard() {
                   <div><dt>Students</dt><dd>{departmentStudents.length}</dd></div>
                   <div><dt>Sections</dt><dd>{departmentSections.length}</dd></div>
                   <div><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd></div>
-                  <div><dt>Average hours rendered</dt><dd>{averageHours}<span> of {averageTarget} hrs</span></dd></div>
+                  <div><dt>Students who completed required hours</dt><dd>{hoursCompletion.completed}<span> of {hoursCompletion.total} students</span></dd><p className="hours-completion-note">{hoursCompletion.percent}% reached their hours target</p>{hoursCompletion.missingTargets > 0 && <p className="hours-completion-note">{hoursCompletion.missingTargets} missing a required-hours target</p>}</div>
                 </dl>
                 <section className="admin-attention" aria-labelledby="admin-attention-heading">
                   <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>

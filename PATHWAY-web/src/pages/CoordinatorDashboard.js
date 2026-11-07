@@ -309,7 +309,7 @@ export default function CoordinatorDashboard() {
   const reviewPage = useRecordPage(visibleReviewStudents, (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
-    { title: '', items: [{ id: 'overview', icon: 'dashboard', label: 'Overview' }] },
+    { title: '', items: [{ id: 'overview', icon: 'dashboard', label: 'Dashboard' }] },
     { title: 'Review', items: [
         { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
         { id: 'logbook', icon: 'book', label: 'Logbook' },
@@ -330,7 +330,7 @@ export default function CoordinatorDashboard() {
   ];
 
   return (
-    <div style={s.page} className="coordinator-page">
+    <div style={s.page} className={activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page'}>
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>

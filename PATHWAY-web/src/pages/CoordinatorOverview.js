@@ -7,7 +7,6 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import { PortalEmpty, PortalError } from '../components/PortalStates';
 import Icon from '../components/Icons';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
-import './AdminOverview.css';
 import './CoordinatorOverview.css';
 
 async function countPendingJournals(students, isCurrent) {
@@ -74,17 +73,17 @@ export default function CoordinatorOverview({ section, students, requirementsCou
   ];
   return <section className="coordinator-overview" aria-label="Section overview">
     <SectionCharts students={students} section={section} />
-    <section className="admin-attention" aria-labelledby="overview-attention-title">
+    <section className="coordinator-queue" aria-labelledby="overview-attention-title">
       <div className="coordinator-overview-heading">
-        <h2 id="overview-attention-title">Needs attention</h2>
-        <button type="button" className="portal-secondary" onClick={() => load()}>Refresh counts</button>
+        <div><h2 id="overview-attention-title">Needs attention</h2><p>Open a queue to review work for this section.</p></div>
+        <button type="button" className="portal-secondary" onClick={() => load()}><Icon name="refresh" size={15} /> Refresh counts</button>
       </div>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
-      <div className="admin-attention-grid coordinator-attention-grid">
+      <div className="coordinator-attention-grid">
         {tasks.map(([page, view, label, count, unit]) =>
           <button key={view} type="button" onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
-            <span>{label}</span>
+            <span className="coordinator-queue-label"><span className="coordinator-queue-icon"><Icon name={page === 'placements' ? 'building' : page === 'logbook' ? 'book' : page === 'clearance' ? 'cap' : 'clipboard'} size={16} /></span>{label}</span>
             <strong data-zero={count === 0} data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
               {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
             </strong>
@@ -107,11 +106,22 @@ function SectionCharts({ students, section }) {
   ];
   const maxCount = Math.max(1, ...counts);
   const labels = ['0%', 'Above 0%, below 50%', '50% to below 100%', '100%+'];
-  return <div className="coordinator-chart-grid">
+  return <>
+    <dl className="coordinator-metrics" aria-label="Section totals">
+      {[
+        ['Students in section', total, 'users', 'Section roster'],
+        ['Assigned placements', milestones[1][1], 'building', 'Coordinator-confirmed'],
+        ['Hours target met', counts[3], 'clock', 'Students at or above target'],
+      ].map(([label, count, icon, detail]) => <div key={label} className="coordinator-metric">
+        <dt><span className="coordinator-metric-icon"><Icon name={icon} size={17} /></span>{label}</dt>
+        <dd>{count}</dd>
+        <dd className="coordinator-metric-detail">{detail}</dd>
+      </div>)}
+    </dl>
+    <div className="coordinator-chart-grid">
     <section className="coordinator-chart" aria-labelledby="section-milestones-title">
       <header>
         <h2 id="section-milestones-title">Section milestones</h2>
-        <span className="coordinator-chart-total">{total} {total === 1 ? 'student' : 'students'}</span>
       </header>
       <p>Students who have reached each milestone.</p>
       {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
@@ -125,7 +135,7 @@ function SectionCharts({ students, section }) {
         </ul>}
     </section>
     <section className="coordinator-chart" aria-labelledby="section-hours-title">
-      <header><h2 id="section-hours-title">Progress toward required hours</h2></header>
+      <header><h2 id="section-hours-title">Progress toward required hours</h2><span className="coordinator-chart-unit">Students</span></header>
       <p>Students grouped by how much of their own hours target they’ve completed.</p>
       {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'No hours targets are set for this section.' : 'No students in this section yet.'}</p> :
         <ul className="coordinator-hours-chart">
@@ -139,5 +149,6 @@ function SectionCharts({ students, section }) {
         </ul>}
       {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
     </section>
-  </div>;
+    </div>
+  </>;
 }

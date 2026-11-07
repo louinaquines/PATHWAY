@@ -2,8 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
-import { completedHoursSummary } from '../completedHoursSummary';
-import { canAssignPlacement, isReadyForClearance } from '../coordinatorOverviewData';
+import { canAssignPlacement, hoursProgressDistribution, isReadyForClearance } from '../coordinatorOverviewData';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import { PortalEmpty, PortalError } from '../components/PortalStates';
 import Icon from '../components/Icons';
@@ -66,7 +65,6 @@ export default function CoordinatorOverview({ section, students, requirementsCou
 
   if (!section) return <PortalEmpty title="No section assigned" description="Your overview will appear when a section is assigned to you." />;
   if (!summary) return <PageSkeleton label="Loading overview" />;
-  const hours = completedHoursSummary(students, [section]);
   const tasks = [
     ['requirements', 'requirements', 'Requirements awaiting review', requirementsCount, 'students'],
     ['placements', 'assign', 'Students waiting for a company assignment', summary.waitingCount, 'students'],
@@ -75,12 +73,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     ['clearance', 'ready', 'Students ready for clearance', summary.clearanceCount, 'students'],
   ];
   return <section className="coordinator-overview" aria-label="Section overview">
-    <dl className="admin-compact-stats" aria-label="Section summary">
-      <div><dt>Students</dt><dd>{students.length}</dd></div>
-      <div><dt>Assigned placements</dt><dd>{students.filter(student => student.placementStatus === 'approved').length}</dd></div>
-      <div><dt>Completed required hours</dt><dd>{hours.completed}<span> of {hours.total} students</span></dd></div>
-      <div><dt>Cleared</dt><dd>{students.filter(student => student.clearanceStatus === 'cleared').length}</dd></div>
-    </dl>
+    <SectionCharts students={students} section={section} />
     <section className="admin-attention" aria-labelledby="overview-attention-title">
       <div className="coordinator-overview-heading">
         <h2 id="overview-attention-title">Needs attention</h2>
@@ -101,4 +94,50 @@ export default function CoordinatorOverview({ section, students, requirementsCou
       </div>
     </section>
   </section>;
+}
+
+function SectionCharts({ students, section }) {
+  const total = students.length;
+  const { counts, missingTargets } = hoursProgressDistribution(students, section.hoursRequired);
+  const milestones = [
+    ['Requirements approved', students.filter(student => student.requirementsStatus === 'approved').length],
+    ['Placement assigned', students.filter(student => student.placementStatus === 'approved').length],
+    ['Required hours met', counts[3]],
+    ['Cleared', students.filter(student => student.clearanceStatus === 'cleared').length],
+  ];
+  const maxCount = Math.max(1, ...counts);
+  const labels = ['0%', 'Above 0%, below 50%', '50% to below 100%', '100%+'];
+  return <div className="coordinator-chart-grid">
+    <section className="coordinator-chart" aria-labelledby="section-milestones-title">
+      <header>
+        <h2 id="section-milestones-title">Section milestones</h2>
+        <span className="coordinator-chart-total">{total} {total === 1 ? 'student' : 'students'}</span>
+      </header>
+      <p>Students who have reached each milestone.</p>
+      {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
+        <ul className="coordinator-milestones">
+          {milestones.map(([label, count]) => <li key={label}>
+            <div><span>{label}</span><strong>{count} <span>of {total}</span></strong></div>
+            <div className="coordinator-milestone-track" aria-hidden="true">
+              <span style={{ width: (count / total * 100) + '%' }} />
+            </div>
+          </li>)}
+        </ul>}
+    </section>
+    <section className="coordinator-chart" aria-labelledby="section-hours-title">
+      <header><h2 id="section-hours-title">Progress toward required hours</h2></header>
+      <p>Students grouped by how much of their own hours target they’ve completed.</p>
+      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'No hours targets are set for this section.' : 'No students in this section yet.'}</p> :
+        <ul className="coordinator-hours-chart">
+          {counts.map((count, index) => <li key={labels[index]}>
+            <div className="coordinator-hours-track">
+              <div className="coordinator-hours-column" style={{ height: (count / maxCount * 100) + '%' }} aria-hidden="true" />
+              <strong style={{ bottom: (count / maxCount * 100) + '%' }}>{count}<span className="sr-only"> {count === 1 ? 'student' : 'students'} at</span></strong>
+            </div>
+            <span>{' '}{labels[index]}</span>
+          </li>)}
+        </ul>}
+      {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
+    </section>
+  </div>;
 }

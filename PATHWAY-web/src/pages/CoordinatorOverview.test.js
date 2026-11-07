@@ -36,3 +36,16 @@ test('a failed count is unavailable and never makes the section look caught up',
   expect(screen.getByRole('button', { name: 'Placement requests awaiting a decision Unavailable' })).toBeVisible();
   expect(screen.queryByText(/caught up/)).not.toBeInTheDocument();
 });
+
+test('charts reflect refreshed section data without reopening Overview', async () => {
+  const currentSection = { ...section, hoursRequired: 200 };
+  getDocs.mockResolvedValue({ size: 0, docs: [] });
+  getCountFromServer.mockResolvedValue({ data: () => ({ count: 0 }) });
+  adminRequest.mockResolvedValue({ evaluations: [] });
+  const props = { section: currentSection, requirementsCount: 0, onOpen: jest.fn() };
+  const { rerender } = render(<CoordinatorOverview {...props} students={[{ id: 'student', hoursRendered: 20 }]} />);
+  const chart = await screen.findByRole('region', { name: 'Progress toward required hours' });
+  expect(chart).toHaveTextContent('1 student at Above 0%, below 50%');
+  rerender(<CoordinatorOverview {...props} students={[{ id: 'student', hoursRendered: 200 }]} />);
+  expect(chart).toHaveTextContent('1 student at 100%+');
+});

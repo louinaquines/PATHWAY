@@ -238,9 +238,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 {selectedStudentIds.length ? selectedStudentIds.length + ' selected' : 'Select students'} <Icon name="chevronRight" size={16} />
               </button>
               {selectionOpen && <div id="evaluation-student-options" className="evaluation-student-options" role="group" aria-label="Company students">
-                <button type="button" className="portal-secondary" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
+                <div className="evaluation-selection-toolbar"><span aria-live="polite">{selectedStudentIds.length} of {companyStudents.length} selected</span><button type="button" className="evaluation-select-all" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
                   {selectedStudentIds.length === companyStudents.length ? 'Clear selection' : 'Select all'}
-                </button>
+                </button></div>
                 {companyStudents.map(student => <label key={student.id}>
                   <input type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
                     updateSelection(event.target.checked ? [...selectedStudentIds, student.id] : selectedStudentIds.filter(id => id !== student.id))} />

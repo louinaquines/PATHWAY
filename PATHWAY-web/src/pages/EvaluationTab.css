@@ -139,3 +139,9 @@
 .evaluation-student-options > label { cursor:pointer; border-radius:6px; }
 .evaluation-student-options > label:hover { background:#f3f6fa; }
 .evaluation-student-options > label:has(input:checked) { background:#eef5ff; }
+
+.evaluation-selection-toolbar { position:sticky; top:-10px; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:12px; margin:-10px -10px 6px; padding:8px 12px; border-bottom:1px solid #e5eaf0; background:#fff; }
+.evaluation-selection-toolbar > span { font-size:13px; color:#697991; }
+.evaluation-panel .evaluation-invitation .evaluation-selection-toolbar .evaluation-select-all { min-height:32px; height:auto; width:auto; margin:0; padding:5px 8px !important; border:0 !important; border-radius:6px; background:transparent !important; color:#075fc9 !important; box-shadow:none !important; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.evaluation-panel .evaluation-invitation .evaluation-selection-toolbar .evaluation-select-all:hover { background:#eef5ff !important; }
+.evaluation-select-all:focus-visible { outline:2px solid #075fc9; outline-offset:2px; }

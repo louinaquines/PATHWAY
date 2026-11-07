@@ -30,7 +30,11 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   expect(screen.getByText('2:47:13 AM')).toBeVisible();
   expect(screen.getByText('0.03')).toBeVisible();
   fireEvent.click(within(drawer).getByRole('button', { name: 'Close comparison' }));
-  fireEvent.click(within(drawer).getByRole('button', { name: 'Close records' }));
+  drawer.getBoundingClientRect = () => ({ left: 500, right: 1000, top: 0, bottom: 800 });
+  fireEvent.click(drawer, { clientX: 600, clientY: 400 });
+  expect(drawer).toBeInTheDocument();
+  fireEvent.click(drawer, { clientX: 200, clientY: 400 });
+  expect(drawer).not.toBeInTheDocument();
   fireEvent.click(within(table).getByRole('button', { name: 'View journal for Journey QA' }));
   expect(await screen.findByText('No journals submitted yet.')).toBeVisible();
   expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();

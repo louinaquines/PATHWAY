@@ -234,7 +234,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {!filteredStudents.length && <p className="logbook-table-empty">{pendingOnly ? 'No students with pending journals match this view.' : 'No students match this view.'}</p>}
         </>}
       </section>
-      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords}>
+      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
         <header className="logbook-drawer-heading">
           <div className="logbook-drawer-title-row">
             <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>

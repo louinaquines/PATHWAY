@@ -17,7 +17,7 @@ export function PortalEmpty({ title, description }) {
   </div>;
 }
 
-export function PortalFormDialog({ label, className, onCancel, children }) {
+export function PortalFormDialog({ label, className, onCancel, closeOnBackdrop = false, children }) {
   const ref = useRef(null);
   useEffect(() => {
     const dialog = ref.current;
@@ -26,7 +26,13 @@ export function PortalFormDialog({ label, className, onCancel, children }) {
       else dialog.setAttribute('open', '');
     }
   }, []);
-  return <dialog ref={ref} className={className} aria-label={label} onCancel={event => {
+  return <dialog ref={ref} className={className} aria-label={label} onClick={event => {
+    if (!closeOnBackdrop || event.target !== event.currentTarget) return;
+    const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom) {
+      onCancel();
+    }
+  }} onCancel={event => {
     event.preventDefault();
     onCancel();
   }}>{children}</dialog>;

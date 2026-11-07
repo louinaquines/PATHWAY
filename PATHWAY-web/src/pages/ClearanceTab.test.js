@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { csvCell, escapeReportText } from './ClearanceTab';
 
 jest.mock('../firebase', () => ({ db: {} }));
@@ -15,3 +16,13 @@ test('clearance print fields remain text instead of executable HTML', () => {
   expect(escapeReportText('<script>alert("x")</script> & Student')).toBe('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; Student');
   expect(escapeReportText("O'Brien")).toBe('O&#39;Brien');
 });
+
+ test('clearance never loads department-wide records without a selected section', async () => {
+  const React = require('react');
+  const { adminRequest } = require('../adminApi');
+  const ClearanceTab = require('./ClearanceTab').default;
+  adminRequest.mockClear();
+  render(React.createElement(ClearanceTab,{coordinatorId:'coord'}));
+  expect(await screen.findByText('Select a section')).toBeInTheDocument();
+  expect(adminRequest).not.toHaveBeenCalled();
+ });

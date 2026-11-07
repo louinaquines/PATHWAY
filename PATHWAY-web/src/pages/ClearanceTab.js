@@ -1,7 +1,7 @@
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
@@ -24,6 +24,7 @@ export function escapeReportText(value) {
 }
 
 export default function ClearanceTab({ coordinatorId, selectedSection }) {
+  const loadVersion = useRef(0);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -31,14 +32,16 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
-    if (!coordinatorId) return;
+    const version = ++loadVersion.current;
+    if (!coordinatorId || !selectedSection?.id) { setRows([]); setLoading(false); return; }
     if (!silent) setLoading(true);
     setError('');
     try {
       const sectionSnap = await getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', coordinatorId)));
-      if (!isRefreshCurrent()) return;
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       const sections = sectionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       const scopedSections = selectedSection ? sections.filter(section => section.id === selectedSection.id) : [];
+      if (!scopedSections.length) { setRows([]); setError('This section is not assigned to you.'); return; }
       const evaluationResult = await adminRequest('/coordinator-evaluations');
       if (!isRefreshCurrent()) return;
       const evaluatedStudents = new Set((evaluationResult.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
@@ -74,7 +77,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       console.error(e);
       setError('Could not load clearance records.');
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   }, [coordinatorId, selectedSection]);
 
@@ -82,7 +85,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
 
 
   useEffect(() => {
+    setRows([]); setSearchQuery(''); setSummaryFilter('all');
     load();
+    return () => { loadVersion.current += 1; };
   }, [load]);
 
   const markCleared = async row => {
@@ -200,6 +205,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   }
   return (
     <div style={s.page} className="clearance-page">
+<p className="clearance-section-scope"><strong>{selectedSection?.name || 'Select a section'}</strong><span>Clearance records, counts, and reports are limited to this section.</span></p>
       {/* Top Toolbar */}
       <div style={s.toolbar} className="clearance-toolbar">
         <div>

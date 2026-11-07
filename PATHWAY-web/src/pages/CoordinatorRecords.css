@@ -76,3 +76,21 @@
 .attendance-excused-editor textarea { width: 100%; min-height: 80px; box-sizing: border-box; resize: vertical; border: 1px solid #dbe4f0; border-radius: 8px; font: inherit; padding: 8px; }
 .attendance-excused-editor button, .analytics-attendance-metrics > button { margin: 6px 6px 0 0; padding: 8px; border: 1px solid #dbe4f0; background: white; color: #075fc9; }
 .attendance-excused-editor textarea:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
+/* Registration queue: quiet counts and one clear content area. */
+.coordinator-page:has(.registrations-page), .coordinator-page:has(.registrations-page) :is(h1,h2,h3,p,span,label,button,input,a,small,strong) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.registrations-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
+.registrations-page > label { display:flex; align-items:center; gap:8px; min-height:44px; color:#526174; font-size:14px; }
+.registration-intro { margin:0 0 12px; }
+.registration-intro p { font-size:13px; color:#526174; }
+.registrations-page .registration-tabs { gap:20px !important; padding:0 !important; margin-bottom:16px; }
+.registrations-page .registration-tabs button { min-height:48px; padding:10px 0 !important; font-size:14px; font-weight:500 !important; border-radius:0 !important; background:transparent !important; border-bottom:3px solid transparent !important; color:#526174 !important; }
+.registrations-page .registration-tabs button[aria-pressed='true'] { border-bottom-color:#075fc9 !important; color:#0752ad !important; background:transparent !important; }
+.registrations-page .registration-tabs button span:last-child { border:0 !important; background:#edf1f5 !important; color:#526174 !important; font-size:13px; padding:3px 7px; }
+.registration-search-row { padding:0 !important; margin-bottom:16px; gap:16px; }
+.registration-search-row > span { font-size:13px !important; font-weight:400 !important; color:#526174 !important; }
+.registrations-page .registration-empty { max-width:none !important; width:100%; box-sizing:border-box; padding:32px 20px !important; margin:0 !important; border-radius:12px !important; box-shadow:none !important; }
+.registration-empty h3 { font-size:16px !important; font-weight:600 !important; margin:12px 0 8px !important; }
+.registration-empty p { font-size:14px !important; color:#526174 !important; }
+.registrations-page button { min-height:44px; }
+.coordinator-page:has(.registrations-page) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; height:44px; min-height:44px; padding:8px 12px !important; font-size:14px !important; background:#fff !important; }
+@media(max-width:640px) { .registrations-page { padding:12px !important; } .registration-search-row { flex-wrap:wrap; } .registrations-page .registration-tabs { gap:12px !important; } }

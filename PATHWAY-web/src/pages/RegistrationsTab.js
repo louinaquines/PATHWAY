@@ -103,10 +103,9 @@ export default function RegistrationsTab({ department, selectedSection }) {
 
   return (
     <div style={r.page} className="registrations-page">
-      <RecordPagination pagination={recordsPage} label="Registrations" />
       <label><input type="checkbox" checked={unassignedOnly} disabled={saving || loading}
         onChange={event => setUnassignedOnly(event.target.checked)} /> Show unassigned registrations</label>
-      <div className="registration-intro"><h2>Student accounts</h2><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
+      <div className="registration-intro"><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
       {/* Sub tabs / Filter navigation */}
       <div className="registration-tabs" style={r.subTabs}>
         <button
@@ -145,20 +144,21 @@ export default function RegistrationsTab({ department, selectedSection }) {
 
       {/* List content */}
       <div style={r.list}>
-        <div style={r.searchRow}>
+        <div className="registration-search-row" style={r.searchRow}>
           <div style={r.searchField}>
             <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search registrations" />
           </div>
           <span style={r.searchCount}>{filteredList.length} of {list.length} record(s)</span>
         </div>
         {filteredList.length === 0 && (
-          <div style={r.emptyCard}>
+          <div className="registration-empty" style={r.emptyCard}>
             <div style={r.emptyIcon}><Icon name="users" size={28} label="No registrations" /></div>
             <h3 style={r.emptyTitle}>{searchQuery ? 'No matching students' : `No ${tab} accounts`}</h3>
             <p style={r.emptySub}>{searchQuery ? 'Try another student name or ID.' : `There are no students in the ${tab} account queue.`}</p>
           </div>
         )}
 
+        <RecordPagination pagination={recordsPage} label="Registrations" />
         <div style={r.cardsGrid}>
           {recordsPage.items.map((student) => (
             <div className="registration-student-card" key={student.id} style={r.card}>

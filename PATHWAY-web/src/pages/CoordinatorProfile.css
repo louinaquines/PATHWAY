@@ -8,8 +8,8 @@
 .coordinator-page .sidebar-group-title { color: #8a99ad; font-size: 10px; font-weight: 500; letter-spacing: .08em; padding: 18px 12px 8px; }
 .coordinator-page .sidebar-nav-btn { border: 1px solid transparent !important; border-radius: 9px !important; padding: 11px 12px !important; min-height: 42px; background: transparent !important; color: #526079 !important; box-shadow: none !important; font-size: 12px !important; font-weight: 500 !important; transition: background 150ms ease, color 150ms ease; }
 .coordinator-page .sidebar-nav-btn svg { color: inherit !important; }
-.coordinator-page .sidebar-nav-btn:hover { background: #f6f8fc !important; color: #152238 !important; }
-.coordinator-page .sidebar-nav-btn-active, .coordinator-page .sidebar-nav-btn-active:hover { background: #edf4ff !important; color: #075fc9 !important; font-weight: 600 !important; }
+.coordinator-page .sidebar-nav-btn:hover { background: #f6f8fc !important; color: #152238 !important; transform: none; }
+.coordinator-page .sidebar-nav-btn-active, .coordinator-page .sidebar-nav-btn-active:hover { background: #edf4ff !important; color: #075fc9 !important; }
 .coordinator-page .sidebar-nav-btn::before, .coordinator-page .sidebar-nav-btn::after { display: none !important; }
 .coordinator-page .sidebar-badge { background: #eef2f7 !important; color: #526079 !important; border-radius: 5px !important; font-size: 10px; }
 .coordinator-page .sidebar-badge-warning { background: #fff6e5 !important; color: #98600a !important; }

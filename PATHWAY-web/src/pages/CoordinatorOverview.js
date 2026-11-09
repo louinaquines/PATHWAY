@@ -131,6 +131,20 @@ function SectionCharts({ students, section, children }) {
         <dd className="coordinator-metric-detail">{detail}</dd>
       </div>)}
     </dl>
+    <section className="coordinator-chart coordinator-progress" aria-labelledby="section-milestones-title">
+      <header>
+        <h2 id="section-milestones-title">Student progress by step</h2>
+      </header>
+      <p>Students who reached each step.</p>
+      {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
+        <ol className="coordinator-milestones">
+          {milestones.map(([label, count], index) => <li key={label}>
+            <span className="coordinator-milestone-marker" aria-hidden="true">Step {index + 1}</span>
+            <span className="coordinator-milestone-label">{label}</span>
+            <strong>{count} <span>of {total}</span></strong>
+          </li>)}
+        </ol>}
+    </section>
     {children}
     </div>
     <div className="coordinator-chart-grid">
@@ -151,20 +165,6 @@ function SectionCharts({ students, section, children }) {
           </ul>
         </>}
       {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
-    </section>
-    <section className="coordinator-chart" aria-labelledby="section-milestones-title">
-      <header>
-        <h2 id="section-milestones-title">Student progress by step</h2>
-      </header>
-      <p>Students who have reached each milestone.</p>
-      {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
-        <ol className="coordinator-milestones">
-          {milestones.map(([label, count], index) => <li key={label}>
-            <span className="coordinator-milestone-marker" aria-hidden="true">{index + 1}</span>
-            <span>{label}</span>
-            <strong>{count} <span>of {total}</span></strong>
-          </li>)}
-        </ol>}
     </section>
     </div>
   </div>;

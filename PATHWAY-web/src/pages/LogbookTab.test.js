@@ -25,11 +25,11 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   });
   const view = render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
   const table = await screen.findByRole('table', { name: 'Students in QA Section' });
-  expect(within(table).getByRole('columnheader', { name: 'Journal' })).toBeVisible();
+  expect(within(table).getByRole('columnheader', { name: 'Journals' })).toBeVisible();
   fireEvent.click(within(table).getByRole('button', { name: 'View attendance for Journey QA' }));
   const drawer = await screen.findByRole('dialog', { name: 'Records for Journey QA' });
   expect(within(drawer).getByRole('button', { name: 'Export student records (Excel)' })).toBeEnabled();
-  fireEvent.click(within(drawer).getByRole('button', { name: 'Compare DTR' }));
+  fireEvent.click(within(drawer).getByRole('button', { name: 'Compare Form 48' }));
   expect(screen.getByText('DTR for Journey')).toBeVisible();
   expect(await screen.findByText('2:45:38 AM')).toBeVisible();
   expect(screen.getByText('2:47:13 AM')).toBeVisible();
@@ -42,7 +42,7 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   expect(drawer).not.toBeInTheDocument();
   fireEvent.click(within(table).getByRole('button', { name: 'View journal for Journey QA' }));
   expect(await screen.findByText('No journals submitted yet.')).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Compare Form 48' })).not.toBeInTheDocument();
   view.unmount();
   expect(unsubscribe).toHaveBeenCalled();
 });
@@ -57,7 +57,7 @@ test('a pending journal can be rejected inside the records drawer', async () => 
   fireEvent.click(await within(drawer).findByRole('button', { name: 'Reject Entry' }));
   const confirm = within(drawer).getByRole('alertdialog');
   fireEvent.click(within(confirm).getByRole('button', { name: 'Reject entry' }));
-  expect(await within(drawer).findByText('Revision needed')).toBeVisible();
+  expect(await within(drawer).findByText('Changes requested')).toBeVisible();
   expect(adminRequest).toHaveBeenCalledWith('/coordinator/students/student/logbook/journal/decision',
     expect.objectContaining({ method: 'POST', body: '{"status":"rejected"}' }));
 });

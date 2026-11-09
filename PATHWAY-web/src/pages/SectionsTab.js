@@ -309,7 +309,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   style={{ ...t.toggleBtn, ...(view === 'requirements' ? t.toggleBtnActive : {}) }}
                   onClick={() => fetchRequirements(selected)}
                 >
-                  <Icon name="clipboard" size={16} /> Checklist & Deadlines
+                  <Icon name="clipboard" size={16} /> Requirements & deadlines
                 </button>
               </div>
             </div>
@@ -318,7 +318,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             {view === 'students' && (
               <div style={t.viewContent}>
                 <div style={t.subHeaderRow}>
-                  <h3 style={t.sectionLabel}>Student roster</h3>
+                  <h3 style={t.sectionLabel}>Students in this section</h3>
 
                 </div>
 
@@ -327,7 +327,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   ) : (
                   <> <RecordPagination pagination={recordsPage} label="Section students" /><div className="coordinator-compact-table-wrap">
                     <table className="coordinator-compact-table">
-                      <thead><tr><th>Student ID</th><th>Name of Student</th><th>Account</th></tr></thead>
+                      <thead><tr><th>Student ID</th><th>Student name</th><th>Account</th></tr></thead>
                       <tbody>{recordsPage.items.map(student => <tr key={student.id}>
                         <td>{student.idNumber || '—'}</td><td>{student.firstName} {student.lastName}</td>
                         <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
@@ -355,7 +355,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               <div style={t.viewContent}>
                 <div style={t.reqHeader}>
                   <div>
-                    <h3 style={t.sectionLabel}>Checklist & deadlines</h3>
+                    <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
                     <p style={t.reqSubText}>Set specific deadlines for each requirement. Overdue alerts are automatically shown to students.</p>
                   </div>
                   <button
@@ -429,7 +429,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Create New Section</h2>
             <div style={t.field}>
-              <label htmlFor="new-section-name" style={t.label}>Section Name & Year</label>
+              <label htmlFor="new-section-name" style={t.label}>Section name</label>
               <input
                 style={t.input}
                 id="new-section-name" placeholder="e.g. BSIT - 4A"
@@ -439,11 +439,11 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               />
             </div>
             <div className="section-year-choices">
-              <label style={t.label}>Year<select aria-label="Year" style={t.select} value={form.year} onChange={e => updateSectionChoice('year', e.target.value)} required disabled={saving}><option value="">Select year</option>{[1, 2, 3, 4].map(year => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}</select></label>
-              <label style={t.label}>Section<select aria-label="Section" style={t.select} value={form.section} onChange={e => updateSectionChoice('section', e.target.value)} required disabled={saving}><option value="">Select section</option>{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => <option key={letter} value={letter}>{letter}</option>)}</select></label>
+              <label style={t.label}>Year level<select aria-label="Year level" style={t.select} value={form.year} onChange={e => updateSectionChoice('year', e.target.value)} required disabled={saving}><option value="">Select year</option>{[1, 2, 3, 4].map(year => <option key={year} value={year}>{year}{year === 1 ? 'st' : year === 2 ? 'nd' : year === 3 ? 'rd' : 'th'} year</option>)}</select></label>
+              <label style={t.label}>Section letter<select aria-label="Section letter" style={t.select} value={form.section} onChange={e => updateSectionChoice('section', e.target.value)} required disabled={saving}><option value="">Select section</option>{'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => <option key={letter} value={letter}>{letter}</option>)}</select></label>
             </div>
             <div style={t.field}>
-              <label style={t.label}>Required OJT Hours</label>
+              <label style={t.label}>Required internship hours</label>
               <input
                 style={t.input}
                 type="number"
@@ -454,7 +454,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               />
             </div>
             <div style={t.field}>
-              <label style={t.label}>Group Chat / Messenger Link (Optional)</label>
+              <label style={t.label}>Messenger group link (optional)</label>
               <input
                 style={t.input}
                 placeholder="https://m.me/join/..."
@@ -480,7 +480,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       {reqModal === 'add' && (
         <div style={t.overlay}>
           <div className="section-modal" style={t.modalCard}>
-            <h2 style={t.modalTitle}>Add Custom Requirement</h2>
+            <h2 style={t.modalTitle}>Add a requirement</h2>
             <div style={t.field}>
               <label style={t.label}>Requirement Name</label>
               <input
@@ -492,7 +492,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               />
             </div>
             <div style={t.field}>
-              <label style={t.label}>Internship Phase / Category</label>
+              <label style={t.label}>Internship stage</label>
               <select
                 style={t.select}
                 value={reqForm.category}

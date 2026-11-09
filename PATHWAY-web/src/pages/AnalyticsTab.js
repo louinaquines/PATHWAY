@@ -134,7 +134,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
         <details className="analytics-schedule-edit" key={selectedSection.id}>
-          <summary>Work schedule · {schedule.startDate || 'Start date unset'} to {schedule.deadline || 'Deadline unset'} · {schedule.startTime} <strong>Edit</strong></summary>
+          <summary>Work schedule · {schedule.startDate || 'Start date not set'} to {schedule.deadline || 'Deadline not set'} · {schedule.startTime} <strong>Edit</strong></summary>
         <details><summary>How is this calculated?</summary><p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p></details>
         <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
         <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
@@ -144,7 +144,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             setSchedule(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
             setExceptionDate('');
           }}>Add date</button>
-          {schedule.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove exception ' + date}
+          {schedule.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
             onClick={() => setSchedule(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
         </div>
         <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
@@ -157,8 +157,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <MetricCard label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
           <MetricCard label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
           <MetricCard label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="High-risk Interns" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Credited hours" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
+          <MetricCard label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
+          <MetricCard label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
           <MetricCard label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
         </div>
       )}
@@ -179,9 +179,9 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             <thead>
               <tr>
                 <th style={s.th}>Student ID</th>
-                <th style={s.th}>Name of Student</th>
+                <th style={s.th}>Student name</th>
                 {!selectedSection?.id && <th style={s.th}>Section</th>}
-                <th style={s.th}>Credited / Required</th>
+                <th style={s.th}>Hours counted / Hours required</th>
                 <th style={s.th}>Progress</th>
                 <th style={s.th}>Attendance</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
@@ -209,12 +209,12 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                     <td style={s.td}>
                       <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
                         <summary>Attendance details</summary>
-                        <span>Rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
+                        <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
                         <span>{st.projectedCompletion ? `Estimated completion: ${st.projectedCompletion}` : 'Completion estimate unavailable'}</span>
                         {(st.reasonCodes || []).map((reason, index) => <small key={`${reason.code}:${index}`} style={{ display: 'block' }}>{attendanceReasonLabels[reason.code] || reason.code}</small>)}
-                        <small>Observed eligible days: attendance {st.observationCounts?.attendanceEligibleDays ?? 'Unavailable'}; projection {st.observationCounts?.projectionEligibleDays ?? 'Unavailable'}</small>
+                        <small>Scheduled days used in the calculation: attendance {st.observationCounts?.attendanceEligibleDays ?? 'Unavailable'}; projection {st.observationCounts?.projectionEligibleDays ?? 'Unavailable'}</small>
                         <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
                         {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
                         {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}

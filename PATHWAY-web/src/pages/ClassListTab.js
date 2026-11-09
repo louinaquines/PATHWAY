@@ -158,10 +158,10 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           ))}
           <button style={s.addButton} onClick={() => addIds(true)}
             disabled={saving || !sectionId || Object.values(student).some(value => !value.trim())}>
-            {saving ? 'Provisioning accounts...' : 'Create student account'}
+            {saving ? 'Creating student accounts…' : 'Create student account'}
           </button>
-          <label style={{ ...s.label, marginTop: 16 }}>Bulk import — upload a CSV file</label>
-          <p className="roster-format-help">Columns: StudentID, FirstName, LastName. Email addresses are not required.</p>
+          <label style={{ ...s.label, marginTop: 16 }}>Upload a class list (CSV)</label>
+          <p className="roster-format-help">Use these column names in your CSV: StudentID, FirstName, LastName. Email is optional.</p>
           <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={async e => {
             const file = e.target.files?.[0];
             if (!file) return;
@@ -175,7 +175,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
               onClick={() => addIds(false)}
               disabled={saving || !sectionId || !input.trim()}
             >
-              {saving ? 'Provisioning accounts...' : 'Import CSV'}
+              {saving ? 'Creating student accounts…' : 'Import CSV'}
             </button>
             {message && (
               <span role="status" style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>
@@ -216,7 +216,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
               <thead>
                 <tr>
                   <th style={s.th}>Student ID</th>
-                  <th style={s.th}>Name of Student</th>
+                  <th style={s.th}>Student name</th>
                   <th style={s.th}>Username</th>
                   <th style={s.th}>Department</th>
                   <th style={s.th}>Date Added</th>
@@ -231,7 +231,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
                       <span style={s.idCode}>{item.id}</span>
                     </td>
                     <td style={s.td}>{studentName(item) || '—'}</td>
-                    <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Legacy / not provisioned'}</td>
+                    <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Username unavailable'}</td>
                     <td style={s.td}>{item.department}</td>
                     <td style={s.td}>
                       {item.createdAt

@@ -144,19 +144,19 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
         </div>
         <RecordPagination pagination={companyPage} label="Partner companies" />
         {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <PortalEmpty title={companies.length ? 'No matching companies.' : 'No companies have been added yet.'} description={companies.length ? 'Try another company name, industry, or address.' : 'Add a company to make it available for placements.'} /> :
-          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Placement capacity</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companyPage.items.map(company => {
+          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companyPage.items.map(company => {
             const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
             return <tr key={company.id}>
               <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>
               <td>{company.industry || <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>}</td>
-              <td><span>{configured ? company.occupiedSlots + ' / ' + company.capacity + ' placed' : 'Not configured'}</span>{configured && <><progress aria-label={company.name + ' placement capacity'} value={company.occupiedSlots || 0} max={company.capacity} /><small className={company.availableSlots === 0 ? 'capacity-full' : ''}>{company.availableSlots === 0 ? 'No available slots' : company.availableSlots + ' available'}</small></>}</td>
+              <td><span>{configured ? company.occupiedSlots + ' / ' + company.capacity + ' placed' : 'Slot limit not set'}</span>{configured && <><progress aria-label={company.name + ' internship slots'} value={company.occupiedSlots || 0} max={company.capacity} /><small className={company.availableSlots === 0 ? 'capacity-full' : ''}>{company.availableSlots === 0 ? 'No slots available' : company.availableSlots + ' available'}</small></>}</td>
               <td><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></td>
               <td><button type="button" aria-label={'Edit ' + company.name} onClick={() => editCompany(company)} style={styles.editButton}>Edit</button></td>
             </tr>;
           })}</tbody></table></div>}
       </section>
     </div>
-    {!readOnly && <details className="company-import-card"><summary>Import details from a website</summary><section aria-label="Import company suggestions">
+    {!readOnly && <details className="company-import-card"><summary>Look up company details from a website</summary><section aria-label="Import company suggestions">
       <p>Preview suggested details, then check them before adding them to the form. Nothing is saved automatically.</p>
       <div className="company-import-controls"><label>Company website<input type="url" placeholder="https://company.example" value={website} disabled={previewBusy} onChange={event => { setWebsite(event.target.value); setProfilePreview(null); }} /></label>
         <button type="button" disabled={previewBusy || !website.trim()} onClick={previewWebsite}>{previewBusy ? 'Reading website…' : 'Preview details'}</button></div>

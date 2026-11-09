@@ -210,14 +210,14 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               Prepare a private invitation for the student’s supervisor.
             </p>
           </div>
-          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)} aria-label="Create evaluation">Edit questions</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
+          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)} aria-label="Create evaluation">Edit evaluation questions</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
         </div>
 
         <form onSubmit={createLink} style={styles.form}>
           <label className="evaluation-section-control">Section
             <select aria-label="Current section" disabled={busy || !sections.length} value={selectedSection?.id || ''}
               onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-              {!sections.length && <option value="">No assigned sections</option>}
+              {!sections.length && <option value="">No sections assigned to you</option>}
               {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </label>
@@ -288,10 +288,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
 
           <div className="evaluation-form-actions">
           <button type="submit" disabled={busy || mixedSupervisors || !remainingStudents.length} style={styles.generateBtn}>
-            {busy ? 'Please wait…' : 'Prepare invitations'}
+            {busy ? 'Please wait…' : 'Create evaluation links'}
           </button>
           <button className="evaluation-connection-button" type="button" onClick={checkEmailConnection} disabled={busy}>
-            Check email connection
+            Test email connection
           </button>
           </div>
         </form>
@@ -303,7 +303,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
         )}
 
         {preparedInvitations.length > 0 && <section className="evaluation-prepared">
-          <div className="evaluation-prepared-heading"><h3>Prepared invitations</h3>
+          <div className="evaluation-prepared-heading"><h3>Evaluation links ready to send</h3>
             <button type="button" className="portal-secondary" disabled={busy} onClick={() => {
               setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectedStudentIds([]); setCompanyKey(''); setStatus('');
               setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
@@ -358,7 +358,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 style={styles.refreshButton}
               >
                 <Icon name="refresh" size={14} />
-                {refreshing ? 'Refreshing...' : 'Refresh Records'}
+                {refreshing ? 'Refreshing...' : 'Refresh evaluations'}
               </button>
             </div>
           </div>
@@ -392,7 +392,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                     </span>
                   </div>
 
-                  <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Accepted by Gmail — inbox delivery not confirmed', sending: 'Sending — awaiting confirmation', authorization_failed: 'Authorization failed — no email sent; manual retry available after correcting credentials', delivery_unknown: 'Delivery uncertain — check mail service before resending', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Not sent'}</p></div>
+                  <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Email service accepted the message. Inbox delivery is unconfirmed.', sending: 'Sending — awaiting confirmation', authorization_failed: 'Email wasn’t sent. Reconnect the email account before retrying.', delivery_unknown: 'Email status unknown. Check the email service before resending.', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Status unavailable'}</p></div>
 
                   {item.formDefinition && <p className="evaluation-form-title">{item.formDefinition.title}</p>}
                   {submitted && item.formDefinition && <div className="evaluation-custom-answers">{item.formDefinition.questions.map(question => <div key={question.id}><strong>{question.label}</strong><p>{item.answers?.[question.id] !== undefined ? `${item.answers[question.id]}${question.type === 'rating' ? '/5' : ''}` : 'Not answered (optional)'}</p></div>)}</div>}

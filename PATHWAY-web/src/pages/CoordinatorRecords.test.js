@@ -38,5 +38,5 @@ test('registration approval is preserved and account details show section and us
   expect(getDocs).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
   await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/registrations/student-a/decision', { method: 'POST', body: JSON.stringify({ status: 'approved' }) }));
-  await screen.findByRole('button', { name: /Approved Students/ });
+  await screen.findByRole('button', { name: /^Approved/ });
 });

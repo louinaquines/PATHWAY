@@ -283,7 +283,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <label className="logbook-section-field"><span>Section</span>
             <select aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''}
               onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-              {!sections.length && <option value="">No assigned sections</option>}
+              {!sections.length && <option value="">No sections assigned to you</option>}
               {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </label>
@@ -291,14 +291,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection}
             onOpen={student => openRecords(student, 'journals')} />
         </div>
-        {pendingOnly && <div className="logbook-pending-filter"><span>Pending journals</span>
+        {pendingOnly && <div className="logbook-pending-filter"><span>Journals awaiting review</span>
           <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
         </div>}
         {!selectedSection ? <p className="logbook-table-empty">Choose a section to see its students.</p> : <>
           <RecordPagination pagination={studentsPage} label="Students" />
           <div className="logbook-roster-scroll">
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
-              <thead><tr><th scope="col">ID</th><th scope="col">Name of Student</th><th scope="col">Attendance</th><th scope="col">Journal</th></tr></thead>
+              <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
               <tbody>{studentsPage.items.map(student => {
                 const name = studentDisplayName(student) || 'Student';
                 const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
@@ -337,7 +337,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
             <div className="logbook-attendance-heading">
               <p>Times shown in Philippine time.</p>
-              <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare DTR</button>
+              <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare Form 48</button>
             </div>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
@@ -349,7 +349,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }
             catch (failure) { setAnalysisError(failure.message); }
           }} />}
-          {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weekly completeness</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
+          {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
           {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
           {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
           {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
@@ -376,7 +376,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                   color: '#000000',
                   border: `1px solid ${STATUS_BORDER[entry.status] || COLORS.slate300}`,
                 }}>
-                  {STATUS_TEXT[entry.status] || entry.status}
+                  {Object.hasOwn(STATUS_TEXT, entry.status) ? STATUS_TEXT[entry.status] : 'Status unavailable'}
                 </span>
               </div>
 
@@ -384,7 +384,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
               <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} hours={entry.hours} weekRange={entry.weekRange} />
               {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
-              {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Journal review checks · rules and keywords</summary>
+              {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Automatic journal checks</summary>
                 {item.findings.map(finding => <p key={finding}>{finding}</p>)}
                 {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
                 {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
@@ -392,7 +392,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 <p>{item.limitation}</p>{analysis.truncated && <p>Checks cover the latest 100 entries only.</p>}
               </details>)}
 
-              {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Revision needed</strong><span>{entry.reviewReason}</span></p>}
+              {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Changes requested</strong><span>{entry.reviewReason}</span></p>}
 
               {entry.status === 'pending' && (
                 <div style={t.actionRow}>

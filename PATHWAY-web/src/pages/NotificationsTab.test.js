@@ -114,7 +114,7 @@ test('actor switch clears private legacy inbox and broadcast text as well as ris
   adminRequest.mockResolvedValue({ records: [notice], hasMore: false, cursor: null });
   render(<NotificationsTab userId="coord-a" />);
   await screen.findByText('Private inbox');
-  fireEvent.click(screen.getByRole('tab', { name: 'Broadcast announcement' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Post an announcement' }));
   fireEvent.change(screen.getByPlaceholderText('Type your message to the enrolled students...'), { target: { value: 'Private draft' } });
   act(() => { auth.currentUser = null; onAuthStateChanged.mock.calls[0][1](null); });
   expect(screen.queryByDisplayValue('Private draft')).not.toBeInTheDocument();
@@ -129,8 +129,8 @@ test('risk pagination continues an empty page and marking read neither acknowled
   await screen.findByText('Attendance risk update');
   expect(screen.getByText(/document ID order/i)).toBeInTheDocument();
   expect(screen.getByText(/does not acknowledge or resolve the risk/)).toBeInTheDocument();
-  expect(screen.getByLabelText('Search loaded attendance notices')).toBeInTheDocument();
-  expect(screen.getByPlaceholderText('Search loaded notices by kind, tier, progress, data status or reason...')).toBeInTheDocument();
+  expect(screen.getByLabelText('Search attendance alerts')).toBeInTheDocument();
+  expect(screen.getByPlaceholderText('Search attendance alerts…')).toBeInTheDocument();
   expect(screen.getByText('Risk episode opened')).toBeInTheDocument();
   expect(screen.getByText('Projected shortfall against deadline')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Mark attendance notice read' }));
@@ -162,7 +162,7 @@ test('sliding workspace starts in inbox and preserves broadcast submission', asy
   const inbox = await screen.findByRole('tab', { name: /Notification inbox/ });
   expect(inbox).toHaveAttribute('aria-selected', 'true');
   expect(screen.queryByRole('button', { name: 'Send Announcement' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Broadcast announcement' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Post an announcement' }));
   fireEvent.change(screen.getByRole('combobox'), { target: { value: 'section-a' } });
   fireEvent.change(screen.getByPlaceholderText('e.g. MOA Submission Deadline Extension'), { target: { value: 'Deadline' } });
   fireEvent.change(screen.getByPlaceholderText('Type your message to the enrolled students...'), { target: { value: 'Test announcement' } });

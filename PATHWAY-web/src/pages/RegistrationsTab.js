@@ -105,7 +105,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
   return (
     <div style={r.page} className="registrations-page">
       <label><input type="checkbox" checked={unassignedOnly} disabled={saving || loading}
-        onChange={event => setUnassignedOnly(event.target.checked)} /> Show unassigned registrations</label>
+        onChange={event => setUnassignedOnly(event.target.checked)} /> Show students without a section</label>
       <div className="registration-intro"><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
       {/* Sub tabs / Filter navigation */}
       <div className="registration-tabs" style={r.subTabs}>
@@ -114,7 +114,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
           style={{ ...r.subTab, ...(tab === 'pending' ? r.subTabActive : {}) }}
           onClick={() => setTab('pending')}
         >
-          <span>Pending Approvals</span>
+          <span>Awaiting approval</span>
           <span style={{ ...r.count, ...(tab === 'pending' ? r.countActive : {}) }}>
             {pending.length}
           </span>
@@ -125,7 +125,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
           style={{ ...r.subTab, ...(tab === 'approved' ? r.subTabActive : {}) }}
           onClick={() => setTab('approved')}
         >
-          <span>Approved Students</span>
+          <span>Approved</span>
           <span style={{ ...r.count, ...(tab === 'approved' ? r.countActive : {}) }}>
             {approved.length}
           </span>
@@ -136,7 +136,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
           style={{ ...r.subTab, ...(tab === 'rejected' ? r.subTabActive : {}) }}
           onClick={() => setTab('rejected')}
         >
-          <span>Rejected / Inactive</span>
+          <span>Rejected or inactive</span>
           <span style={{ ...r.count, ...(tab === 'rejected' ? r.countActive : {}) }}>
             {rejected.length}
           </span>

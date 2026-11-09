@@ -19,7 +19,7 @@ export default function JournalKeywordSettings({ sectionId, keywords, onSaved })
     } catch (failure) { setMessage(failure.message); }
     finally { setBusy(false); }
   };
-  return <details className="journal-check-settings"><summary>Journal review settings</summary><p>One category per line. Keywords identify supporting words, not grades.</p>
+  return <details className="journal-check-settings"><summary>Automatic journal checks</summary><p>One category per line. Keywords identify supporting words, not grades.</p>
     <label>Competency keywords<textarea rows={4} value={text} disabled={busy} onChange={event => setText(event.target.value)} placeholder="Technical: testing, debugging&#10;Teamwork: assisted, collaborated" /></label>
     <button type="button" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save keywords'}</button>{message && <p role="status">{message}</p>}
   </details>;

@@ -25,7 +25,7 @@ export default function JournalFrequencySettings() {
     finally { if (version === generation.current) setBusy(false); }
   }
   return <>
-    <button ref={trigger} type="button" className="journal-frequency-trigger" onClick={() => { setOpen(true); load(); }}>Journal settings{settings ? ` · ${settings.frequency === 'daily' ? 'Daily' : 'Weekly'}` : ''}</button>
+    <button ref={trigger} type="button" className="journal-frequency-trigger" onClick={() => { setOpen(true); load(); }}>Journal schedule{settings ? ` · ${settings.frequency === 'daily' ? 'Daily' : 'Weekly'}` : ''}</button>
     {open && <div className="journal-frequency-backdrop" onKeyDown={event => {
       if (event.key === 'Escape') close();
       if (event.key === 'Tab') {
@@ -35,8 +35,8 @@ export default function JournalFrequencySettings() {
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
     }}><section role="dialog" aria-modal="true" aria-labelledby="journal-frequency-title" className="journal-frequency-dialog">
-      <h2 id="journal-frequency-title">Journal settings</h2>
-      <fieldset disabled={busy || !settings}><legend>Journal frequency</legend>
+      <h2 id="journal-frequency-title">Journal schedule</h2>
+      <fieldset disabled={busy || !settings}><legend>How often students submit journals</legend>
         {['daily', 'weekly'].map((value, index) => <label key={value}><input ref={index === 0 ? firstChoice : undefined} type="radio" name="journal-frequency" value={value} checked={frequency === value} onChange={() => setFrequency(value)} />{value === 'daily' ? 'Daily' : 'Weekly'}</label>)}
       </fieldset>
       {busy && <p role="status">{settings ? 'Saving…' : 'Loading…'}</p>}

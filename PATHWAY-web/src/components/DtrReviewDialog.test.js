@@ -69,7 +69,7 @@ test('submitted import enables file-linked saving and displays saved history', a
   adminDocumentBlob.mockResolvedValue(new Blob(['test']));
   readDtrSpreadsheet.mockResolvedValue({ month: '2026-10', sheetName: 'DTR', warnings: [], copies: [[{ day: 1, amArrival: '08:00' }]] });
   render(<DtrReviewDialog student={{ id: 'student' }} onClose={() => {}} />);
-  fireEvent.click(screen.getByText('Import submitted DTR'));
+  fireEvent.click(screen.getByText('Use the student’s submitted Form 48'));
   await screen.findByRole('checkbox'); fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByText('Compare attendance')); await screen.findByText('Results');
   fireEvent.click(screen.getByText('Save review'));

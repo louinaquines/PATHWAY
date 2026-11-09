@@ -19,8 +19,8 @@ test('message notification button opens and closes the overlay', async () => {
   render(<MessagesTab selectedSection={{ id: 'a', name: 'Section A' }} />);
   await screen.findByText('No students in this section.');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Message notifications' }));
-  expect(screen.getByRole('dialog', { name: 'Message notifications' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Unread messages' }));
+  expect(screen.getByRole('dialog', { name: 'Unread messages' })).toBeInTheDocument();
   expect(screen.getByText('No unread messages in this section.')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Refresh messages' })).toHaveClass('messages-alert-refresh');
   expect(screen.getByRole('button', { name: 'Refresh messages' })).toHaveTextContent('');

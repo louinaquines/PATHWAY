@@ -1,3 +1,20 @@
+export const COORDINATOR_PAGE_TITLES = {
+  overview: 'Dashboard',
+  requirements: 'Student Requirements',
+  logbook: 'Attendance & Journals',
+  evaluations: 'Supervisor Evaluations',
+  clearance: 'Student Clearance',
+  placements: 'Company Placements',
+  companies: 'Company Directory',
+  sections: 'Sections & Students',
+  registrations: 'Student Accounts',
+  analytics: 'Internship Progress',
+  messages: 'Messages',
+  notifications: 'Announcements & Alerts',
+  classlist: 'Class List & Accounts',
+  profile: 'Coordinator Profile',
+};
+
 const descriptions = {
   overview: 'See what needs attention in your PATHWAY section.',
   login: 'Secure staff access to the PATHWAY OJT management portal.',
@@ -18,7 +35,8 @@ const descriptions = {
 export function setPageMetadata(view, role = '') {
   const key = view || 'login';
   const name = key === 'admin' ? 'Admin' : key === 'evaluate' ? 'Supervisor Evaluation' : key.charAt(0).toUpperCase() + key.slice(1);
-  document.title = `PATHWAY · ${name}`;
+  const coordinatorTitle = role === 'coordinator' ? COORDINATOR_PAGE_TITLES[key] : undefined;
+  document.title = `PATHWAY · ${coordinatorTitle ?? name}`;
   let description = document.querySelector('meta[name="description"]');
   if (!description) {
     description = document.createElement('meta');

@@ -88,10 +88,10 @@ export default function AttendanceRiskNotices({ access: { isCurrent, onDenied },
       if (accepted()) { if ([401,403].includes(failure.status)) onDenied(); else setError(failure.message); }
     } finally { if (accepted()) { pending.current = false; setBusy(false); } }
   }
-  return <section className="attendance-risk-panel" aria-label="Attendance risk notices">
-    <h3>Attendance risk notices</h3>
+  return <section className="attendance-risk-panel" aria-label="Attendance and progress alerts">
+    <h3>Attendance and progress alerts</h3>
     <p>{records.length} loaded. Document ID order, not chronological. Search covers loaded notices only (up to 100; loading further pages drops earlier pages). Marking read only records that this notice was read; it does not acknowledge or resolve the risk.</p>
-    <CoordinatorSearch value={search} onChange={setSearch} label="Search loaded attendance notices" placeholder="Search loaded notices by kind, tier, progress, data status or reason..." />
+    <CoordinatorSearch value={search} onChange={setSearch} label="Search attendance alerts" placeholder="Search attendance alerts…" />
     <button type="button" disabled={busy} onClick={refresh}>Refresh attendance notices</button>
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Loading attendance notices…</p>}

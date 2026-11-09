@@ -47,8 +47,8 @@ describe('coordinator decision retries', () => {
     expect(screen.queryByText('Alpha Host')).not.toBeInTheDocument();
     expect(screen.getByText('Beta Host')).toBeVisible();
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Review OJT access for Taylor Student' }));
-    expect(screen.getByRole('button', { name: 'Approve final review' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Review internship tracking access for Taylor Student' }));
+    expect(screen.getByRole('button', { name: 'Approve internship tracking' })).toBeVisible();
     expect(screen.getByRole('textbox', { name: 'Final review feedback for Taylor Student' })).toHaveValue('');
   });
 
@@ -68,7 +68,7 @@ describe('coordinator decision retries', () => {
     });
     render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
     fireEvent.click(await screen.findByRole('button', { name: /Placement Reviews/ }));
-    fireEvent.click(await screen.findByRole('button', { name: (kind === 'placement' ? 'Review placement' : 'Review OJT access') + ' for Taylor Student' }));
+    fireEvent.click(await screen.findByRole('button', { name: (kind === 'placement' ? 'Review placement' : 'Review internship tracking access') + ' for Taylor Student' }));
     const reason = await screen.findByPlaceholderText('Reason for changes or rejection');
     fireEvent.change(reason, { target: { value: 'Correct the placement dates.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));

@@ -8,6 +8,12 @@ import './DtrReviewDialog.css';
 
 const fields = ['amArrival', 'amDeparture', 'pmArrival', 'pmDeparture'];
 const headings = ['AM arrival', 'AM departure', 'PM arrival', 'PM departure'];
+const comparisonStatusLabels = {
+  endpoints_match: 'Arrival and departure match',
+  discrepancy: 'Times differ',
+  needs_review: 'Needs review',
+};
+
 export default function DtrReviewDialog({ student, onClose }) {
   const dialog = useRef(null);
   const [month, setMonth] = useState('');
@@ -118,20 +124,20 @@ export default function DtrReviewDialog({ student, onClose }) {
   };
   const days = month ? new Date(Date.UTC(...month.split('-').map(Number), 0)).getUTCDate() : 31;
   return <dialog ref={dialog} className="dtr-review" onCancel={onClose}>
-    <header><div><h2>DTR comparison</h2><p>{student.firstName} {student.lastName} · Form 48</p></div>
-      <button type="button" aria-label="Close DTR comparison" onClick={onClose}>×</button></header>
+    <header><div><h2>Daily Time Record comparison (Form 48)</h2><p>{student.firstName} {student.lastName} · Form 48</p></div>
+      <button type="button" aria-label="Close Daily Time Record comparison (Form 48)" onClick={onClose}>×</button></header>
     <form onSubmit={compare}>
       <p>Enter the times from the document. Use 08:00 or 1:00 PM. Blank fields stay missing. Attendance records will not change.</p>
       <label className="dtr-import">Import Form 48 file <input type="file" accept=".xls,.xlsx,.pdf,.png,.jpg,.jpeg" disabled={busy || importing} onChange={importFile} /></label>
-      <button type="button" disabled={busy || importing} onClick={importSubmitted}>Import submitted DTR</button>
+      <button type="button" disabled={busy || importing} onClick={importSubmitted}>Use the student’s submitted Form 48</button>
       <label className="dtr-scan-layout">Scan layout <select value={scanCopies} disabled={busy || importing} onChange={event => setScanCopies(Number(event.target.value))}>
         <option value={1}>One copy</option><option value={2}>Two copies side by side</option></select></label>
       <p>Import replaces the entered times after the file is read. Files stay on this device; only reviewed times are sent for comparison. OCR needs an initial engine download and can misread handwriting.</p>
-      {importing && <div><p role="status">{progress}</p>{ocrJob.current && <button type="button" onClick={() => ocrJob.current?.cancel()}>Cancel OCR</button>}</div>}
+      {importing && <div><p role="status">{progress}</p>{ocrJob.current && <button type="button" onClick={() => ocrJob.current?.cancel()}>Cancel scan</button>}</div>}
       {importInfo && <div className="dtr-import-info"><p>{importInfo.fileName} · {importInfo.sheetName} · {copies.length} {copies.length === 1 ? 'copy' : 'copies'}</p>
         {importInfo.warnings.map((warning, i) => <p key={i}>{warning}</p>)}
         {scanPreview && <details><summary>View scan</summary>{scanPreview.pdf ? <PdfPreview url={scanPreview.url} /> : <img className="dtr-scan-image" src={scanPreview.url} alt="Original DTR scan for checking extracted times" />}</details>}
-        {importInfo.extractedText && <details><summary>Extracted text</summary><pre className="dtr-ocr-text">{importInfo.extractedText}</pre></details>}
+        {importInfo.extractedText && <details><summary>Text read from the scan</summary><pre className="dtr-ocr-text">{importInfo.extractedText}</pre></details>}
         <label><input type="checkbox" checked={reviewed} disabled={importing} onChange={event => setReviewed(event.target.checked)} /> I checked the document month and times in every copy.</label></div>}
       <label>Document month <input type="month" required min="1900-01" max="2200-12" value={month} onChange={event => {
         revision.current++; setMonth(event.target.value); setReviewed(false); setResult(null); setError('');
@@ -147,21 +153,21 @@ export default function DtrReviewDialog({ student, onClose }) {
         <DocumentAiAssistance studentId={student.id} requirementId="dtr" text={importInfo?.extractedText || ''} sourceVersion={sourceVersion} form={{ year: Number(month.split('-')[0]), month: Number(month.split('-')[1]), copies: copies.map(rows => rows.filter(row => row.day <= days).map(row => ({ ...row, needsReview: row.ocrReview && reviewed ? Boolean(row.reviewFields?.length) : row.needsReview }))) }} />
         <label>Review notes <textarea maxLength={2000} value={notes} disabled={busy} onChange={event => { setNotes(event.target.value); saveId.current = crypto.randomUUID(); setSavedMessage(''); }} /></label>
         <button type="button" disabled={busy || importing || !sourceVersion || !reviewed || Boolean(savedMessage)} onClick={saveReview}>Save review</button>
-        {!sourceVersion && <p>Import the submitted DTR to save a file-linked review.</p>}
+        {!sourceVersion && <p>Use the student’s submitted Form 48 to save a review for that file.</p>}
         {savedMessage && <p role="status">{savedMessage}</p>}
         {result.results.filter(row => row.status !== 'blank').map(row => <article key={row.date}>
-          <strong>{row.date} — {row.status === 'endpoints_match' ? 'Arrival and departure match' : row.status === 'discrepancy' ? 'Times differ' : 'Needs review'}</strong>
+          <strong>{row.date} — {comparisonStatusLabels[row.status] ?? 'Status unavailable'}</strong>
           {row.endpointDifferences && <p>Difference from digital record: arrival {row.endpointDifferences.arrival} min; departure {row.endpointDifferences.departure} min.</p>}
-          {row.workedMinutes != null && <p>DTR session total: {row.workedMinutes} min.</p>}
+          {row.workedMinutes != null && <p>Time recorded on Form 48: {row.workedMinutes} min.</p>}
           {row.issues.map((issue, i) => <p key={i}>{issue}</p>)}</article>)}
         {result.results.every(row => row.status === 'blank') && <p>No DTR times entered.</p>}
-        {result.digitalOnlyDates.length > 0 && <p>Digital dates not entered: {result.digitalOnlyDates.join(', ')}</p>}
+        {result.digitalOnlyDates.length > 0 && <p>App attendance dates missing from Form 48: {result.digitalOnlyDates.join(', ')}</p>}
       </section>}
       <section aria-label="Saved DTR reviews"><h3>Saved reviews</h3>{historyError && <p>{historyError}</p>}
         {history.map(item => <details key={item.id}><summary>{item.period} · {new Date(item.createdAt).toLocaleString()}</summary>
           <p>{item.fileName} · Reviewed by {item.coordinatorId}</p><p>{item.notes || 'No notes.'}</p>
-          <p>Saved snapshot; current attendance or file may have changed.</p>
-          {(item.comparison?.results || []).filter(row => row.status !== 'blank').map(row => <p key={row.date}>{row.date} · {row.status.replaceAll('_', ' ')}</p>)}
+          <p>This review reflects the records at the time it was saved.</p>
+          {(item.comparison?.results || []).filter(row => row.status !== 'blank').map(row => <p key={row.date}>{row.date} · {comparisonStatusLabels[row.status] ?? 'Status unavailable'}</p>)}
         </details>)}
       </section>
     </form>

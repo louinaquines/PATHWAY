@@ -60,12 +60,12 @@ test('year and section choices update the name and use the assigned department',
   adminRequest.mockResolvedValue({});
   render(<SectionsTab coordinatorId="coord-a" department="Computer Studies" selectedSection={section} />);
   fireEvent.click(await screen.findByRole('button', { name: /New Section/ }));
-  const name = screen.getByLabelText('Section Name & Year');
+  const name = screen.getByLabelText('Section name');
   fireEvent.change(name, { target: { value: 'BSIT' } });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Year' }), { target: { value: '4' } });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Section' }), { target: { value: 'A' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Year level' }), { target: { value: '4' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Section letter' }), { target: { value: 'A' } });
   expect(name).toHaveValue('BSIT - 4A');
-  fireEvent.change(screen.getByRole('combobox', { name: 'Section' }), { target: { value: 'B' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Section letter' }), { target: { value: 'B' } });
   expect(name).toHaveValue('BSIT - 4B');
   expect(screen.queryByText('Department / College')).not.toBeInTheDocument();
   fireEvent.change(screen.getByPlaceholderText('e.g. 486'), { target: { value: '480' } });

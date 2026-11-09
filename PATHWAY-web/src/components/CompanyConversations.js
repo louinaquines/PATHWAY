@@ -148,7 +148,7 @@ export default function CompanyConversations({ sectionId }) {
         {!thread.messages?.length && <p>No messages in this conversation.</p>}
         {(thread.messages || []).map(message => <article key={message.id}><div className="company-mail-meta"><strong>{message.from || 'Sender unavailable'}</strong><time>{message.time ? new Date(message.time).toLocaleString() : 'Time unavailable'}</time></div>
           <h4>{message.subject || 'No subject'}</h4><p className="company-mail-body">{message.text}</p>
-          {message.direction === 'outbound' && <small>Accepted by provider — inbox delivery is not confirmed.</small>}
+          {message.direction === 'outbound' && <small>Email service accepted the message. Inbox delivery is unconfirmed.</small>}
           {(message.attachments || []).map((file, index) => <p className="company-mail-attachment" key={index}>{file.name} · Attachment blocked. Review in the authorized mailbox.</p>)}
         </article>)}
         {thread.canReply && <form className="company-mail-composer" onSubmit={sendReply}>

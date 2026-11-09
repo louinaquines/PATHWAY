@@ -121,7 +121,7 @@ function SectionCharts({ students, section }) {
     <div className="coordinator-chart-grid">
     <section className="coordinator-chart" aria-labelledby="section-milestones-title">
       <header>
-        <h2 id="section-milestones-title">Section milestones</h2>
+        <h2 id="section-milestones-title">Student progress by step</h2>
       </header>
       <p>Students who have reached each milestone.</p>
       {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
@@ -135,9 +135,9 @@ function SectionCharts({ students, section }) {
         </ul>}
     </section>
     <section className="coordinator-chart" aria-labelledby="section-hours-title">
-      <header><h2 id="section-hours-title">Progress toward required hours</h2><span className="coordinator-chart-unit">Students</span></header>
+      <header><h2 id="section-hours-title">How close students are to their required hours</h2><span className="coordinator-chart-unit">Students</span></header>
       <p>Students grouped by how much of their own hours target they’ve completed.</p>
-      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'No hours targets are set for this section.' : 'No students in this section yet.'}</p> :
+      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'Required internship hours haven’t been set for this section.' : 'No students in this section yet.'}</p> :
         <ul className="coordinator-hours-chart">
           {counts.map((count, index) => <li key={labels[index]}>
             <div className="coordinator-hours-track">

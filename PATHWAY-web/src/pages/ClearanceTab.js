@@ -170,7 +170,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
                 <th>Student</th>
                 <th>Section</th>
                 <th>Requirements</th>
-                <th>Hours Rendered</th>
+                <th>Internship hours completed</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -193,9 +193,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   const summaries = [
     ['all', 'Total Students', rows.length, () => true],
     ['cleared', 'Cleared', clearedCount, row => row.clearanceStatus === 'cleared'],
-    ['ready', 'Ready for Sign-Off', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
-    ['requirements', 'Needs Requirements', needsReqs, row => row.requirements !== 'Approved'],
-    ['hours', 'Needs Hours', needsHours, row => row.hours !== 'Complete'],
+    ['ready', 'Ready for clearance', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
+    ['requirements', 'Requirements still pending', needsReqs, row => row.requirements !== 'Approved'],
+    ['hours', 'Internship hours still needed', needsHours, row => row.hours !== 'Complete'],
   ];
   const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
   const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
@@ -210,7 +210,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       {/* Top Toolbar */}
       <div style={s.toolbar} className="clearance-toolbar">
         <div>
-          <details className="clearance-help"><summary>What is required for clearance?</summary><p style={s.sub}>Approved requirements and placement, final deployment approval, completed hours, and a submitted supervisor evaluation.</p></details>
+          <details className="clearance-help"><summary>What is required for clearance?</summary><p style={s.sub}>Approve the requirements and placement, confirm final internship approval, and check that the student has completed the required hours and received a supervisor evaluation.</p></details>
         </div>
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={load}>Refresh</button>
@@ -239,11 +239,11 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             <thead>
               <tr>
                 <th style={s.th}>Student ID</th>
-                <th style={s.th}>Name of Student</th>
+                <th style={s.th}>Student name</th>
                 {!selectedSection && <th style={s.th}>Section</th>}
                 <th style={s.th}>Requirements</th>
-                <th style={s.th}>Hours Rendered</th>
-                <th style={s.th}>Account</th>
+                <th style={s.th}>Internship hours completed</th>
+                <th style={s.th}>Account status</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Clearance Status</th>
               </tr>
             </thead>
@@ -265,7 +265,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
                   </td>
                   <td style={s.td}>
                     <strong>{row.rendered}</strong> / {row.required} hrs
-                    <progress className="coordinator-capacity-progress" aria-label="OJT hours completed" value={row.rendered} max={Math.max(1, row.required)} />
+                    <progress className="coordinator-capacity-progress" aria-label="Internship hours completed" value={row.rendered} max={Math.max(1, row.required)} />
                   </td>
                   <td style={s.td}>
                     <span style={{

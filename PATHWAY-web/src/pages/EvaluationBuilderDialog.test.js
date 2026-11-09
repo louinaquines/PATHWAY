@@ -5,10 +5,10 @@ beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.set
 test('overlay saves edits without modifying the original definition', () => {
   const value = defaultEvaluationForm(); const onSave = jest.fn(); const onClose = jest.fn();
   render(<EvaluationBuilderDialog value={value} onSave={onSave} onClose={onClose} />);
-  expect(screen.getByRole('dialog', { name: 'Create evaluation' })).toBeInTheDocument();
+  expect(screen.getByRole('dialog', { name: 'Evaluation questions' })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Evaluation title'), { target: { value: 'Updated review' } });
   expect(value.title).toBe('OJT Supervisor Evaluation');
-  fireEvent.click(screen.getByRole('button', { name: 'Save evaluation' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save questions' }));
   expect(onSave.mock.calls[0][0].title).toBe('Updated review'); expect(onClose).toHaveBeenCalled();
 });
 test('cancel dismisses without saving', () => {

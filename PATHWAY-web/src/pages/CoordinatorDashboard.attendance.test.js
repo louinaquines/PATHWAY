@@ -24,3 +24,33 @@ test('a notice opens a freshly assigned section absent from the initial dashboar
   expect(screen.queryByText(/no longer in your assigned sections/)).not.toBeInTheDocument();
   view.unmount(); window.localStorage.clear();
 });
+
+test.each([
+  ['overview', 'Dashboard'],
+  ['requirements', 'Student Requirements'],
+  ['logbook', 'Attendance & Journals'],
+  ['evaluations', 'Supervisor Evaluations'],
+  ['clearance', 'Student Clearance'],
+  ['placements', 'Company Placements'],
+  ['companies', 'Company Directory'],
+  ['sections', 'Sections & Students'],
+  ['registrations', 'Student Accounts'],
+  ['analytics', 'Internship Progress'],
+  ['messages', 'Messages'],
+  ['notifications', 'Announcements & Alerts'],
+  ['classlist', 'Class List & Accounts'],
+  ['profile', 'Coordinator Profile'],
+])('the %s route shows a title without a subtitle', async (route, title) => {
+  getDocs.mockResolvedValue({ docs: [] });
+  getDoc.mockResolvedValue({ data: () => ({ role: 'coordinator', department: 'IT' }) });
+  adminRequest.mockResolvedValue({ records: [], hasMore: false });
+  const { container } = render(
+    <MemoryRouter initialEntries={['/coordinator/' + route]}>
+      <Routes><Route path="/coordinator/:page" element={<CoordinatorDashboard />} /></Routes>
+    </MemoryRouter>
+  );
+  const heading = await screen.findByRole('heading', { level: 1, name: title });
+  expect(heading.closest('header').querySelector('p')).toBeNull();
+  expect(container.querySelector('.requirements-header-description')).toBeNull();
+  expect(document.title).toBe('PATHWAY · ' + title);
+});

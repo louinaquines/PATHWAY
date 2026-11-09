@@ -44,7 +44,7 @@ test('charts reflect refreshed section data without reopening Overview', async (
   adminRequest.mockResolvedValue({ evaluations: [] });
   const props = { section: currentSection, requirementsCount: 0, onOpen: jest.fn() };
   const { rerender } = render(<CoordinatorOverview {...props} students={[{ id: 'student', hoursRendered: 20 }]} />);
-  const chart = await screen.findByRole('region', { name: 'Progress toward required hours' });
+  const chart = await screen.findByRole('region', { name: 'How close students are to their required hours' });
   expect(chart).toHaveTextContent('1 student at Above 0%, below 50%');
   rerender(<CoordinatorOverview {...props} students={[{ id: 'student', hoursRendered: 200 }]} />);
   expect(chart).toHaveTextContent('1 student at 100%+');

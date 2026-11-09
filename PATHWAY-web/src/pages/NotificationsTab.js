@@ -137,15 +137,15 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
         <div className={`notification-switch is-${workspace}`} role="tablist" aria-label="Notification workspace">
 
           <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
-          <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Broadcast announcement</button>
+          <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Post an announcement</button>
         </div>
       </div>
-      {/* Broadcast Announcement Form */}
+      {/* Announcement form */}
       <form id="notification-broadcast-panel" role="tabpanel" aria-labelledby="notification-broadcast-tab" hidden={workspace !== 'broadcast'} style={s.compose} onSubmit={sendAnnouncement}>
         <div style={s.composeHeader}>
-          <div style={s.iconWrap}><Icon name="megaphone" size={22} label="Broadcast announcement" /></div>
+          <div style={s.iconWrap}><Icon name="megaphone" size={22} label="Post an announcement" /></div>
           <div>
-            <h2 style={s.composeTitle}>Broadcast Announcement</h2>
+            <h2 style={s.composeTitle}>Post an announcement</h2>
             <p style={s.sub}>Send an immediate in-app notice and alert to all students in a section.</p>
           </div>
         </div>
@@ -214,7 +214,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
       <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>
           <div style={s.listHeader}>
           <div>
-            <h2 style={s.listTitle}>Activity inbox</h2>
+            <h2 style={s.listTitle}>Recent activity</h2>
             <p style={s.sub}>Your activity alerts. Click a notification to mark it read.</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />

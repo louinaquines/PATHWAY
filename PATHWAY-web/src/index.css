@@ -1807,13 +1807,12 @@ button {
 }
 
 .coordinator-page .requirements-topbar {
-  min-height: 88px;
+  min-height: 72px;
   gap: 16px;
 }
 .coordinator-page .requirements-topbar .topbarLeft { min-width: 0; gap: 16px !important; }
 .coordinator-page .requirements-topbar .coordinator-header-title { min-width: 0; }
 .coordinator-page .requirements-topbar h1 { color: #15243b !important; font-size: 21px !important; letter-spacing: -.4px; }
-.coordinator-page .requirements-header-description { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
 .coordinator-page .requirements-topbar .sectionPickerLabel { gap: 8px !important; color: #64748b !important; }
 .coordinator-page .requirements-topbar .sectionPicker {
   height: 44px;

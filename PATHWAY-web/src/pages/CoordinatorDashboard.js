@@ -26,7 +26,7 @@ import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
-import { setPageMetadata } from '../pageMetadata';
+import { COORDINATOR_PAGE_TITLES, setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
@@ -50,28 +50,12 @@ const STATUS_COLOR = {
 
 const STATUS_TEXT = {
   not_submitted: 'Not Submitted',
-  submitted: 'Pending',
+  submitted: 'Awaiting review',
   approved: 'Approved',
   rejected: 'Rejected',
 };
 
 const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
-const HEADER_DESCRIPTIONS = {
-  overview: 'See what needs attention in the selected section.',
-  requirements: 'Review student documents and submission status.',
-  sections: 'Manage class sections, students, and requirements.',
-  logbook: 'Review student attendance and journals.',
-  placements: 'Review company placements and student assignments.',
-  companies: 'Manage partner companies and available placements.',
-  messages: 'Stay connected with students and company contacts.',
-  registrations: 'Review student registrations and account requests.',
-  classlist: 'Manage your authorized roster and student accounts.',
-  analytics: 'Track OJT progress, attendance, and section performance.',
-  notifications: 'Manage announcements and coordinator updates.',
-  evaluations: 'Review supervisor feedback and student evaluations.',
-  clearance: 'Check completion requirements and clearance readiness.',
-  profile: 'Manage your coordinator profile and account settings.',
-};
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
 export default function CoordinatorDashboard() {
@@ -173,7 +157,7 @@ export default function CoordinatorDashboard() {
     } catch (e) {
       if (!isCurrent()) return;
       console.error(e);
-      setError('We could not load your coordinator workspace. Check your connection and try again.');
+      setError('Couldn’t load the coordinator portal. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -313,23 +297,23 @@ export default function CoordinatorDashboard() {
   const reviewPage = useRecordPage(visibleReviewStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
-    { title: '', items: [{ id: 'overview', icon: 'dashboard', label: 'Dashboard' }] },
-    { title: 'Review', items: [
-        { id: 'requirements', icon: 'clipboard', label: 'Requirements', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
-        { id: 'logbook', icon: 'book', label: 'Logbook' },
-        { id: 'evaluations', icon: 'star', label: 'Evaluations' },
-        { id: 'clearance', icon: 'cap', label: 'Clearance' },
+    { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
+    { title: 'Student reviews', items: [
+        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
+        { id: 'logbook', icon: 'book' },
+        { id: 'evaluations', icon: 'star' },
+        { id: 'clearance', icon: 'cap' },
     ] },
-    { title: 'Placements', items: [
-        { id: 'placements', icon: 'building', label: 'Company Placements' },
-        { id: 'companies', icon: 'building', label: 'Company Directory' },
+    { title: 'Internship placements', items: [
+        { id: 'placements', icon: 'building' },
+        { id: 'companies', icon: 'building' },
     ] },
     { title: 'Students', items: [
-        { id: 'sections', icon: 'section', label: 'Sections & Roster' },
-        { id: 'registrations', icon: 'users', label: 'Registrations', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true },
-        { id: 'analytics', icon: 'chart', label: 'Analytics' },
-        { id: 'messages', icon: 'chat', label: 'Messages' },
-        { id: 'notifications', icon: 'bell', label: 'Notifications' },
+        { id: 'sections', icon: 'section' },
+        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true },
+        { id: 'analytics', icon: 'chart' },
+        { id: 'messages', icon: 'chat' },
+        { id: 'notifications', icon: 'bell' },
     ] },
   ];
 
@@ -373,7 +357,7 @@ export default function CoordinatorDashboard() {
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />
-                    <span className="sidebar-btn-text">{item.label}</span>
+                    <span className="sidebar-btn-text">{COORDINATOR_PAGE_TITLES[item.id]}</span>
                   </span>
                   {item.badge > 0 && (
                     <span className={item.isWarning ? 'sidebar-badge sidebar-badge-warning' : 'sidebar-badge'}>
@@ -416,22 +400,7 @@ export default function CoordinatorDashboard() {
         {/* Topbar */}
         <header style={s.topbar} className="topbar requirements-topbar">
           <div style={s.topbarLeft} className="topbarLeft">
-            <div className="coordinator-header-title"><div className="coordinator-title-settings-row"><h1 style={s.pageTitle}>
-              {activeTab === 'overview' ? 'Overview' :
-                activeTab === 'requirements' ? 'Requirements Approval' :
-                activeTab === 'sections' ? 'Sections & Roster' :
-                          activeTab === 'logbook' ? 'Student Logbook Review' :
-                            activeTab === 'placements' ? 'Company Placements' :
-                              activeTab === 'companies' ? 'Company Directory' :
-                              activeTab === 'messages' ? 'Messages' :
-                    activeTab === 'registrations' ? 'Student Registrations' :
-                      activeTab === 'classlist' ? 'Authorized Class List' :
-                        activeTab === 'analytics' ? 'OJT Analytics & Attendance' :
-                          activeTab === 'notifications' ? 'Announcements & Alerts' :
-                            activeTab === 'evaluations' ? 'Supervisor Evaluations' :
-                              activeTab === 'clearance' ? 'Clearance Readiness' :
-                                activeTab === 'profile' ? 'Coordinator Profile' : ''}
-            </h1></div><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
+            <div className="coordinator-header-title"><h1 style={s.pageTitle}>{COORDINATOR_PAGE_TITLES[activeTab]}</h1></div>
             {activeTab === 'requirements' && pendingCount > 0 && (
               <span style={s.pendingBadge}>
                 {pendingCount} Pending Review
@@ -441,7 +410,7 @@ export default function CoordinatorDashboard() {
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                  {sections.length === 0 && <option value="">No assigned sections</option>}
+                  {sections.length === 0 && <option value="">No sections assigned to you</option>}
                   {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
                 </select>
               </label>
@@ -449,7 +418,7 @@ export default function CoordinatorDashboard() {
           </div>
           {['sections', 'classlist'].includes(activeTab) && <button type="button" className="portal-secondary"
             onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
-            {activeTab === 'sections' ? 'Authorized roster' : 'Back to sections'}
+            {activeTab === 'sections' ? 'Class List & Accounts' : 'Back to sections'}
           </button>}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
@@ -461,7 +430,7 @@ export default function CoordinatorDashboard() {
               title={selectedSection ? `Download ${selectedSection.name} records as an Excel file` : 'Select a section to export'}
             >
               {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
-              <span aria-live="polite">{exporting ? 'Exporting…' : 'Export section records (Excel)'}</span>
+              <span aria-live="polite">{exporting ? 'Exporting…' : 'Download section records (Excel)'}</span>
             </button>
           )}
         </header>
@@ -494,7 +463,7 @@ export default function CoordinatorDashboard() {
                   <div style={s.colHeader}>
                     Students <span className="requirements-count">{filteredStudents.length}</span>
                     <select aria-label="Current section" className="requirements-queue-section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                      {sections.length === 0 && <option value="">No assigned sections</option>}
+                      {sections.length === 0 && <option value="">No sections assigned to you</option>}
                       {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
                     </select>
                   </div>
@@ -535,7 +504,7 @@ export default function CoordinatorDashboard() {
                       </div>
                       {selectedStudent?.id === student.id && (
                       <div className="student-card-progress">
-                        <div className="student-card-progress-caption">{progress.total ? `${progress.approved} of ${progress.total} requirements approved` : 'No requirements configured'}</div>
+                        <div className="student-card-progress-caption">{progress.total ? `${progress.approved} of ${progress.total} requirements approved` : 'No requirements added for this section'}</div>
                       </div>
                       )}
                     </button>
@@ -546,7 +515,7 @@ export default function CoordinatorDashboard() {
                 {/* Column 3: Requirements */}
                 <div className="requirements-detail" style={s.col3}>
                   <div style={{ ...s.colHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Document review'}
+                    <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Review student documents'}
                     <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
                     </div>
                     <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} onOpen={setSelectedStudent} />
@@ -557,7 +526,7 @@ export default function CoordinatorDashboard() {
                   </div>}
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements configured</h3><p style={s.emptySub}>Add a checklist for this section in the Sections screen.</p></div>}
+                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
                       <div style={s.emptyStatePanel}>
                         <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Requirements" /></div>
                         <h3 style={s.emptyTitle}>Select a Student</h3>
@@ -566,7 +535,7 @@ export default function CoordinatorDashboard() {
                     </div>
                   ) : (
                     <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements configured</h3><p style={s.emptySub}>Add a checklist for this section in the Sections screen.</p></div>}
+                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
                       {REQUIREMENT_CATEGORIES.map(cat => {
                         const catReqs = sectionRequirements.filter(r => requirementCategory(r.category) === cat);
                         if (catReqs.length === 0) return null;
@@ -632,7 +601,7 @@ export default function CoordinatorDashboard() {
                                         color: '#000000',
                                         border: `1px solid ${COLORS.slate300}`,
                                       }} className="requirements-document-status" data-status={status}>
-                                        {status === 'submitted' ? 'Needs review' : STATUS_TEXT[status]}
+                                        {Object.hasOwn(STATUS_TEXT, status) ? STATUS_TEXT[status] : 'Status unavailable'}
                                       </span>
                                       {status === 'submitted' && (
                                         <div style={s.actionBtns}>
@@ -695,8 +664,8 @@ export default function CoordinatorDashboard() {
               </div>
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
-            {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Authorized roster" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
-              <header className="roster-drawer-header"><div><h2>Authorized roster</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
+            {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Class List & Accounts" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
+              <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
             </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
@@ -705,7 +674,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
-            {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget?.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
+            {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget && attendanceTarget.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
             {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
@@ -887,7 +856,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
           <div>
             <div className="admin-profile-card-title">
               <Icon name="shield" size={18} />
-              Your workspace
+              Your assignments
             </div>
             <div className="admin-profile-card-subtitle">
               Summary of assigned department, sections, and operational permissions.
@@ -897,7 +866,7 @@ function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount =
 
         <div className="admin-profile-security-grid">
           <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Assigned College / Dept</span>
+            <span className="admin-profile-security-item-label">Assigned college or department</span>
             <span className="admin-profile-security-item-val" style={{ color: 'var(--sky-800)' }}>
               {departmentName}
             </span>

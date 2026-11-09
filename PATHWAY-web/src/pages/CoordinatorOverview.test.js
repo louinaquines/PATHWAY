@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { getCountFromServer, getDocs, where } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
 import CoordinatorOverview from './CoordinatorOverview';
@@ -48,4 +48,38 @@ test('charts reflect refreshed section data without reopening Overview', async (
   expect(chart).toHaveTextContent('1 student at Above 0%, below 50%');
   rerender(<CoordinatorOverview {...props} students={[{ id: 'student', hoursRendered: 200 }]} />);
   expect(chart).toHaveTextContent('1 student at 100%+');
+});
+
+test('pending tasks come first and every task opens its existing filtered view', async () => {
+  getDocs.mockRejectedValue(new Error('Connection lost'));
+  getCountFromServer.mockResolvedValue({ data: () => ({ count: 1 }) });
+  adminRequest.mockResolvedValue({ evaluations: [] });
+  const onOpen = jest.fn();
+  render(<CoordinatorOverview section={section} students={students} requirementsCount={1} onOpen={onOpen} />);
+  const panel = await screen.findByRole('region', { name: 'Needs attention' });
+  const tasks = [...panel.querySelectorAll('.coordinator-attention-grid button')];
+  expect(tasks.map(task => task.querySelector('.coordinator-queue-label').textContent)).toEqual([
+    'Review requirements', 'Review logbooks', 'Assign companies', 'Review placement requests', 'Clear students',
+  ]);
+  tasks.forEach(task => fireEvent.click(task));
+  expect(onOpen.mock.calls.map(([page, view]) => [page, view])).toEqual([
+    ['requirements', 'requirements'], ['logbook', 'journals'], ['placements', 'assign'],
+    ['placements', 'requests'], ['clearance', 'ready'],
+  ]);
+  const callsBeforeRefresh = getDocs.mock.calls.length;
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Refresh' })));
+  expect(getDocs).toHaveBeenCalledTimes(callsBeforeRefresh + 1);
+});
+
+test('a section switch hides old task counts until the new section loads', async () => {
+  getDocs.mockResolvedValue({ size: 0, docs: [] });
+  getCountFromServer.mockResolvedValue({ data: () => ({ count: 0 }) });
+  adminRequest.mockResolvedValue({ evaluations: [] });
+  const onOpen = jest.fn();
+  const { rerender } = render(<CoordinatorOverview section={section} students={students} requirementsCount={0} onOpen={onOpen} />);
+  expect(await screen.findByRole('region', { name: 'Student progress by step' })).toHaveTextContent('0 of 2');
+  rerender(<CoordinatorOverview section={{ ...section, id: 'section-b' }} students={[]} requirementsCount={0} onOpen={onOpen} />);
+  expect(screen.queryByRole('region', { name: 'Needs attention' })).not.toBeInTheDocument();
+  expect(await screen.findByText(/caught up/)).toBeVisible();
+  expect(screen.getByRole('region', { name: 'Student progress by step' })).toHaveTextContent('No students in this section yet.');
 });

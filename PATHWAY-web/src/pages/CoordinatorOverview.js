@@ -46,6 +46,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     const pendingStudents = new Set(placements.value?.docs.map(item => item.data().studentId));
     const evaluatedStudents = new Set((evaluations.value?.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
     setSummary({
+      sectionId: section.id,
       placementCount: placements.value?.size,
       waitingCount: placements.status === 'fulfilled' ? roster.filter(student => canAssignPlacement(student, pendingStudents)).length : undefined,
       journalCount: journals.value?.journalCount,
@@ -63,13 +64,13 @@ export default function CoordinatorOverview({ section, students, requirementsCou
   usePortalAutoRefresh(load, { enabled: !!section && !!summary, scope: section?.id, intervalMs: 60000 });
 
   if (!section) return <PortalEmpty title="No section assigned" description="Your overview will appear when a section is assigned to you." />;
-  if (!summary) return <PageSkeleton label="Loading overview" />;
+  if (summary?.sectionId !== section.id) return <PageSkeleton label="Loading overview" />;
   const tasks = [
-    ['requirements', 'requirements', 'Review requirements', requirementsCount, 'students'],
-    ['placements', 'assign', 'Assign companies', summary.waitingCount, 'students'],
-    ['placements', 'requests', 'Review placement requests', summary.placementCount, 'requests'],
-    ['logbook', 'journals', 'Review logbooks', summary.journalCount, 'entries'],
-    ['clearance', 'ready', 'Clear students', summary.clearanceCount, 'students'],
+    ['requirements', 'requirements', 'Review requirements', requirementsCount, 'students', 'clipboard'],
+    ['placements', 'assign', 'Assign companies', summary.waitingCount, 'students', 'building'],
+    ['placements', 'requests', 'Review placement requests', summary.placementCount, 'requests', 'clipboard'],
+    ['logbook', 'journals', 'Review logbooks', summary.journalCount, 'entries', 'book'],
+    ['clearance', 'ready', 'Clear students', summary.clearanceCount, 'students', 'check'],
   ];
   return <section className="coordinator-overview" aria-label="Section overview">
     <SectionCharts students={students} section={section}>
@@ -81,10 +82,11 @@ export default function CoordinatorOverview({ section, students, requirementsCou
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
       <div className="coordinator-attention-grid">
-        {[...tasks].sort((a, b) => Number(a[3] === 0) - Number(b[3] === 0)).map(([page, view, label, count, unit]) =>
-          <button key={view} type="button" onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
+        {[...tasks].sort((a, b) => Number(b[3] > 0) - Number(a[3] > 0)).map(([page, view, label, count, unit, icon]) =>
+          <button key={view} type="button" data-pending={count > 0} onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
+            <span className="coordinator-queue-icon"><Icon name={icon} size={17} /></span>
             <span className="coordinator-queue-label">{label}</span>
-            <strong data-zero={count === 0} data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
+            <strong data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
               {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
             </strong>
             <Icon name="chevronRight" size={14} />
@@ -156,14 +158,13 @@ function SectionCharts({ students, section, children }) {
       </header>
       <p>Students who have reached each milestone.</p>
       {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
-        <ul className="coordinator-milestones">
-          {milestones.map(([label, count]) => <li key={label}>
-            <div><span>{label}</span><strong>{count} <span>of {total}</span></strong></div>
-            <div className="coordinator-milestone-track" aria-hidden="true">
-              <span style={{ width: (count / total * 100) + '%' }} />
-            </div>
+        <ol className="coordinator-milestones">
+          {milestones.map(([label, count], index) => <li key={label}>
+            <span className="coordinator-milestone-marker" aria-hidden="true">{index + 1}</span>
+            <span>{label}</span>
+            <strong>{count} <span>of {total}</span></strong>
           </li>)}
-        </ul>}
+        </ol>}
     </section>
     </div>
   </div>;

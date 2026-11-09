@@ -42,7 +42,7 @@
 .coordinator-profile-container .admin-profile-security-item-val { color: #152238 !important; font-size: 14px !important; font-weight: 600 !important; }
 @media (max-width: 600px) { .coordinator-profile-container .admin-profile-hero { padding: 18px !important; } .coordinator-profile-container .admin-profile-hero-left { flex-wrap: wrap; } .coordinator-profile-container .admin-profile-grid, .coordinator-profile-container .admin-profile-security-grid { grid-template-columns: 1fr !important; } }
 /* Profile: compact account summary and readable form controls. */
-.coordinator-page:has(.coordinator-profile-container), .coordinator-profile-container, .coordinator-profile-container * { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.coordinator-profile-container) main, .coordinator-profile-container, .coordinator-profile-container * { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.coordinator-profile-container) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .coordinator-profile-container { width:100%; max-width:1000px !important; box-sizing:border-box; padding:24px !important; gap:20px !important; }
 .coordinator-profile-container .admin-profile-hero { padding:20px !important; border-radius:12px !important; border-color:#dce2e9 !important; }

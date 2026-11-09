@@ -1,5 +1,5 @@
 .company-directory-page { flex:1; min-width:0; width:100%; box-sizing:border-box; overflow-y:auto; background:#f6f8fc; font-family:'Segoe UI',Arial,sans-serif; }
-.coordinator-page:has(.company-directory-page) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.company-directory-page) main { font-family:'Segoe UI',Arial,sans-serif !important; }
 .coordinator-page:has(.company-directory-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .directory-toolbar { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
 .directory-toolbar p { margin:0; color:#243448; font-size:14px; }

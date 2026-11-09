@@ -52,7 +52,7 @@
 @media (max-width: 900px) {
 }
 /* Logbook review follows the Requirements queue layout. */
-.coordinator-page:has(.logbook-workspace) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.logbook-workspace) main { font-family:'Segoe UI',Arial,sans-serif !important; }
 .coordinator-page:has(.logbook-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
 .logbook-workspace { padding:24px; gap:20px; }
 .logbook-workspace .coordinator-search { height:44px; min-height:44px; box-sizing:border-box; border-radius:8px; }

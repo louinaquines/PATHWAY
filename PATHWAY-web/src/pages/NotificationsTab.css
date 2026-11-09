@@ -24,7 +24,7 @@
 .attendance-risk-panel button:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
 @media (max-width: 640px) { .attendance-risk-panel { padding: 16px; } .attendance-risk-panel button { max-width: 100%; } }
 /* Quiet inbox and explicit workspace tabs. */
-.coordinator-page:has(.notifications-page), .notifications-page, .notifications-page * { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.notifications-page) main, .notifications-page, .notifications-page * { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.notifications-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .notifications-page { gap:16px !important; padding:24px !important; }
 .notification-workspace-header { gap:0; }

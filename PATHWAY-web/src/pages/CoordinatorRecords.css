@@ -77,7 +77,7 @@
 .attendance-excused-editor button, .analytics-attendance-metrics > button { margin: 6px 6px 0 0; padding: 8px; border: 1px solid #dbe4f0; background: white; color: #075fc9; }
 .attendance-excused-editor textarea:focus-visible { outline: 3px solid #87b9f6; outline-offset: 2px; }
 /* Registration queue: quiet counts and one clear content area. */
-.coordinator-page:has(.registrations-page), .coordinator-page:has(.registrations-page) :is(h1,h2,h3,p,span,label,button,input,a,small,strong) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.registrations-page) main, .coordinator-page:has(.registrations-page) main :is(h1,h2,h3,p,span,label,button,input,a,small,strong) { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.registrations-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .registrations-page > label { display:flex; align-items:center; gap:8px; min-height:44px; color:#526174; font-size:14px; }
 .registration-intro { margin:0 0 12px; }
@@ -95,7 +95,7 @@
 .coordinator-page:has(.registrations-page) select.sectionPicker:not([multiple]):not([size]) { display:inline-flex !important; align-items:center; justify-content:space-between; height:44px; min-height:44px; padding:8px 12px !important; font-size:14px !important; background:#fff !important; }
 @media(max-width:640px) { .registrations-page { padding:12px !important; } .registration-search-row { flex-wrap:wrap; } .registrations-page .registration-tabs { gap:12px !important; } }
 /* Analytics presentation; calculations and source records remain unchanged. */
-.coordinator-page:has(.coordinator-analytics-page), .coordinator-page:has(.coordinator-analytics-page) :is(h1,h2,h3,p,span,label,button,input,summary,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.coordinator-analytics-page) main, .coordinator-page:has(.coordinator-analytics-page) main :is(h1,h2,h3,p,span,label,button,input,summary,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.coordinator-analytics-page) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .coordinator-analytics-page button { min-height:44px; font-size:14px; font-weight:500 !important; }
 .coordinator-analytics-page > div:first-child { margin-bottom:12px !important; }

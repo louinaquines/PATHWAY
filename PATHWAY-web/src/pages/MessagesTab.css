@@ -96,7 +96,7 @@
 @media (max-width: 950px) { .messages-workspace { grid-template-columns: 1fr; } .messages-conversation { grid-column: 1 / -1; min-height: 420px !important; } .messages-students { max-height: 360px; } }
 @media (max-width: 520px) { .messages-workspace { grid-template-columns: 1fr; padding: 12px; } .messages-conversation { grid-column: 1; } }
 /* Messages: navigation and conversation share the same top edge. */
-.coordinator-page:has(.messages-workspace), .messages-workspace, .messages-workspace * { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.messages-workspace) main, .messages-workspace, .messages-workspace * { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.messages-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .messages-workspace { grid-template-columns:300px minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; gap:20px; }
 .messages-students, .messages-conversation { border-radius:12px !important; min-width:0; }

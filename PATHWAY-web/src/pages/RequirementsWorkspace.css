@@ -129,7 +129,7 @@
   .requirements-workspace .requirements-students, .logbook-workspace .logbook-students { width: 100% !important; }
 }
 /* Requirements review: compact queue, readable documents, quiet secondary actions. */
-.coordinator-page:has(.requirements-workspace) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.requirements-workspace) main { font-family:'Segoe UI',Arial,sans-serif !important; }
 .coordinator-page:has(.requirements-workspace) main > header { gap:20px; }
 .coordinator-page:has(.requirements-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
 .coordinator-page:has(.requirements-workspace) main > header button { min-height:44px; font:inherit; font-size:14px !important; }

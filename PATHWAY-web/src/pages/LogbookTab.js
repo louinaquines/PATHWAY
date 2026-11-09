@@ -72,6 +72,8 @@ function dateLabel(result, empty) {
   return result.value ? { text: rosterDateFormat.format(result.value), dated: true } : { text: empty };
 }
 
+const ATTENDANCE_PAGE_SIZE = 25;
+
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [students, setStudents]               = useState([]);
   const [entries, setEntries]                 = useState([]);
@@ -88,6 +90,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [recordView, setRecordView] = useState(openJournals ? 'journals' : 'attendance');
   const [pendingOnly, setPendingOnly] = useState(Array.isArray(pendingStudentIds));
   const [attendance, setAttendance] = useState([]);
+  const [attendanceCursors, setAttendanceCursors] = useState([null]);
+  const [nextAttendanceCursor, setNextAttendanceCursor] = useState(null);
+  const [attendanceRetry, setAttendanceRetry] = useState(0);
+  const [attendanceDate, setAttendanceDate] = useState('');
+  const attendanceCursor = attendanceCursors.at(-1);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -118,18 +125,24 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     finally { setExporting(false); }
   };
   useEffect(() => {
-    setAttendance([]);
-    setAttendanceError('');
-    if (!selectedStudent?.id) { setAttendanceLoading(false); return; }
+    if (!selectedStudent?.id || recordView !== 'attendance') return;
     setAttendanceLoading(true);
-    return onSnapshot(collection(db, 'users', selectedStudent.id, 'attendance'), snapshot => {
-      setAttendance(snapshot.docs.map(item => ({ ...item.data(), id: item.id })).sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))));
+    setAttendanceError('');
+    setNextAttendanceCursor(null);
+    const records = collection(db, 'users', selectedStudent.id, 'attendance');
+    const pageQuery = query(records, orderBy('date', 'desc'),
+      ...(attendanceDate ? [where('date', '==', attendanceDate)] : []),
+      ...(attendanceCursor ? [startAfter(attendanceCursor)] : []), limit(ATTENDANCE_PAGE_SIZE + 1));
+    return onSnapshot(pageQuery, snapshot => {
+      const page = snapshot.docs.slice(0, ATTENDANCE_PAGE_SIZE);
+      setAttendance(page.map(item => ({ ...item.data(), id: item.id })));
+      setNextAttendanceCursor(snapshot.docs.length > ATTENDANCE_PAGE_SIZE ? page.at(-1) : null);
       setAttendanceLoading(false);
     }, () => {
-      setAttendanceError('Could not load attendance records. Select the student again to retry.');
+      setAttendanceError('Could not load attendance records.');
       setAttendanceLoading(false);
     });
-  }, [selectedStudent?.id]);
+  }, [selectedStudent?.id, recordView, attendanceCursor, attendanceDate, attendanceRetry]);
   const formatPunch = value => {
     if (!value) return 'Not recorded';
     const date = value?.toDate ? value.toDate() : new Date(value);
@@ -184,12 +197,24 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     }
   };
 
+  useEffect(() => {
+    if (!selectedStudent || recordView !== 'journals') return;
+    fetchEntries(selectedStudent);
+    return () => { entryRequest.current++; };
+  }, [selectedStudent, recordView]);
+
   const openRecords = (student, view) => {
+    setAttendance([]);
+    setAttendanceCursors([null]);
+    setAttendanceDate('');
+    setNextAttendanceCursor(null);
+    setAttendanceError('');
+    setAttendanceLoading(view === 'attendance');
     setSelectedStudent(student);
     setRecordView(view);
     setEntries([]);
     setExportError('');
-    fetchEntries(student);
+    setEntriesLoading(view === 'journals');
   };
 
   const closeRecords = () => {
@@ -202,7 +227,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   usePortalAutoRefresh(async options => {
     if (!selectedSection) return;
     await fetchStudents(selectedSection, options);
-    if (options.isCurrent() && selectedStudent) await fetchEntries(selectedStudent, options);
+    if (options.isCurrent() && selectedStudent && recordView === 'journals') await fetchEntries(selectedStudent, options);
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
   const handleAction = async (entryId, status) => {
@@ -271,7 +296,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
   const visibleEntries = pendingOnly ? entries.filter(entry => entry.status === 'pending') : entries;
   const entriesPage = useRecordPage(visibleEntries, (selectedStudent?.id || '') + ':' + pendingOnly);
-  const attendancePage = useRecordPage(attendance, selectedStudent?.id || '');
   if (loading) {
     return <PageSkeleton label="Loading logbook data" variant="three-column" />;
   }
@@ -323,8 +347,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           </div>
           <div className="logbook-drawer-toolbar">
             <div className="logbook-drawer-tabs" role="group" aria-label="Student record type">
-              <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance <span>{attendanceLoading ? '–' : attendance.length}</span></button>
-              <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals <span>{entriesLoading ? '–' : entries.length}</span></button>
+              <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
+              <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
             </div>
             <button type="button" className="portal-secondary logbook-drawer-download" aria-label="Export student records (Excel)"
               disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
@@ -337,13 +361,22 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
             <div className="logbook-attendance-heading">
               <p>Times shown in Philippine time.</p>
+              <label>Attendance date <input type="date" value={attendanceDate} onChange={event => {
+                setAttendanceLoading(true);
+                setAttendanceDate(event.target.value);
+                setAttendanceCursors([null]);
+              }} /></label>
               <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare Form 48</button>
             </div>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
-            {attendanceError && <p role="alert">{attendanceError}</p>}
-            {!attendanceLoading && !attendanceError && attendance.length === 0 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>No attendance records yet.</p></div>}
-            {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><RecordPagination pagination={attendancePage} label="Attendance records" /><table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendancePage.items.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
+            {attendanceError && <p role="alert">{attendanceError} <button type="button" className="portal-secondary" onClick={() => setAttendanceRetry(value => value + 1)}>Retry</button></p>}
+            {!attendanceLoading && !attendanceError && attendance.length === 0 && attendanceCursors.length === 1 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>{attendanceDate ? 'No attendance records for this date.' : 'No attendance records yet.'}</p></div>}
+            {!attendanceLoading && !attendanceError && (attendance.length > 0 || attendanceCursors.length > 1) && <div className="attendance-table-wrap">{(attendanceCursors.length > 1 || nextAttendanceCursor) && <nav className="portal-record-pagination" aria-label="Attendance records pagination">
+              <button type="button" className="portal-secondary" disabled={attendanceCursors.length === 1} onClick={() => { setAttendanceLoading(true); setAttendanceCursors(cursors => cursors.slice(0, -1)); }}>Previous</button>
+              <span>Page {attendanceCursors.length}</span>
+              <button type="button" className="portal-secondary" disabled={!nextAttendanceCursor} onClick={() => { setAttendanceLoading(true); setAttendanceCursors(cursors => [...cursors, nextAttendanceCursor]); }}>Next</button>
+            </nav>}<table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendance.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
           </section>}
           {selectedStudent && recordView === 'journals' && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
             try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }

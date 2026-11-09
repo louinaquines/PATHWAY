@@ -54,7 +54,7 @@
 .placement-review-top-toolbar .coordinator-search input { width: 100%; min-width: 0; }
 .placement-review-top-toolbar .submission-notifications { flex: 0 0 auto; }
 /* Placements: primary review navigation before secondary email tools. */
-.coordinator-page:has(.placement-page) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.placement-page) main { font-family:'Segoe UI',Arial,sans-serif !important; }
 .coordinator-page:has(.placement-page) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
 .placement-page { padding:24px !important; min-width:0; }
 .placement-review-top-toolbar { margin-bottom:16px; gap:12px; }

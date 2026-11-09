@@ -33,7 +33,7 @@
 @media (max-width: 1100px) { .sections-workspace { padding: 16px; gap: 14px; } .sections-panel { width: 235px !important; } .section-overview { padding: 20px !important; } }
 @media (max-width: 760px) { .sections-workspace { flex-direction: column; overflow-y: auto !important; } .sections-panel { width: 100% !important; max-height: 340px; min-height: 240px; } .sections-detail { flex: none !important; overflow: visible !important; } .section-overview h2 { font-size: 20px !important; } }
 /* Sections: a compact picker, section summary, then the roster. */
-.coordinator-page:has(.sections-workspace) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.sections-workspace) main { font-family:Arial,Helvetica,sans-serif !important; }
 .coordinator-page:has(.sections-workspace) main > header h1 { font-size:22px !important; font-weight:600 !important; }
 .coordinator-page:has(.sections-workspace) main > header { flex-wrap:wrap; gap:12px; }
 .coordinator-page:has(.sections-workspace) .topbarLeft { flex:1; min-width:260px; }
@@ -100,7 +100,7 @@
  background:transparent !important; background-image:none !important; box-shadow:none !important; border:0 !important; border-bottom:3px solid transparent !important; color:#526174 !important; font-weight:500 !important;
 }
 .coordinator-page .sections-workspace .section-view-toggle > button[aria-pressed='true'] { border-bottom-color:#075fc9 !important; color:#0752ad !important; }
-.coordinator-page:has(.sections-workspace) :is(h1,h2,h3,h4,p,span,label,input,button,summary,a,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
+.coordinator-page:has(.sections-workspace) main :is(h1,h2,h3,h4,p,span,label,input,button,summary,a,td,th,strong,small) { font-family:Arial,Helvetica,sans-serif !important; }
 .sections-workspace :is(h3,h4,strong) { font-weight:600 !important; }
 .sections-workspace :is(p,label,small) { font-weight:400 !important; }
 .sections-panel .portal-record-pagination { display:grid; grid-template-columns:1fr auto auto; gap:6px; padding:8px !important; font-size:13px; }

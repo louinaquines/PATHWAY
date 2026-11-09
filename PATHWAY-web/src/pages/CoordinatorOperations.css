@@ -49,7 +49,7 @@
 @media (max-width: 1050px) { .coordinator-messages.has-conversation { grid-template-columns: 260px minmax(0, 1fr) !important; } }
 @media (max-width: 760px) { .coordinator-messages, .evaluation-panel, .clearance-page { padding: 14px !important; } .coordinator-messages.has-conversation { grid-template-columns: 1fr !important; } .evaluation-invitation form > div { flex-wrap: wrap; } .evaluation-invitation form > div > div { flex-basis: 100% !important; min-width: 0 !important; } }
 /* Clearance: one header, compact filters, and a focused student table. */
-.coordinator-page:has(.clearance-page) { font-family:'Segoe UI',Arial,sans-serif !important; }
+.coordinator-page:has(.clearance-page) main { font-family:'Segoe UI',Arial,sans-serif !important; }
 .coordinator-page:has(.clearance-page) main > header h1 { font-size:22px !important; font-weight:600 !important; letter-spacing:-.3px; }
 .clearance-toolbar { align-items:center !important; gap:16px; flex-wrap:wrap; }
 .clearance-help { max-width:650px; color:#526174; font-size:14px; line-height:1.5; }

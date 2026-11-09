@@ -1250,6 +1250,35 @@ function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
 }
 
+function CoordinatorActions({ user, saving, onToggle, onDelete }) {
+  const menuId = 'coordinator-actions-' + user.id;
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+
+  function positionMenu(event) {
+    const trigger = event.currentTarget.getBoundingClientRect();
+    const menu = document.getElementById(menuId);
+    const width = Math.min(208, window.innerWidth - 16);
+    menu.style.width = width + 'px';
+    menu.style.left = Math.max(8, trigger.right - width) + 'px';
+    const opensUp = window.innerHeight - trigger.bottom < 110;
+    menu.style.top = (opensUp ? trigger.top - 6 : trigger.bottom + 6) + 'px';
+    menu.style.translate = opensUp ? '0 -100%' : 'none';
+  }
+
+  return <>
+    <button type="button" className="coordinator-actions-trigger" popoverTarget={menuId}
+      aria-label={'Actions for ' + name} onClick={positionMenu}>⋯</button>
+    <div id={menuId} popover="auto" className="coordinator-actions-popover" role="group" aria-label={'Actions for ' + name}>
+      <button type="button" popoverTarget={menuId} popoverTargetAction="hide" disabled={saving} onClick={onToggle}>
+        {user.accountApproved ? 'Deactivate account' : 'Activate account'}
+      </button>
+      <button type="button" className="is-destructive" popoverTarget={menuId} popoverTargetAction="hide" disabled={saving} onClick={onDelete}>
+        Delete coordinator
+      </button>
+    </div>
+  </>;
+}
+
 function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirectory = false, coordinatorDirectory = false, sections = [], directoryFilters, studentStatus, onStudentStatus, hideDepartment = false, hideSection = false }) {
   const [search, setSearch] = useState('');
   const [deactivate, setDeactivate] = useState(null);
@@ -1334,14 +1363,20 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                 </td>
                 {showToggle && (
                   <td style={{ ...s.td, textAlign: 'right' }}>
-                    {user.accountApproved || coordinatorDirectory ? (
+                    {coordinatorDirectory ? (
+                      <CoordinatorActions
+                        user={user}
+                        saving={saving}
+                        onToggle={() => setDeactivate(user)}
+                        onDelete={() => { setRemoveError(''); setRemove(user); }}
+                      />
+                    ) : user.accountApproved ? (
                       <details className="portal-row-menu">
                         <summary aria-label={'Actions for ' + [user.firstName, user.lastName].filter(Boolean).join(' ')}>…</summary>
                         <button type="button" disabled={saving} onClick={event => {
                           event.currentTarget.closest('details').open = false;
                           setDeactivate(user);
                         }}>{user.accountApproved ? 'Deactivate account' : 'Activate account'}</button>
-                        {coordinatorDirectory && <button type="button" onClick={event=>{event.currentTarget.closest('details').open=false;setRemoveError('');setRemove(user);}}>Delete coordinator</button>}
                       </details>
                     ) : (
                     <button

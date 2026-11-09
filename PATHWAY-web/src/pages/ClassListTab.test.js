@@ -13,5 +13,5 @@ test('roster keeps a section selector, import tools and searchable students toge
   expect(await screen.findByText('2002')).toBeInTheDocument();
   expect(screen.queryByText('1001')).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'missing' } });
-  expect(screen.getByText('No matching student IDs.')).toBeInTheDocument();
+  expect(screen.getByText('No matching students.')).toBeInTheDocument();
 });

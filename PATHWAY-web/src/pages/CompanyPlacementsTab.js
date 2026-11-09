@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
 import { canAssignPlacement } from '../coordinatorOverviewData';
 import { placementStudentQueue } from '../placementStudentQueue';
@@ -245,10 +246,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     createdAt: item.submittedAt || item.updatedAt || item.createdAt }));
 
   const queueRows = placementStudentQueue({ placements: items, finals: finalItems, endorsements: endorsementItems, verified: verifiedEndorsementItems, history: historyItems, nameFor: reviewStudentName });
+  const studentIdsByUid = new Map([...students, ...assignedStudents].map(student => [student.id, student.idNumber]));
   const queueTerm = reviewSearch.trim().toLowerCase();
   const filteredQueue = queueRows.filter(row => (!requestsOnly || pendingStudents.has(row.id)) && (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
-    && [row.name, row.id, row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm)));
-  const queuePage = useRecordPage(filteredQueue, (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
+    && [row.name, row.id, studentIdsByUid.get(row.id) || '', row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm)));
+  const queuePage = useRecordPage(filteredQueue.sort(compareStudents), (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
   const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent);
   const openStudent = row => { setSelectedQueueStudent(row.id); setReviewStage(queueFilter === 'history' ? 'history' : 'all'); setReviewStatus('all'); };
   const placementPage = useRecordPage(sortedReviews(items), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
@@ -296,7 +298,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         {!activeCompanies.length && <p>Add an active company in Company Directory before assigning a placement.</p>}
         <fieldset className="placement-assignment-fields" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
           <label>Student<select name="studentId" required defaultValue=""><option value="" disabled>Choose a student</option>
-            {waitingStudents.map(student => <option key={student.id} value={student.id}>
+            {waitingStudents.sort(compareStudents).map(student => <option key={student.id} value={student.id}>
               {[student.firstName, student.lastName].filter(Boolean).join(' ') || student.name || 'Student'} · {student.idNumber || student.id}
             </option>)}
           </select></label>
@@ -330,8 +332,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}
     <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous placement decisions, grouped by student.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
     <RecordPagination pagination={queuePage} label="Placement students" />
-    <div className="placement-queue-table"><table><thead><tr><th>Student</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
-      {queuePage.items.map(row => <tr key={row.id}><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
+    <div className="placement-queue-table"><table><thead><tr><th>Student ID</th><th>Name of Student</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
+      {queuePage.items.map(row => <tr key={row.id}><td>{studentIdsByUid.get(row.id) || '—'}</td><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
     </tbody></table>{!filteredQueue.length && <div className="review-empty">{error ? 'Placement records could not load. Use Refresh placements to try again.' : reviewSearch ? 'No students match this search.' : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
     {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} onCancel={() => setSelectedQueueStudent(null)}>
       <header><div><h2>{selectedQueue.name}</h2><p>Placement tasks and decisions</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>

@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/RegistrationsTab.js
@@ -96,7 +97,7 @@ export default function RegistrationsTab({ department, selectedSection }) {
     student.department,
   ));
 
-  const recordsPage = useRecordPage(filteredList, String(sectionId) + ':' + tab + ':' + searchQuery);
+  const recordsPage = useRecordPage(filteredList.sort(compareStudents), String(sectionId) + ':' + tab + ':' + searchQuery);
   if (loading) {
     return <PageSkeleton label="Loading registrations" variant="cards" />;
   }

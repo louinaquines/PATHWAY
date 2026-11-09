@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/EvaluationTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -88,7 +89,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const companies = [...new Map(placedStudents.map(student => [companyFor(student), student.company || student.companyName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1]));
   const companyStudents = placedStudents.filter(student => companyFor(student) === companyKey)
-    .sort((a, b) => [a.firstName, a.lastName].join(' ').localeCompare([b.firstName, b.lastName].join(' ')));
+    .sort(compareStudents);
   const selectedStudents = companyStudents.filter(student => selectedStudentIds.includes(student.id));
   const selectedNames = selectedStudents.map(student => [student.firstName, student.lastName].filter(Boolean).join(' ') || student.idNumber || student.id);
   const allStudentsSelected = selectedNames.length > 1 && selectedNames.length === companyStudents.length;
@@ -182,7 +183,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     item.studentName,
     item.studentId,
     item.sectionName,
-  ));
+  )).sort(compareStudents);
   const pageCount = Math.max(1, Math.ceil(filteredEvaluations.length / EVALUATIONS_PER_PAGE));
   const visibleEvaluations = filteredEvaluations.slice(
     (currentPage - 1) * EVALUATIONS_PER_PAGE,

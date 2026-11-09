@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/SectionsTab.js
@@ -210,7 +211,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     }
   };
 
-  const recordsPage = useRecordPage(filteredStudents, (selected?.id || '') + ':' + searchQuery);
+  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selected?.id || '') + ':' + searchQuery);
   const sectionsPage = useRecordPage(filteredSections, searchQuery);
   if (loading) {
     return <PageSkeleton label="Loading sections" variant="three-column" />;
@@ -326,9 +327,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   ) : (
                   <> <RecordPagination pagination={recordsPage} label="Section students" /><div className="coordinator-compact-table-wrap">
                     <table className="coordinator-compact-table">
-                      <thead><tr><th>Student</th><th>Student ID</th><th>Account</th></tr></thead>
+                      <thead><tr><th>Student ID</th><th>Name of Student</th><th>Account</th></tr></thead>
                       <tbody>{recordsPage.items.map(student => <tr key={student.id}>
-                        <td>{student.firstName} {student.lastName}</td><td>{student.idNumber || '—'}</td>
+                        <td>{student.idNumber || '—'}</td><td>{student.firstName} {student.lastName}</td>
                         <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
                           {student.accountApproved ? 'Active' : 'Pending approval'}
                         </span></td>
@@ -567,7 +568,7 @@ function UnassignedStudents({ sectionId, department, onAssign }) {
     }
   };
 
-  const unassignedPage = useRecordPage(unassigned, sectionId);
+  const unassignedPage = useRecordPage([...unassigned].sort(compareStudents), sectionId);
   if (loading) return <InlineSkeleton label="Loading unassigned students" />;
   if (unassigned.length === 0) return <div style={{ color: '#000000', fontSize: 13, padding: 12 }}>No unassigned students found.</div>;
 

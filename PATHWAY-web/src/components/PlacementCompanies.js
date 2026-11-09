@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from './RecordPagination';
 import { useState } from 'react';
 import Icon from './Icons';
@@ -56,7 +57,7 @@ export default function PlacementCompanies({ companies, students, sectionName })
           </div>
           <div className="placement-assigned-students">
             <div className="placement-students-heading"><h4>Assigned students</h4><span>{company.students.length}</span></div>
-            {!company.students.length ? <p className="placement-students-empty">No students from this section are assigned here.</p> : <ul>{company.students.map(student => <li key={student.id}><span className="placement-student-avatar">{studentName(student).slice(0, 1).toUpperCase()}</span><div><strong>{studentName(student)}</strong><p>{student.idNumber || 'ID not provided'} · {student.internshipRole || 'Role not specified'}</p>{student.supervisorName && <p>Supervisor: {student.supervisorName}</p>}</div></li>)}</ul>}
+            {!company.students.length ? <p className="placement-students-empty">No students from this section are assigned here.</p> : <ul>{[...company.students].sort(compareStudents).map(student => <li key={student.id}><span className="placement-student-avatar">{studentName(student).slice(0, 1).toUpperCase()}</span><div><strong>{studentName(student)}</strong><p>{student.idNumber || 'ID not provided'} · {student.internshipRole || 'Role not specified'}</p>{student.supervisorName && <p>Supervisor: {student.supervisorName}</p>}</div></li>)}</ul>}
           </div>
         </article>)}
       </div>}

@@ -1,9 +1,10 @@
+import { compareStudents } from './coordinatorStudentSort';
 import { requirementProgress } from './requirementProgress';
 
 const statuses = { approved: 'Approved', submitted: 'Pending review', rejected: 'Rejected', not_submitted: 'Not submitted' };
 
 export function sectionExportRows(section, students, checklist) {
-  const sorted = [...students].sort((a, b) => `${a.lastName || ''} ${a.firstName || ''}`.localeCompare(`${b.lastName || ''} ${b.firstName || ''}`));
+  const sorted = [...students].sort(compareStudents);
   const summary = sorted.map(student => {
     const progress = requirementProgress(student.requirements, checklist);
     return [String(student.idNumber || ''), String(student.username || ''), student.firstName || '', student.lastName || '', section.name || '', section.department || '', student.accountApproved ? 'Approved' : 'Not approved', progress.approved, progress.total, progress.total ? progress.approved / progress.total : null,

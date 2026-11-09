@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
@@ -104,13 +105,13 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   };
 
   const exportCsv = () => {
-    const columns = ['Section', 'Student', 'ID Number', 'Account', 'Requirements', 'Hours Rendered', 'Hours Required', 'Hours Status', 'Clearance'];
+    const columns = ['Student ID', 'Student', 'Section', 'Account', 'Requirements', 'Hours Rendered', 'Hours Required', 'Hours Status', 'Clearance'];
     const content = [
       columns,
-      ...rows.map(row => [
-        row.section,
-        row.student,
+      ...[...rows].sort(compareStudents).map(row => [
         row.idNumber,
+        row.student,
+        row.section,
         row.account,
         row.requirements,
         row.rendered,
@@ -134,11 +135,11 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       setError('Allow pop-ups to print the clearance report.');
       return;
     }
-    const body = rows.map(row => `
+    const body = [...rows].sort(compareStudents).map(row => `
       <tr>
-        <td>${escapeReportText(row.section)}</td>
-        <td><strong>${escapeReportText(row.student)}</strong></td>
         <td>${escapeReportText(row.idNumber)}</td>
+        <td><strong>${escapeReportText(row.student)}</strong></td>
+        <td>${escapeReportText(row.section)}</td>
         <td>${escapeReportText(row.requirements)}</td>
         <td>${row.rendered} / ${row.required} hrs</td>
         <td>${row.clearanceStatus === 'cleared' ? 'CLEARED' : row.ready ? 'READY' : 'NOT READY'}</td>
@@ -165,9 +166,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
           <table>
             <thead>
               <tr>
-                <th>Section</th>
+                <th>Student ID</th>
                 <th>Student</th>
-                <th>ID Number</th>
+                <th>Section</th>
                 <th>Requirements</th>
                 <th>Hours Rendered</th>
                 <th>Status</th>
@@ -199,7 +200,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
   const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
 
-  const recordsPage = useRecordPage(filteredRows, (selectedSection?.id || '') + ':' + searchQuery + ':' + summaryFilter);
+  const recordsPage = useRecordPage(filteredRows.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + summaryFilter);
   if (loading) {
     return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
   }
@@ -237,7 +238,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Student Name & ID</th>
+                <th style={s.th}>Student ID</th>
+                <th style={s.th}>Name of Student</th>
                 {!selectedSection && <th style={s.th}>Section</th>}
                 <th style={s.th}>Requirements</th>
                 <th style={s.th}>Hours Rendered</th>
@@ -248,10 +250,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             <tbody>
               {recordsPage.items.map(row => (
                 <tr key={row.id} style={s.tr}>
-                  <td style={s.td}>
-                    <div style={s.studentName}>{row.student || 'Unnamed student'}</div>
-                    <span style={s.idCode}>{row.idNumber || '—'}</span>
-                  </td>
+                  <td style={s.td}><span style={s.idCode}>{row.idNumber || '—'}</span></td>
+                  <td style={s.td}><div style={s.studentName}>{row.student || 'Unnamed student'}</div></td>
                   {!selectedSection && <td style={s.td}>{row.section}</td>}
                   <td style={s.td}>
                     <span style={{

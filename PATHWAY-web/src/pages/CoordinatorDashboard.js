@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -309,7 +310,7 @@ export default function CoordinatorDashboard() {
   ));
 
   const visibleReviewStudents = filteredStudents.filter(student => reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : isComplete(student)));
-  const reviewPage = useRecordPage(visibleReviewStudents, (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
+  const reviewPage = useRecordPage(visibleReviewStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
 
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard', label: 'Dashboard' }] },

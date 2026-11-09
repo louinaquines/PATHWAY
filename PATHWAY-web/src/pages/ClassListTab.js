@@ -1,3 +1,4 @@
+import { compareStudents, studentName } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClassListTab.js
@@ -6,7 +7,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
-import CoordinatorSearch from '../components/CoordinatorSearch';
+import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
@@ -43,8 +44,16 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
         where('sectionId', '==', sectionId),
         where('active', '==', true)
       ));
+      const roster = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const profiles = roster.some(item => !studentName(item)) ? await getDocs(query(
+        collection(db, 'users'),
+        where('role', '==', 'student'),
+        where('department', '==', department),
+        where('sectionId', '==', sectionId)
+      )).catch(() => null) : null;
       if (!isRefreshCurrent() || version !== loadVersion.current) return;
-      setIds(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => a.id.localeCompare(b.id)));
+      const names = new Map(profiles?.docs.map(doc => [String(doc.data().idNumber), studentName(doc.data())]));
+      setIds(roster.map(item => ({ ...item, name: studentName(item) || names.get(item.id) })).sort(compareStudents));
     } catch (e) {
       if (!isRefreshCurrent()) return;
       console.error(e);
@@ -112,7 +121,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
     }
   };
 
-  const filteredIds = ids.filter(item => item.id.toLowerCase().includes(filterQuery.toLowerCase()));
+  const filteredIds = ids.filter(item => matchesCoordinatorSearch(filterQuery, item.id, studentName(item)));
 
   const recordsPage = useRecordPage(filteredIds, sectionId + ':' + filterQuery);
   if (loading) {
@@ -192,7 +201,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
             <span style={s.countText}>{filteredIds.length} of {ids.length} students</span>
           </div>
           {ids.length > 0 && (
-            <CoordinatorSearch value={filterQuery} onChange={setFilterQuery} placeholder="Search student ID..." label="Search authorized student IDs" />
+            <CoordinatorSearch value={filterQuery} onChange={setFilterQuery} placeholder="Search name or ID…" label="Search authorized students" />
           )}
         </div>
 
@@ -207,6 +216,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
               <thead>
                 <tr>
                   <th style={s.th}>Student ID</th>
+                  <th style={s.th}>Name of Student</th>
                   <th style={s.th}>Username</th>
                   <th style={s.th}>Department</th>
                   <th style={s.th}>Date Added</th>
@@ -214,12 +224,13 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
                 </tr>
               </thead>
               <tbody>
-                {filteredIds.length === 0 && <tr><td colSpan={5} style={s.td}>No matching student IDs.</td></tr>}
+                {filteredIds.length === 0 && <tr><td colSpan={6} style={s.td}>No matching students.</td></tr>}
                 {recordsPage.items.map(item => (
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>
                       <span style={s.idCode}>{item.id}</span>
                     </td>
+                    <td style={s.td}>{studentName(item) || '—'}</td>
                     <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Legacy / not provisioned'}</td>
                     <td style={s.td}>{item.department}</td>
                     <td style={s.td}>

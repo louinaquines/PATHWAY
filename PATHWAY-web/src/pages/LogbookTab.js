@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
@@ -242,10 +243,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const pendingIds = new Set(pendingStudentIds);
   const filteredStudents = students.filter(student => (!pendingOnly || pendingIds.has(student.id)) && matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
 
-  const sortedStudents = filteredStudents.sort((a, b) =>
-    studentDisplayName(a).localeCompare(studentDisplayName(b), undefined, { sensitivity: 'base' })
-    || String(a.idNumber || a.id).localeCompare(String(b.idNumber || b.id))
-  );
+  const sortedStudents = filteredStudents.sort(compareStudents);
   const studentsPage = useRecordPage(sortedStudents, (selectedSection?.id || '') + ':' + searchQuery);
   const visibleStudentIds = JSON.stringify(studentsPage.items.map(student => student.id));
   const rosterScope = (selectedSection?.id || '') + ':' + visibleStudentIds;

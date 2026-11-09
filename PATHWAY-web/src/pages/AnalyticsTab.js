@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AnalyticsTab.js
@@ -78,10 +79,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
 
   const exportCsv = () => {
     if (!data?.students) return;
-    const header = ['Student Name', 'ID Number', 'Section', 'Department', 'Company', 'Server-credited hours', 'Hours Required', 'Progress (%)', 'Risk tier', 'Progress status', 'Data status'];
-    const rows = data.students.map(s => [
-      s.name,
+    const header = ['Student ID', 'Student Name', 'Section', 'Department', 'Company', 'Server-credited hours', 'Hours Required', 'Progress (%)', 'Risk tier', 'Progress status', 'Data status'];
+    const rows = [...data.students].sort(compareStudents).map(s => [
       s.idNumber,
+      s.name,
       s.section,
       s.department,
       s.companyName,
@@ -109,7 +110,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     student.section,
   ));
 
-  const recordsPage = useRecordPage(filteredStudents, (selectedSection?.id || '') + ':' + searchQuery);
+  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery);
   if (loading) {
     return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
   }
@@ -177,7 +178,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Student</th>
+                <th style={s.th}>Student ID</th>
+                <th style={s.th}>Name of Student</th>
                 {!selectedSection?.id && <th style={s.th}>Section</th>}
                 <th style={s.th}>Credited / Required</th>
                 <th style={s.th}>Progress</th>
@@ -190,10 +192,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                 const percent = st.completionPercentage;
                 return (
                   <tr key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
-                    <td style={s.td}>
-                      <div style={s.studentName}>{st.name}</div>
-                      <span style={s.idCode}>{st.idNumber}</span>
-                    </td>
+                    <td style={s.td}><span style={s.idCode}>{st.idNumber || '—'}</span></td>
+                    <td style={s.td}><div style={s.studentName}>{st.name}</div></td>
                     {!selectedSection?.id && <td style={s.td}>{st.section}</td>}
                     <td style={s.td}>
                       <strong>{st.hoursRendered ?? 'Unavailable'}</strong> / {st.hoursRequired ?? 'Unavailable'} hrs
@@ -237,7 +237,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               })}
               {filteredStudents.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
+                  <td colSpan={selectedSection?.id ? 6 : 7} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
                     {searchQuery ? 'No matching students. Try another name or ID.' : 'No student progress records found for this cohort.'}
                   </td>
                 </tr>

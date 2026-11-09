@@ -1,3 +1,4 @@
+import { compareStudents } from '../coordinatorStudentSort';
 import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -127,15 +128,9 @@ export default function MessagesTab({ selectedSection }) {
   };
 
   const threadsByStudent = new Map(conversations.map(thread => [thread.studentId, thread]));
-  const unread = thread => Number(Boolean(thread?.messages.some(message => message.recipientId === coordinatorId && !message.read)));
-  const recent = thread => String(thread?.messages.at(-1)?.createdAt || '');
-  const sortedStudents = [...students].sort((a, b) => {
-    const first = threadsByStudent.get(a.id);
-    const second = threadsByStudent.get(b.id);
-    return unread(second) - unread(first) || recent(second).localeCompare(recent(first));
-  });
+  const sortedStudents = [...students].sort(compareStudents);
   const visibleStudents = sortedStudents.filter(student => {
-            const thread = conversations.find(item => item.studentId === student.id);
+            const thread = threadsByStudent.get(student.id);
             return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
           });
   const studentsPage = useRecordPage(visibleStudents, (selectedSection?.id || '') + ':' + search);

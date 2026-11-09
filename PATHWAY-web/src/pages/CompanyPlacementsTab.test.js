@@ -30,6 +30,23 @@ describe('coordinator decision retries', () => {
     expect(screen.getAllByText('Journey QA').some(element => element.closest('tr'))).toBe(true);
   });
 
+  test('loads placement history only when requested', async () => {
+    getDocs.mockResolvedValue(snapshot([]));
+    adminRequest.mockImplementation(url => Promise.resolve(url === '/coordinator/company-directory' ? { companies: [] } : { history: [] }));
+    render(<CompanyPlacementsTab department="Technology" selectedSection={{ id: 'section-1', name: 'Section 1' }} />);
+    const history = await screen.findByRole('button', { name: /Placement history/ });
+    const url = '/coordinator/placement-history?sectionId=section-1&page=true';
+    expect(adminRequest).not.toHaveBeenCalledWith(url);
+    fireEvent.click(history);
+    await waitFor(() => expect(adminRequest).toHaveBeenCalledWith(url));
+    expect(await screen.findByText('No students in this view yet.')).toBeVisible();
+    adminRequest.mockImplementation(request => Promise.resolve(request === url ? { history: [], nextCursor: 'history-anchor' } : { history: [] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh placements' }));
+    const paging = await screen.findByRole('navigation', { name: 'Placement history pages' });
+    fireEvent.click(within(paging).getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(adminRequest).toHaveBeenCalledWith(url + '&cursor=history-anchor'));
+  });
+
   test('queue shortcuts, search, and student-specific feedback keep reviews easy to navigate', async () => {
     getDocs.mockResolvedValue(snapshot([]));
     getDocs.mockResolvedValueOnce(snapshot([

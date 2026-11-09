@@ -1,5 +1,5 @@
 .coordinator-overview {
-  --dashboard-border: #dce4ee;
+  --dashboard-border: #e4e9ef;
   --dashboard-ink: #17263a;
   --dashboard-muted: #526174;
   --dashboard-blue: #0a5ab6;
@@ -9,17 +9,35 @@
   overflow-y: auto;
   padding: 24px 28px 32px;
   color: var(--dashboard-ink);
-  background: #f4f7fb;
+  background: #f2f4f6;
 }
-.coordinator-metrics, .coordinator-chart-grid { display: grid; gap: 16px; margin: 0 0 16px; }
+.coordinator-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(290px, 1fr);
+  gap: 24px;
+  max-width: 1440px;
+  margin-inline: auto;
+  align-items: start;
+}
+.coordinator-dashboard-main { min-width: 0; }
+.coordinator-metrics, .coordinator-chart-grid { display: grid; gap: 16px; margin: 0; }
+.coordinator-metrics { margin-bottom: 24px; }
 .coordinator-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .coordinator-metric, .coordinator-chart, .coordinator-queue {
   min-width: 0;
   background: #fff;
   border: 1px solid var(--dashboard-border);
-  border-radius: 12px;
+  border-radius: 22px;
 }
-.coordinator-metric { padding: 16px 20px; }
+.coordinator-metric { padding: 18px 20px; }
+.coordinator-metric:first-child {
+  background: #223752;
+  border-color: #223752;
+  color: #fff;
+}
+.coordinator-metric:first-child .coordinator-metric-icon { background: #384f6b; color: #d9ecff; }
+.coordinator-metric:first-child .coordinator-metric-detail { color: #dce6f0; }
+.coordinator-metric:nth-child(2) { background: #e0eefc; border-color: #d6e8fa; }
 .coordinator-metric dt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
 .coordinator-metric-icon {
   display: inline-grid; place-items: center; flex: none;
@@ -27,9 +45,7 @@
 }
 .coordinator-metric dd { margin: 8px 0 0; font-size: 29px; font-weight: 650; line-height: 1.15; font-variant-numeric: tabular-nums; }
 .coordinator-metric .coordinator-metric-detail { margin-top: 5px; font-size: 13px; line-height: 1.4; color: var(--dashboard-muted); font-weight: 400; }
-.coordinator-chart-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
 .coordinator-chart { padding: 18px 20px; }
-.coordinator-chart:first-child { grid-column: 1; }
 .coordinator-chart header, .coordinator-overview-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .coordinator-chart h2, .coordinator-overview-heading h2 { margin: 0; font-size: 16px; line-height: 1.35; font-weight: 650; }
 .coordinator-chart p, .coordinator-overview-heading p { margin: 4px 0 0; color: var(--dashboard-muted); font-size: 13px; line-height: 1.45; }
@@ -41,27 +57,48 @@
 .coordinator-milestones strong span { color: var(--dashboard-muted); font-weight: 400; }
 .coordinator-milestone-track { height: 7px; border-radius: 6px; background: #eaf0f6; overflow: hidden; }
 .coordinator-milestone-track span { display: block; height: 100%; border-radius: inherit; background: var(--dashboard-blue); }
-.coordinator-hours-chart {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
-  text-align: center;
-  background: repeating-linear-gradient(to top, #edf2f7 0 1px, transparent 1px 42px) left 0 top 24px / 100% 126px no-repeat;
+.coordinator-hours-donut {
+  width: min(100%, 188px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  margin: 22px auto;
+  border-radius: 50%;
 }
-.coordinator-hours-chart li { color: var(--dashboard-muted); font-size: 13px; line-height: 1.3; }
-.coordinator-hours-track { position: relative; height: 126px; margin: 24px 0 8px; border-bottom: 1px solid var(--dashboard-border); }
-.coordinator-hours-track strong { position: absolute; inset-inline: 0; margin-bottom: 4px; color: var(--dashboard-ink); font-variant-numeric: tabular-nums; }
-.coordinator-hours-column { position: absolute; bottom: 0; left: 50%; width: min(56px, 66%); transform: translateX(-50%); background: #70a7e3; border-radius: 6px 6px 0 0; }
-.coordinator-hours-chart li:last-child .coordinator-hours-column { background: var(--dashboard-blue); }
+.coordinator-hours-donut > div {
+  width: 72%;
+  aspect-ratio: 1;
+  display: grid;
+  place-content: center;
+  padding: 12px;
+  border-radius: 50%;
+  background: #fff;
+  text-align: center;
+}
+.coordinator-hours-donut strong { font-size: 30px; line-height: 1.1; }
+.coordinator-hours-donut span { color: var(--dashboard-muted); font-size: 12px; }
+.coordinator-hours-chart { display: grid; gap: 8px; }
+.coordinator-hours-chart li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dashboard-muted);
+}
+.coordinator-hours-chart strong { color: var(--dashboard-ink); font-variant-numeric: tabular-nums; }
+.coordinator-hours-swatch { width: 10px; height: 10px; flex: none; border-radius: 3px; }
 .coordinator-chart .coordinator-chart-empty { padding: 24px 0; }
 .coordinator-chart .coordinator-chart-note { margin-top: 12px; }
 
-.coordinator-queue { overflow: hidden; }
-.coordinator-overview-heading { min-height: 58px; padding: 6px 20px; }
+.coordinator-queue { background: transparent; border: 0; }
+.coordinator-overview-heading { min-height: 58px; padding: 0 0 10px; }
 .coordinator-overview-heading button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .coordinator-queue > p, .coordinator-queue > .portal-error { margin: 0 20px 12px; font-size: 14px; }
+.coordinator-attention-grid { display: grid; gap: 8px; }
 .coordinator-attention-grid button {
   display: grid; grid-template-columns: minmax(0, 1fr) auto 14px; align-items: center; gap: 12px;
-  width: 100%; min-height: 44px; padding: 8px 20px; border: 0; border-top: 1px solid #e8edf3;
-  border-radius: 0; text-align: left; font: inherit; font-size: 14px;
+  width: 100%; min-height: 58px; padding: 10px 16px; border: 1px solid var(--dashboard-border);
+  border-radius: 16px; text-align: left; font: inherit; font-size: 14px;
   color: var(--dashboard-ink); background: #fff; cursor: pointer;
 }
 .coordinator-attention-grid button:hover { background: #f2f7fd; }
@@ -82,7 +119,7 @@
 @supports (appearance: base-select) {
   .coordinator-dashboard-mode select.sectionPicker::picker-icon { align-self: center; }
 }
-@media (max-width: 980px) { .coordinator-chart-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1100px) { .coordinator-dashboard-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
   .coordinator-overview { padding: 16px; }
   .coordinator-metrics { grid-template-columns: minmax(0, 1fr); }

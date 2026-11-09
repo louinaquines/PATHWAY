@@ -1,5 +1,4 @@
-import { compareStudents } from '../coordinatorStudentSort';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
+import { readPortalPage, readMatchingPortalPage } from '../portalRecordPages';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -72,19 +71,27 @@ function dateLabel(result, empty) {
   return result.value ? { text: rosterDateFormat.format(result.value), dated: true } : { text: empty };
 }
 
-const ATTENDANCE_PAGE_SIZE = 25;
+const RECORD_PAGE_SIZE = 25;
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
-  const [students, setStudents]               = useState([]);
+  const [rosterPage, setRosterPage] = useState(null);
+  const [rosterPaging, setRosterPaging] = useState(null);
+  const [rosterRetry, setRosterRetry] = useState(0);
+  const [rosterSearch, setRosterSearch] = useState('');
   const [entries, setEntries]                 = useState([]);
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [entriesError, setEntriesError] = useState('');
   const entryRequest = useRef(0);
+  const [journalCursors, setJournalCursors] = useState([null]);
+  const [nextJournalCursor, setNextJournalCursor] = useState(null);
+  const [journalStatus, setJournalStatus] = useState(Array.isArray(pendingStudentIds) ? 'pending' : '');
+  const [decisionRevision, setDecisionRevision] = useState(0);
+  const journalCursor = journalCursors.at(-1);
   const confirmHost = useRef(null);
-  const [selectedSection, setSelectedSection] = useState(null);
+  const selectedSection = sharedSection;
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [saving, setSaving]                   = useState(false);
-  const [loading, setLoading]                 = useState(true);
+
   const [searchQuery, setSearchQuery]         = useState('');
   const [rejectConfirm, setRejectConfirm]     = useState(null);
   const [recordView, setRecordView] = useState(openJournals ? 'journals' : 'attendance');
@@ -108,7 +115,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     if (selectedStudent?.id && recordView === 'journals') adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)
       .then(data => { if (active) setAnalysis(data); }).catch(failure => { if (active) setAnalysisError(failure.message); });
     return () => { active = false; };
-  }, [selectedStudent?.id, entries, recordView]);
+  }, [selectedStudent?.id, decisionRevision, recordView]);
   const exportStudentRecords = async () => {
     if (!selectedStudent || !selectedSection || exporting) return;
     const student = selectedStudent;
@@ -132,11 +139,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     const records = collection(db, 'users', selectedStudent.id, 'attendance');
     const pageQuery = query(records, orderBy('date', 'desc'),
       ...(attendanceDate ? [where('date', '==', attendanceDate)] : []),
-      ...(attendanceCursor ? [startAfter(attendanceCursor)] : []), limit(ATTENDANCE_PAGE_SIZE + 1));
+      ...(attendanceCursor ? [startAfter(attendanceCursor)] : []), limit(RECORD_PAGE_SIZE + 1));
     return onSnapshot(pageQuery, snapshot => {
-      const page = snapshot.docs.slice(0, ATTENDANCE_PAGE_SIZE);
+      const page = snapshot.docs.slice(0, RECORD_PAGE_SIZE);
       setAttendance(page.map(item => ({ ...item.data(), id: item.id })));
-      setNextAttendanceCursor(snapshot.docs.length > ATTENDANCE_PAGE_SIZE ? page.at(-1) : null);
+      setNextAttendanceCursor(snapshot.docs.length > RECORD_PAGE_SIZE ? page.at(-1) : null);
       setAttendanceLoading(false);
     }, () => {
       setAttendanceError('Could not load attendance records.');
@@ -149,31 +156,46 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' });
   };
 
-  const fetchStudents = async (section, { silent = false, isCurrent = () => true } = {}) => {
-    if (!silent) { setSelectedSection(section); setLoading(true); setSelectedStudent(null); setEntries([]); }
-    try {
-      const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
-      if (!isCurrent()) return;
-      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    } catch (e) {
-      console.error(e);
-      setLoading(false);
-    }
-  };
+  const rosterScopeKey = (selectedSection?.id || '') + ':' + pendingOnly + ':' + rosterSearch + ':' + rosterRetry;
+  const rosterCursors = rosterPaging?.scope === rosterScopeKey ? rosterPaging.cursors : [null];
+  const rosterCursor = rosterCursors.at(-1);
+  const currentRoster = rosterPage?.scope === rosterScopeKey && rosterPage.cursor === rosterCursor ? rosterPage : null;
+  const loading = !!selectedSection && !currentRoster;
 
   useEffect(() => {
-    if (sharedSection) fetchStudents(sharedSection);
-    else {
-      setLoading(false);
-      setSelectedSection(null);
-      setStudents([]);
-      setSelectedStudent(null);
-      setEntries([]);
-    }
-    // The section selector intentionally reloads the selected section's students.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sharedSection?.id]);
+    const timer = setTimeout(() => setRosterSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const sectionId = selectedSection?.id;
+    if (!sectionId) return;
+    let active = true;
+    const scope = [where('role', '==', 'student'), where('sectionId', '==', sectionId)];
+    const students = collection(db, 'users');
+    const exactId = /^\d{5,24}$/.test(rosterSearch);
+    const base = exactId
+      ? query(students, ...scope, where('idNumber', '==', rosterSearch))
+      : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
+    const pendingIds = new Set(pendingStudentIds);
+    const request = pendingOnly || (rosterSearch && !exactId)
+      ? readMatchingPortalPage(base, rosterCursor, RECORD_PAGE_SIZE, student => (
+        (!pendingOnly || pendingIds.has(student.id))
+        && matchesCoordinatorSearch(rosterSearch, studentDisplayName(student), student.idNumber, selectedSection.name)
+      ))
+      : readPortalPage(base, rosterCursor, RECORD_PAGE_SIZE);
+    request.then(page => {
+      if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, page });
+    }).catch(() => {
+      if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, error: 'Could not load students.' });
+    });
+    return () => { active = false; };
+  }, [selectedSection?.id, selectedSection?.name, rosterScopeKey, rosterCursor, rosterSearch, pendingOnly, pendingStudentIds]);
+
+  useEffect(() => {
+    setSelectedStudent(null);
+    setEntries([]);
+  }, [selectedSection?.id]);
 
   const fetchEntries = async (student, { silent = false, isCurrent = () => true } = {}) => {
     const request = ++entryRequest.current;
@@ -183,12 +205,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       setEntriesError('');
     }
     try {
-      const snap = await getDocs(collection(db, 'users', student.id, 'logbook'));
+      const records = collection(db, 'users', student.id, 'logbook');
+      const snap = await getDocs(query(records, orderBy('createdAt', 'desc'),
+        ...(journalStatus ? [where('status', '==', journalStatus)] : []),
+        ...(journalCursor ? [startAfter(journalCursor)] : []), limit(RECORD_PAGE_SIZE + 1)));
       if (!current()) return;
-      const sorted = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => String(b.periodStart || b.createdAt || '').localeCompare(String(a.periodStart || a.createdAt || '')));
-      setEntries(sorted);
+      const page = snap.docs.slice(0, RECORD_PAGE_SIZE);
+      setEntries(page.map(item => ({ ...item.data(), id: item.id })));
+      setNextJournalCursor(snap.docs.length > RECORD_PAGE_SIZE ? page.at(-1) : null);
       setEntriesError('');
     } catch (e) {
       if (current()) setEntriesError('Could not load journal entries.');
@@ -201,7 +225,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     if (!selectedStudent || recordView !== 'journals') return;
     fetchEntries(selectedStudent);
     return () => { entryRequest.current++; };
-  }, [selectedStudent, recordView]);
+  }, [selectedStudent, recordView, journalStatus, journalCursor]);
 
   const openRecords = (student, view) => {
     setAttendance([]);
@@ -210,6 +234,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     setNextAttendanceCursor(null);
     setAttendanceError('');
     setAttendanceLoading(view === 'attendance');
+    setJournalCursors([null]);
+    setNextJournalCursor(null);
+    setJournalStatus(pendingOnly ? 'pending' : '');
     setSelectedStudent(student);
     setRecordView(view);
     setEntries([]);
@@ -226,7 +253,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
   usePortalAutoRefresh(async options => {
     if (!selectedSection) return;
-    await fetchStudents(selectedSection, options);
+
     if (options.isCurrent() && selectedStudent && recordView === 'journals') await fetchEntries(selectedStudent, options);
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
@@ -240,6 +267,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       setEntries(prev => prev.map(e => e.id === entryId ? {
         ...e, status, reviewReason: status === 'rejected' ? `Please revise and resubmit this ${e.frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '',
       } : e));
+      if (journalStatus && journalStatus !== status) await fetchEntries(selectedStudent);
+      setDecisionRevision(value => value + 1);
       return true;
     } catch (e) {
       console.error(e);
@@ -265,12 +294,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     approved: 'Approved',
     rejected: 'Rejected',
   };
-  const pendingIds = new Set(pendingStudentIds);
-  const filteredStudents = students.filter(student => (!pendingOnly || pendingIds.has(student.id)) && matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selectedSection?.name));
-
-  const sortedStudents = filteredStudents.sort(compareStudents);
-  const studentsPage = useRecordPage(sortedStudents, (selectedSection?.id || '') + ':' + searchQuery);
-  const visibleStudentIds = JSON.stringify(studentsPage.items.map(student => student.id));
+  const visibleStudents = currentRoster?.page?.records || [];
+  const visibleStudentIds = JSON.stringify(visibleStudents.map(student => student.id));
   const rosterScope = (selectedSection?.id || '') + ':' + visibleStudentIds;
   const [rosterSummary, setRosterSummary] = useState(null);
   const loadRosterSummary = useCallback(async ({ isCurrent = () => true } = {}) => {
@@ -294,11 +319,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     scope: rosterScope, intervalMs: 60000,
   });
 
-  const visibleEntries = pendingOnly ? entries.filter(entry => entry.status === 'pending') : entries;
-  const entriesPage = useRecordPage(visibleEntries, (selectedStudent?.id || '') + ':' + pendingOnly);
-  if (loading) {
-    return <PageSkeleton label="Loading logbook data" variant="three-column" />;
-  }
+
 
   return (
     <div className="logbook-workspace logbook-table-page">
@@ -319,11 +340,20 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
         </div>}
         {!selectedSection ? <p className="logbook-table-empty">Choose a section to see its students.</p> : <>
-          <RecordPagination pagination={studentsPage} label="Students" />
+          {loading && <p role="status">Loading students…</p>}
+          {currentRoster?.error && <p role="alert">{currentRoster.error} <button type="button" className="portal-secondary"
+            onClick={() => setRosterRetry(value => value + 1)}>Retry</button></p>}
+          {(rosterCursors.length > 1 || currentRoster?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Students pagination">
+            <button type="button" className="portal-secondary" disabled={rosterCursors.length === 1}
+              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })}>Previous</button>
+            <span>Page {rosterCursors.length}</span>
+            <button type="button" className="portal-secondary" disabled={!currentRoster?.page?.hasMore}
+              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}>Next</button>
+          </nav>}
           <div className="logbook-roster-scroll">
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
               <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
-              <tbody>{studentsPage.items.map(student => {
+              <tbody>{visibleStudents.map(student => {
                 const name = studentDisplayName(student) || 'Student';
                 const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
                 return <tr key={student.id}>
@@ -335,7 +365,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               })}</tbody>
             </table>
           </div>
-          {!filteredStudents.length && <p className="logbook-table-empty">{pendingOnly ? 'No students with pending journals match this view.' : 'No students match this view.'}</p>}
+          {!loading && !currentRoster?.error && !visibleStudents.length && <p className="logbook-table-empty">{currentRoster?.page?.hasMore ? 'No matches in this window. Choose Next to continue searching.' : 'No students match this view.'}</p>}
         </>}
       </section>
       {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
@@ -383,18 +413,32 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             catch (failure) { setAnalysisError(failure.message); }
           }} />}
           {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
+          {recordView === 'journals' && <label>Journal status <select value={journalStatus} disabled={saving} onChange={event => {
+            setEntriesLoading(true);
+            setJournalStatus(event.target.value);
+            setJournalCursors([null]);
+          }}>
+            <option value="">All statuses</option>
+            <option value="pending">Awaiting review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Changes requested</option>
+          </select></label>}
           {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
           {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
-          {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
+          {recordView === 'journals' && !entriesLoading && !entriesError && entries.length === 0 && (
             <div className="logbook-record-empty">
               <Icon name="book" size={18} />
-              <p>{pendingOnly ? 'No journals awaiting review.' : 'No journals submitted yet.'}</p>
+              <p>{journalStatus ? 'No journals match this status.' : 'No journals submitted yet.'}</p>
             </div>
           )}
 
           <div style={t.entriesList} hidden={recordView !== 'journals' || entriesLoading || !!entriesError}>
-            <RecordPagination pagination={entriesPage} label="Journal entries" />
-            {entriesPage.items.map(entry => (
+            {(journalCursors.length > 1 || nextJournalCursor) && <nav className="portal-record-pagination" aria-label="Journal entries pagination">
+              <button type="button" className="portal-secondary" disabled={saving || journalCursors.length === 1} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => cursors.slice(0, -1)); }}>Previous</button>
+              <span>Page {journalCursors.length}</span>
+              <button type="button" className="portal-secondary" disabled={saving || !nextJournalCursor} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => [...cursors, nextJournalCursor]); }}>Next</button>
+            </nav>}
+            {entries.map(entry => (
             <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
               <div style={t.entryTop}>
                 <div>

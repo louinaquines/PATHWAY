@@ -28,6 +28,7 @@ export default function SubmissionNotifications({ kind, coordinatorId, section, 
   }, [storageKey]);
   useEffect(() => {
     if (suppliedItems !== undefined) { setItems(suppliedItems); setError(''); setLoading(false); return; }
+    if (kind === 'logbook' && !open) return;
     setItems([]); setError(''); setLoading(Boolean(section?.id));
     if (!coordinatorId || !section?.id || section.coordinatorId !== coordinatorId) { setLoading(false); return; }
     let active = true;
@@ -50,7 +51,7 @@ export default function SubmissionNotifications({ kind, coordinatorId, section, 
       }, () => { if (active) { setError('Could not load submissions. Please refresh.'); setLoading(false); } }));
     }, () => { if (active) { setError('Could not load submissions. Please refresh.'); setLoading(false); } });
     return () => { active = false; stop(); children.forEach(unsubscribe => unsubscribe()); };
-  }, [coordinatorId, section?.id, section?.coordinatorId, kind, refresh, suppliedItems]);
+  }, [coordinatorId, section?.id, section?.coordinatorId, kind, refresh, suppliedItems, open]);
   useEffect(() => { if (open) dialog.current?.showModal?.(); else dialog.current?.close?.(); }, [open]);
   const unread = items.filter(item => !seen.includes(item.id)).length;
   const openItem = item => {

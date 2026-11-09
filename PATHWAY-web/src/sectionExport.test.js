@@ -51,3 +51,19 @@ test('each configured requirement has a named column and missing records show no
   expect(sheet.getCell('K2').value).toBe('Not submitted');
   expect(sheet.getCell('L2').value).toBe('Not submitted');
 });
+
+test('a 10,000-student section exports the last student and all six requirement rows per student', async () => {
+  const students = Array.from({ length: 10000 }, (_, index) => ({
+    idNumber: String(26000000 + index), firstName: 'Student ' + String(index).padStart(5, '0'), lastName: 'Test',
+  }));
+  const checklist = Array.from({ length: 6 }, (_, index) => ({ id: 'requirement-' + index, label: 'Requirement ' + index }));
+  const workbook = await buildSectionWorkbook({ name: 'Large section', department: 'IT' }, students, checklist);
+  const restored = new workbook.constructor();
+  await restored.xlsx.load(await workbook.xlsx.writeBuffer());
+  const summary = restored.getWorksheet('Student summary');
+  const details = restored.getWorksheet('Requirements');
+  expect(summary.rowCount).toBe(10001);
+  expect(summary.getCell('A10001').value).toBe('26009999');
+  expect(details.rowCount).toBe(60001);
+  expect(details.getCell('A60001').value).toBe('26009999');
+}, 60000);

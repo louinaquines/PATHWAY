@@ -1,3 +1,4 @@
+import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
 import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
 import { canAssignPlacement } from '../coordinatorOverviewData';
@@ -25,7 +26,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [workspace, setWorkspace] = useState('reviews');
   const [companySelections, setCompanySelections] = useState({});
   const [finalItems, setFinalItems] = useState([]);
-  const [historyItems, setHistoryItems] = useState([]);
+  const [history, setHistory] = useState(null);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [historyPaging, setHistoryPaging] = useState(null);
   const [endorsementItems, setEndorsementItems] = useState([]);
   const [verifiedEndorsementItems, setVerifiedEndorsementItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,12 +47,14 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [selectedQueueStudent, setSelectedQueueStudent] = useState(null);
   useEffect(() => { setSelectedQueueStudent(null); setQueueFilter('action'); setAssignmentOpen(overviewView === 'assign'); setRequestsOnly(overviewView === 'requests'); }, [selectedSection?.id, overviewView]);
   const [reviewSearch, setReviewSearch] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
   const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!silent) setLoading(true);
+    setHistoryRevision(value => value + 1);
     setError('');
     try {
       if (!selectedSection?.id) {
@@ -58,18 +63,17 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         setAssignedStudents([]);
         setItems([]);
         setFinalItems([]);
-        setHistoryItems([]);
+
         setEndorsementItems([]);
         setVerifiedEndorsementItems([]);
         return;
       }
       const scopedFilters = [where('sectionId', '==', selectedSection.id), where('department', '==', department)];
-      const [snap, finalSnap, endorsementSnap, directory, history, studentSnap] = await Promise.all([
+      const [snap, finalSnap, endorsementSnap, directory, studentSnap] = await Promise.all([
         getDocs(query(collection(db, 'companyProposals'), ...scopedFilters)),
         getDocs(query(collection(db, 'finalReviewRequests'), ...scopedFilters)),
         getDocs(query(collection(db, 'endorsements'), ...scopedFilters)),
         adminRequest('/coordinator/company-directory'),
-        adminRequest(`/coordinator/placement-history?sectionId=${encodeURIComponent(selectedSection.id)}`),
         getDocs(query(collection(db, 'users'), ...scopedFilters, where('role', '==', 'student'))),
       ]);
       if (!isRefreshCurrent()) return;
@@ -77,7 +81,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setItems(proposals);
       setCompanies(directory.companies || []);
       setAssignedStudents(studentSnap.docs.map(item => ({ ...item.data(), id: item.id })));
-      setHistoryItems(history.history || []);
+
       const endorsements = endorsementSnap.docs.map(item => ({ id: item.id, ...item.data() }))
         .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
       setEndorsementItems(endorsements.filter(item => item.status === 'awaiting_document'));
@@ -93,7 +97,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setItems([]);
       setCompanies([]);
       setAssignedStudents([]);
-      setHistoryItems([]);
+
       setEndorsementItems([]);
       setVerifiedEndorsementItems([]);
       setFinalItems([]);
@@ -103,6 +107,31 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   usePortalAutoRefresh(load, { enabled: !loading && !busy && !draftBusy && !deliveryBusy, scope: selectedSection?.id || '', protectInputs: true });
 
   useEffect(() => { load(); }, [load]);
+
+  const historyOpen = queueFilter === 'history' || (selectedQueueStudent && reviewStage === 'history');
+  const sectionId = selectedSection?.id;
+  useEffect(() => {
+    if (queueFilter !== 'history') return;
+    const timer = setTimeout(() => setHistorySearch(reviewSearch.trim().slice(0, 150)), 300);
+    return () => clearTimeout(timer);
+  }, [queueFilter, reviewSearch]);
+  const historyTerm = queueFilter === 'history' ? historySearch : '';
+  const historyScope = sectionId + ':' + historyRevision + ':' + historyTerm;
+  const historyCursors = historyPaging?.scope === historyScope ? historyPaging.cursors : [null];
+  const historyCursor = historyCursors.at(-1);
+  const historyKey = historyScope + ':' + (historyCursor || '');
+  const currentHistory = history?.key === historyKey ? history : null;
+  const historyItems = currentHistory?.items || [];
+  useEffect(() => {
+    if (!historyOpen || !sectionId || currentHistory) return;
+    let active = true;
+    adminRequest('/coordinator/placement-history?sectionId=' + encodeURIComponent(sectionId) + '&page=true'
+      + (historyCursor ? '&cursor=' + encodeURIComponent(historyCursor) : '')
+      + (historyTerm ? '&search=' + encodeURIComponent(historyTerm) : ''))
+      .then(data => { if (active) setHistory({ key: historyKey, items: data.history || [], nextCursor: data.nextCursor || null }); })
+      .catch(() => { if (active) setHistory({ key: historyKey, error: 'Could not load placement history.' }); });
+    return () => { active = false; };
+  }, [historyOpen, sectionId, currentHistory, historyKey, historyCursor, historyTerm]);
   useEffect(() => { setEndorsementDraft(null); }, [selectedSection?.id]);
   useEffect(() => { setDeliveryConfirm(null); setDeliveryNotice(''); }, [selectedSection?.id]);
   useEffect(() => { setReasons({}); setReviewConfirm(null); setReviewSearch(''); setReviewStatus('all'); }, [selectedSection?.id]);
@@ -249,7 +278,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const studentIdsByUid = new Map([...students, ...assignedStudents].map(student => [student.id, student.idNumber]));
   const queueTerm = reviewSearch.trim().toLowerCase();
   const filteredQueue = queueRows.filter(row => (!requestsOnly || pendingStudents.has(row.id)) && (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
-    && [row.name, row.id, studentIdsByUid.get(row.id) || '', row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm)));
+    && (queueFilter === 'history' || [row.name, row.id, studentIdsByUid.get(row.id) || '', row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm))));
   const queuePage = useRecordPage(filteredQueue.sort(compareStudents), (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
   const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent);
   const openStudent = row => { setSelectedQueueStudent(row.id); setReviewStage(queueFilter === 'history' ? 'history' : 'all'); setReviewStatus('all'); };
@@ -297,14 +326,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         {!waitingStudents.length && <p>No students are waiting for a direct assignment in this section.</p>}
         {!activeCompanies.length && <p>Add an active company in Company Directory before assigning a placement.</p>}
         <fieldset className="placement-assignment-fields" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
-          <label>Student<select name="studentId" required defaultValue=""><option value="" disabled>Choose a student</option>
-            {waitingStudents.sort(compareStudents).map(student => <option key={student.id} value={student.id}>
-              {[student.firstName, student.lastName].filter(Boolean).join(' ') || student.name || 'Student'} · {student.idNumber || student.id}
-            </option>)}
-          </select></label>
-          <label>Company<select name="companyId" required defaultValue=""><option value="" disabled>Choose a company</option>
-            {activeCompanies.map(company => <option key={company.id} value={company.id}>{company.name}</option>)}
-          </select></label>
+          <CoordinatorRecordPicker label="Student" name="studentId" required options={[...waitingStudents].sort(compareStudents).map(student => ({
+            id: student.id,
+            label: [student.firstName, student.lastName].filter(Boolean).join(' ') + ' · ' + (student.idNumber || student.id),
+          }))} />
+          <CoordinatorRecordPicker label="Company" name="companyId" required options={activeCompanies.map(company => ({ id: company.id, label: company.name }))} />
           <label>Supervisor name<input name="supervisorName" required maxLength={160} /></label>
           <label>Supervisor email<input name="supervisorEmail" type="email" required maxLength={254} /></label>
           <label>Internship role or department<input name="internshipRole" required maxLength={160} /></label>
@@ -326,15 +352,22 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     <div className="placement-queue-filters" role="group" aria-label="Placement queue">
       {[['action','To review or complete'],['completed','No action needed'],['history','Placement history']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
-        {label} <span>{error ? '—' : queueRows.filter(row => value === 'action' ? row.needsAction : value === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>
+        {label} {value !== 'history' && <span>{error ? '—' : queueRows.filter(row => value === 'action' ? row.needsAction : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>}
       </button>)}
     </div>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}
-    <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous placement decisions, grouped by student.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
+    <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous decisions, grouped by student on each page.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
+    {queueFilter === 'history' && (historyCursors.length > 1 || currentHistory?.nextCursor) && <nav className="portal-record-pagination" aria-label="Placement history pages">
+      <button type="button" className="portal-secondary" disabled={historyCursors.length <= 1}
+        onClick={() => setHistoryPaging({ scope: historyScope, cursors: historyCursors.slice(0, -1) })}>Previous</button>
+      <span>Page {historyCursors.length}</span>
+      <button type="button" className="portal-secondary" disabled={!currentHistory?.nextCursor}
+        onClick={() => setHistoryPaging({ scope: historyScope, cursors: [...historyCursors, currentHistory.nextCursor] })}>Next</button>
+    </nav>}
     <RecordPagination pagination={queuePage} label="Placement students" />
     <div className="placement-queue-table"><table><thead><tr><th>Student ID</th><th>Student name</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
       {queuePage.items.map(row => <tr key={row.id}><td>{studentIdsByUid.get(row.id) || '—'}</td><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
-    </tbody></table>{!filteredQueue.length && <div className="review-empty">{error ? 'Placement records could not load. Use Refresh placements to try again.' : reviewSearch ? 'No students match this search.' : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
+    </tbody></table>{!filteredQueue.length && <div className="review-empty">{error ? 'Placement records could not load. Use Refresh placements to try again.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
     {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} onCancel={() => setSelectedQueueStudent(null)}>
       <header><div><h2>{selectedQueue.name}</h2><p>Placement steps and decisions</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
       <div className="placement-task-overview"><strong>Next: {selectedQueue.current.step}</strong><ul>{selectedQueue.tasks.filter(task=>task.needsAction).map(task=><li key={task.stage+task.record.id}>{task.step}</li>)}</ul></div>
@@ -350,22 +383,15 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <p><b>Address:</b> {item.companyAddress || '—'}<br /><b>Supervisor:</b> {item.supervisorName || '—'} ({item.supervisorEmail || '—'})<br /><b>Schedule:</b> {item.startDate || '—'} to {item.endDate || '—'} · {item.workArrangement || '—'}</p>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
       {item.status === 'pending_review' && <>
-        <label style={{ display: 'block', margin: '12px 0 8px', fontWeight: 700 }}>
-          Official company assignment
-          <select aria-label={`Official company assignment for ${item.studentName || item.studentId}`} value={companySelections[item.id] || ''}
-            onChange={event => setCompanySelections(previous => ({ ...previous, [item.id]: event.target.value }))}
-            style={{ display: 'block', width: '100%', maxWidth: 560, marginTop: 6, padding: '10px 12px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff' }}>
-            <option value="">Select an active directory company</option>
-            {companies.filter(company => company.active).map(company => {
-              const full = company.availableSlots === 0 && company.id !== item.companyId;
-              const unavailable = company.capacity === null;
-              const slotLabel = unavailable ? 'capacity not configured' : `${company.availableSlots} slot${company.availableSlots === 1 ? '' : 's'} available`;
-              return <option key={company.id} value={company.id} disabled={full || unavailable}>
-                {company.name} · {unavailable ? slotLabel : full ? 'at capacity' : slotLabel}
-              </option>;
-            })}
-          </select>
-        </label>
+        <CoordinatorRecordPicker label={`Official company assignment for ${item.studentName || item.studentId}`}
+          value={companySelections[item.id] || ''}
+          onChange={companyId => setCompanySelections(previous => ({ ...previous, [item.id]: companyId }))}
+          options={companies.filter(company => company.active).map(company => {
+            const full = company.availableSlots === 0 && company.id !== item.companyId;
+            const unavailable = company.capacity === null;
+            const slots = unavailable ? 'slot limit not set' : full ? 'at capacity' : `${company.availableSlots} available`;
+            return { id: company.id, label: `${company.name} · ${slots}`, disabled: full || unavailable };
+          })} />
         <div className="review-decision"><label>Feedback for this student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>Approve</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Reject</button></div></div>
       </>}
     </article>)}
@@ -438,8 +464,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </section>
     <section hidden={reviewStage !== 'history'}>
     <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
-    <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots for this section.</p>
-    {historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
+    {!currentHistory && <p role="status">Loading placement history…</p>}
+    {currentHistory?.error && <p role="alert">{currentHistory.error}</p>}
+    <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots on this history page.</p>
+    {currentHistory?.items && historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
     <RecordPagination pagination={historyPage} label="Placement history" />
     {historyPage.items.map(item => {
       const beforeName = item.before?.companyName || 'No previous approved placement';

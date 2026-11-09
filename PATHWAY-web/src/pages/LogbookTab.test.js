@@ -26,7 +26,7 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   const view = render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
   const table = await screen.findByRole('table', { name: 'Students in QA Section' });
   expect(within(table).getByRole('columnheader', { name: 'Journals' })).toBeVisible();
-  fireEvent.click(within(table).getByRole('button', { name: 'View attendance for Journey QA' }));
+  fireEvent.click(await within(table).findByRole('button', { name: 'View attendance for Journey QA' }));
   const drawer = await screen.findByRole('dialog', { name: 'Records for Journey QA' });
   expect(within(drawer).getByRole('button', { name: 'Export student records (Excel)' })).toBeEnabled();
   fireEvent.click(within(drawer).getByRole('button', { name: 'Compare Form 48' }));
@@ -57,6 +57,7 @@ test('a pending journal can be rejected inside the records drawer', async () => 
   fireEvent.click(await screen.findByRole('button', { name: 'View journal for Sample Student' }));
   const drawer = await screen.findByRole('dialog', { name: 'Records for Sample Student' });
   fireEvent.click(await within(drawer).findByRole('button', { name: 'Reject Entry' }));
+  expect(getDocs.mock.calls.some(([request]) => request?.path === 'users/student/logbook' && request.constraints.some(item => item.limit === 26))).toBe(true);
   const confirm = within(drawer).getByRole('alertdialog');
   fireEvent.click(within(confirm).getByRole('button', { name: 'Reject entry' }));
   expect(await within(drawer).findByText('Changes requested')).toBeVisible();
@@ -109,4 +110,30 @@ test.each([1000, 10000])('attendance can find an older record among %i records w
   fireEvent.change(drawer.getByLabelText('Attendance date'), { target: { value: all.at(-1).date } });
   expect(await drawer.findByText(all.at(-1).date)).toBeVisible();
   expect(drawer.getAllByRole('row')).toHaveLength(2);
+});
+
+test('the roster pages in Firestore and can find an exact ID beyond the first page', async () => {
+  const students = Array.from({ length: 10000 }, (_, index) => ({
+    id: 'student-' + index, firstName: 'Student ' + String(index).padStart(5, '0'),
+    lastName: 'Test', idNumber: String(26000000 + index),
+  }));
+  getDocs.mockReset().mockImplementation(request => {
+    const options = request.constraints;
+    const base = request.path.constraints;
+    const id = base.find(item => item.field === 'idNumber')?.value;
+    const cursor = options.find(item => item.cursor)?.cursor.id;
+    const maximum = options.find(item => item.limit).limit;
+    const results = id ? students.filter(student => student.idNumber === id) : students;
+    const start = cursor ? results.findIndex(student => student.id === cursor) + 1 : 0;
+    return Promise.resolve(snapshot(results.slice(start, start + maximum)));
+  });
+  render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
+  expect(await screen.findByText('26000000')).toBeVisible();
+  expect(screen.queryByText('26009999')).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Students pagination' })).getByRole('button', { name: 'Next' }));
+  expect(await screen.findByText('26000025')).toBeVisible();
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search students' }), { target: { value: '26009999' } });
+  expect(await screen.findByText('26009999')).toBeVisible();
+  expect(screen.queryByText('26000025')).not.toBeInTheDocument();
+  expect(getDocs.mock.calls.every(([request]) => request.constraints.some(item => item.limit === 26))).toBe(true);
 });

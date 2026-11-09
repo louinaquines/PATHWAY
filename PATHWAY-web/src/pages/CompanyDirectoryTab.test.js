@@ -65,15 +65,25 @@ test('admin directory pages companies and searches the complete directory', asyn
 });
 
 test('coordinator directory pages rows, searches later records and retains edit settings', async () => {
-  adminRequest.mockResolvedValue({companies:Array.from({length:30},(_,i)=>({id:String(i),name:'Partner '+String(i+1).padStart(2,'0'),address:'Office address',industry:'Education',active:true,capacity:5,occupiedSlots:2,availableSlots:3,geofence:{enabled:true,latitude:10,longitude:123,radiusMeters:150}}))});
+  const companies = Array.from({ length: 30 }, (_, index) => ({
+    id: String(index), name: 'Partner ' + String(index + 1).padStart(2, '0'), address: 'Office address',
+    industry: 'Education', active: true, capacity: 5, occupiedSlots: 2, availableSlots: 3,
+    geofence: { enabled: true, latitude: 10, longitude: 123, radiusMeters: 150 },
+  }));
+  adminRequest.mockImplementation(async url => {
+    const params = new URLSearchParams(url.split('?')[1]);
+    if (params.get('search')) return { companies: companies.filter(company => company.name === params.get('search')) };
+    if (params.get('cursor')) return { companies: companies.slice(25) };
+    return { companies: companies.slice(0, 25), nextCursor: '24' };
+  });
   render(<CompanyDirectoryTab readOnly={false} />);
   expect(await screen.findByText('Partner 01')).toBeInTheDocument();
   expect(screen.queryByText('Partner 30')).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox',{name:'Search companies'}),{target:{value:'Partner 30'}});
-  expect(screen.getByText('Partner 30')).toBeInTheDocument();
+  expect(await screen.findByText('Partner 30')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button',{name:'Edit Partner 30'}));
   expect(screen.getByLabelText('Company name')).toHaveValue('Partner 30');
   expect(screen.getByLabelText('Require location for attendance')).toBeChecked();
   expect(screen.getByLabelText('Latitude')).toHaveValue(10);
-  expect(adminRequest).toHaveBeenCalledTimes(1);
+  expect(adminRequest).toHaveBeenCalledWith('/coordinator/company-directory?page=true&search=Partner+30&availability=all');
 });

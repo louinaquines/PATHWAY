@@ -55,11 +55,19 @@ export default function PlacementCompanies({ companies, students, sectionName })
               <div><dt>Capacity (all sections)</dt><dd>{Number.isSafeInteger(company.capacity) ? `${company.occupiedSlots ?? 0} / ${company.capacity} occupied · ${company.availableSlots ?? 0} available` : 'Not configured'}</dd></div>
             </dl>
           </div>
-          <div className="placement-assigned-students">
-            <div className="placement-students-heading"><h4>Assigned students</h4><span>{company.students.length}</span></div>
-            {!company.students.length ? <p className="placement-students-empty">No students from this section are assigned here.</p> : <ul>{[...company.students].sort(compareStudents).map(student => <li key={student.id}><span className="placement-student-avatar">{studentName(student).slice(0, 1).toUpperCase()}</span><div><strong>{studentName(student)}</strong><p>{student.idNumber || 'ID not provided'} · {student.internshipRole || 'Role not specified'}</p>{student.supervisorName && <p>Supervisor: {student.supervisorName}</p>}</div></li>)}</ul>}
-          </div>
+          <AssignedStudents students={company.students} companyName={company.name} />
         </article>)}
       </div>}
   </section>;
+}
+
+function AssignedStudents({ students, companyName }) {
+  const page = useRecordPage([...students].sort(compareStudents), companyName, 10);
+  return (
+    <div className="placement-assigned-students">
+    <div className="placement-students-heading"><h4>Assigned students</h4><span>{students.length}</span></div>
+    {!students.length ? <p className="placement-students-empty">No students from this section are assigned here.</p> : <ul>{page.items.map(student => <li key={student.id}><span className="placement-student-avatar">{studentName(student).slice(0, 1).toUpperCase()}</span><div><strong>{studentName(student)}</strong><p>{student.idNumber || 'ID not provided'} · {student.internshipRole || 'Role not specified'}</p>{student.supervisorName && <p>Supervisor: {student.supervisorName}</p>}</div></li>)}</ul>}
+    <RecordPagination pagination={page} label={companyName + ' assigned students'} />
+  </div>
+  );
 }

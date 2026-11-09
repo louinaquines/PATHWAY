@@ -1,6 +1,5 @@
-import { compareStudents } from '../coordinatorStudentSort';
+import { readMatchingPortalPage, readPortalPage } from '../portalRecordPages';
 import { PortalFormDialog } from '../components/PortalStates';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -20,8 +19,8 @@ import CoordinatorOverview from './CoordinatorOverview';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
-import SubmissionNotifications from '../components/SubmissionNotifications';
-import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
+import SubmissionNotifications, { receivedRequirements } from '../components/SubmissionNotifications';
+import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
@@ -64,6 +63,10 @@ export default function CoordinatorDashboard() {
   const [selectedSection, setSelectedSection] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [reviewFilter, setReviewFilter] = useState('all');
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [reviewPaging, setReviewPaging] = useState(null);
+  const [reviewResult, setReviewResult] = useState(null);
+  const [reviewRetry, setReviewRetry] = useState(0);
   const { page } = useParams();
   const location = useLocation();
   const overviewView = selectedSection && location.state?.sectionId === selectedSection.id ? location.state.view : undefined;
@@ -97,6 +100,8 @@ export default function CoordinatorDashboard() {
   const [rosterBusy, setRosterBusy] = useState(false);
   const attendanceNavigation = useRef(0);
   const sectionLoad = useRef(0);
+  const requirementsActive = activeTab === 'requirements';
+  const needsSectionRoster = ['overview', 'requirements', 'profile'].includes(activeTab);
   useEffect(() => () => { attendanceNavigation.current++; }, [activeTab, coordinatorId]);
 
   const openAttendanceRisk = async ({ sectionId, studentId }) => {
@@ -191,30 +196,39 @@ export default function CoordinatorDashboard() {
       setSelectedStudent(null);
     }
     setError('');
+    if (!needsSectionRoster) return;
     try {
       const [studentSnap, reqSnap] = await Promise.all([
-        getDocs(query(collection(db, 'users'),
+        requirementsActive ? Promise.resolve(null) : getDocs(query(collection(db, 'users'),
           where('role', '==', 'student'),
           where('department', '==', section.department),
           where('sectionId', '==', section.id))),
         getDocs(collection(db, 'sections', section.id, 'requirements'))
       ]);
       if (request !== sectionLoad.current || !isCurrent()) return;
-      const nextStudents = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setStudents(nextStudents);
-      if (silent) setSelectedStudent(previous => previous ? nextStudents.find(item => item.id === previous.id) || null : null);
+      if (studentSnap) {
+        const nextStudents = studentSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setStudents(nextStudents);
+        if (silent) setSelectedStudent(previous => previous ? nextStudents.find(item => item.id === previous.id) || null : null);
+      }
       const reqs = reqSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       reqs.sort((a, b) => {
         return REQUIREMENT_CATEGORIES.indexOf(requirementCategory(a.category))
           - REQUIREMENT_CATEGORIES.indexOf(requirementCategory(b.category));
       });
       setSectionRequirements(reqs);
-      setLoadedSectionId(section.id);
+      setLoadedSectionId(section.id + (requirementsActive ? ':requirements' : ':roster'));
     } catch (e) {
       console.error(e);
       if (request === sectionLoad.current) setError('We could not load this section. Please try again.');
     }
   };
+
+  useEffect(() => {
+    if (needsSectionRoster && selectedSection && loadedSectionId !== selectedSection.id + (requirementsActive ? ':requirements' : ':roster')) {
+      fetchStudents(selectedSection, { silent: true });
+    }
+  }, [needsSectionRoster, requirementsActive]);
 
   usePortalAutoRefresh(async options => {
     await fetchInitialData(options);
@@ -231,17 +245,18 @@ export default function CoordinatorDashboard() {
       });
 
       if (request !== sectionLoad.current) return;
-      const updated = students.map(s => {
+      const updateStudent = s => {
         if (s.id !== studentId) return s;
         const reqs = { ...s.requirements };
         reqs[reqId] = { ...reqs[reqId], status, reviewedAt: new Date().toISOString(), rejectionReason: reason };
         const allPreApproved = PRE_OJT_IDS.every(id => reqs[id]?.status === 'approved');
         return { ...s, requirements: reqs, requirementsStatus: allPreApproved ? 'approved' : s.requirementsStatus };
-      });
-      setStudents(updated);
-
-      const student = updated.find(s => s.id === studentId);
-      setSelectedStudent(student);
+      };
+      setReviewResult(previous => previous?.page ? {
+        ...previous,
+        page: { ...previous.page, records: previous.page.records.map(updateStudent) },
+      } : previous);
+      setSelectedStudent(previous => previous ? updateStudent(previous) : previous);
       return true;
 
     } catch (e) {
@@ -275,26 +290,49 @@ export default function CoordinatorDashboard() {
     navigate('/login');
   };
 
-  const pendingCount = students.filter(s => s.requirementsStatus === 'pending').length;
+  const pendingCount = requirementsActive ? 0 : students.filter(s => s.requirementsStatus === 'pending').length;
   const needsReview = student => sectionRequirements.some(requirement => student.requirements?.[requirement.id]?.status === 'submitted');
+  const needsChanges = student => sectionRequirements.some(requirement => student.requirements?.[requirement.id]?.status === 'rejected');
   const isComplete = student => requirementProgress(student.requirements, sectionRequirements).percentage === 100;
   const reviewQueue = students.filter(needsReview);
-  const firstReviewId = activeTab === 'requirements' ? reviewQueue[0]?.id : undefined;
   const selectedProgress = selectedStudent ? requirementProgress(selectedStudent.requirements, sectionRequirements) : null;
-  useEffect(() => {
-    if (!firstReviewId) return;
-    setSelectedStudent(current => current || students.find(student => student.id === firstReviewId) || null);
-  }, [firstReviewId, students]);
-  const filteredStudents = students.filter(student => matchesCoordinatorSearch(
-    searchQuery,
-    student.firstName,
-    student.lastName,
-    student.idNumber,
-    selectedSection?.name,
-  ));
+  const reviewScope = (selectedSection?.id || '') + ':' + reviewFilter + ':' + reviewSearch + ':' + reviewRetry;
+  const reviewCursors = reviewPaging?.scope === reviewScope ? reviewPaging.cursors : [null];
+  const reviewCursor = reviewCursors.at(-1);
+  const currentReview = reviewResult?.scope === reviewScope && reviewResult.cursor === reviewCursor ? reviewResult : null;
+  const visibleReviewStudents = currentReview?.page?.records || [];
+  const reviewReady = requirementsActive && selectedSection && loadedSectionId === selectedSection.id + ':requirements';
 
-  const visibleReviewStudents = filteredStudents.filter(student => reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : isComplete(student)));
-  const reviewPage = useRecordPage(visibleReviewStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + reviewFilter);
+  useEffect(() => {
+    const timer = setTimeout(() => setReviewSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!reviewReady) return;
+    let active = true;
+    const exactId = /^\d{5,24}$/.test(reviewSearch);
+    const constraints = [
+      where('role', '==', 'student'),
+      where('department', '==', selectedSection.department),
+      where('sectionId', '==', selectedSection.id),
+    ];
+    const base = query(collection(db, 'users'), ...constraints, ...(exactId
+      ? [where('idNumber', '==', reviewSearch)]
+      : [orderBy('firstName'), orderBy('lastName')]));
+    const request = reviewFilter !== 'all' || (reviewSearch && !exactId)
+      ? readMatchingPortalPage(base, reviewCursor, 25, student => (
+        matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
+        && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
+      ))
+      : readPortalPage(base, reviewCursor, 25);
+    request.then(page => {
+      if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
+    }).catch(() => {
+      if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, error: 'Could not load requirement students.' });
+    });
+    return () => { active = false; };
+  }, [reviewReady, reviewScope, reviewCursor, sectionRequirements]);
 
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
@@ -435,7 +473,7 @@ export default function CoordinatorDashboard() {
           )}
         </header>
 
-        {error && !loading && <PortalError message={error} onRetry={() => activeTab === 'overview' && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
+        {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
           <PageSkeleton label="Loading coordinator data" variant="three-column" />
@@ -450,7 +488,7 @@ export default function CoordinatorDashboard() {
           </div>
         ) : (
           <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
-            {activeTab === 'overview' && (selectedSection && loadedSectionId !== selectedSection.id
+            {activeTab === 'overview' && (selectedSection && loadedSectionId !== selectedSection.id + ':roster'
               ? !error && <PageSkeleton label="Loading section overview" />
               : <CoordinatorOverview key={selectedSection?.id} section={selectedSection} students={students}
                   requirementsCount={reviewQueue.length} onOpen={(tab, view, pendingStudentIds) => navigate('/coordinator/' + tab, {
@@ -461,7 +499,7 @@ export default function CoordinatorDashboard() {
                 {/* Column 2: Students */}
                 <div className="requirements-students" style={s.col2}>
                   <div style={s.colHeader}>
-                    Students <span className="requirements-count">{filteredStudents.length}</span>
+                    Students
                     <select aria-label="Current section" className="requirements-queue-section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
                       {sections.length === 0 && <option value="">No sections assigned to you</option>}
                       {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
@@ -469,18 +507,27 @@ export default function CoordinatorDashboard() {
                   </div>
                   <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
                   <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">
-                    {[['review', 'Needs review'], ['all', 'All'], ['complete', 'Complete']].map(([value, label]) => (
+                    {[['review', 'Awaiting review'], ['revision', 'Changes requested'], ['all', 'All students'], ['complete', 'Complete']].map(([value, label]) => (
                       <button type="button" key={value} className="portal-secondary" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>
                     ))}
                   </div>
                   {!selectedSection && (
                     <div style={s.empty}>Choose a section in the top bar.</div>
                   )}
-                  {selectedSection && visibleReviewStudents.length === 0 && (
-                    <div style={s.empty}>{searchQuery || reviewFilter !== 'all' ? 'No students match this view.' : 'No students enrolled in this section.'}</div>
+                  {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
+                    <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
                   )}
-                  <RecordPagination pagination={reviewPage} label="Requirement students" />
-                  {reviewPage.items.map(student => {
+                  {selectedSection && !currentReview && <p role="status">Loading students…</p>}
+                  {currentReview?.error && <p role="alert">{currentReview.error} <button type="button" className="portal-secondary"
+                    onClick={() => setReviewRetry(value => value + 1)}>Retry</button></p>}
+                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
+                    <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
+                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })}>Previous</button>
+                    <span>Page {reviewCursors.length}</span>
+                    <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}
+                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })}>Next</button>
+                  </nav>}
+                  {visibleReviewStudents.map(student => {
                     const progress = requirementProgress(student.requirements, sectionRequirements);
                     return (
                     <button
@@ -518,7 +565,7 @@ export default function CoordinatorDashboard() {
                     <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Review student documents'}
                     <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
                     </div>
-                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} onOpen={setSelectedStudent} />
+                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
                   </div>
                   {selectedProgress?.total > 0 && <div className="coordinator-review-progress">
                     <progress aria-label="Requirements approved" value={selectedProgress.approved} max={selectedProgress.total} />
@@ -669,7 +716,7 @@ export default function CoordinatorDashboard() {
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
             </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} students={students} />}
+            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}

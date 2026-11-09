@@ -31,6 +31,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [progressFilter, setProgressFilter] = useState('all');
   const [exceptionDate, setExceptionDate] = useState('');
   const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
   const [saving, setSaving] = useState(false);
@@ -108,9 +109,14 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     student.name,
     student.idNumber,
     student.section,
+  ) && (
+    progressFilter === 'all'
+    || (progressFilter === 'risk' && ['High', 'Medium'].includes(student.riskTier))
+    || (progressFilter === 'complete' && student.progressStatus === 'Completed')
+    || (progressFilter === 'unavailable' && student.attendanceRate == null)
   ));
 
-  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery);
+  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + progressFilter);
   if (loading) {
     return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
   }
@@ -171,6 +177,12 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             <p style={s.sub}>{data?.students?.length || 0} intern(s) loaded in this section. Search covers this loaded section only. As of {data?.today || 'unavailable'}.</p>
           </div>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
+          <label>Progress filter <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
+            <option value="all">All students</option>
+            <option value="risk">At risk</option>
+            <option value="complete">Target met</option>
+            <option value="unavailable">Attendance unavailable</option>
+          </select></label>
         </div>
 
         <RecordPagination pagination={recordsPage} label="Analytics students" />
@@ -238,7 +250,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               {filteredStudents.length === 0 && (
                 <tr>
                   <td colSpan={selectedSection?.id ? 6 : 7} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
-                    {searchQuery ? 'No matching students. Try another name or ID.' : 'No student progress records found for this cohort.'}
+                    {searchQuery || progressFilter !== 'all' ? 'No students match this search or filter.' : 'No student progress records found for this cohort.'}
                   </td>
                 </tr>
               )}

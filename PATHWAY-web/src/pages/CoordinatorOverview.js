@@ -72,7 +72,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     ['clearance', 'ready', 'Clear students', summary.clearanceCount, 'students'],
   ];
   return <section className="coordinator-overview" aria-label="Section overview">
-    <SectionCharts students={students} section={section} />
+    <SectionCharts students={students} section={section}>
     <section className="coordinator-queue" aria-labelledby="overview-attention-title">
       <div className="coordinator-overview-heading">
         <h2 id="overview-attention-title">Needs attention</h2>
@@ -92,10 +92,11 @@ export default function CoordinatorOverview({ section, students, requirementsCou
         )}
       </div>
     </section>
+    </SectionCharts>
   </section>;
 }
 
-function SectionCharts({ students, section }) {
+function SectionCharts({ students, section, children }) {
   const total = students.length;
   const { counts, missingTargets } = hoursProgressDistribution(students, section.hoursRequired);
   const milestones = [
@@ -104,9 +105,19 @@ function SectionCharts({ students, section }) {
     ['Required hours met', counts[3]],
     ['Cleared', students.filter(student => student.clearanceStatus === 'cleared').length],
   ];
-  const maxCount = Math.max(1, ...counts);
+  const tracked = total - missingTargets;
+  const colors = ['#dce6f0', '#9cc9ef', '#528fd0', '#223752'];
+  let start = 0;
+  const segments = counts.flatMap((count, index) => {
+    if (!count) return [];
+    const end = start + count;
+    const segment = `${colors[index]} ${100 * start / tracked}% ${100 * end / tracked}%`;
+    start = end;
+    return [segment];
+  });
   const labels = ['0%', 'Above 0%, below 50%', '50% to below 100%', '100%+'];
-  return <>
+  return <div className="coordinator-dashboard-grid">
+    <div className="coordinator-dashboard-main">
     <dl className="coordinator-metrics" aria-label="Section totals">
       {[
         ['Students in section', total, 'users', 'Section roster'],
@@ -118,7 +129,27 @@ function SectionCharts({ students, section }) {
         <dd className="coordinator-metric-detail">{detail}</dd>
       </div>)}
     </dl>
+    {children}
+    </div>
     <div className="coordinator-chart-grid">
+    <section className="coordinator-chart" aria-labelledby="section-hours-title">
+      <header><h2 id="section-hours-title">How close students are to their required hours</h2><span className="coordinator-chart-unit">Students</span></header>
+      <p>Students grouped by how much of their own hours target they’ve completed.</p>
+      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'Required internship hours haven’t been set for this section.' : 'No students in this section yet.'}</p> :
+        <>
+          <div className="coordinator-hours-donut" aria-hidden="true" style={{ background: 'conic-gradient(' + segments.join(', ') + ')' }}>
+            <div><strong>{tracked}</strong><span>Students with a target</span></div>
+          </div>
+          <ul className="coordinator-hours-chart">
+            {counts.map((count, index) => <li key={labels[index]}>
+              <span className="coordinator-hours-swatch" aria-hidden="true" style={{ background: colors[index] }} />
+              <strong>{count}<span className="sr-only"> {count === 1 ? 'student' : 'students'} at</span></strong>
+              <span>{' '}{labels[index]}</span>
+            </li>)}
+          </ul>
+        </>}
+      {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
+    </section>
     <section className="coordinator-chart" aria-labelledby="section-milestones-title">
       <header>
         <h2 id="section-milestones-title">Student progress by step</h2>
@@ -134,21 +165,6 @@ function SectionCharts({ students, section }) {
           </li>)}
         </ul>}
     </section>
-    <section className="coordinator-chart" aria-labelledby="section-hours-title">
-      <header><h2 id="section-hours-title">How close students are to their required hours</h2><span className="coordinator-chart-unit">Students</span></header>
-      <p>Students grouped by how much of their own hours target they’ve completed.</p>
-      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'Required internship hours haven’t been set for this section.' : 'No students in this section yet.'}</p> :
-        <ul className="coordinator-hours-chart">
-          {counts.map((count, index) => <li key={labels[index]}>
-            <div className="coordinator-hours-track">
-              <div className="coordinator-hours-column" style={{ height: (count / maxCount * 100) + '%' }} aria-hidden="true" />
-              <strong style={{ bottom: (count / maxCount * 100) + '%' }}>{count}<span className="sr-only"> {count === 1 ? 'student' : 'students'} at</span></strong>
-            </div>
-            <span>{' '}{labels[index]}</span>
-          </li>)}
-        </ul>}
-      {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
-    </section>
     </div>
-  </>;
+  </div>;
 }

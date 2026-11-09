@@ -1,8 +1,7 @@
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import AdminCompanyDirectory from '../components/AdminCompanyDirectory';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
 import './CompanyDirectoryTab.css';
@@ -15,6 +14,19 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState('');
   const [search, setSearch] = useState('');
+  const [availability, setAvailability] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [paging, setPaging] = useState(null);
+  const [nextCursor, setNextCursor] = useState(null);
+  const loadVersion = useRef(0);
+  const scope = searchTerm + ':' + availability;
+  const cursors = paging?.scope === scope ? paging.cursors : [null];
+  const cursor = cursors.at(-1);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(search.trim().slice(0, 150)), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,32 +44,29 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   };
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
+    const version = ++loadVersion.current;
     if (!silent) setLoading(true);
     setError('');
     setLoadFailed(false);
     try {
-      const result = await adminRequest(readOnly ? '/admin/companies' : '/coordinator/company-directory');
-      if (!isRefreshCurrent()) return;
+      const params = new URLSearchParams({ page: 'true', search: searchTerm, availability });
+      if (cursor) params.set('cursor', cursor);
+      const result = await adminRequest(readOnly ? '/admin/companies' : '/coordinator/company-directory?' + params);
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       setCompanies(result.companies || []);
+      setNextCursor(result.nextCursor || null);
 
     } catch (loadError) {
-      if (!isRefreshCurrent()) return;
+      if (!isRefreshCurrent() || version !== loadVersion.current) return;
       setLoadFailed(!silent);
       setError(loadError.message || 'Could not load the company directory.');
-    } finally { setLoading(false); }
-  }, [readOnly]);
+    } finally { if (version === loadVersion.current) setLoading(false); }
+  }, [readOnly, searchTerm, availability, cursor]);
 
   usePortalAutoRefresh(load, { enabled: !loading && !saving && !previewBusy, scope: String(readOnly), protectInputs: true });
 
   useEffect(() => { load(); }, [load]);
 
-  const filteredCompanies = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return companies.filter(company => !term || [company.name, company.industry, company.address]
-      .some(value => String(value || '').toLowerCase().includes(term)));
-  }, [companies, search]);
-
-  const companyPage = useRecordPage(filteredCompanies, search);
 
   const resetForm = () => { setForm(EMPTY_FORM); setEditingId(''); setFormOpen(false); };
   const editCompany = company => {
@@ -104,7 +113,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     loadFailed={loadFailed} onReload={load} />;
 
   return <div className="company-directory-page" style={styles.page}>
-    <div className="directory-toolbar"><p><strong>{loadFailed ? '—' : companies.length}</strong> companies <span>Capacity includes placements across all sections.</span></p><button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button></div>
+    <div className="directory-toolbar"><p><strong>{loadFailed ? '—' : companies.length}</strong> companies on this page <span>Capacity includes placements across all sections.</span></p><button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button></div>
     {error && !formOpen && <div role="alert" style={styles.error}>{error}</div>}
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
@@ -140,11 +149,22 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
         <div style={styles.listHeader}>
           <label className="directory-search">Search companies<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, industry, or address" aria-label="Search companies" style={styles.input} /></label>
+          <label>Availability <select value={availability} onChange={event => setAvailability(event.target.value)}>
+            <option value="all">All companies</option>
+            <option value="active">Active companies</option>
+            <option value="slots">Has available slots</option>
+          </select></label>
           <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
         </div>
-        <RecordPagination pagination={companyPage} label="Partner companies" />
-        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : filteredCompanies.length === 0 ? <PortalEmpty title={companies.length ? 'No matching companies.' : 'No companies have been added yet.'} description={companies.length ? 'Try another company name, industry, or address.' : 'Add a company to make it available for placements.'} /> :
-          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companyPage.items.map(company => {
+        {(cursors.length > 1 || nextCursor) && <nav className="portal-record-pagination" aria-label="Partner companies pagination">
+          <button type="button" className="portal-secondary" disabled={loading || cursors.length === 1}
+            onClick={() => setPaging({ scope, cursors: cursors.slice(0, -1) })}>Previous</button>
+          <span>Page {cursors.length}</span>
+          <button type="button" className="portal-secondary" disabled={loading || !nextCursor}
+            onClick={() => setPaging({ scope, cursors: [...cursors, nextCursor] })}>Next</button>
+        </nav>}
+        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : companies.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} /> :
+          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companies.map(company => {
             const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
             return <tr key={company.id}>
               <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>

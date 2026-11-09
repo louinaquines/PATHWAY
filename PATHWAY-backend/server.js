@@ -950,35 +950,8 @@ app.get('/coordinator/companies', requireStaff, async (req, res) => {
   }
 });
 
-app.get('/coordinator/placement-history', requireStaff, async (req, res) => {
-  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
-  if (!allowRate(req, res, { limit: 60, windowMs: 60 * 60_000, key: request => `placement-history:${request.staff.uid}` })) return;
-  const sectionId = req.query.sectionId;
-  if (typeof sectionId !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(sectionId)) {
-    return res.status(400).json({ error: 'Choose a valid section.' });
-  }
-  try {
-    const [coordinatorSnapshot, sectionSnapshot] = await Promise.all([
-      adminDb.collection('users').doc(req.staff.uid).get(),
-      adminDb.collection('sections').doc(sectionId).get(),
-    ]);
-    if (!coordinatorSnapshot.exists || coordinatorSnapshot.data().role !== 'coordinator'
-      || !sectionSnapshot.exists || sectionSnapshot.data().coordinatorId !== req.staff.uid
-      || sectionSnapshot.data().department !== coordinatorSnapshot.data().department) {
-      return res.status(403).json({ error: 'You can only view placement history for your assigned sections.' });
-    }
-    const snapshot = await adminDb.collection('placementHistory')
-      .where('sectionId', '==', sectionId)
-      .where('department', '==', coordinatorSnapshot.data().department)
-      .get();
-    const items = snapshot.docs.map(item => ({ id: item.id, ...item.data() }))
-      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-    return res.json({ history: items });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Could not load placement history.' });
-  }
-});
+app.get('/coordinator/placement-history', requireStaff,
+  require('./coordinatorPlacementHistory').createPlacementHistoryHandler({ adminDb, allowRate }));
 
 app.post('/coordinator/endorsements/:proposalId/draft', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
@@ -2352,6 +2325,9 @@ app.get(['/admin/companies', '/coordinator/company-directory'], requireStaff, as
   if ((req.path === '/admin/companies' && req.staff.role !== 'admin')
     || (req.path === '/coordinator/company-directory' && req.staff.role !== 'coordinator')) {
     return res.status(403).json({ error: 'Access denied for this company directory.' });
+  }
+  if (req.path === '/coordinator/company-directory' && req.query.page === 'true') {
+    return require('./coordinatorCompanyPage').readCoordinatorCompanyPage(adminDb, req, res);
   }
   try {
     const [companySnapshot, studentSnapshot] = await Promise.all([

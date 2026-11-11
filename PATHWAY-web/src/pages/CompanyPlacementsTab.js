@@ -316,6 +316,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <div>
       </div>
       <div className="review-actions">
+        <button type="button" className="portal-secondary placement-email-action" onClick={() => setEmailOpen(true)}>
+          <Icon name="mail" size={16} /> Company email
+        </button>
         <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
         {selectedSection && !error && <button type="button" className="portal-primary" disabled={!!busy}
           onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
@@ -499,7 +502,6 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </PortalFormDialog>}
     </div>
     {workspace === 'reviews' && <footer className="placement-list-footer"><span>{queueRows.length} students on this page</span><nav aria-label="Placement students pagination"><button className="portal-secondary" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button className="portal-secondary" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav></footer>}
-    <button type="button" className="portal-secondary" onClick={()=>setEmailOpen(true)}>Company email</button>
     {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyConversations sectionId={selectedSection?.id}/></div></PortalFormDialog>}
     <AlertDialog
       open={Boolean(reviewConfirm)}

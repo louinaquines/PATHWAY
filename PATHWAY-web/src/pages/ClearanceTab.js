@@ -26,6 +26,9 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const ROWS_PER_PAGE = 25;
 
   const load = useCallback(async () => {
     if (!coordinatorId) return;
@@ -74,6 +77,10 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedSection?.id]);
 
   const markCleared = async row => {
     if (!row.ready || row.clearanceStatus === 'cleared') return;
@@ -177,6 +184,14 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
   const needsReqs = rows.filter(row => row.requirements !== 'Approved').length;
   const needsHours = rows.filter(row => row.hours !== 'Complete').length;
   const filteredRows = rows.filter(row => matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / ROWS_PER_PAGE));
+  const visibleRows = filteredRows.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
+  const firstVisibleRow = filteredRows.length ? (currentPage - 1) * ROWS_PER_PAGE + 1 : 0;
+  const lastVisibleRow = Math.min(currentPage * ROWS_PER_PAGE, filteredRows.length);
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(page, pageCount));
+  }, [pageCount]);
 
   return (
     <div style={s.page} className="clearance-page">
@@ -208,7 +223,6 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
       <div className="clearance-records" style={s.card}>
         <div style={s.searchRow}>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" />
-          <span style={s.searchCount}>{filteredRows.length} of {rows.length} record(s)</span>
         </div>
         <div style={s.tableWrap}>
           <table style={s.table}>
@@ -223,7 +237,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map(row => (
+              {visibleRows.map(row => (
                 <tr key={`${row.idNumber}-${row.section}`} style={s.tr}>
                   <td style={s.td}>
                     <div style={s.studentName}>{row.student || 'Unnamed student'}</div>
@@ -274,6 +288,16 @@ export default function ClearanceTab({ coordinatorId, selectedSection }) {
           {!filteredRows.length && (
             <div style={s.empty}>{searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
           )}
+        </div>
+        <div className="clearance-pagination">
+          <span className="clearance-pagination-range">
+            {firstVisibleRow}–{lastVisibleRow} of {filteredRows.length}
+          </span>
+          <div className="clearance-pagination-controls">
+            <button type="button" aria-label="Previous page" disabled={currentPage <= 1} onClick={() => setCurrentPage(page => Math.max(1, page - 1))}>‹</button>
+            <span>Page {currentPage} of {pageCount}</span>
+            <button type="button" aria-label="Next page" disabled={currentPage >= pageCount} onClick={() => setCurrentPage(page => Math.min(pageCount, page + 1))}>›</button>
+          </div>
         </div>
       </div>
     </div>
@@ -411,9 +435,10 @@ const s = {
     verticalAlign: 'middle',
   },
   studentName: {
-    fontWeight: 800,
-    color: '#000000',
+    fontWeight: 500,
+    color: 'inherit',
     fontSize: 14,
+    fontFamily: 'inherit',
   },
   idCode: {
     fontSize: 11,

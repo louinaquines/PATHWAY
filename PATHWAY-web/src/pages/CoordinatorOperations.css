@@ -39,6 +39,11 @@
 .clearance-records { border-color: #e4eaf3 !important; border-radius: 18px !important; box-shadow: none !important; }
 .clearance-records > div:first-child { padding: 18px; margin: 0 !important; border-bottom: 1px solid #edf1f7; flex-wrap: wrap; }
 .clearance-records > div:first-child > span { color: #697991 !important; font-weight: 400 !important; }
+.clearance-records .clearance-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid #edf1f7; color: #697991; font-size: 13px; }
+.clearance-pagination-controls { display: flex; align-items: center; gap: 10px; }
+.clearance-pagination-controls button { width: 36px; min-height: 36px !important; padding: 0 !important; border: 1px solid #dbe3ee; background: white !important; color: #075fc9; font-size: 21px; line-height: 1; }
+.clearance-pagination-controls button:disabled { color: #9aa8ba; background: #f8fafd !important; }
+.clearance-pagination-controls span { white-space: nowrap; }
 .clearance-records th { text-transform: none !important; letter-spacing: normal !important; color: #697991 !important; font-size: 12px !important; font-weight: 500 !important; white-space: nowrap; padding: 16px !important; }
 .clearance-records td { color: #34445c !important; padding: 18px 16px !important; }
 .clearance-records td:first-child > div { color: #152238 !important; font-size: 13px !important; font-weight: 600 !important; }
@@ -48,3 +53,4 @@
 .clearance-records tbody tr:hover { background: #fbfcfe; }
 @media (max-width: 1050px) { .coordinator-messages.has-conversation { grid-template-columns: 260px minmax(0, 1fr) !important; } }
 @media (max-width: 760px) { .coordinator-messages, .evaluation-panel, .clearance-page { padding: 14px !important; } .coordinator-messages.has-conversation { grid-template-columns: 1fr !important; } .evaluation-invitation form > div { flex-wrap: wrap; } .evaluation-invitation form > div > div { flex-basis: 100% !important; min-width: 0 !important; } }
+@media (max-width: 520px) { .clearance-records .clearance-pagination { padding: 10px 12px; font-size: 12px; } .clearance-pagination-controls { gap: 6px; } .clearance-pagination-controls button { width: 32px; min-height: 32px !important; } }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import './PlacementPicker.css';
 import { adminRequest } from '../adminApi';
 export default function PlacementPicker({sectionId,view,queue,availability,label,name,required,onSelect,initialSelection, compact, emptyMessage}){
  const [search,setSearch]=useState('');const [term,setTerm]=useState('');const [cursors,setCursors]=useState([null]);const [data,setData]=useState({});const [selected,setSelected]=useState(initialSelection || null);const [error,setError]=useState('');const [loading,setLoading]=useState(true);
@@ -10,17 +11,26 @@ export default function PlacementPicker({sectionId,view,queue,availability,label
    const itemLabel = item => item.name || [item.firstName, item.lastName].filter(Boolean).join(' ');
    return <div className="placement-search-picker">
      <input type="hidden" name={name} value={selected?.id || ''} />
-     <details>
+     <details onBlur={event => {
+       if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+     }} onKeyDown={event => {
+       if (event.key !== 'Escape' || !event.currentTarget.open) return;
+       event.stopPropagation();
+       event.currentTarget.open = false;
+       event.currentTarget.querySelector('summary').focus();
+     }} onToggle={event => {
+       if (event.currentTarget.open) event.currentTarget.querySelector('input[type="search"]').focus();
+     }}>
        <summary aria-label={label + (selected ? ': ' + itemLabel(selected) : '')}>
          {selected ? itemLabel(selected) : 'Choose ' + label.toLowerCase()}
        </summary>
        <div className="placement-search-options">
-         <input type="search" aria-label={'Search ' + label.toLowerCase()} value={search}
+         <input type="search" aria-label={'Search ' + label.toLowerCase()} placeholder={'Search ' + label.toLowerCase() + '…'} value={search}
            onChange={event => { setSearch(event.target.value); setCursors([null]); }} />
          {loading && <small role="status">Loading…</small>}
          {error && <small role="alert">{error}</small>}
          {!loading && !error && !items.length && <small role="status">{search ? 'No matches.' : emptyMessage}</small>}
-         {!loading && !error && items.map(item => <button key={item.id} type="button" onClick={event => {
+         {!loading && !error && items.map(item => <button className="placement-picker-option" key={item.id} type="button" onClick={event => {
            const picker = event.currentTarget.closest('details');
            setSelected(item);
            onSelect?.(item.id, item);

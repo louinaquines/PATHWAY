@@ -150,3 +150,26 @@
 .accounts-footer { border-top: 1px solid #dce2e9; color: #475569; }
 .accounts-actions { display: flex; align-items: center; gap: 8px; }
 .accounts-footer button.portal-secondary { min-width: 36px; min-height: 36px; padding: 0 8px; }
+.accounts-card .coordinator-compact-table-wrap { max-height: clamp(220px, 55dvh, 720px); overflow: auto; }
+.accounts-card thead { position: sticky; top: 0; z-index: 1; }
+.accounts-card td { height: 54px; padding-block: 8px; }
+.accounts-card th:nth-child(2) { width: 30%; }
+.accounts-card .accounts-name { font-weight: 500; }
+.accounts-row-action.portal-secondary { min-height: 36px; padding: 4px 12px; }
+.accounts-drawer-layout { height: 100%; display: flex; flex-direction: column; }
+.accounts-drawer-layout header, .accounts-drawer-layout footer {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 16px 24px;
+}
+.accounts-drawer-layout header { justify-content: space-between; border-bottom: 1px solid #dce2e9; }
+.accounts-drawer-layout h2 { margin: 0; overflow-wrap: anywhere; }
+.accounts-drawer-layout footer { justify-content: flex-end; border-top: 1px solid #dce2e9; }
+.accounts-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 24px; }
+.accounts-drawer-body dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 20px; }
+.accounts-drawer-body dt { color: #475569; }
+.accounts-drawer-body dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .accounts-workspace { padding: 12px; }
+  .accounts-card table { min-width: 0; }
+  .accounts-card .accounts-extra { display: none; }
+  .accounts-card th, .accounts-card td { padding-inline: 6px; }
+}

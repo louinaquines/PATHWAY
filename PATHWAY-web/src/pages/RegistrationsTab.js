@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import CoordinatorSearch from '../components/CoordinatorSearch';
-import AlertDialog from '../components/AlertDialog';
+import { PortalFormDialog } from '../components/PortalStates';
 import './CoordinatorRecords.css';
 
 const tabs = { pending: 'Awaiting approval', approved: 'Approved', rejected: 'Rejected or inactive' };
 const nameOf = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+
+const usernameOf = student => student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—');
 
 export default function RegistrationsTab({ selectedSection }) {
   const [unassigned, setUnassigned] = useState(false);
@@ -20,6 +22,17 @@ export default function RegistrationsTab({ selectedSection }) {
   const [saving, setSaving] = useState(false);
   const [revision, setRevision] = useState(0);
   const [reject, setReject] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const opener = useRef(null);
+  const workspace = useRef(null);
+  function closeDetails(updated = false) {
+    setSelected(null);
+    setReject(null);
+    requestAnimationFrame(() => {
+      const target = updated ? workspace.current : opener.current;
+      (target?.isConnected ? target : workspace.current)?.focus();
+    });
+  }
   const sectionId = unassigned ? '' : selectedSection?.id;
   const cursor = cursors.at(-1);
   const scope = JSON.stringify([sectionId, tab, term, cursor, revision]);
@@ -61,7 +74,7 @@ export default function RegistrationsTab({ selectedSection }) {
       await adminRequest('/coordinator/registrations/' + encodeURIComponent(student.id) + '/decision', {
         method: 'POST', body: JSON.stringify({ status }),
       });
-      setReject(null);
+      closeDetails(true);
       setRevision(value => value + 1);
     } catch (err) {
       setReject(null);
@@ -73,7 +86,7 @@ export default function RegistrationsTab({ selectedSection }) {
 
   const data = result?.scope === scope ? result : null;
   const page = cursors.length;
-  return <div className="registrations-page accounts-workspace">
+  return <div ref={workspace} tabIndex={-1} className="registrations-page accounts-workspace">
     <div className="registration-tabs" aria-label="Account status">
       {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
         onClick={() => { setTab(key); setCursors(['']); }}>
@@ -87,28 +100,26 @@ export default function RegistrationsTab({ selectedSection }) {
           setUnassigned(event.target.checked); setCursors(['']);
         }} /> Show students without a section</label>
       </div>
-      {actionError && <p role="alert">{actionError}</p>}
       {error ? <p role="alert">{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Try again</button></p>
         : sectionId === undefined ? <p>Select a section to view student accounts.</p>
         : !data ? <p role="status">Loading student accounts…</p>
         : <>
           <div className="coordinator-compact-table-wrap">
             <table className="coordinator-compact-table">
-              <thead><tr>{['Student ID', 'Student name', 'Username', 'Section', 'Account status', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+              <thead><tr>{['Student ID', 'Student name', 'Username', 'Section', 'Account status', 'Actions'].map(label => <th key={label} scope="col" className={["Username", "Section"].includes(label) ? "accounts-extra" : undefined}>{label}</th>)}</tr></thead>
               <tbody>{data.rows.length ? data.rows.map(student => <tr key={student.id}>
                 <td>{student.idNumber || '—'}</td>
-                <td>{nameOf(student) || 'Name unavailable'}
-                  <details><summary>Account details</summary><div>{student.department}</div>
-                    {student.createdAt && <div>Created {new Date(student.createdAt).toLocaleDateString('en-PH')}</div>}
-                  </details>
-                </td>
-                <td>{student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—')}</td>
-                <td>{unassigned ? 'Unassigned' : selectedSection?.name}</td>
+                <td className="accounts-name">{nameOf(student) || 'Name unavailable'}</td>
+                <td className="accounts-extra">{usernameOf(student)}</td>
+                <td className="accounts-extra">{unassigned ? 'Unassigned' : selectedSection?.name}</td>
                 <td>{student.status === 'inactive' ? 'Inactive' : tab === 'rejected' ? 'Rejected' : tabs[tab]}</td>
-                <td>{tab === 'pending' ? <div className="accounts-actions">
-                  <button type="button" className="portal-secondary" disabled={saving} onClick={() => decide(student, 'approved')}>Approve</button>
-                  <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(student)}>Reject</button>
-                </div> : '—'}</td>
+                <td><button type="button" className="portal-secondary accounts-row-action"
+                  aria-label={(tab === 'pending' ? 'Review ' : 'Details for ') + (nameOf(student) || student.idNumber || 'student')}
+                  onClick={event => {
+                    opener.current = event.currentTarget;
+                    setActionError('');
+                    setSelected(student);
+                  }}>{tab === 'pending' ? 'Review' : 'Details'}</button></td>
               </tr>) : <tr><td colSpan={6}>{term ? 'No matching students.' : 'No students in this view.'}</td></tr>}</tbody>
             </table>
           </div>
@@ -122,9 +133,38 @@ export default function RegistrationsTab({ selectedSection }) {
           </nav>
         </>}
     </div>
-    <AlertDialog open={Boolean(reject)} title="Reject this student registration?"
-      description={reject ? nameOf(reject) + ' will remain unable to access the student workflow.' : ''}
-      confirmLabel="Reject registration" busy={saving} onCancel={() => setReject(null)}
-      onConfirm={() => decide(reject, 'rejected')} />
+    {selected && <PortalFormDialog className="admin-create-drawer accounts-drawer" closeOnBackdrop
+      label="Student account details" onCancel={() => {
+        if (saving) return;
+        if (reject) setReject(null);
+        else closeDetails();
+      }}>
+      <div className="accounts-drawer-layout">
+        <header>
+          <h2>{nameOf(selected) || 'Name unavailable'}</h2>
+          <button autoFocus type="button" className="portal-secondary" disabled={saving} onClick={() => closeDetails()}>Close</button>
+        </header>
+        <div className="accounts-drawer-body">
+          <dl>
+            <div><dt>Student ID</dt><dd>{selected.idNumber || '—'}</dd></div>
+            <div><dt>Username</dt><dd>{usernameOf(selected)}</dd></div>
+            <div><dt>Section</dt><dd>{unassigned ? 'Unassigned' : selectedSection?.name}</dd></div>
+            <div><dt>Department</dt><dd>{selected.department || '—'}</dd></div>
+            <div><dt>Account created</dt><dd>{selected.createdAt ? new Date(selected.createdAt).toLocaleDateString('en-PH') : '—'}</dd></div>
+          </dl>
+          {reject && <p role="status">Reject this student registration? The student will remain unable to access the student workflow.</p>}
+          {actionError && <p role="alert">{actionError}</p>}
+        </div>
+        {tab === 'pending' && <footer>
+          {reject ? <>
+            <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(null)}>Cancel rejection</button>
+            <button type="button" className="portal-secondary" disabled={saving} onClick={() => decide(selected, 'rejected')}>Reject registration</button>
+          </> : <>
+            <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(selected)}>Reject</button>
+            <button type="button" className="portal-primary" disabled={saving} onClick={() => decide(selected, 'approved')}>Approve</button>
+          </>}
+        </footer>}
+      </div>
+    </PortalFormDialog>}
   </div>;
 }

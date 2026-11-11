@@ -27,16 +27,29 @@ test('authorized roster preserves section selection and account provisioning', a
   expect(screen.getByRole('textbox', { name: 'First name' })).toHaveValue('');
 });
 
-test('registration approval is preserved and account details show section and username', async () => {
-  const snapshot = { docs: [{ id: 'student-a', data: () => ({ firstName: 'Taylor', lastName: 'Student', idNumber: '24228132', sectionId: 'section-a', department: 'Computer Studies', accountApproved: false }) }] };
-  getDocs.mockResolvedValue(snapshot);
-  adminRequest.mockResolvedValue({});
-  render(<RegistrationsTab department="Computer Studies" selectedSection={{ id: 'section-a', name: 'Section A' }} />);
-  expect(await screen.findByText('Username: uclm-24228132')).toBeInTheDocument();
-  expect(screen.getByText('Section: Section A')).toBeInTheDocument();
-  expect(where).toHaveBeenCalledWith('sectionId', '==', 'section-a');
-  expect(getDocs).toHaveBeenCalledTimes(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-  await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/registrations/student-a/decision', { method: 'POST', body: JSON.stringify({ status: 'approved' }) }));
-  await screen.findByRole('button', { name: /^Approved/ });
+test.each(['approved', 'rejected'])('registration can be %s from the last page', async status => {
+  const student = { id: 'student-a', firstName: 'Taylor', lastName: 'Student', idNumber: '24228132' };
+  let decided = false;
+  adminRequest.mockImplementation(async (url, options) => {
+    if (options?.method === 'POST') { decided = true; return {}; }
+    const params = new URLSearchParams(url.split('?')[1]);
+    if (params.has('view')) return { counts: { pending: decided ? 25 : 26 } };
+    if (params.get('cursor')) return { rows: decided ? [] : [student], total: decided ? 25 : 26 };
+    return { rows: [{ ...student, id: 'first', firstName: 'Alex' }], total: decided ? 25 : 26, nextCursor: decided ? null : 'later' };
+  });
+  render(<RegistrationsTab selectedSection={{ id: 'section-a', name: 'Section A' }} />);
+  await screen.findByText('Page 1 of 2');
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Review Taylor Student' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Section A');
+  expect(screen.getByRole('dialog')).toHaveTextContent('uclm-24228132');
+  if (status === 'rejected') {
+    fireEvent.click(screen.getByRole('button', { name: 'Reject', exact: true }));
+    expect(screen.getByText(/Reject this student registration/)).toBeInTheDocument();
+  }
+  fireEvent.click(screen.getByRole('button', { name: status === 'approved' ? 'Approve' : 'Reject registration' }));
+  await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/registrations/student-a/decision', { method: 'POST', body: JSON.stringify({ status }) }));
+  expect(await screen.findByText('Page 1 of 1')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
 });

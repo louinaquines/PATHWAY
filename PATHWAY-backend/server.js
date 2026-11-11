@@ -2302,7 +2302,23 @@ function parseCompanyPayload(body = {}) {
     || !Number.isSafeInteger(capacity) || capacity < 1 || typeof active !== 'boolean') {
     throw Object.assign(new Error('Enter a company name, valid contact details, a positive whole-number capacity, and an active status.'), { status: 400 });
   }
+  let placementDefaults;
+  if (body.placementDefaults !== undefined) {
+    const limits = { supervisorName: 160, supervisorEmail: 254, internshipRole: 160, workArrangement: 80, startDate: 10, endDate: 10 };
+    placementDefaults = Object.fromEntries(Object.keys(limits).map(key => [
+      key, typeof body.placementDefaults?.[key] === 'string' ? body.placementDefaults[key].trim() : '',
+    ]));
+    const { supervisorEmail, workArrangement, startDate, endDate } = placementDefaults;
+    if (Object.keys(limits).some(key => placementDefaults[key].length > limits[key])
+      || (supervisorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supervisorEmail))
+      || (workArrangement && !['On-site', 'Remote', 'Hybrid'].includes(workArrangement))
+      || (startDate && !isIsoDate(startDate)) || (endDate && !isIsoDate(endDate))
+      || (startDate && endDate && endDate < startDate)) {
+      throw Object.assign(new Error('Enter valid placement defaults.'), { status: 400 });
+    }
+  }
   return { name, normalizedName: normalizedCompanyName(name), address, industry, email, phone,
+    ...(placementDefaults === undefined ? {} : { placementDefaults }),
     capacity, active, status: active ? 'active' : 'inactive',
     ...(body.geofence === undefined ? {} : { geofence: require('./geofence').parseGeofence(body.geofence) }) };
 }

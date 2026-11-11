@@ -2,7 +2,6 @@ import PlacementPicker from '../components/PlacementPicker';
 import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
 import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
-import { canAssignPlacement } from '../coordinatorOverviewData';
 import { placementStatusLabel, placementStudentQueue } from '../placementStudentQueue';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -160,15 +159,14 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setRecordCursors(previous=>({...previous,[stage]:data.nextCursor||null}));
     }catch(e){setError(e.message||'Could not load older records.');}finally{setRecordsBusy(false);}
   };
-  const pendingStudents = new Set(items.filter(item => item.status === 'pending_review').map(item => item.studentId));
-  const waitingStudents = assignedStudents.filter(student => student.sectionId === selectedSection?.id
-    && canAssignPlacement(student, pendingStudents));
-  const activeCompanies = companies.filter(company => company.active !== false && company.status !== 'inactive');
+  const [assignmentCompany, setAssignmentCompany] = useState(null);
+  useEffect(() => { setAssignmentCompany(null); }, [assignmentOpen, selectedSection?.id]);
 
   const assignPlacement = async event => {
     event.preventDefault();
     if (busy || !selectedSection?.id) return;
     const { studentId, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
+    if (!fields.companyId || !studentId) { setAssignmentError('Choose a company and student.'); return; }
     setBusy('assignment');
     setAssignmentError('');
     try {
@@ -347,20 +345,31 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       onCancel={() => { if (!busy) setAssignmentOpen(false); }}>
       <header><div><h2>Assign placement</h2><p>{selectedSection.name}</p></div></header>
       <form className="placement-detail-body" onSubmit={assignPlacement}>
-        <p>Use Placement Reviews for students with a pending request.</p>
-        {!waitingStudents.length && <p>No students are waiting for a direct assignment in this section.</p>}
-        {!activeCompanies.length && <p>Add an active company in Company Directory before assigning a placement.</p>}
         <fieldset className="placement-assignment-fields" disabled={!!busy}>
-          <PlacementPicker sectionId={selectedSection.id} view="students" queue="waiting" label="Student" name="studentId" required />
-          <PlacementPicker sectionId={selectedSection.id} view="companies" availability="active" label="Company" name="companyId" required />
-          <label>Supervisor name<input name="supervisorName" required maxLength={160} /></label>
-          <label>Supervisor email<input name="supervisorEmail" type="email" required maxLength={254} /></label>
-          <label>Internship role or department<input name="internshipRole" required maxLength={160} /></label>
-          <label>Work arrangement<select name="workArrangement" required defaultValue="">
+          <section className="placement-assignment-section">
+            <h3>Company</h3>
+            <PlacementPicker compact sectionId={selectedSection.id} view="companies" availability="active"
+              label="Company" name="companyId" emptyMessage="No active companies are available."
+              onSelect={(_, company) => setAssignmentCompany(company)} />
+            {assignmentCompany && <small>{assignmentCompany.availableSlots == null
+              ? 'Capacity not set' : assignmentCompany.availableSlots + ' slots available'}</small>}
+          </section>
+          <section className="placement-assignment-section">
+            <h3>Student</h3>
+            <PlacementPicker compact sectionId={selectedSection.id} view="students" queue="waiting"
+              label="Student" name="studentId" emptyMessage="No eligible students in this section." />
+          </section>
+          <h3 className="placement-assignment-section">Placement details</h3>
+          <div className="placement-assignment-details" key={assignmentCompany?.id}>
+          <label>Supervisor name<input name="supervisorName" defaultValue={assignmentCompany?.placementDefaults?.supervisorName ?? ''} required maxLength={160} /></label>
+          <label>Supervisor email<input name="supervisorEmail" defaultValue={assignmentCompany?.placementDefaults?.supervisorEmail ?? ''} type="email" required maxLength={254} /></label>
+          <label>Internship role or department<input name="internshipRole" defaultValue={assignmentCompany?.placementDefaults?.internshipRole ?? ''} required maxLength={160} /></label>
+          <label>Work arrangement<select name="workArrangement" required defaultValue={assignmentCompany?.placementDefaults?.workArrangement ?? ''}>
             <option value="" disabled>Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option>
           </select></label>
-          <label>Start date<input name="startDate" type="date" required /></label>
-          <label>End date<input name="endDate" type="date" required /></label>
+          <label>Start date<input name="startDate" defaultValue={assignmentCompany?.placementDefaults?.startDate ?? ''} type="date" required /></label>
+          <label>End date<input name="endDate" defaultValue={assignmentCompany?.placementDefaults?.endDate ?? ''} type="date" required /></label>
+          </div>
         </fieldset>
         {assignmentError && <p role="alert">{assignmentError}</p>}
         <div className="review-actions">

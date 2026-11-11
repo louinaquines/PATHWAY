@@ -83,7 +83,7 @@ function createPlacementWorkspaceHandler({adminDb,allowRate}){
      const c=d.data();const active=c.active!==false&&c.status!=='inactive';if(term&&!String(c.name||'').toLowerCase().includes(term))continue;if(availability!=='all'&&!active)continue;
      const [occupiedSlots,assignedCount]=await Promise.all([count(adminDb.collection('users').where('role','==','student').where('placementStatus','==','approved').where('companyId','==',d.id)),count(users.where('placementStatus','==','approved').where('companyId','==',d.id))]);
      const capacity=Number.isSafeInteger(c.capacity)&&c.capacity>=0?c.capacity:null;const availableSlots=capacity===null?null:Math.max(0,capacity-occupiedSlots);if(availability==='slots'&&(availableSlots===null||availableSlots<=0))continue;
-     companies.push({id:d.id,name:text(c.name),industry:text(c.industry),address:text(c.address),email:text(c.email),phone:text(c.phone),active,capacity,occupiedSlots,availableSlots,assignedCount});
+     companies.push({id:d.id,name:text(c.name),industry:text(c.industry),address:text(c.address),email:text(c.email),phone:text(c.phone),active,capacity,occupiedSlots,availableSlots,assignedCount,placementDefaults:c.placementDefaults});
     }
     return res.json({companies,nextCursor:page.size>size?encodeCursor(scope,page.docs[size-1].id):null,scanned:Math.min(page.size,size)});
    }

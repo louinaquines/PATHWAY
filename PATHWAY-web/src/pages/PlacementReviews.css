@@ -187,3 +187,10 @@
     grid-column: 1 / -1;
   }
 }
+
+.placement-assignment-section, .placement-assignment-details { grid-column: 1 / -1; }
+.placement-assignment-fields h3 { margin: 0 0 8px; font-size: 16px; }
+.placement-assignment-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.placement-search-picker summary { padding: 12px; border: 1px solid #ccd5df; border-radius: 8px; background: white; cursor: pointer; }
+.placement-search-options { display: grid; gap: 6px; max-height: 240px; overflow: auto; padding: 8px; background: white; }
+.placement-search-options > button { text-align: left; cursor: pointer; }

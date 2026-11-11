@@ -6,7 +6,15 @@ import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
 import './CompanyDirectoryTab.css';
 
-const EMPTY_FORM = { name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
+const PLACEMENT_DEFAULT_FIELDS = [
+  ['supervisorName', 'Supervisor name', 'text'],
+  ['supervisorEmail', 'Supervisor email', 'email'],
+  ['internshipRole', 'Internship role or department', 'text'],
+  ['workArrangement', 'Work arrangement', 'select'],
+  ['startDate', 'Start date', 'date'],
+  ['endDate', 'End date', 'date'],
+];
+const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
 export default function CompanyDirectoryTab({ readOnly = true }) {
   const [formOpen, setFormOpen] = useState(false);
@@ -72,7 +80,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   const editCompany = company => {
     setFormOpen(true);
     setEditingId(company.id);
-    setForm({ name: company.name || '', address: company.address || '', industry: company.industry || '',
+    setForm({ placementDefaults: company.placementDefaults || {}, name: company.name || '', address: company.address || '', industry: company.industry || '',
       email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active,
       geofenceEnabled: company.geofence?.enabled === true, latitude: String(company.geofence?.latitude ?? ''), longitude: String(company.geofence?.longitude ?? ''), radiusMeters: String(company.geofence?.radiusMeters ?? 150) });
     setNotice('');
@@ -130,6 +138,22 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
           <label style={styles.label}>Contact email<input type="email" maxLength={254} value={form.email} onChange={event => setForm(previous => ({ ...previous, email: event.target.value }))} style={styles.input} /></label>
           <label style={styles.label}>Phone<input maxLength={60} value={form.phone} onChange={event => setForm(previous => ({ ...previous, phone: event.target.value }))} style={styles.input} /></label>
         </div>
+        <details>
+          <summary>Placement defaults</summary>
+          {PLACEMENT_DEFAULT_FIELDS.map(([key, label, type]) => {
+            const props = {
+              value: form.placementDefaults[key] || '',
+              onChange: event => {
+                const value = event.target.value;
+                setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, [key]: value } }));
+              },
+              style: styles.input,
+            };
+            return <label key={key} style={styles.label}>{label}{type === 'select'
+              ? <select {...props}><option value="">Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option></select>
+              : <input {...props} type={type} />}</label>;
+          })}
+        </details>
         <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
         {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
         <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>

@@ -23,7 +23,7 @@ test('preview requires explicit use and an independent reviewed save', async () 
   fireEvent.change(screen.getByLabelText('Address'), { target: { value: 'Verified address' } });
   expect(adminRequest.mock.calls.some(([path]) => path === '/coordinator/companies')).toBe(false);
   fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Edited Company' } });
-  fireEvent.click(screen.getByText('Add to directory'));
+  fireEvent.click(screen.getByText('Add company'));
   await waitFor(() => expect(adminRequest.mock.calls.some(([path, options]) => path === '/coordinator/companies' && JSON.parse(options.body).name === 'Edited Company')).toBe(true));
 });
 test('preview failures offer manual entry and do not save', async () => {
@@ -36,7 +36,7 @@ test('preview failures offer manual entry and do not save', async () => {
   fireEvent.change(screen.getByLabelText('Company website'), { target: { value: 'https://example.com' } });
   fireEvent.click(screen.getByText('Preview details'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter company details manually.');
-  fireEvent.click(screen.getByRole('button', { name: '+ Add company' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add company' }));
   expect(screen.getByLabelText('Company name')).toBeEnabled();
   expect(screen.queryByText('Use suggestions in form')).not.toBeInTheDocument();
 });
@@ -44,7 +44,7 @@ test('read-only directory has no import or company mutation controls', async () 
   render(<CompanyDirectoryTab />);
   await screen.findByText('No companies yet');
   expect(screen.queryByLabelText('Company website')).not.toBeInTheDocument();
-  expect(screen.queryByText('Add to directory')).not.toBeInTheDocument();
+  expect(screen.queryByText('Add company')).not.toBeInTheDocument();
 });
 
 test('admin directory pages companies and searches the complete directory', async () => {

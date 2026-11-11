@@ -121,25 +121,25 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     loadFailed={loadFailed} onReload={load} />;
 
   return <div className="company-directory-page" style={styles.page}>
-    <div className="directory-toolbar"><p><strong>{loadFailed ? '—' : companies.length}</strong> companies on this page <span>Capacity includes placements across all sections.</span></p><button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>+ Add company</button></div>
+
     {error && !formOpen && <div role="alert" style={styles.error}>{error}</div>}
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
     <div className={`company-directory-layout${readOnly || !formOpen ? ' is-readonly' : ''}`} style={{ ...styles.layout, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer" label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
-      <form className="company-directory-form" onSubmit={onSubmit} style={styles.formCard}>
+      {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer directory-edit-drawer" closeOnBackdrop label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
+      <form className="company-directory-form" onSubmit={onSubmit} ><header><h2>{editingId ? "Edit company" : "Add company"}</h2></header><div className="directory-form-body">
         {error && <div role="alert" style={styles.error}>{error}</div>}
-        <h3 style={styles.cardTitle}>{editingId ? 'Edit company' : 'Add company'}</h3>
-        <p className="directory-form-help">{editingId ? 'Update contact details and placement availability.' : 'Create a destination for official student placements.'}</p>
+        <section className="directory-form-section"><h3>Company details</h3>
         <label style={styles.label}>Company name<input required maxLength={160} value={form.name} onChange={event => setForm(previous => ({ ...previous, name: event.target.value }))} style={styles.input} /></label>
         <label style={styles.label}>Address<input maxLength={300} value={form.address} onChange={event => setForm(previous => ({ ...previous, address: event.target.value }))} style={styles.input} /></label>
         <label style={styles.label}>Industry<input maxLength={120} value={form.industry} onChange={event => setForm(previous => ({ ...previous, industry: event.target.value }))} style={styles.input} /></label>
-        <div style={styles.twoCols}>
+        </section><section className="directory-form-section"><h3>Contact details</h3><div className="directory-field-pair">
           <label style={styles.label}>Contact email<input type="email" maxLength={254} value={form.email} onChange={event => setForm(previous => ({ ...previous, email: event.target.value }))} style={styles.input} /></label>
           <label style={styles.label}>Phone<input maxLength={60} value={form.phone} onChange={event => setForm(previous => ({ ...previous, phone: event.target.value }))} style={styles.input} /></label>
         </div>
-        <details>
-          <summary>Placement defaults</summary>
+        </section><section className="directory-form-section"><h3>Internship settings</h3>
+        <details className="directory-defaults">
+          <summary>Placement defaults</summary><div className="directory-field-pair">
           {PLACEMENT_DEFAULT_FIELDS.map(([key, label, type]) => {
             const props = {
               value: form.placementDefaults[key] || '',
@@ -153,7 +153,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
               ? <select {...props}><option value="">Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option></select>
               : <input {...props} type={type} />}</label>;
           })}
-        </details>
+        </div></details>
         <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
         {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
         <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
@@ -164,14 +164,14 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
           <label style={styles.label}>Longitude<input required type="number" step="any" min="-180" max="180" value={form.longitude} onChange={event => setForm(previous => ({ ...previous, longitude: event.target.value }))} style={styles.input} /></label>
           <label style={styles.label}>Radius (metres)<input required type="number" min="50" max="2000" value={form.radiusMeters} onChange={event => setForm(previous => ({ ...previous, radiusMeters: event.target.value }))} style={styles.input} /></label>
         </fieldset>}
-        <div style={styles.formActions}>
-          <button type="submit" disabled={saving || loading || loadFailed} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add to directory'}</button>
+        </section></div><footer className="directory-form-actions">
+          <button type="submit" disabled={saving || loading || loadFailed} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add company'}</button>
           <button type="button" disabled={saving} onClick={resetForm} style={styles.secondaryButton}>Cancel</button>
-        </div>
+        </footer>
       </form></PortalFormDialog>}
 
       <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
-        <div style={styles.listHeader}>
+        <div className="directory-controls">
           <label className="directory-search">Search companies<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, industry, or address" aria-label="Search companies" style={styles.input} /></label>
           <label>Availability <select value={availability} onChange={event => setAvailability(event.target.value)}>
             <option value="all">All companies</option>
@@ -179,25 +179,27 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
             <option value="slots">Has available slots</option>
           </select></label>
           <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
+          <button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>Add company</button>
         </div>
-        {(cursors.length > 1 || nextCursor) && <nav className="portal-record-pagination" aria-label="Partner companies pagination">
+
+        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : companies.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} /> :
+          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots <small>All sections</small></th><th>Status</th><th>Actions</th></tr></thead><tbody>{companies.map(company => {
+            const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
+            return <tr key={company.id}>
+              <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>
+              <td>{company.industry || <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>}</td>
+              <td><strong>{!configured || company.availableSlots == null ? "Capacity not set" : company.availableSlots === 0 ? "Full" : company.availableSlots + " available"}</strong>{configured && <small>{company.occupiedSlots} / {company.capacity} placed</small>}</td>
+              <td><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></td>
+              <td><button type="button" aria-label={'Edit ' + company.name} onClick={() => editCompany(company)} style={styles.editButton}>Edit</button></td>
+            </tr>;
+          })}</tbody></table></div>}
+        {!loading && !loadFailed && <footer className="directory-results"><span>{companies.length} {companies.length === 1 ? "company" : "companies"} on this page</span><nav className="portal-record-pagination" aria-label="Partner companies pagination">
           <button type="button" className="portal-secondary" disabled={loading || cursors.length === 1}
             onClick={() => setPaging({ scope, cursors: cursors.slice(0, -1) })}>Previous</button>
           <span>Page {cursors.length}</span>
           <button type="button" className="portal-secondary" disabled={loading || !nextCursor}
             onClick={() => setPaging({ scope, cursors: [...cursors, nextCursor] })}>Next</button>
-        </nav>}
-        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : companies.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} /> :
-          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{companies.map(company => {
-            const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
-            return <tr key={company.id}>
-              <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>
-              <td>{company.industry || <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>}</td>
-              <td><span>{configured ? company.occupiedSlots + ' / ' + company.capacity + ' placed' : 'Slot limit not set'}</span>{configured && <><progress aria-label={company.name + ' internship slots'} value={company.occupiedSlots || 0} max={company.capacity} /><small className={company.availableSlots === 0 ? 'capacity-full' : ''}>{company.availableSlots === 0 ? 'No slots available' : company.availableSlots + ' available'}</small></>}</td>
-              <td><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></td>
-              <td><button type="button" aria-label={'Edit ' + company.name} onClick={() => editCompany(company)} style={styles.editButton}>Edit</button></td>
-            </tr>;
-          })}</tbody></table></div>}
+        </nav></footer>}
       </section>
     </div>
     {!readOnly && <details className="company-import-card"><summary>Look up company details from a website</summary><section aria-label="Import company suggestions">
@@ -223,18 +225,13 @@ const styles = {
   error: { padding: 12, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginBottom: 12 },
   notice: { padding: 12, border: '1px solid #86EFAC', borderRadius: 10, background: '#F0FDF4', color: '#166534', marginBottom: 12 },
   layout: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', alignItems: 'start', gap: 18 },
-  formCard: { display: 'grid', gap: 14, padding: 20, border: '1px solid #DBE3EE', borderRadius: 14, background: '#fff', boxShadow: '0 2px 8px rgba(15,23,42,.04)' },
   listCard: { minWidth: 0, padding: 20, border: '1px solid #DBE3EE', borderRadius: 14, background: '#fff', boxShadow: '0 2px 8px rgba(15,23,42,.04)' },
-  cardTitle: { margin: 0, color: '#0F172A', fontSize: 17 },
   label: { display: 'grid', gap: 6, color: '#334155', fontSize: 13, fontWeight: 650 },
   input: { width: '100%', minWidth: 0, boxSizing: 'border-box', padding: '10px 11px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff', color: '#0F172A', font: 'inherit' },
-  twoCols: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
   help: { display: 'block', margin: '4px 0 0', color: '#64748B', fontSize: 12, fontWeight: 400 },
   activeCheck: { display: 'flex', alignItems: 'center', gap: 8, color: '#334155', fontSize: 13 },
-  formActions: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   primaryButton: { padding: '10px 14px', border: 0, borderRadius: 8, background: '#0284C7', color: '#fff', fontWeight: 700, cursor: 'pointer' },
   secondaryButton: { padding: '9px 12px', border: '1px solid #CBD5E1', borderRadius: 8, background: '#fff', color: '#334155', fontWeight: 650, cursor: 'pointer' },
-  listHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   empty: { padding: 24, color: '#64748B', textAlign: 'center' },
   activePill: { padding: '3px 8px', borderRadius: 999, background: '#DCFCE7', color: '#166534', fontSize: 11, fontWeight: 700 },
   inactivePill: { padding: '3px 8px', borderRadius: 999, background: '#F1F5F9', color: '#475569', fontSize: 11, fontWeight: 700 },

@@ -62,3 +62,27 @@
  .coordinator-page:has(.company-directory-page) .sidebar-nav-scroll, .coordinator-page:has(.company-directory-page) .sidebar-footer { grid-column:1 / -1; }
  .coordinator-page:has(.company-directory-page) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
 }
+.company-directory-page .directory-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.directory-controls label { display: grid; gap: 6px; }
+.directory-controls .directory-search { flex: 1 1 260px; min-width: 0; }
+.directory-controls input, .directory-controls select, .directory-controls button { min-height: 44px; }
+.directory-table th small { display: block; font-weight: 400; }
+.directory-table td:first-child { overflow-wrap: anywhere; }
+.directory-results { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; }
+.directory-edit-drawer .company-directory-form { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; min-height: 0; padding: 0; gap: 0; }
+.directory-edit-drawer header, .directory-edit-drawer .directory-form-actions { background: white; padding: 16px 24px; }
+.directory-edit-drawer header { border-bottom: 1px solid #dbe3ee; }
+.directory-edit-drawer h2, .directory-form-section h3 { margin: 0; }
+.directory-edit-drawer .directory-form-body { overflow: auto; min-height: 0; padding: 20px 24px; }
+.directory-form-section { display: grid; gap: 12px; padding-block: 14px; border-bottom: 1px solid #dbe3ee; }
+.directory-field-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.directory-defaults .directory-field-pair { padding-top: 12px; }
+.directory-edit-drawer .directory-form-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; border-top: 1px solid #dbe3ee; }
+.company-directory-page .directory-controls > .coordinator-add-company { align-self: end; }
+.company-directory-page .directory-controls .directory-search { max-width: none; }

@@ -249,13 +249,6 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 {(selected?.id === sec.id || Array.isArray(sec.studentIds)) && <div style={t.secInfo}>{selected?.id === sec.id ? students.length : sec.studentIds.length} students</div>}
                 <div style={t.secHoursBadge}>{sec.hoursRequired} hrs required</div>
               </button>
-              <button
-                style={t.configBtn}
-                onClick={() => fetchRequirements(sec)}
-                title="Configure Requirements & Deadlines"
-              >
-                <Icon name="settings" size={15} label="Configure section" />
-              </button>
             </div>
           ))}
         </div>
@@ -325,7 +318,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   {filteredStudents.length === 0 ? (
                     <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
                   ) : (
-                  <> <RecordPagination pagination={recordsPage} label="Section students" /><div className="coordinator-compact-table-wrap">
+                  <div className="section-student-table"><div className="coordinator-compact-table-wrap">
                     <table className="coordinator-compact-table">
                       <thead><tr><th>Student ID</th><th>Student name</th><th>Account</th></tr></thead>
                       <tbody>{recordsPage.items.map(student => <tr key={student.id}>
@@ -335,7 +328,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                         </span></td>
                       </tr>)}</tbody>
                     </table>
-                  </div></>
+                  </div>
+                    <RecordPagination pagination={recordsPage} label="Section students" showSinglePage compact />
+                  </div>
                 )}
 
                 <div className="section-assignment" style={t.unassignedSection}>

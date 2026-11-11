@@ -116,3 +116,8 @@
 
 .section-year-choices select:not([multiple]):not([size]) { display:inline-flex; align-items:center; justify-content:space-between; gap:12px; height:44px; min-height:44px; padding:10px 14px !important; line-height:22px; }
 @supports (appearance: base-select) { .section-year-choices select::picker-icon { margin-left:auto; align-self:center; flex-shrink:0; } }
+.sections-detail .section-student-table { background: #fff; border: 1px solid #dce2e9; border-radius: 8px; }
+.sections-detail .section-student-table .coordinator-compact-table-wrap { border: 0; border-radius: 8px 8px 0 0; }
+.section-student-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px 16px; border-top: 1px solid #dce2e9; color: #475569; font-size: 13px; }
+.section-student-pagination > div { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.section-student-pagination .portal-secondary { min-width: 36px; min-height: 36px; padding: 0 8px; font-size: 18px; }

@@ -1,477 +1,130 @@
-import { compareStudents } from '../coordinatorStudentSort';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
-import usePortalAutoRefresh from '../usePortalAutoRefresh';
-// src/pages/RegistrationsTab.js
-import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { useEffect, useState } from 'react';
 import { adminRequest } from '../adminApi';
-import { COLORS, THEME } from '../theme';
-import Icon from '../components/Icons';
-import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
-import { PageSkeleton } from '../components/LoadingSkeleton';
+import CoordinatorSearch from '../components/CoordinatorSearch';
 import AlertDialog from '../components/AlertDialog';
 import './CoordinatorRecords.css';
 
-export default function RegistrationsTab({ department, selectedSection }) {
-  const [unassignedOnly, setUnassignedOnly] = useState(false);
-  const sectionId = unassignedOnly ? '' : selectedSection?.id;
-  const [pending, setPending]   = useState([]);
-  const [approved, setApproved] = useState([]);
-  const [rejected, setRejected] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
-  const [tab, setTab]           = useState('pending');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [rejectConfirm, setRejectConfirm] = useState(null);
+const tabs = { pending: 'Awaiting approval', approved: 'Approved', rejected: 'Rejected or inactive' };
+const nameOf = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
 
-  const fetchRegistrations = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
-    if (!silent) setPending([]);
-
-    if (!silent) setApproved([]);
-    if (!silent) setRejected([]);
-    if (!department || sectionId === undefined) {
-      setLoading(false);
-      return;
-    }
-    if (!silent) setLoading(true);
-    try {
-      const snapshot = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'),
-        where('department', '==', department), where('sectionId', '==', sectionId)));
-      if (!isRefreshCurrent()) return;
-      const all = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setPending(all.filter(s => !s.accountApproved && s.status !== 'rejected_registration'));
-      setApproved(all.filter(s => s.accountApproved));
-      setRejected(all.filter(s => s.status === 'rejected_registration'));
-    } catch (e) {
-      if (!isRefreshCurrent()) return;
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, [department, sectionId]);
-
-  usePortalAutoRefresh(fetchRegistrations, { enabled: !loading && !saving, scope: String(sectionId), protectInputs: true });
+export default function RegistrationsTab({ selectedSection }) {
+  const [unassigned, setUnassigned] = useState(false);
+  const [tab, setTab] = useState('pending');
+  const [search, setSearch] = useState('');
+  const [term, setTerm] = useState('');
+  const [cursors, setCursors] = useState(['']);
+  const [result, setResult] = useState(null);
+  const [counts, setCounts] = useState(null);
+  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [reject, setReject] = useState(null);
+  const sectionId = unassigned ? '' : selectedSection?.id;
+  const cursor = cursors.at(-1);
+  const scope = JSON.stringify([sectionId, tab, term, cursor, revision]);
 
   useEffect(() => {
-    fetchRegistrations();
-  }, [fetchRegistrations]);
+    const timer = setTimeout(() => { setTerm(search.trim()); setCursors(['']); }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const handleApprove = async (studentId) => {
+  useEffect(() => {
+    if (sectionId === undefined) return;
+    let active = true;
+    const params = new URLSearchParams({ sectionId, view: 'counts' });
+    adminRequest('/coordinator/registrations?' + params)
+      .then(data => { if (active) setCounts({ sectionId, revision, values: data.counts }); })
+      .catch(() => { if (active) setCounts(null); });
+    return () => { active = false; };
+  }, [sectionId, revision]);
+
+  useEffect(() => {
+    if (sectionId === undefined) return;
+    let active = true;
+    setError('');
+    const params = new URLSearchParams({ sectionId, tab, search: term, cursor });
+    adminRequest('/coordinator/registrations?' + params)
+      .then(data => {
+        if (!active) return;
+        if (!data.rows.length && cursor) setCursors(previous => previous.slice(0, -1));
+        else setResult({ ...data, scope });
+      })
+      .catch(err => { if (active) setError(err.message || 'Could not load student accounts.'); });
+    return () => { active = false; };
+  }, [sectionId, tab, term, cursor, scope]);
+
+  async function decide(student, status) {
     setSaving(true);
+    setActionError('');
     try {
-      await adminRequest(`/coordinator/registrations/${encodeURIComponent(studentId)}/decision`, {
-        method: 'POST', body: JSON.stringify({ status: 'approved' }),
+      await adminRequest('/coordinator/registrations/' + encodeURIComponent(student.id) + '/decision', {
+        method: 'POST', body: JSON.stringify({ status }),
       });
-      await fetchRegistrations();
-    } catch (e) {
-      console.error(e);
-      window.alert(e.message || 'Could not approve this registration.');
+      setReject(null);
+      setRevision(value => value + 1);
+    } catch (err) {
+      setReject(null);
+      setActionError(err.message || 'Could not update the account.');
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleReject = async (studentId) => {
-    setSaving(true);
-    try {
-      await adminRequest(`/coordinator/registrations/${encodeURIComponent(studentId)}/decision`, {
-        method: 'POST', body: JSON.stringify({ status: 'rejected' }),
-      });
-      await fetchRegistrations();
-    } catch (e) {
-      console.error(e);
-      window.alert(e.message || 'Could not reject this registration.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const list = tab === 'pending' ? pending : tab === 'approved' ? approved : rejected;
-  const filteredList = list.filter(student => matchesCoordinatorSearch(
-    searchQuery,
-    student.firstName,
-    student.lastName,
-    student.idNumber,
-    student.sectionName,
-    student.department,
-  ));
-
-  const recordsPage = useRecordPage(filteredList.sort(compareStudents), String(sectionId) + ':' + tab + ':' + searchQuery);
-  if (loading) {
-    return <PageSkeleton label="Loading registrations" variant="cards" />;
   }
 
-  return (
-    <div style={r.page} className="registrations-page">
-      <label><input type="checkbox" checked={unassignedOnly} disabled={saving || loading}
-        onChange={event => setUnassignedOnly(event.target.checked)} /> Show students without a section</label>
-      <div className="registration-intro"><p>{unassignedOnly ? 'Unassigned accounts in your department' : selectedSection?.name || 'Select a section to see its accounts.'}</p></div>
-      {/* Sub tabs / Filter navigation */}
-      <div className="registration-tabs" style={r.subTabs}>
-        <button
-          aria-pressed={tab === 'pending'}
-          style={{ ...r.subTab, ...(tab === 'pending' ? r.subTabActive : {}) }}
-          onClick={() => setTab('pending')}
-        >
-          <span>Awaiting approval</span>
-          <span style={{ ...r.count, ...(tab === 'pending' ? r.countActive : {}) }}>
-            {pending.length}
-          </span>
-        </button>
-
-        <button
-          aria-pressed={tab === 'approved'}
-          style={{ ...r.subTab, ...(tab === 'approved' ? r.subTabActive : {}) }}
-          onClick={() => setTab('approved')}
-        >
-          <span>Approved</span>
-          <span style={{ ...r.count, ...(tab === 'approved' ? r.countActive : {}) }}>
-            {approved.length}
-          </span>
-        </button>
-
-        <button
-          aria-pressed={tab === 'rejected'}
-          style={{ ...r.subTab, ...(tab === 'rejected' ? r.subTabActive : {}) }}
-          onClick={() => setTab('rejected')}
-        >
-          <span>Rejected or inactive</span>
-          <span style={{ ...r.count, ...(tab === 'rejected' ? r.countActive : {}) }}>
-            {rejected.length}
-          </span>
-        </button>
-      </div>
-
-      {/* List content */}
-      <div style={r.list}>
-        <div className="registration-search-row" style={r.searchRow}>
-          <div style={r.searchField}>
-            <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search registrations" />
-          </div>
-          <span style={r.searchCount}>{filteredList.length} of {list.length} record(s)</span>
-        </div>
-        {filteredList.length === 0 && (
-          <div className="registration-empty" style={r.emptyCard}>
-            <div style={r.emptyIcon}><Icon name="users" size={28} label="No registrations" /></div>
-            <h3 style={r.emptyTitle}>{searchQuery ? 'No matching students' : `No ${tab} accounts`}</h3>
-            <p style={r.emptySub}>{searchQuery ? 'Try another student name or ID.' : `There are no students in the ${tab} account queue.`}</p>
-          </div>
-        )}
-
-        <RecordPagination pagination={recordsPage} label="Registrations" />
-        <div style={r.cardsGrid}>
-          {recordsPage.items.map((student) => (
-            <div className="registration-student-card" key={student.id} style={r.card}>
-              <div style={r.cardMain}>
-                <div style={r.avatar}>
-                  {student.firstName?.[0] || 'S'}
-                  {student.lastName?.[0] || 'T'}
-                </div>
-                <div style={r.details}>
-                  <div style={r.nameRow}>
-                    <h3 style={r.name}>{student.firstName} {student.lastName}</h3>
-                    <span style={r.idBadge}>{student.idNumber || 'No ID'}</span>
-                  </div>
-                  <div style={r.metaRow}>
-                    <span style={r.metaItem}>Username: {student.username || (student.idNumber ? `uclm-${student.idNumber}` : 'Not provided')}</span>
-                    <span style={r.metaItem}>Section: {unassignedOnly ? 'Unassigned' : selectedSection?.name}</span>
-                    <span style={r.metaItem}><Icon name="building" size={14} /> {student.department || department}</span>
-                  </div>
-                  {student.createdAt && (
-                    <div style={r.date}>
-                      Account created: {new Date(student.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div style={r.actionArea}>
-                {tab === 'pending' && (
-                  <div style={r.btnGroup}>
-                    <button
-                      style={r.approveBtn}
-                      disabled={saving}
-                      onClick={() => handleApprove(student.id)}
-                    >
-                      {saving ? '...' : 'Approve'}
-                    </button>
-                    <button
-                      style={r.rejectBtn}
-                      disabled={saving}
-                        onClick={() => setRejectConfirm(student)}
-                    >
-                      {saving ? '...' : 'Reject'}
-                    </button>
-                  </div>
-                )}
-
-                {tab === 'approved' && (
-                  <span style={r.approvedPill}><Icon name="check" size={13} /> Approved</span>
-                )}
-
-                {tab === 'rejected' && (
-                  <span style={r.rejectedPill}><Icon name="x" size={13} /> Rejected</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <AlertDialog
-      open={Boolean(rejectConfirm)}
-      title="Reject this student registration?"
-      description={rejectConfirm ? `${rejectConfirm.firstName || ''} ${rejectConfirm.lastName || ''}`.trim() + ' will remain unable to access the student workflow until the registration is reviewed again.' : ''}
-      confirmLabel="Reject registration"
-      busy={saving}
-      onCancel={() => setRejectConfirm(null)}
-      onConfirm={async () => { await handleReject(rejectConfirm.id); setRejectConfirm(null); }}
-      />
+  const data = result?.scope === scope ? result : null;
+  const page = cursors.length;
+  return <div className="registrations-page accounts-workspace">
+    <div className="registration-tabs" aria-label="Account status">
+      {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
+        onClick={() => { setTab(key); setCursors(['']); }}>
+        {label} <span>{counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : '—'}</span>
+      </button>)}
     </div>
-  );
+    <div className="accounts-card">
+      <div className="accounts-toolbar">
+        <CoordinatorSearch value={search} onChange={setSearch} label="Search student accounts" placeholder="Search name or ID…" />
+        <label><input type="checkbox" checked={unassigned} onChange={event => {
+          setUnassigned(event.target.checked); setCursors(['']);
+        }} /> Show students without a section</label>
+      </div>
+      {actionError && <p role="alert">{actionError}</p>}
+      {error ? <p role="alert">{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Try again</button></p>
+        : sectionId === undefined ? <p>Select a section to view student accounts.</p>
+        : !data ? <p role="status">Loading student accounts…</p>
+        : <>
+          <div className="coordinator-compact-table-wrap">
+            <table className="coordinator-compact-table">
+              <thead><tr>{['Student ID', 'Student name', 'Username', 'Section', 'Account status', 'Actions'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+              <tbody>{data.rows.length ? data.rows.map(student => <tr key={student.id}>
+                <td>{student.idNumber || '—'}</td>
+                <td>{nameOf(student) || 'Name unavailable'}
+                  <details><summary>Account details</summary><div>{student.department}</div>
+                    {student.createdAt && <div>Created {new Date(student.createdAt).toLocaleDateString('en-PH')}</div>}
+                  </details>
+                </td>
+                <td>{student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—')}</td>
+                <td>{unassigned ? 'Unassigned' : selectedSection?.name}</td>
+                <td>{student.status === 'inactive' ? 'Inactive' : tab === 'rejected' ? 'Rejected' : tabs[tab]}</td>
+                <td>{tab === 'pending' ? <div className="accounts-actions">
+                  <button type="button" className="portal-secondary" disabled={saving} onClick={() => decide(student, 'approved')}>Approve</button>
+                  <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(student)}>Reject</button>
+                </div> : '—'}</td>
+              </tr>) : <tr><td colSpan={6}>{term ? 'No matching students.' : 'No students in this view.'}</td></tr>}</tbody>
+            </table>
+          </div>
+          <nav className="accounts-footer" aria-label="Student accounts pagination">
+            <span role="status">{data.total ? ((page - 1) * 25 + 1) + '–' + ((page - 1) * 25 + data.rows.length) + ' of ' + data.total + ' students' : '0 students'}</span>
+            <div className="accounts-actions">
+              <button type="button" className="portal-secondary" aria-label="Previous page" disabled={page === 1} onClick={() => setCursors(cursors.slice(0, -1))}>‹</button>
+              <span>Page {page} of {Math.max(1, Math.ceil(data.total / 25))}</span>
+              <button type="button" className="portal-secondary" aria-label="Next page" disabled={!data.nextCursor} onClick={() => setCursors([...cursors, data.nextCursor])}>›</button>
+            </div>
+          </nav>
+        </>}
+    </div>
+    <AlertDialog open={Boolean(reject)} title="Reject this student registration?"
+      description={reject ? nameOf(reject) + ' will remain unable to access the student workflow.' : ''}
+      confirmLabel="Reject registration" busy={saving} onCancel={() => setReject(null)}
+      onConfirm={() => decide(reject, 'rejected')} />
+  </div>;
 }
-
-const r = {
-  page: {
-    display: 'flex',
-    flexDirection: 'column',
-    flex: 1,
-    overflow: 'hidden',
-    backgroundColor: COLORS.slate50,
-  },
-  subTabs: {
-    display: 'flex',
-    backgroundColor: COLORS.white,
-    borderBottom: `1px solid ${COLORS.slate200}`,
-    padding: '0 28px',
-    gap: 8,
-  },
-  subTab: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '14px 18px',
-    fontSize: 14,
-    fontWeight: 700,
-    color: '#000000',
-    cursor: 'pointer',
-    background: 'none',
-    border: 'none',
-    borderBottom: '2px solid transparent',
-    fontFamily: THEME.fonts.main,
-  },
-  subTabActive: {
-    color: '#000000',
-    borderBottom: `3px solid ${COLORS.sky600}`,
-    fontWeight: 800,
-  },
-  count: {
-    backgroundColor: COLORS.yellow100,
-    color: '#000000',
-    border: `1px solid ${COLORS.yellow300}`,
-    fontSize: 11,
-    fontWeight: 800,
-    padding: '2px 8px',
-    borderRadius: THEME.radius.full,
-  },
-  countActive: {
-    backgroundColor: COLORS.yellow400,
-    color: '#000000',
-  },
-  list: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: 28,
-  },
-  searchRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 14,
-  },
-  searchField: {
-    width: 460,
-    maxWidth: '100%',
-    flex: '0 1 460px',
-    minWidth: 0,
-  },
-  searchCount: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: 700,
-    whiteSpace: 'nowrap',
-  },
-  cardsGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-    maxWidth: 900,
-  },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: THEME.radius.lg,
-    padding: '18px 22px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    border: `1px solid ${COLORS.slate300}`,
-    boxShadow: THEME.shadows.xs,
-    flexWrap: 'wrap',
-    gap: 14,
-  },
-  cardMain: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    flex: 1,
-    minWidth: 260,
-  },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: '50%',
-    backgroundColor: COLORS.sky100,
-    color: '#000000',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 15,
-    fontWeight: 800,
-    flexShrink: 0,
-    border: `1.5px solid ${COLORS.sky300}`,
-  },
-  details: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 3,
-  },
-  nameRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: 800,
-    color: '#000000',
-    margin: 0,
-  },
-  idBadge: {
-    fontSize: 11,
-    fontWeight: 800,
-    backgroundColor: COLORS.yellow100,
-    color: '#000000',
-    padding: '2px 8px',
-    borderRadius: THEME.radius.sm,
-    border: `1px solid ${COLORS.yellow300}`,
-  },
-  metaRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    fontSize: 13,
-    color: '#000000',
-    flexWrap: 'wrap',
-  },
-  metaItem: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    color: '#000000',
-  },
-  date: {
-    fontSize: 11,
-    color: '#000000',
-    marginTop: 2,
-    fontWeight: 600,
-  },
-  actionArea: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  btnGroup: {
-    display: 'flex',
-    gap: 8,
-  },
-  approveBtn: {
-    backgroundColor: COLORS.sky600,
-    color: COLORS.white,
-    border: 'none',
-    borderRadius: THEME.radius.md,
-    padding: '9px 18px',
-    cursor: 'pointer',
-    fontWeight: 800,
-    fontSize: 13,
-    boxShadow: '0 1px 2px rgba(2, 132, 199, 0.2)',
-  },
-  rejectBtn: {
-    backgroundColor: COLORS.rose50,
-    color: '#000000',
-    border: `1px solid ${COLORS.rose200}`,
-    borderRadius: THEME.radius.md,
-    padding: '9px 16px',
-    cursor: 'pointer',
-    fontWeight: 800,
-    fontSize: 13,
-  },
-  approvedPill: {
-    fontSize: 12,
-    fontWeight: 800,
-    padding: '5px 14px',
-    borderRadius: THEME.radius.full,
-    backgroundColor: COLORS.emerald50,
-    color: '#000000',
-    border: `1px solid ${COLORS.emerald200}`,
-  },
-  rejectedPill: {
-    fontSize: 12,
-    fontWeight: 800,
-    padding: '5px 14px',
-    borderRadius: THEME.radius.full,
-    backgroundColor: COLORS.rose50,
-    color: '#000000',
-    border: `1px solid ${COLORS.rose200}`,
-  },
-  emptyCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: THEME.radius.lg,
-    border: `1px solid ${COLORS.slate200}`,
-    padding: 48,
-    textAlign: 'center',
-    maxWidth: 600,
-    margin: '40px auto 0',
-  },
-  emptyIcon: {
-    fontSize: 36,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: 800,
-    color: '#000000',
-    margin: '0 0 6px',
-  },
-  emptySub: {
-    fontSize: 13,
-    color: '#000000',
-  },
-  loadingWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 60,
-    gap: 12,
-    color: '#000000',
-  },
-  spinner: {
-    width: 24,
-    height: 24,
-    border: `3px solid ${COLORS.sky200}`,
-    borderTopColor: COLORS.sky600,
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-  },
-};

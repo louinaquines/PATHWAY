@@ -737,7 +737,7 @@ export default function CoordinatorDashboard() {
             )}
             {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
             {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Class List & Accounts" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
-              <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
+              <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
             </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}

@@ -194,7 +194,6 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
 
       {/* Roster List Card */}
       <div className="roster-records-card" style={s.card}>
-        <RecordPagination pagination={recordsPage} label="Roster students" />
         <div style={s.listHeader}>
           <div>
             <h3 style={s.subtitle}>Authorized students</h3>
@@ -258,6 +257,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
             </table>
           </div>
         )}
+        <RecordPagination pagination={recordsPage} label="Roster students" showSinglePage />
       </div>
       <div ref={confirmHost} />
       <AlertDialog portalTarget={confirmHost.current || undefined}

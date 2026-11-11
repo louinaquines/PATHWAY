@@ -1616,6 +1616,81 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
   }
 });
 
+const registrationSnapshots = new Map();
+const registrationName = row => [row.firstName, row.lastName].filter(Boolean).join(' ').trim();
+const registrationOrder = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+app.get('/coordinator/registrations', requireStaff, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  const { sectionId, tab = 'pending', search = '', cursor = '', view = 'rows', refresh = '' } = req.query;
+  const tabs = ['pending', 'approved', 'rejected'];
+  if (typeof sectionId !== 'string' || (sectionId && !/^[A-Za-z0-9_-]{1,120}$/.test(sectionId))
+    || !tabs.includes(tab) || typeof search !== 'string' || search.length > 150
+    || typeof cursor !== 'string' || cursor.length > 1200 || !['rows', 'counts'].includes(view)) {
+    return res.status(400).json({ error: 'Invalid account query.' });
+  }
+  const department = req.staff.data.department;
+  if (!department) return res.status(403).json({ error: 'Department access required.' });
+  const key = JSON.stringify([req.staff.uid, department, sectionId]);
+  try {
+    if (sectionId) {
+      const section = (await adminDb.collection('sections').doc(sectionId).get()).data();
+      if (!section || section.coordinatorId !== req.staff.uid || section.department !== department) {
+        return res.status(403).json({ error: 'Choose one of your assigned sections.' });
+      }
+    }
+    if (refresh === '1') registrationSnapshots.delete(key);
+    let snapshot = registrationSnapshots.get(key);
+    if (!snapshot || snapshot.expires <= Date.now()) {
+      snapshot = {
+        expires: Date.now() + 30_000,
+        rows: (async () => {
+          const data = await adminDb.collection('users').where('role', '==', 'student')
+            .where('department', '==', department).where('sectionId', '==', sectionId)
+            .select('firstName', 'lastName', 'idNumber', 'username', 'createdAt', 'status', 'accountApproved')
+            .limit(20001).get();
+          if (data.size > 20000) throw new Error('Account scope exceeds the supported limit.');
+          return data.docs.map(doc => {
+            const fields = doc.data();
+            return { ...fields, id: doc.id, department, queue: fields.status === 'rejected_registration' || fields.status === 'inactive'
+              ? 'rejected' : fields.accountApproved === true ? 'approved' : 'pending' };
+          }).sort((a, b) => registrationOrder.compare(registrationName(a), registrationName(b))
+            || registrationOrder.compare(a.idNumber || '', b.idNumber || '') || a.id.localeCompare(b.id));
+        })(),
+      };
+      if (registrationSnapshots.size >= 8) registrationSnapshots.delete(registrationSnapshots.keys().next().value);
+      registrationSnapshots.set(key, snapshot);
+    }
+    const rows = await snapshot.rows;
+    if (view === 'counts') {
+      const counts = { pending: 0, approved: 0, rejected: 0 };
+      for (const row of rows) counts[row.queue]++;
+      return res.json({ counts });
+    }
+    const term = search.trim().toLowerCase();
+    const matches = rows.filter(row => row.queue === tab
+      && (!term || registrationName(row).toLowerCase().includes(term) || String(row.idNumber || '').includes(term)));
+    const scope = JSON.stringify([key, tab, term]);
+    let offset = 0;
+    if (cursor) {
+      try {
+        const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+        if (parsed.scope !== scope || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 20000 || parsed.offset % 25) throw new Error();
+        offset = parsed.offset;
+      } catch {
+        return res.status(400).json({ error: 'Invalid account page cursor.' });
+      }
+    }
+    const nextOffset = offset + 25;
+    return res.json({ rows: matches.slice(offset, nextOffset), total: matches.length,
+      nextCursor: nextOffset < matches.length ? Buffer.from(JSON.stringify({ scope, offset: nextOffset })).toString('base64url') : null });
+  } catch {
+    registrationSnapshots.delete(key);
+    return res.status(503).json({ error: 'Student accounts could not load. Try again.' });
+  }
+});
+
 app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 40, windowMs: 60 * 60_000, key: request => `registration:${request.staff.uid}` })) return;
@@ -1654,6 +1729,7 @@ app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (
         type: 'registration', read: false, createdAt: now,
       });
     });
+    registrationSnapshots.clear();
     await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: status === 'approved' ? 'registration.approved' : 'registration.rejected', targetType: 'users', targetId: req.params.studentId, details: { department: req.staff.data.department } });
     return res.json({ success: true, status });
   } catch (error) {

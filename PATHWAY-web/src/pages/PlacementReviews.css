@@ -157,3 +157,33 @@
 
 .placement-stage-section{border:1px solid #dce4ef;border-radius:12px;background:#fff;padding:14px;margin:12px 0}.placement-stage-section>summary{font-size:15px;font-weight:600;cursor:pointer;color:#233b59}.placement-detail-body:has(.placement-stage-section){display:flex;flex-direction:column}.placement-stage-filter{display:grid;gap:4px;font-size:12px}.placement-stage-filter select{min-height:40px;border:1px solid #ccd5df;border-radius:8px;padding:8px;background:#fff}.placement-async-picker{border:1px solid #dce4ef;border-radius:10px;padding:12px;min-width:0;display:grid;gap:8px}.placement-async-picker>div{display:flex;gap:10px;align-items:center}.placement-task-overview{display:grid;gap:6px}.placement-assignment-fields+ .review-actions{position:sticky;bottom:0;background:white;padding:12px 0}
 .placement-page .placement-email-action { display:inline-flex; align-items:center; justify-content:center; gap:8px; white-space:nowrap; }
+
+.placement-page .placement-review-top-toolbar {
+  --placement-filter-height: 44px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.placement-page .placement-review-top-toolbar .placement-stage-filter select,
+.placement-page .placement-review-top-toolbar .coordinator-search {
+  box-sizing: border-box;
+  height: var(--placement-filter-height);
+  min-height: var(--placement-filter-height);
+}
+
+.placement-page .placement-review-top-toolbar .submission-notifications {
+  display: flex;
+  align-items: center;
+  height: var(--placement-filter-height);
+}
+
+@media (max-width: 640px) {
+  .placement-page .placement-review-top-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .placement-page .placement-stage-filter {
+    grid-column: 1 / -1;
+  }
+}

@@ -341,7 +341,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
-    {assignmentOpen && selectedSection && <PortalFormDialog className="placement-student-detail" label="Assign placement"
+    {assignmentOpen && selectedSection && <PortalFormDialog className="placement-student-detail" label="Assign placement" closeOnBackdrop
       onCancel={() => { if (!busy) setAssignmentOpen(false); }}>
       <header><div><h2>Assign placement</h2><p>{selectedSection.name}</p></div></header>
       <form className="placement-detail-body" onSubmit={assignPlacement}>

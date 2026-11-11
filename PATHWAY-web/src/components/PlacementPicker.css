@@ -1,28 +1,11 @@
-.placement-search-picker details {
+.placement-search-picker .placement-picker-field {
   position: relative;
 }
-.placement-search-picker summary {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  list-style: none;
-  cursor: pointer;
-}
-.placement-search-picker summary::-webkit-details-marker {
-  display: none;
-}
-.placement-search-picker summary::after {
-  content: '';
-  width: .45em;
-  height: .45em;
-  border: solid currentColor;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-  margin-inline: .75em .25em;
-  flex: none;
-}
-.placement-search-picker details[open] {
+.placement-picker-field:focus-within {
   z-index: 5;
+}
+.placement-picker-field > input {
+  width: 100%;
 }
 .placement-search-picker .placement-search-options {
   position: absolute;

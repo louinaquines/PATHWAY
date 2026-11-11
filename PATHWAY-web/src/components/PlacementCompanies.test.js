@@ -1,35 +1,53 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import PlacementCompanies, { groupPlacementCompanies } from './PlacementCompanies';
-
-const companies = [
-  { id: 'one', name: 'Northwind Labs', address: 'Main Road', industry: 'Technology', active: true, capacity: 5, occupiedSlots: 1, availableSlots: 4 },
-  { id: 'two', name: 'Coastal Hotel', active: true },
-];
-const students = [
-  { id: 's1', firstName: 'Taylor', lastName: 'Student', placementStatus: 'approved', companyId: 'one' },
-  { id: 's2', firstName: 'Pending', lastName: 'Student', placementStatus: 'pending_review', companyId: 'two' },
-];
-
-test('groups only approved placements and preserves inactive assigned companies', () => {
-  const result = groupPlacementCompanies(companies, [...students, { id: 's3', companyId: 'old', company: 'Legacy Company', placementStatus: 'approved' }]);
-  expect(result.find(item => item.id === 'one').students).toHaveLength(1);
-  expect(result.find(item => item.id === 'two').students).toHaveLength(0);
-  expect(result.find(item => item.id === 'old').name).toBe('Legacy Company');
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import PlacementCompanies from './PlacementCompanies';
+import { adminRequest } from '../adminApi';
+jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
+const company = { id: 'one', name: 'Northwind', active: true, assignedCount: 3, availableSlots: 7, address: 'Main Road' };
+beforeEach(() => adminRequest.mockResolvedValue({ companies: [company], nextCursor: null }));
+test('loads server company table and pages forward and backward without invented totals', async () => {
+  adminRequest.mockResolvedValueOnce({ companies: [company], nextCursor: 'page&2' });
+  render(<PlacementCompanies selectedSection={{ id: 'a', name: 'Section A' }} />);
+  expect(await screen.findByRole('button', { name: 'Northwind' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: 'Available slots (all sections)' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  await waitFor(() => expect(adminRequest).toHaveBeenLastCalledWith(expect.stringContaining('cursor=page%262')));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled());
+  fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+  await waitFor(() => expect(adminRequest).toHaveBeenLastCalledWith('/coordinator/placement-workspace?sectionId=a&view=companies&search=&cursor='));
 });
-
-test('searches company and student names and switches grid/list display', () => {
-  const { container } = render(<PlacementCompanies companies={companies} students={students} sectionName="Section A" />);
-  expect(screen.getByText('Taylor Student')).toBeInTheDocument();
-  expect(screen.queryByText('Pending Student')).not.toBeInTheDocument();
-  const search = screen.getByRole('searchbox', { name: 'Search company or student name' });
-  fireEvent.change(search, { target: { value: 'taylor' } });
-  expect(screen.getByText('Northwind Labs')).toBeInTheDocument();
-  expect(screen.queryByText('Coastal Hotel')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'List' }));
-  expect(container.querySelector('.placement-company-layout--list')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'true');
-  fireEvent.change(search, { target: { value: 'coastal' } });
-  expect(screen.getByText('Coastal Hotel')).toBeInTheDocument();
-  fireEvent.change(search, { target: { value: 'unknown' } });
-  expect(screen.getByText('No matching companies or students')).toBeInTheDocument();
+test('opens right drawer with contacts and server students, ID before name', async () => {
+  const onOpenStudent = jest.fn();
+  render(<PlacementCompanies selectedSection={{ id: 'a', name: 'Section A' }} onOpenStudent={onOpenStudent} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Northwind' }));
+  adminRequest.mockResolvedValue({ students: [{ id: 's', idNumber: '2026-01', firstName: 'Ada', lastName: 'Lovelace' }], nextCursor: null });
+  const dialog = screen.getByRole('dialog');
+  expect(within(dialog).getByText('Main Road')).toBeInTheDocument();
+  fireEvent.change(within(dialog).getByRole('searchbox'), { target: { value: 'Ada' } });
+  const student = await within(dialog).findByRole('button', { name: /2026-01 Ada Lovelace/ });
+  fireEvent.click(student);
+  expect(onOpenStudent).toHaveBeenCalledWith(expect.objectContaining({ id: 's' }));
+  expect(adminRequest).toHaveBeenLastCalledWith(expect.stringContaining('companyId=one'));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Close company details' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+test('debounces search and discards old section responses', async () => {
+  let resolveOld;
+  adminRequest.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+  const { rerender } = render(<PlacementCompanies selectedSection={{ id: 'old', name: 'Old' }} />);
+  await waitFor(() => expect(adminRequest).toHaveBeenCalledTimes(1));
+  rerender(<PlacementCompanies selectedSection={{ id: 'new', name: 'New' }} />);
+  expect(await screen.findByText('Northwind')).toBeInTheDocument();
+  resolveOld({ companies: [{ ...company, name: 'Stale company' }] });
+  await waitFor(() => expect(screen.queryByText('Stale company')).not.toBeInTheDocument());
+  const calls = adminRequest.mock.calls.length;
+  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'North & West' } });
+  expect(adminRequest).toHaveBeenCalledTimes(calls);
+  await waitFor(() => expect(adminRequest).toHaveBeenLastCalledWith(expect.stringContaining('search=North+%26+West')));
+});
+test('shows errors and retries', async () => {
+  adminRequest.mockRejectedValueOnce(new Error('Unavailable'));
+  render(<PlacementCompanies selectedSection={{ id: 'a', name: 'A' }} />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(await screen.findByText('Northwind')).toBeInTheDocument();
 });

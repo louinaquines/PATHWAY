@@ -920,6 +920,8 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
   }
 });
 
+app.get('/coordinator/placement-workspace', requireStaff, require('./coordinatorPlacementWorkspace').createPlacementWorkspaceHandler({ adminDb, allowRate }));
+
 app.get('/coordinator/companies', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   try {

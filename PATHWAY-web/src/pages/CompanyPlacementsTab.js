@@ -1,3 +1,4 @@
+import PlacementPicker from '../components/PlacementPicker';
 import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
 import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
@@ -16,6 +17,7 @@ import { adminRequest } from '../adminApi';
 import PlacementCompanies from '../components/PlacementCompanies';
 import CompanyConversations from '../components/CompanyConversations';
 import './PlacementReviews.css';
+import Icon from '../components/Icons';
 
 
 
@@ -52,6 +54,18 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [reviewConfirm, setReviewConfirm] = useState(null);
   const [error, setError] = useState('');
 
+  const [recordCursors, setRecordCursors] = useState({});
+  const [recordsBusy, setRecordsBusy] = useState(false);
+  const [openedStudent, setOpenedStudent] = useState(null);
+  const [remoteStudents, setRemoteStudents] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [queueCursors, setQueueCursors] = useState([null]);
+  const [nextQueueCursor, setNextQueueCursor] = useState(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [emailOpen, setEmailOpen] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setDebouncedSearch(reviewSearch.trim()), 300); return () => clearTimeout(timer); }, [reviewSearch]);
+  useEffect(() => { setQueueCursors([null]); }, [selectedSection?.id, queueFilter, debouncedSearch, stageFilter]);
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!silent) setLoading(true);
     setHistoryRevision(value => value + 1);
@@ -68,26 +82,15 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         setVerifiedEndorsementItems([]);
         return;
       }
-      const scopedFilters = [where('sectionId', '==', selectedSection.id), where('department', '==', department)];
-      const [snap, finalSnap, endorsementSnap, directory, studentSnap] = await Promise.all([
-        getDocs(query(collection(db, 'companyProposals'), ...scopedFilters)),
-        getDocs(query(collection(db, 'finalReviewRequests'), ...scopedFilters)),
-        getDocs(query(collection(db, 'endorsements'), ...scopedFilters)),
-        adminRequest('/coordinator/company-directory'),
-        getDocs(query(collection(db, 'users'), ...scopedFilters, where('role', '==', 'student'))),
+      const base='/coordinator/placement-workspace?sectionId='+encodeURIComponent(selectedSection.id);
+      const cursor=queueCursors.at(-1);
+      const [page, totals] = await Promise.all([
+        adminRequest(base+'&view=students&queue='+queueFilter+'&stage='+stageFilter+'&search='+encodeURIComponent(debouncedSearch)+(cursor?'&cursor='+encodeURIComponent(cursor):'')),
+        adminRequest(base+'&view=summary'),
       ]);
       if (!isRefreshCurrent()) return;
-      const proposals = snap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => !selectedSection || item.sectionId === selectedSection.id);
-      setItems(proposals);
-      setCompanies(directory.companies || []);
-      setAssignedStudents(studentSnap.docs.map(item => ({ ...item.data(), id: item.id })));
+      setRemoteStudents(page.students || []);setNextQueueCursor(page.nextCursor || null);setSummary(totals);
 
-      const endorsements = endorsementSnap.docs.map(item => ({ id: item.id, ...item.data() }))
-        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-      setEndorsementItems(endorsements.filter(item => item.status === 'awaiting_document'));
-      setVerifiedEndorsementItems(endorsements.filter(item => item.status === 'signed_copy_verified'));
-      setCompanySelections(previous => Object.fromEntries(proposals.map(item => [item.id, previous[item.id] || item.companyId || ''])));
-      setFinalItems(finalSnap.docs.map(item => ({ id: item.id, ...item.data() })).filter(item => !selectedSection || item.sectionId === selectedSection.id));
     } catch (loadError) {
       if (!isRefreshCurrent()) return;
       console.error('Company placement load error:', loadError);
@@ -102,11 +105,24 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       setVerifiedEndorsementItems([]);
       setFinalItems([]);
     } finally { setLoading(false); }
-  }, [selectedSection, department]);
+  }, [selectedSection, department, queueFilter, debouncedSearch, queueCursors, stageFilter]);
 
   usePortalAutoRefresh(load, { enabled: !loading && !busy && !draftBusy && !deliveryBusy, scope: selectedSection?.id || '', protectInputs: true });
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { let active=true; load({isCurrent:()=>active}); return () => { active=false; }; }, [load]);
+  useEffect(() => {
+    if(!selectedQueueStudent || !selectedSection?.id) return;
+    let active=true;
+    adminRequest('/coordinator/placement-workspace?sectionId='+encodeURIComponent(selectedSection.id)+'&view=details&studentId='+encodeURIComponent(selectedQueueStudent)).then(data=>{
+      if(!active)return;setRecordCursors(data.recordCursors||{});setOpenedStudent(data.student);setItems(data.placements||[]);setFinalItems(data.finals||[]);setEndorsementItems(data.endorsements||[]);setVerifiedEndorsementItems(data.verified||[]);setAssignedStudents(data.student?[data.student]:[]);
+    }).catch(e=>{if(active)setError(e.message||'Could not load placement details.');});
+    return()=>{active=false;};
+  },[selectedQueueStudent,selectedSection?.id]);
+  useEffect(()=>{
+    if(!assignmentOpen || !selectedSection?.id)return;
+    let active=true;const base='/coordinator/placement-workspace?sectionId='+encodeURIComponent(selectedSection.id);
+    Promise.all([adminRequest(base+'&view=students&queue=waiting'),adminRequest(base+'&view=companies&availability=active')]).then(([a,b])=>{if(active){setAssignedStudents(a.students||[]);setCompanies(b.companies||[]);}}).catch(e=>{if(active)setAssignmentError(e.message);});return()=>{active=false;};
+  },[assignmentOpen,selectedSection?.id]);
 
   const historyOpen = queueFilter === 'history' || (selectedQueueStudent && reviewStage === 'history');
   const sectionId = selectedSection?.id;
@@ -136,6 +152,14 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   useEffect(() => { setDeliveryConfirm(null); setDeliveryNotice(''); }, [selectedSection?.id]);
   useEffect(() => { setReasons({}); setReviewConfirm(null); setReviewSearch(''); setReviewStatus('all'); }, [selectedSection?.id]);
 
+  const loadMoreRecords = async stage => {
+    if(recordsBusy || !recordCursors[stage])return;setRecordsBusy(true);
+    try{const data=await adminRequest('/coordinator/placement-workspace?sectionId='+encodeURIComponent(selectedSection.id)+'&view=records&studentId='+encodeURIComponent(selectedQueueStudent)+'&stage='+stage+'&cursor='+encodeURIComponent(recordCursors[stage]));
+      const setter={placement:setItems,final:setFinalItems,endorsement:setEndorsementItems,verified:setVerifiedEndorsementItems}[stage];
+      if(setter)setter(previous=>[...previous,...(data.records||[])]);
+      setRecordCursors(previous=>({...previous,[stage]:data.nextCursor||null}));
+    }catch(e){setError(e.message||'Could not load older records.');}finally{setRecordsBusy(false);}
+  };
   const pendingStudents = new Set(items.filter(item => item.status === 'pending_review').map(item => item.studentId));
   const waitingStudents = assignedStudents.filter(student => student.sectionId === selectedSection?.id
     && canAssignPlacement(student, pendingStudents));
@@ -274,36 +298,34 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     title: `${item.noticeTitle} — ${item.companyName || item.companySnapshot?.companyName || 'Company not provided'}`,
     createdAt: item.submittedAt || item.updatedAt || item.createdAt }));
 
-  const queueRows = placementStudentQueue({ placements: items, finals: finalItems, endorsements: endorsementItems, verified: verifiedEndorsementItems, history: historyItems, nameFor: reviewStudentName });
-  const studentIdsByUid = new Map([...students, ...assignedStudents].map(student => [student.id, student.idNumber]));
-  const queueTerm = reviewSearch.trim().toLowerCase();
-  const filteredQueue = queueRows.filter(row => (!requestsOnly || pendingStudents.has(row.id)) && (queueFilter === 'action' ? row.needsAction : queueFilter === 'history' ? row.hasHistory : !row.needsAction && row.tasks.some(task => task.stage !== 'history'))
-    && (queueFilter === 'history' || [row.name, row.id, studentIdsByUid.get(row.id) || '', row.company, ...row.tasks.map(task => task.record.companyName || task.record.companySnapshot?.companyName || task.record.after?.companyName || '')].some(value => String(value).toLowerCase().includes(queueTerm))));
-  const queuePage = useRecordPage(filteredQueue.sort(compareStudents), (selectedSection?.id || '') + ':' + queueFilter + ':' + reviewSearch);
-  const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent);
+  const queueRows = remoteStudents.map(student => ({...student.queue,id:student.id,name:[student.firstName,student.lastName].filter(Boolean).join(' '),idNumber:student.idNumber}));
+  const studentIdsByUid = new Map(remoteStudents.map(student=>[student.id,student.idNumber]));
+  const filteredQueue = queueRows;
+  const queuePage = {items:queueRows};
+  const selectedQueue = queueRows.find(row => row.id === selectedQueueStudent) || (openedStudent?.id === selectedQueueStudent ? {id:openedStudent.id,name:[openedStudent.firstName,openedStudent.lastName].join(" "),tasks:[],current:{step:"Placement details",stage:"placement"}} : null);
   const openStudent = row => { setSelectedQueueStudent(row.id); setReviewStage(queueFilter === 'history' ? 'history' : 'all'); setReviewStatus('all'); };
   const placementPage = useRecordPage(sortedReviews(items), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const finalPage = useRecordPage(sortedReviews(finalItems), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const endorsementPage = useRecordPage(endorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const verifiedPage = useRecordPage(verifiedEndorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const historyPage = useRecordPage(historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
-  if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
+
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
 
     <div className="placement-page-header">
       <div>
-      <p style={{ color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>Assignments and reviews for {selectedSection ? selectedSection.name : 'your selected section'}.</p></div>
+      </div>
       <div className="review-actions">
         <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
         {selectedSection && !error && <button type="button" className="portal-primary" disabled={!!busy}
           onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
       </div>
     </div>
-    <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
-      <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
-      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews</button>
+    <div className="placement-summary" aria-label="Placement summary">{[['Assigned',summary?.assigned],['Waiting for assignment',summary?.waiting],['Needs review',summary?.needsReview]].map(([label,value])=><div key={label}><span>{label}</span><strong>{value ?? '—'}</strong></div>)}</div><div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
+      <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>By company</button>
+      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Students</button>
     </div>
-    {workspace === 'reviews' && <div className="placement-review-top-toolbar">
+    {workspace === 'reviews' && <div className="placement-review-top-toolbar"><label className="placement-stage-filter">Stage<select aria-label="Filter placement stage" value={stageFilter} onChange={e=>setStageFilter(e.target.value)}>{[["all","All stages"],["placement","Placement request"],["final","Final approval"],["endorsement","Endorsement draft"],["verified","Signed letter"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
       <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
         label="Search placement reviews by student or company" placeholder="Search student name or company…" />
       <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
@@ -312,7 +334,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
 
     {error && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
-    {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} companies={companies} students={assignedStudents} sectionName={selectedSection.name} />}
+    {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} selectedSection={selectedSection} onOpenStudent={student => {setWorkspace("reviews");setSelectedQueueStudent(student.id);}} />}
     {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>
       <p style={{ margin: '0 0 12px', color: '#475569' }}>Submitted requests appear in Placement Reviews. Students appear under a company after their placement is approved.</p>
       <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>
@@ -325,12 +347,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         <p>Use Placement Reviews for students with a pending request.</p>
         {!waitingStudents.length && <p>No students are waiting for a direct assignment in this section.</p>}
         {!activeCompanies.length && <p>Add an active company in Company Directory before assigning a placement.</p>}
-        <fieldset className="placement-assignment-fields" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
-          <CoordinatorRecordPicker label="Student" name="studentId" required options={[...waitingStudents].sort(compareStudents).map(student => ({
-            id: student.id,
-            label: [student.firstName, student.lastName].filter(Boolean).join(' ') + ' · ' + (student.idNumber || student.id),
-          }))} />
-          <CoordinatorRecordPicker label="Company" name="companyId" required options={activeCompanies.map(company => ({ id: company.id, label: company.name }))} />
+        <fieldset className="placement-assignment-fields" disabled={!!busy}>
+          <PlacementPicker sectionId={selectedSection.id} view="students" queue="waiting" label="Student" name="studentId" required />
+          <PlacementPicker sectionId={selectedSection.id} view="companies" availability="active" label="Company" name="companyId" required />
           <label>Supervisor name<input name="supervisorName" required maxLength={160} /></label>
           <label>Supervisor email<input name="supervisorEmail" type="email" required maxLength={254} /></label>
           <label>Internship role or department<input name="internshipRole" required maxLength={160} /></label>
@@ -343,7 +362,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         {assignmentError && <p role="alert">{assignmentError}</p>}
         <div className="review-actions">
           <button type="button" disabled={!!busy} onClick={() => setAssignmentOpen(false)}>Cancel</button>
-          <button type="submit" className="review-approve" disabled={!!busy || !waitingStudents.length || !activeCompanies.length}>
+          <button type="submit" className="review-approve" disabled={!!busy}>
             {busy === 'assignment' ? 'Assigning…' : 'Confirm assignment'}
           </button>
         </div>
@@ -351,12 +370,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     <div className="placement-queue-filters" role="group" aria-label="Placement queue">
-      {[['action','To review or complete'],['completed','No action needed'],['history','Placement history']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
-        {label} {value !== 'history' && <span>{error ? '—' : queueRows.filter(row => value === 'action' ? row.needsAction : !row.needsAction && row.tasks.some(task => task.stage !== 'history')).length}</span>}
+      {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
+        {label}
       </button>)}
     </div>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}
-    <p className="placement-queue-help">{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous decisions, grouped by student on each page.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
+    <p className="placement-queue-help" hidden>{queueFilter === 'action' ? 'Start with the next action for each student. Open a student to see all outstanding tasks.' : queueFilter === 'history' ? 'Previous decisions, grouped by student on each page.' : 'Students with no outstanding placement tasks in the loaded records.'}</p>
     {queueFilter === 'history' && (historyCursors.length > 1 || currentHistory?.nextCursor) && <nav className="portal-record-pagination" aria-label="Placement history pages">
       <button type="button" className="portal-secondary" disabled={historyCursors.length <= 1}
         onClick={() => setHistoryPaging({ scope: historyScope, cursors: historyCursors.slice(0, -1) })}>Previous</button>
@@ -364,42 +383,34 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" className="portal-secondary" disabled={!currentHistory?.nextCursor}
         onClick={() => setHistoryPaging({ scope: historyScope, cursors: [...historyCursors, currentHistory.nextCursor] })}>Next</button>
     </nav>}
-    <RecordPagination pagination={queuePage} label="Placement students" />
-    <div className="placement-queue-table"><table><thead><tr><th>Student ID</th><th>Student name</th><th>Company</th><th>Current step</th><th>Next action</th></tr></thead><tbody>
-      {queuePage.items.map(row => <tr key={row.id}><td>{studentIdsByUid.get(row.id) || '—'}</td><td><strong>{row.name}</strong><small>{row.tasks.filter(task=>task.needsAction).length || 0} outstanding tasks</small></td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
-    </tbody></table>{!filteredQueue.length && <div className="review-empty">{error ? 'Placement records could not load. Use Refresh placements to try again.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
-    {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} onCancel={() => setSelectedQueueStudent(null)}>
-      <header><div><h2>{selectedQueue.name}</h2><p>Placement steps and decisions</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
-      <div className="placement-task-overview"><strong>Next: {selectedQueue.current.step}</strong><ul>{selectedQueue.tasks.filter(task=>task.needsAction).map(task=><li key={task.stage+task.record.id}>{task.step}</li>)}</ul></div>
+
+    {loading && <p role="status">Loading placements…</p>}<div className="placement-queue-table"><table><thead><tr><th>ID</th><th>Name</th><th>Company</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {queuePage.items.map(row => <tr key={row.id}><td>{studentIdsByUid.get(row.id) || '—'}</td><td><strong>{row.name}</strong>{row.tasks.filter(task=>task.needsAction).length > 1 && <small>{row.tasks.filter(task=>task.needsAction).length} tasks</small>}</td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
+    </tbody></table>{!filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'Placement records could not load. Use Refresh placements to try again.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'No placement tasks need attention in this section.' : 'No students in this view yet.'}</div>}</div>
+    {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} closeOnBackdrop onCancel={() => setSelectedQueueStudent(null)}>
+      <header><div><h2>{selectedQueue.name}</h2><p>{studentIdsByUid.get(selectedQueue.id) || openedStudent?.idNumber} · {selectedSection?.name}</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
+      <div className="placement-task-overview"><small>Current task</small><strong>{selectedQueue.current.step}</strong></div>
       <div className="placement-detail-tabs" role="group" aria-label="Student placement details"><button type="button" aria-pressed={reviewStage==='all'} onClick={()=>setReviewStage('all')}>Tasks & decisions</button><button type="button" aria-pressed={reviewStage==='history'} onClick={()=>setReviewStage('history')}>History</button></div>
       <div className="placement-detail-body">
 
-    <section hidden={reviewStage !== 'all' || !items.some(item=>item.studentId===selectedQueueStudent)}>
+    <details className="placement-stage-section" open={selectedQueue?.current.stage === "placement" || (false)} style={{order:selectedQueue?.current.stage === "placement" ? 0 : 1}} hidden={reviewStage !== 'all' || !items.some(item=>item.studentId===selectedQueueStudent)}><summary>Placement details</summary>
     <div className="review-section-heading"><h3>Review placement</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
     {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}
-    <RecordPagination pagination={placementPage} label="Company requests" />
+    {recordCursors.placement && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("placement")}>Load older records</button>}<RecordPagination pagination={placementPage} label="Company requests" />
     {placementPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><div><h3 style={{ margin: 0 }}>{item.companyName || 'Unnamed company'}</h3><div style={{ color: '#64748B', marginTop: 4 }}>{item.studentName || item.studentId} · {item.internshipRole || 'Role not specified'}</div></div><strong>{placementStatusLabel(item.status)}</strong></div>
       <p><b>Address:</b> {item.companyAddress || '—'}<br /><b>Supervisor:</b> {item.supervisorName || '—'} ({item.supervisorEmail || '—'})<br /><b>Schedule:</b> {item.startDate || '—'} to {item.endDate || '—'} · {item.workArrangement || '—'}</p>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
       {item.status === 'pending_review' && <>
-        <CoordinatorRecordPicker label={`Official company assignment for ${item.studentName || item.studentId}`}
-          value={companySelections[item.id] || ''}
-          onChange={companyId => setCompanySelections(previous => ({ ...previous, [item.id]: companyId }))}
-          options={companies.filter(company => company.active).map(company => {
-            const full = company.availableSlots === 0 && company.id !== item.companyId;
-            const unavailable = company.capacity === null;
-            const slots = unavailable ? 'slot limit not set' : full ? 'at capacity' : `${company.availableSlots} available`;
-            return { id: company.id, label: `${company.name} · ${slots}`, disabled: full || unavailable };
-          })} />
+        <PlacementPicker sectionId={selectedSection.id} view="companies" availability="active" label={`Official company assignment for ${item.studentName || item.studentId}`} initialSelection={item.companyId ? {id:item.companyId,name:item.companyName}:null} onSelect={companyId=>setCompanySelections(previous=>({...previous,[item.id]:companyId}))} />
         <div className="review-decision"><label>Feedback for this student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>Approve</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Reject</button></div></div>
       </>}
     </article>)}
-    </section>
-    <section hidden={reviewStage !== 'all' || !finalItems.some(item=>item.studentId===selectedQueueStudent)}>
+    </details>
+    <details className="placement-stage-section" open={selectedQueue?.current.stage === "final" || (false)} style={{order:selectedQueue?.current.stage === "final" ? 0 : 1}} hidden={reviewStage !== 'all' || !finalItems.some(item=>item.studentId===selectedQueueStudent)}><summary>Final approval</summary>
     <div className="review-section-heading"><h3>Review internship tracking access</h3><p>Review the saved submission before granting access to internship tracking.</p></div>
     {sortedReviews(finalItems).length === 0 && <div className="review-empty">No final review requests match this view.</div>}
-    <RecordPagination pagination={finalPage} label="Final approvals" />
+    {recordCursors.final && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("final")}>Load older records</button>}<RecordPagination pagination={finalPage} label="Final approvals" />
     {finalPage.items.map(item => <article className="review-card" key={item.id}>
       <h3 style={{ margin: 0 }}>Final placement review</h3><p><b>Student:</b> {reviewStudentName(item)}<br /><b>Company:</b> {item.companySnapshot?.companyName || '—'}<br /><b>Supervisor:</b> {item.companySnapshot?.supervisorName || '—'}<br /><b>Requirements:</b> {item.requirementSnapshot?.filter(docItem => ['submitted', 'approved'].includes(docItem.status)).length || 0} submitted</p>
       <strong>{placementStatusLabel(item.status)}</strong>
@@ -407,12 +418,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <details className="review-documents"><summary>View requirement statuses</summary>{(item.requirementSnapshot || []).map((requirement, index) => <div key={requirement.id || index}><span>{requirement.name || requirement.title || requirement.id || 'Requirement'}</span><strong>{requirement.status || 'Not submitted'}</strong></div>)}</details>
       {item.status === 'pending_review' && <div className="review-decision"><label>Feedback for this student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>Approve internship tracking</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Reject</button></div></div>}
     </article>)}
-    </section>
-    <section hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}>
+    </details>
+    <details className="placement-stage-section" open={selectedQueue?.current.stage === "endorsement" || (selectedQueue?.current.stage === "verified")} style={{order:["endorsement","verified"].includes(selectedQueue?.current.stage) ? 0 : 1}} hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}><summary>Endorsement letter</summary>
     <h3 style={{ marginTop: 30 }}>Endorsement letter</h3>
     <p style={{ color: '#64748B', marginTop: -8 }}>Approved placements awaiting a signed endorsement letter. These records are not issued documents or email deliveries.</p>
     {endorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No pending endorsement paperwork matches this view.</div>}
-    <RecordPagination pagination={endorsementPage} label="Endorsements" />
+    {recordCursors.endorsement && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("endorsement")}>Load older records</button>}<RecordPagination pagination={endorsementPage} label="Endorsements" />
     {endorsementPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
@@ -439,7 +450,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <p style={{ color: '#64748B', marginTop: -8 }}>Only the verified private signed copy can be emailed to the student and official company contact. Email-server acceptance is recorded separately for each recipient.</p>
     {deliveryNotice && <div role="status" style={{ padding: 12, marginBottom: 10, border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF' }}>{deliveryNotice}</div>}
     {verifiedEndorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No verified signed copies match this view.</div>}
-    <RecordPagination pagination={verifiedPage} label="Verified endorsements" />
+    {recordCursors.verified && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("verified")}>Load older records</button>}<RecordPagination pagination={verifiedPage} label="Verified endorsements" />
     {verifiedPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <strong>{item.studentName || item.studentId}</strong>
@@ -461,7 +472,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         {deliveryBusy === item.id ? 'Sending…' : item.deliveryStatus === 'failed' || item.deliveryStatus === 'partial_failed' ? 'Retry emails that failed' : 'Email the signed letter'}
       </button>}
     </article>)}
-    </section>
+    </details>
     <section hidden={reviewStage !== 'history'}>
     <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
     {!currentHistory && <p role="status">Loading placement history…</p>}
@@ -487,7 +498,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </div>
     </PortalFormDialog>}
     </div>
-    <details className="placement-email-disclosure"><summary>Company email <span>View replies and conversations</span></summary><CompanyConversations sectionId={selectedSection?.id} /></details>
+    {workspace === 'reviews' && <footer className="placement-list-footer"><span>{queueRows.length} students on this page</span><nav aria-label="Placement students pagination"><button className="portal-secondary" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button className="portal-secondary" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav></footer>}
+    <button type="button" className="portal-secondary" onClick={()=>setEmailOpen(true)}>Company email</button>
+    {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyConversations sectionId={selectedSection?.id}/></div></PortalFormDialog>}
     <AlertDialog
       open={Boolean(reviewConfirm)}
       tone={reviewConfirm?.status === 'approved' ? 'warning' : 'danger'}

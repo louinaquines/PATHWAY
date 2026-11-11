@@ -4,7 +4,7 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
 import DtrReviewDialog from '../components/DtrReviewDialog';
-import { collection, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore';
+import { collection, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -160,6 +160,14 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const rosterCursors = rosterPaging?.scope === rosterScopeKey ? rosterPaging.cursors : [null];
   const rosterCursor = rosterCursors.at(-1);
   const currentRoster = rosterPage?.scope === rosterScopeKey && rosterPage.cursor === rosterCursor ? rosterPage : null;
+  const [rosterTotal, setRosterTotal] = useState(null);
+  const studentCount = rosterTotal?.scope === rosterScopeKey ? rosterTotal.count : null;
+  const pageNumber = rosterCursors.length;
+  const hasMoreStudents = Boolean(currentRoster?.page?.hasMore);
+  const pageTotal = studentCount != null ? Math.max(1, Math.ceil(studentCount / RECORD_PAGE_SIZE)) : null;
+  const pageLabel = pageTotal != null
+    ? 'Page ' + pageNumber + ' of ' + Math.max(pageTotal, pageNumber + Number(hasMoreStudents))
+    : 'Page ' + pageNumber + (hasMoreStudents ? ' of at least ' + (pageNumber + 1) : currentRoster?.page ? ' of ' + pageNumber : '');
   const loading = !!selectedSection && !currentRoster;
 
   useEffect(() => {
@@ -178,7 +186,13 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       ? query(students, ...scope, where('idNumber', '==', rosterSearch))
       : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
     const pendingIds = new Set(pendingStudentIds);
-    const request = pendingOnly || (rosterSearch && !exactId)
+    const requiresMatching = pendingOnly || (rosterSearch && !exactId);
+    if (!requiresMatching && !rosterCursor) {
+      getCountFromServer(base).then(snapshot => {
+        if (active) setRosterTotal({ scope: rosterScopeKey, count: snapshot.data().count });
+      }).catch(() => {});
+    }
+    const request = requiresMatching
       ? readMatchingPortalPage(base, rosterCursor, RECORD_PAGE_SIZE, student => (
         (!pendingOnly || pendingIds.has(student.id))
         && matchesCoordinatorSearch(rosterSearch, studentDisplayName(student), student.idNumber, selectedSection.name)
@@ -343,13 +357,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {loading && <p role="status">Loading students…</p>}
           {currentRoster?.error && <p role="alert">{currentRoster.error} <button type="button" className="portal-secondary"
             onClick={() => setRosterRetry(value => value + 1)}>Retry</button></p>}
-          {(rosterCursors.length > 1 || currentRoster?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Students pagination">
-            <button type="button" className="portal-secondary" disabled={rosterCursors.length === 1}
-              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })}>Previous</button>
-            <span>Page {rosterCursors.length}</span>
-            <button type="button" className="portal-secondary" disabled={!currentRoster?.page?.hasMore}
-              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}>Next</button>
-          </nav>}
           <div className="logbook-roster-scroll">
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
               <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
@@ -366,6 +373,18 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </table>
           </div>
           {!loading && !currentRoster?.error && !visibleStudents.length && <p className="logbook-table-empty">{currentRoster?.page?.hasMore ? 'No matches in this window. Choose Next to continue searching.' : 'No students match this view.'}</p>}
+          {(currentRoster?.page || pageNumber > 1) && <footer className="logbook-roster-footer">
+            <span aria-live="polite">{studentCount != null && visibleStudents.length
+              ? ((pageNumber - 1) * RECORD_PAGE_SIZE + 1) + '–' + ((pageNumber - 1) * RECORD_PAGE_SIZE + visibleStudents.length) + ' of ' + studentCount + ' students'
+              : visibleStudents.length + (visibleStudents.length === 1 ? ' student on this page' : ' students on this page')}</span>
+            <nav aria-label="Students pagination">
+              <button type="button" className="portal-secondary" aria-label="Previous page" disabled={pageNumber === 1}
+                onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })}><Icon name="chevronLeft" size={16} /></button>
+              <span aria-live="polite">{pageLabel}</span>
+              <button type="button" className="portal-secondary" aria-label="Next page" disabled={!hasMoreStudents}
+                onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}><Icon name="chevronRight" size={16} /></button>
+            </nav>
+          </footer>}
         </>}
       </section>
       {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
@@ -373,31 +392,43 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <div className="logbook-drawer-title-row">
             <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
               <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
-            <button type="button" className="portal-secondary" aria-label="Close records" disabled={saving} onClick={closeRecords}>Close</button>
+            <button type="button" className="portal-secondary logbook-drawer-close" aria-label="Close records" title="Close records" disabled={saving} onClick={closeRecords}><Icon name="x" size={19} /></button>
           </div>
           <div className="logbook-drawer-toolbar">
             <div className="logbook-drawer-tabs" role="group" aria-label="Student record type">
               <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
               <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
             </div>
+
+          </div>
+        </header>
+        <div className="logbook-detail-content" style={t.entriesScroll}>
+          <div className="logbook-record-controls">
+            {recordView === 'attendance' ? <label>Attendance date <input type="date" value={attendanceDate} onChange={event => {
+                setAttendanceLoading(true);
+                setAttendanceDate(event.target.value);
+                setAttendanceCursors([null]);
+              }} /></label> : <label>Journal status <select value={journalStatus} disabled={saving} onChange={event => {
+            setEntriesLoading(true);
+            setJournalStatus(event.target.value);
+            setJournalCursors([null]);
+          }}>
+            <option value="">All statuses</option>
+            <option value="pending">Awaiting review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Changes requested</option>
+          </select></label>}
+            <div className="logbook-record-actions">
+              {recordView === 'attendance' && <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare Form 48</button>}
             <button type="button" className="portal-secondary logbook-drawer-download" aria-label="Export student records (Excel)"
               disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
               <Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}
             </button>
+            </div>
           </div>
-        </header>
-        <div className="logbook-detail-content" style={t.entriesScroll}>
           {exportError && <p role="alert">{exportError}</p>}
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
-            <div className="logbook-attendance-heading">
-              <p>Times shown in Philippine time.</p>
-              <label>Attendance date <input type="date" value={attendanceDate} onChange={event => {
-                setAttendanceLoading(true);
-                setAttendanceDate(event.target.value);
-                setAttendanceCursors([null]);
-              }} /></label>
-              <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare Form 48</button>
-            </div>
+            <p className="logbook-time-note">Times shown in Philippine time.</p>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
             {attendanceLoading && <p role="status">Loading attendance…</p>}
             {attendanceError && <p role="alert">{attendanceError} <button type="button" className="portal-secondary" onClick={() => setAttendanceRetry(value => value + 1)}>Retry</button></p>}
@@ -413,16 +444,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             catch (failure) { setAnalysisError(failure.message); }
           }} />}
           {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
-          {recordView === 'journals' && <label>Journal status <select value={journalStatus} disabled={saving} onChange={event => {
-            setEntriesLoading(true);
-            setJournalStatus(event.target.value);
-            setJournalCursors([null]);
-          }}>
-            <option value="">All statuses</option>
-            <option value="pending">Awaiting review</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Changes requested</option>
-          </select></label>}
+
           {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
           {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
           {recordView === 'journals' && !entriesLoading && !entriesError && entries.length === 0 && (

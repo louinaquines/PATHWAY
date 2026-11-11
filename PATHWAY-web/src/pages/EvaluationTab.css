@@ -12,8 +12,6 @@
 }
 .evaluation-panel .evaluation-form-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 4px; }
 .evaluation-panel .evaluation-form-actions > button { width: auto; flex: 0 1 auto; margin: 0 !important; min-height: 46px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
-.evaluation-panel .evaluation-form-actions > .evaluation-connection-button { background: #fff !important; color: #075fc9 !important; border: 1px solid #cdddf1 !important; border-radius: 10px; padding: 12px 18px; box-shadow: none; }
-.evaluation-panel .evaluation-form-actions > .evaluation-connection-button:hover:not(:disabled) { background: #f1f6ff !important; border-color: #075fc9 !important; }
 .evaluation-panel .evaluation-form-actions > button:focus-visible { outline: 2px solid #075fc9; outline-offset: 3px; }
 .evaluation-panel .evaluation-form-actions > button:disabled { opacity: .6; cursor: wait; }
 .evaluation-panel .evaluation-records-card { padding: 18px !important; }
@@ -78,7 +76,6 @@
 .evaluation-invitation :is(input,select) { height:44px; min-height:44px; border:1px solid #ccd5df !important; border-radius:8px !important; font:inherit; font-size:14px !important; background:#fff !important; }
 .evaluation-panel .evaluation-form-actions button { min-height:44px; padding:10px 16px !important; font:inherit; font-size:14px; font-weight:500; border-radius:8px !important; box-shadow:none !important; }
 .evaluation-panel .evaluation-form-actions button[type='submit'] { background:#075fc9 !important; }
-.evaluation-panel .evaluation-form-actions .evaluation-connection-button { color:#526174 !important; border-color:#ccd5df !important; }
 .evaluation-panel .evaluation-records-header h3 { font-size:16px !important; font-weight:600 !important; color:#17212f !important; }
 .evaluation-panel .evaluation-records-header p { font-size:13px !important; color:#526174 !important; }
 .evaluation-panel .evaluation-records-actions .coordinator-search { min-height:44px; height:44px; width:260px; }
@@ -149,3 +146,33 @@
 .evaluation-selection-summary { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
 .evaluation-selection-mobile { display:none; }
 @media(max-width:600px) { .evaluation-selection-desktop { display:none; } .evaluation-selection-mobile { display:inline; } }
+
+.evaluation-invitation-list { list-style:none; padding:0; margin:10px 0; display:grid; gap:4px; max-height:210px; overflow:auto; }
+.evaluation-invitation-list button { display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%; padding:8px 12px; text-align:left; color:#152238; background:#fff; border:1px solid #dbe5f2; border-radius:8px; font:inherit; cursor:pointer; }
+.evaluation-invitation-list button[aria-pressed=true] { background:#edf4ff; border-color:#9bbde8; }
+.evaluation-invitation-list span, .evaluation-review-card small { color:#526174; font-size:13px; }
+.evaluation-review-card { display:grid; gap:10px; margin-top:12px; padding:14px; border:1px solid #dce2e9; border-radius:8px; background:#fff; color:#152238; }
+.evaluation-review-card h4 { margin:0; font-size:16px; }
+.evaluation-review-card dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:6px 12px; margin:0; }
+.evaluation-review-card dt { color:#526174; }
+.evaluation-review-card dd { margin:0; overflow-wrap:anywhere; }
+.evaluation-review-sent { margin-inline-start:8px; color:#0759ba; font-size:13px; }
+.evaluation-review-link, .evaluation-editor-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.evaluation-review-link button { padding:5px 9px; min-height:34px; font-size:13px; }
+.evaluation-review-card textarea { resize:vertical; }
+.evaluation-review-send { display:flex; justify-content:flex-end; }
+.evaluation-review-send button { display:inline-flex; align-items:center; justify-content:center; gap:8px; width:auto; }
+.evaluation-review-send button svg { display:block; flex-shrink:0; }
+.evaluation-builder-dialog .evaluation-builder { border:0; padding:0; }
+.evaluation-builder h3 { margin:0 0 12px; font-size:16px; }
+.evaluation-builder h3 small { color:#526174; font-weight:400; }
+.evaluation-question-row { margin-bottom:7px; border:1px solid #dbe5f2; border-radius:8px; }
+.evaluation-question-summary { display:flex; align-items:stretch; gap:4px; padding:4px; }
+.evaluation-panel .evaluation-question-summary > button:first-child { display:flex; flex:1; min-width:0; align-items:center; flex-wrap:wrap; gap:6px 10px; text-align:left; border-color:transparent !important; color:#152238 !important; }
+.evaluation-question-summary strong { overflow-wrap:anywhere; }
+.evaluation-question-summary small { color:#526174; margin-inline-start:auto; }
+.evaluation-question-menu { display:flex; flex-wrap:wrap; gap:6px; padding:0 8px 8px; }
+.evaluation-question-row .evaluation-builder-question { margin:0; border-radius:0 0 8px 8px; }
+.evaluation-builder-dialog footer { flex-wrap:wrap; align-items:center; }
+.evaluation-builder-dialog footer small { margin-inline-end:auto; color:#526174; }
+@media(max-width:520px) { .evaluation-builder-dialog-header,.evaluation-builder-dialog-content,.evaluation-builder-dialog footer { padding:12px; } .evaluation-builder-dialog footer small { flex-basis:100%; } .evaluation-question-summary small { margin-inline-start:0; } }

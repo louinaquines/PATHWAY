@@ -1,5 +1,5 @@
 import { compareStudents } from '../coordinatorStudentSort';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
+import { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -206,11 +206,11 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   }
   return (
     <div style={s.page} className="clearance-page">
-<p className="clearance-section-scope"><strong>{selectedSection?.name || 'Select a section'}</strong><span>Clearance records, counts, and reports are limited to this section.</span></p>
+
       {/* Top Toolbar */}
       <div style={s.toolbar} className="clearance-toolbar">
         <div>
-          <details className="clearance-help"><summary>What is required for clearance?</summary><p style={s.sub}>Approve the requirements and placement, confirm final internship approval, and check that the student has completed the required hours and received a supervisor evaluation.</p></details>
+
         </div>
         <div style={s.actions}>
           <button style={s.secondaryBtn} onClick={load}>Refresh</button>
@@ -231,9 +231,8 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       <div className="clearance-records" style={s.card}>
         <div style={s.searchRow}>
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" placeholder="Search students…" />
-          <span style={s.searchCount}>{error && !rows.length ? 'Records unavailable' : filteredRows.length + ' of ' + rows.length + ' students'}</span>
         </div>
-        <RecordPagination pagination={recordsPage} label="Clearance students" />
+
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
@@ -296,6 +295,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             <div style={s.empty}>{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
           )}
         </div>
+        <footer className="clearance-list-footer"><span>{error ? "Records unavailable" : recordsPage.total ? `${recordsPage.start + 1}–${Math.min(recordsPage.start + recordsPage.size, recordsPage.total)} of ${recordsPage.total} students` : "0 students"}</span><nav aria-label="Clearance students pagination"><button type="button" className="portal-secondary" aria-label="Previous page" disabled={recordsPage.page === 1} onClick={() => recordsPage.onPageChange(recordsPage.page - 1)}><Icon name="chevronLeft" size={16} /></button><span>Page {recordsPage.page} of {recordsPage.pageCount}</span><button type="button" className="portal-secondary" aria-label="Next page" disabled={recordsPage.page === recordsPage.pageCount} onClick={() => recordsPage.onPageChange(recordsPage.page + 1)}><Icon name="chevronRight" size={16} /></button></nav></footer>
       </div>
     </div>
   );
@@ -423,8 +423,9 @@ const s = {
     verticalAlign: 'middle',
   },
   studentName: {
-    fontWeight: 800,
-    color: '#000000',
+    fontWeight: 500,
+    fontFamily: "inherit",
+    color: "inherit",
     fontSize: 14,
   },
   idCode: {

@@ -43,6 +43,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const [invitation, setInvitation] = useState(null);
   const [emailMessage, setEmailMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [linkVisible, setLinkVisible] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [copied, setCopied]           = useState(false);
   const [status, setStatus]           = useState('');
@@ -75,15 +76,6 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   }, [coordinatorId, loadEvaluations, selectedSection?.id]);
   usePortalAutoRefresh(loadEvaluations, { enabled: !loading && !busy && !refreshing, scope: selectedSection?.id || '' });
 
-  const checkEmailConnection = async () => {
-    setBusy(true);
-    try {
-      const data = await adminRequest('/coordinator/email-connection', { method: 'POST' });
-      setStatus(data.message);
-    } catch (error) { setStatus(error.message); }
-    finally { setBusy(false); }
-  };
-
   const companyFor = student => student.companyId ? 'id:' + student.companyId : 'name:' + (student.company || student.companyName || '').trim();
   const placedStudents = students.filter(student => student.placementStatus === 'approved' && (student.company || student.companyName || '').trim());
   const companies = [...new Map(placedStudents.map(student => [companyFor(student), student.company || student.companyName])).entries()]
@@ -109,7 +101,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
 
   const showInvitation = item => {
     setInvitation(item); setLink(window.location.origin + '/evaluate?token=' + item.token);
-    setEmailSent(item.sent === true); setCopied(false);
+    setEmailSent(item.sent === true); setCopied(false); setLinkVisible(false); setEmailMessage('');
   };
 
   const createLink = async event => {
@@ -144,9 +136,12 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
         method: 'POST', body: JSON.stringify({ token: invitation.token, message: emailMessage }),
       });
       setEmailSent(true);
-      setPreparedInvitations(previous => previous.map(item => item.id === invitation.id ? { ...item, sent: true } : item));
+      setPreparedInvitations(previous => previous.map(item => item.id === invitation.id ? { ...item, sent: true, sendFailed: false } : item));
       setStatus('Sent: the email server accepted the invitation. This does not confirm that the supervisor has read it.');
-    } catch (error) { setStatus(error.message); }
+    } catch (error) {
+      setPreparedInvitations(previous => previous.map(item => item.id === invitation.id ? { ...item, sendFailed: true } : item));
+      setStatus(error.message);
+    }
     finally {
       setBusy(false);
       try { await loadEvaluations(); } catch (_) { /* Keep the delivery result visible. */ }
@@ -161,6 +156,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
       setTimeout(() => setCopied(false), 2500);
     } catch (error) {
       setCopied(false);
+      setLinkVisible(true);
       setStatus('Could not copy the link. Select and copy it manually.');
     }
   };
@@ -290,9 +286,6 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
           <button type="submit" disabled={busy || mixedSupervisors || !remainingStudents.length} style={styles.generateBtn}>
             {busy ? 'Please wait…' : 'Create evaluation links'}
           </button>
-          <button className="evaluation-connection-button" type="button" onClick={checkEmailConnection} disabled={busy}>
-            Test email connection
-          </button>
           </div>
         </form>
 
@@ -303,35 +296,41 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
         )}
 
         {preparedInvitations.length > 0 && <section className="evaluation-prepared">
-          <div className="evaluation-prepared-heading"><h3>Evaluation links ready to send</h3>
+          <div className="evaluation-prepared-heading">
+            <h3>{preparedInvitations.length === 1 ? 'Prepared invitation' : 'Prepared invitations'}</h3>
             <button type="button" className="portal-secondary" disabled={busy} onClick={() => {
               setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectedStudentIds([]); setCompanyKey(''); setStatus('');
               setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
-            }}>New request</button></div>
-          <p>Each student has a separate link. Select a student below to review and send their invitation.</p>
-          <div className="evaluation-prepared-list">{preparedInvitations.map(item => <button type="button" key={item.id}
-            className="portal-secondary" aria-pressed={invitation?.id === item.id} disabled={busy} onClick={() => showInvitation(item)}>
-            {item.studentName}{item.sent ? ' · Sent' : ''}
-          </button>)}</div>
-        </section>}
-        {link && (
-          <div style={styles.linkCard}>
-            <div style={styles.linkTop}>
-              <span style={styles.linkLabel}>Generated Link (Expires in 7 days):</span>
-              <button style={styles.copyBtn} onClick={copyToClipboard}>
-                {copied ? 'Copied to Clipboard!' : 'Copy Link'}
-              </button>
-            </div>
-            <div style={styles.linkUrl}>{link}</div>
-            {invitation && <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
-              <strong>To: {invitation.supervisorName} ({invitation.email})</strong>
-              <span>Subject: PATHWAY supervisor evaluation request</span>
-              <label style={styles.label} htmlFor="evaluation-email-message">Additional message (optional)</label>
-              <textarea id="evaluation-email-message" maxLength={2000} rows={4} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} style={styles.input} placeholder="Add a note for the supervisor. The student details, secure link, and expiry are included automatically." />
-              <button type="button" disabled={busy || emailSent} onClick={sendEmail} style={styles.generateBtn}><Icon name="mail" size={18} /> {emailSent ? 'Email Sent' : busy ? 'Sending…' : 'Send Email'}</button>
-            </div>}
+            }}>New request</button>
           </div>
-        )}
+          {preparedInvitations.length > 1 && <ul className="evaluation-invitation-list">
+            {preparedInvitations.map(item => <li key={item.id}>
+              <button type="button" aria-pressed={invitation?.id === item.id} disabled={busy} onClick={() => showInvitation(item)}>
+                <strong>{item.studentName}</strong><span>{item.sent ? 'Sent' : item.sendFailed ? 'Send failed' : 'Ready to send'}</span>
+              </button>
+            </li>)}
+          </ul>}
+          {link && invitation && <section key={invitation.id} className="evaluation-review-card" aria-label="Review invitation">
+            <h4>Review invitation</h4>
+            <dl>
+              <dt>Student</dt><dd>{invitation.studentName}{emailSent && <span className="evaluation-review-sent">Sent</span>}</dd>
+              <dt>To</dt><dd>{invitation.supervisorName} · {invitation.email}</dd>
+              <dt>Subject</dt><dd>PATHWAY supervisor evaluation request</dd>
+            </dl>
+            <div className="evaluation-review-link">
+              <small>Expires in 7 days</small>
+              <button type="button" className="portal-secondary" onClick={copyToClipboard}>{copied ? 'Link copied' : 'Copy link'}</button>
+              <button type="button" className="portal-secondary" aria-expanded={linkVisible} onClick={() => setLinkVisible(!linkVisible)}>{linkVisible ? 'Hide link' : 'Show link'}</button>
+            </div>
+            {linkVisible && <input aria-label="Evaluation link" readOnly value={link} style={styles.input} onFocus={event => event.target.select()} />}
+            <label htmlFor="evaluation-email-message">Additional message (optional)</label>
+            <textarea id="evaluation-email-message" maxLength={2000} rows={2} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} style={styles.input} placeholder="Add a note for the supervisor" />
+            <div className="evaluation-review-send">
+              <button type="button" disabled={busy || emailSent} onClick={sendEmail} style={styles.generateBtn}><Icon name="mail" size={16} /> {emailSent ? 'Invitation sent' : busy ? 'Sending…' : 'Send invitation'}</button>
+            </div>
+          </section>}
+        </section>}
+
       </div>
 
       {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
@@ -547,47 +546,6 @@ const styles = {
     color: '#000000',
     fontSize: 13,
     border: `1px solid ${COLORS.rose200}`,
-  },
-  linkCard: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: COLORS.yellow50,
-    border: `1.5px solid ${COLORS.yellow300}`,
-    borderRadius: THEME.radius.md,
-  },
-  linkTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  linkLabel: {
-    fontSize: 12,
-    fontWeight: 800,
-    color: '#000000',
-  },
-  copyBtn: {
-    backgroundColor: COLORS.yellow400,
-    color: '#000000',
-    border: 'none',
-    borderRadius: THEME.radius.sm,
-    padding: '5px 12px',
-    cursor: 'pointer',
-    fontSize: 12,
-    fontWeight: 800,
-  },
-  linkUrl: {
-    fontFamily: THEME.fonts.mono,
-    fontSize: 12,
-    color: '#000000',
-    wordBreak: 'break-all',
-    backgroundColor: COLORS.white,
-    padding: 10,
-    borderRadius: THEME.radius.sm,
-    border: `1px solid ${COLORS.yellow200}`,
-    fontWeight: 600,
   },
   recordsHeader: {
     gap: 24,

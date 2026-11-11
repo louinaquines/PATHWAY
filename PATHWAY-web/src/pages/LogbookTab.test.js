@@ -10,7 +10,7 @@ jest.mock('../components/DtrReviewDialog', () => ({ student, onClose }) => <div 
 jest.mock('firebase/firestore', () => ({ collection: jest.fn((db, ...path) => path.join('/')),
   query: jest.fn((path, ...constraints) => ({ path, constraints })), where: jest.fn((field, operator, value) => ({ field, operator, value })),
   limit: jest.fn(value => ({ limit: value })), orderBy: jest.fn(field => ({ field })), startAfter: jest.fn(cursor => ({ cursor })),
-  getDocs: jest.fn(), getDocsFromServer: jest.fn(), onSnapshot: jest.fn() }));
+  getCountFromServer: jest.fn().mockResolvedValue({data:()=>({count:1})}), getDocs: jest.fn(), getDocsFromServer: jest.fn(), onSnapshot: jest.fn() }));
 const snapshot = records => ({ size: records.length, docs: records.map(record => ({ id: record.id, data: () => record })) });
 
 beforeEach(() => { getDocsFromServer.mockReset().mockResolvedValue(snapshot([])); });
@@ -130,7 +130,7 @@ test('the roster pages in Firestore and can find an exact ID beyond the first pa
   render(<LogbookTab coordinatorId="coordinator" selectedSection={{ id: 'section', name: 'QA Section' }} />);
   expect(await screen.findByText('26000000')).toBeVisible();
   expect(screen.queryByText('26009999')).not.toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('navigation', { name: 'Students pagination' })).getByRole('button', { name: 'Next' }));
+  fireEvent.click(within(screen.getByRole('navigation', { name: 'Students pagination' })).getByRole('button', { name: 'Next page' }));
   expect(await screen.findByText('26000025')).toBeVisible();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search students' }), { target: { value: '26009999' } });
   expect(await screen.findByText('26009999')).toBeVisible();

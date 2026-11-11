@@ -20,7 +20,7 @@ import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
 import SubmissionNotifications, { receivedRequirements } from '../components/SubmissionNotifications';
-import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
@@ -57,6 +57,8 @@ const STATUS_TEXT = {
 const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
+const REVIEW_FILTERS = [['all', 'All students'], ['review', 'Awaiting review'], ['revision', 'Changes requested'], ['complete', 'Complete']];
+
 export default function CoordinatorDashboard() {
   const [sections, setSections] = useState([]);
   const [students, setStudents] = useState([]);
@@ -66,6 +68,7 @@ export default function CoordinatorDashboard() {
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewPaging, setReviewPaging] = useState(null);
   const [reviewResult, setReviewResult] = useState(null);
+  const [reviewTotal, setReviewTotal] = useState(null);
   const [reviewRetry, setReviewRetry] = useState(0);
   const { page } = useParams();
   const location = useLocation();
@@ -320,14 +323,22 @@ export default function CoordinatorDashboard() {
     const base = query(collection(db, 'users'), ...constraints, ...(exactId
       ? [where('idNumber', '==', reviewSearch)]
       : [orderBy('firstName'), orderBy('lastName')]));
-    const request = reviewFilter !== 'all' || (reviewSearch && !exactId)
+    const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
+    if (!requiresMatching && !reviewCursor) {
+      getCountFromServer(base).then(snapshot => {
+        if (active) setReviewTotal({ scope: reviewScope, pages: Math.max(1, Math.ceil(snapshot.data().count / 25)) });
+      }).catch(() => {});
+    }
+    const request = requiresMatching
       ? readMatchingPortalPage(base, reviewCursor, 25, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
         && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
       : readPortalPage(base, reviewCursor, 25);
     request.then(page => {
-      if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
+      if (!active) return;
+      setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
+      if (!page.hasMore) setReviewTotal({ scope: reviewScope, pages: reviewCursors.length });
     }).catch(() => {
       if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, error: 'Could not load requirement students.' });
     });
@@ -505,12 +516,23 @@ export default function CoordinatorDashboard() {
                       {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
                     </select>
                   </div>
-                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
-                  <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">
-                    {[['review', 'Awaiting review'], ['revision', 'Changes requested'], ['all', 'All students'], ['complete', 'Complete']].map(([value, label]) => (
-                      <button type="button" key={value} className="portal-secondary" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>
-                    ))}
+                  <div className="requirements-search-row" style={s.columnSearch}>
+                    <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" />
+                    <div className="requirements-filter-icon" data-active={reviewFilter !== 'all'}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 5h18l-7 8v5l-4 2v-7z" />
+                      </svg>
+                      <select aria-label="Filter students by requirement status" title="Filter by status" value={reviewFilter} onChange={event => setReviewFilter(event.target.value)}>
+                        {REVIEW_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </div>
                   </div>
+                  {reviewFilter !== 'all' && <div className="requirements-filter-chip">
+                    <button type="button" onClick={() => setReviewFilter('all')} aria-label="Clear status filter">
+                      {REVIEW_FILTERS.find(([value]) => value === reviewFilter)?.[1]} <Icon name="x" size={13} />
+                    </button>
+                  </div>}
+                  <div className="requirements-student-list">
                   {!selectedSection && (
                     <div style={s.empty}>Choose a section in the top bar.</div>
                   )}
@@ -520,13 +542,6 @@ export default function CoordinatorDashboard() {
                   {selectedSection && !currentReview && <p role="status">Loading students…</p>}
                   {currentReview?.error && <p role="alert">{currentReview.error} <button type="button" className="portal-secondary"
                     onClick={() => setReviewRetry(value => value + 1)}>Retry</button></p>}
-                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
-                    <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })}>Previous</button>
-                    <span>Page {reviewCursors.length}</span>
-                    <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })}>Next</button>
-                  </nav>}
                   {visibleReviewStudents.map(student => {
                     const progress = requirementProgress(student.requirements, sectionRequirements);
                     return (
@@ -557,6 +572,16 @@ export default function CoordinatorDashboard() {
                     </button>
                     );
                   })}
+                  </div>
+                  {(currentReview?.page || reviewCursors.length > 1) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
+                    <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
+                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={16} /></button>
+                    <span aria-live="polite">Page {reviewCursors.length}{reviewTotal?.scope === reviewScope
+                      ? ` of ${Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages)}`
+                      : currentReview?.page?.hasMore ? ` of at least ${reviewCursors.length + 1}` : ''}</span>
+                    <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}
+                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={16} /></button>
+                  </nav>}
                 </div>
 
                 {/* Column 3: Requirements */}

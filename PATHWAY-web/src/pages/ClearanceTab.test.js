@@ -23,6 +23,6 @@ test('clearance print fields remain text instead of executable HTML', () => {
   const ClearanceTab = require('./ClearanceTab').default;
   adminRequest.mockClear();
   render(React.createElement(ClearanceTab,{coordinatorId:'coord'}));
-  expect(await screen.findByText('Select a section')).toBeInTheDocument();
+  expect(await screen.findByText('Select a section to review clearance readiness.')).toBeInTheDocument();
   expect(adminRequest).not.toHaveBeenCalled();
  });

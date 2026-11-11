@@ -47,6 +47,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     const evaluatedStudents = new Set((evaluations.value?.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
     setSummary({
       sectionId: section.id,
+      checkedAt: new Date(),
       placementCount: placements.value?.size,
       waitingCount: placements.status === 'fulfilled' ? roster.filter(student => canAssignPlacement(student, pendingStudents)).length : undefined,
       journalCount: journals.value?.journalCount,
@@ -79,6 +80,9 @@ export default function CoordinatorOverview({ section, students, requirementsCou
         <h2 id="overview-attention-title">Needs attention</h2>
         <button type="button" className="portal-secondary" onClick={() => load()}><Icon name="refresh" size={15} /> Refresh</button>
       </div>
+      <p role="status">
+        {summary.incomplete ? 'Last refresh attempt' : 'Counts updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>
+      </p>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
       <div className="coordinator-attention-grid">

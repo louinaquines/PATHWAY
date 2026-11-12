@@ -76,27 +76,39 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     ['logbook', 'journals', 'Review logbooks', summary.journalCount, 'entries', 'book'],
     ['clearance', 'ready', 'Clear students', summary.clearanceCount, 'students', 'check'],
   ];
-  return <section className="coordinator-overview" aria-label="Section overview">
-    <SectionCharts students={students} section={section}>
-    <section className="coordinator-queue" aria-labelledby="overview-attention-title">
-      <div className="coordinator-overview-heading">
-        <h2 id="overview-attention-title">Needs attention</h2>
-        <button type="button" className="portal-secondary" onClick={() => load()}><Icon name="refresh" size={15} /> Refresh</button>
+  const pendingTotal = tasks.reduce((sum, task) => sum + (task[3] || 0), 0);
+  return <section className="coordinator-overview cdash" aria-label="Section overview">
+    <header className="cdash-hero">
+      <div>
+        <p className="cdash-eyebrow">Section overview</p>
+        <h2>{section.name || 'Your section'}</h2>
+        <p className="cdash-hero-meta">
+          <span><Icon name="users" size={15} /> {students.length} {students.length === 1 ? 'student' : 'students'}</span>
+          {section.hoursRequired ? <span><Icon name="clock" size={15} /> {section.hoursRequired} required hours</span> : null}
+          <span role="status"><Icon name="refresh" size={15} /> {summary.incomplete ? 'Last refresh attempt' : 'Counts updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></span>
+        </p>
       </div>
-      <p role="status">
-        {summary.incomplete ? 'Last refresh attempt' : 'Counts updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>
-      </p>
+      <div className="cdash-hero-side">
+        <div className="cdash-hero-pending" data-zero={pendingTotal === 0}><strong>{pendingTotal}</strong><span>{pendingTotal === 1 ? 'item needs you' : 'items need you'}</span></div>
+        <button type="button" className="cdash-button" onClick={() => load()}><Icon name="refresh" size={16} /> Refresh</button>
+      </div>
+    </header>
+    <SectionCharts students={students} section={section}>
+    <section className="cdash-card cdash-queue" aria-labelledby="overview-attention-title">
+      <header className="cdash-card-head">
+        <div><h2 id="overview-attention-title">Needs attention</h2><p>Tasks waiting for your review.</p></div>
+      </header>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
-      {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p>You’re caught up for this section.</p>}
-      <div className="coordinator-attention-grid">
+      {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p className="cdash-caught-up"><Icon name="check" size={16} /> You’re caught up for this section.</p>}
+      <div className="cdash-task-list coordinator-attention-grid">
         {[...tasks].sort((a, b) => Number(b[3] > 0) - Number(a[3] > 0)).map(([page, view, label, count, unit, icon]) =>
-          <button key={view} type="button" data-pending={count > 0} onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
-            <span className="coordinator-queue-icon"><Icon name={icon} size={17} /></span>
-            <span className="coordinator-queue-label">{label}</span>
+          <button key={view} type="button" className="cdash-task" data-pending={count > 0} onClick={() => onOpen(page, view, summary.pendingStudentIds)}>
+            <span className="cdash-task-icon"><Icon name={icon} size={18} /></span>
+            <span className="cdash-task-label coordinator-queue-label">{label}</span>
             <strong data-unavailable={count == null}>{count == null ? 'Unavailable' : count}
               {count != null && <span className="sr-only"> {count === 1 ? { students: 'student', requests: 'request', entries: 'entry' }[unit] : unit}</span>}
             </strong>
-            <Icon name="chevronRight" size={14} />
+            <Icon name="chevronRight" size={16} />
           </button>
         )}
       </div>
@@ -115,7 +127,7 @@ function SectionCharts({ students, section, children }) {
     ['Cleared', students.filter(student => student.clearanceStatus === 'cleared').length],
   ];
   const tracked = total - missingTargets;
-  const colors = ['#dce6f0', '#9cc9ef', '#528fd0', '#223752'];
+  const colors = ['#e2e8f0', '#93c5fd', '#3b82f6', '#16a34a'];
   let start = 0;
   const segments = counts.flatMap((count, index) => {
     if (!count) return [];
@@ -125,54 +137,54 @@ function SectionCharts({ students, section, children }) {
     return [segment];
   });
   const labels = ['0%', 'Above 0%, below 50%', '50% to below 100%', '100%+'];
-  return <div className="coordinator-dashboard-grid">
-    <div className="coordinator-dashboard-main">
-    <dl className="coordinator-metrics" aria-label="Section totals">
-      {[
-        ['Students in section', total, 'users', 'Section roster'],
-        ['Assigned placements', milestones[1][1], 'building', 'Coordinator-confirmed'],
-        ['Hours target met', counts[3], 'clock', 'Students at or above target'],
-      ].map(([label, count, icon, detail]) => <div key={label} className="coordinator-metric">
-        <dt><span className="coordinator-metric-icon"><Icon name={icon} size={17} /></span>{label}</dt>
-        <dd>{count}</dd>
-        <dd className="coordinator-metric-detail">{detail}</dd>
+  const pct = count => (total ? Math.round(100 * count / total) : 0);
+  const metrics = [
+    ['Students in section', total, 'users', 'blue', null],
+    ['Requirements approved', milestones[0][1], 'clipboard', 'indigo', pct(milestones[0][1])],
+    ['Placements assigned', milestones[1][1], 'building', 'teal', pct(milestones[1][1])],
+    ['Hours target met', counts[3], 'clock', 'green', pct(counts[3])],
+  ];
+  return <div className="cdash-body">
+    <dl className="cdash-metrics" aria-label="Section totals">
+      {metrics.map(([label, count, icon, tone, percent]) => <div key={label} className="cdash-metric">
+        <dt><span className="cdash-metric-icon" data-tone={tone}><Icon name={icon} size={20} /></span>{label}</dt>
+        <dd className="cdash-metric-value">{count}{percent != null && total > 0 && <span> of {total}</span>}</dd>
+        {percent != null && <dd className="cdash-metric-bar" aria-hidden="true"><span style={{ width: percent + '%' }} data-tone={tone} /></dd>}
+        <dd className="cdash-metric-note">{percent == null ? 'On your section roster' : total ? percent + '% of the section' : 'No students yet'}</dd>
       </div>)}
     </dl>
-    <section className="coordinator-chart coordinator-progress" aria-labelledby="section-milestones-title">
-      <header>
-        <h2 id="section-milestones-title">Student progress by step</h2>
-      </header>
-      <p>Students who reached each step.</p>
-      {total === 0 ? <p className="coordinator-chart-empty">No students in this section yet.</p> :
-        <ol className="coordinator-milestones">
+    <div className="cdash-columns">
+      {children}
+      <section className="cdash-card cdash-hours" aria-labelledby="section-hours-title">
+        <header className="cdash-card-head"><div><h2 id="section-hours-title">How close students are to their required hours</h2><p>Grouped by progress toward each student’s hours target.</p></div></header>
+        {total === missingTargets ? <p className="cdash-empty">{total ? 'Required internship hours haven’t been set for this section.' : 'No students in this section yet.'}</p> :
+          <div className="cdash-hours-body">
+            <div className="cdash-donut" aria-hidden="true" style={{ background: 'conic-gradient(' + segments.join(', ') + ')' }}>
+              <div><strong>{tracked}</strong><span>with a target</span></div>
+            </div>
+            <ul className="cdash-legend">
+              {counts.map((count, index) => <li key={labels[index]}>
+                <span className="cdash-swatch" aria-hidden="true" style={{ background: colors[index] }} />
+                <span className="cdash-legend-label">{labels[index]}</span>
+                <strong>{count}<span className="sr-only"> {count === 1 ? 'student' : 'students'} at</span></strong>
+                <span className="sr-only">{' '}{labels[index]}</span>
+              </li>)}
+            </ul>
+          </div>}
+        {missingTargets > 0 && total !== missingTargets && <p className="cdash-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
+      </section>
+    </div>
+    <section className="cdash-card cdash-journey" aria-labelledby="section-milestones-title">
+      <header className="cdash-card-head"><div><h2 id="section-milestones-title">Student progress by step</h2><p>Students who reached each step of the OJT journey.</p></div></header>
+      {total === 0 ? <p className="cdash-empty">No students in this section yet.</p> :
+        <ol className="cdash-steps">
           {milestones.map(([label, count], index) => <li key={label}>
-            <span className="coordinator-milestone-marker" aria-hidden="true">Step {index + 1}</span>
-            <span className="coordinator-milestone-label">{label}</span>
+            <span className="cdash-step-num" aria-hidden="true">{index + 1}</span>
+            <span className="cdash-step-label">{label}</span>
             <strong>{count} <span>of {total}</span></strong>
+            <span className="cdash-step-bar" aria-hidden="true"><span style={{ width: pct(count) + '%' }} /></span>
           </li>)}
         </ol>}
     </section>
-    {children}
-    </div>
-    <div className="coordinator-chart-grid">
-    <section className="coordinator-chart" aria-labelledby="section-hours-title">
-      <header><h2 id="section-hours-title">How close students are to their required hours</h2><span className="coordinator-chart-unit">Students</span></header>
-      <p>Students grouped by how much of their own hours target they’ve completed.</p>
-      {total === missingTargets ? <p className="coordinator-chart-empty">{total ? 'Required internship hours haven’t been set for this section.' : 'No students in this section yet.'}</p> :
-        <>
-          <div className="coordinator-hours-donut" aria-hidden="true" style={{ background: 'conic-gradient(' + segments.join(', ') + ')' }}>
-            <div><strong>{tracked}</strong><span>Students with a target</span></div>
-          </div>
-          <ul className="coordinator-hours-chart">
-            {counts.map((count, index) => <li key={labels[index]}>
-              <span className="coordinator-hours-swatch" aria-hidden="true" style={{ background: colors[index] }} />
-              <strong>{count}<span className="sr-only"> {count === 1 ? 'student' : 'students'} at</span></strong>
-              <span>{' '}{labels[index]}</span>
-            </li>)}
-          </ul>
-        </>}
-      {missingTargets > 0 && total !== missingTargets && <p className="coordinator-chart-note">{missingTargets} {missingTargets === 1 ? 'student has' : 'students have'} no hours target and are excluded from this chart.</p>}
-    </section>
-    </div>
   </div>;
 }

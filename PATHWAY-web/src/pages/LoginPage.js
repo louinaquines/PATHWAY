@@ -9,6 +9,9 @@ import { setPageMetadata } from '../pageMetadata';
 import campusPhoto from '../assets/uc-campus.jpg';
 import './LoginPage.css';
 
+const EyeIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
+const EyeOffIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg>;
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -64,7 +67,7 @@ export default function LoginPage() {
           <label htmlFor="staff-email">Email address</label>
           <div className="staff-login-input"><Icon name="mail" size={19} /><input id="staff-email" type="email" autoComplete="username" inputMode="email" autoCapitalize="none" spellCheck={false} placeholder="Enter your email address" value={email} onChange={event => setEmail(event.target.value)} disabled={loading} required aria-describedby={error ? 'staff-login-error' : undefined} /></div>
           <label htmlFor="staff-password">Password</label>
-          <div className="staff-login-input"><Icon name="shield" size={19} /><input id="staff-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={event => setPassword(event.target.value)} disabled={loading} required aria-describedby={error ? 'staff-login-error' : undefined} /><button className="staff-login-visibility" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} disabled={loading} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button></div>
+          <div className="staff-login-input"><Icon name="shield" size={19} /><input id="staff-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" value={password} onChange={event => setPassword(event.target.value)} disabled={loading} required aria-describedby={error ? 'staff-login-error' : undefined} /><button className="staff-login-visibility" type="button" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} disabled={loading} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOffIcon /> : <EyeIcon />}</button></div>
           <button className="staff-login-submit" type="submit" disabled={loading}>{loading ? <><span className="staff-login-spinner" aria-hidden="true" /> Signing in…</> : <>Sign In <Icon name="chevronRight" size={19} /></>}</button>
         </form>
         <p className="staff-login-help">Need access? Contact your PATHWAY administrator.</p>

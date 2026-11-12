@@ -72,3 +72,8 @@
   .staff-login-page .staff-login-help { margin: 18px 0; }
   .staff-login-footer { position: static; padding: 0 0 20px; }
 }
+
+/* password eye toggle */
+.staff-login-page .staff-login-visibility { display: inline-flex; align-items: center; justify-content: center; min-width: 48px; width: 48px; height: 48px; margin-right: 8px; padding: 0; border-radius: 10px; color: #64748b; }
+.staff-login-page .staff-login-visibility:hover:not(:disabled) { color: #075fc9; background: #eaf2ff; }
+.staff-login-page .staff-login-visibility[aria-pressed="true"] { color: #075fc9; }

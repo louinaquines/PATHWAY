@@ -135,7 +135,7 @@
 .authorized-roster-drawer .authorized-roster-page { grid-template-columns: minmax(0, 1fr) 300px; overflow: visible; }
 .authorized-roster-drawer .roster-records-card { padding: 16px !important; }
 @media(max-width: 800px) { .authorized-roster-drawer { width: 100vw; } .authorized-roster-drawer .authorized-roster-page { grid-template-columns: minmax(0, 1fr); } .authorized-roster-page > .roster-import-card { grid-column: 1; grid-row: 3; } .authorized-roster-page > .roster-records-card { grid-column: 1; grid-row: 2; } }
-.accounts-workspace { padding: 24px; min-width: 0; }
+.accounts-workspace { flex: 1 1 0; width: 100%; max-width: none; padding: 24px; min-width: 0; }
 .accounts-workspace .registration-tabs { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
 .accounts-workspace .registration-tabs button { padding: 10px 0; border: 0; background: transparent; color: inherit; }
 .accounts-workspace .registration-tabs button[aria-pressed="true"] { color: #075fc9; box-shadow: inset 0 -2px #075fc9; }
@@ -145,7 +145,10 @@
 .accounts-toolbar > :first-child { flex: 1 1 260px; }
 .accounts-card > p { padding-inline: 16px; }
 .accounts-card table { width: 100%; min-width: 660px; }
+.accounts-card th { white-space: nowrap; }
 .accounts-card td { overflow-wrap: anywhere; }
+.accounts-card .accounts-empty { padding: 32px 16px; text-align: center; color: #475569; }
+.accounts-empty p { margin: 0 0 8px; }
 .accounts-card details { color: #475569; font-size: .85em; }
 .accounts-footer { border-top: 1px solid #dce2e9; color: #475569; }
 .accounts-actions { display: flex; align-items: center; gap: 8px; }
@@ -172,4 +175,5 @@
   .accounts-card table { min-width: 0; }
   .accounts-card .accounts-extra { display: none; }
   .accounts-card th, .accounts-card td { padding-inline: 6px; }
+  .accounts-card th { white-space: normal; overflow-wrap: normal; }
 }

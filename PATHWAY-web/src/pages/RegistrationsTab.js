@@ -120,7 +120,15 @@ export default function RegistrationsTab({ selectedSection }) {
                     setActionError('');
                     setSelected(student);
                   }}>{tab === 'pending' ? 'Review' : 'Details'}</button></td>
-              </tr>) : <tr><td colSpan={6}>{term ? 'No matching students.' : 'No students in this view.'}</td></tr>}</tbody>
+              </tr>) : <tr><td className="accounts-empty" colSpan={6}>
+                <p>{term ? 'No matching students.' : tab === 'pending' ? 'No accounts awaiting approval.' : 'No students in this view.'}</p>
+                {!term && tab === 'pending' && counts?.sectionId === sectionId && counts?.revision === revision && counts.values.approved > 0 && (
+                  <button type="button" className="portal-secondary" onClick={() => {
+                    setTab('approved');
+                    setCursors(['']);
+                  }}>View approved accounts</button>
+                )}
+              </td></tr>}</tbody>
             </table>
           </div>
           <nav className="accounts-footer" aria-label="Student accounts pagination">

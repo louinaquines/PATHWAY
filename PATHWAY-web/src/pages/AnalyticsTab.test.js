@@ -55,7 +55,7 @@ test('explicit tiers, progress and data quality override compatibility status an
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
   expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
-  expect(screen.getByRole('dialog')).toHaveTextContent(/last 20 eligible/i);
+  expect(screen.getByRole('dialog')).not.toHaveTextContent(/How is this calculated/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();
 });
 

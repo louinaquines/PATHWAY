@@ -155,11 +155,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <header><h2>Edit work schedule</h2></header>
           <div className="analytics-drawer-body">
             <fieldset disabled={saving}>
-        <details><summary>How is this calculated?</summary><p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p></details>
         <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
-        <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={draft.workingDays.includes(index)} onChange={event => setDraft(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
+        <fieldset className="analytics-working-days"><legend>Working days</legend>{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={draft.workingDays.includes(index)} onChange={event => setDraft(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</fieldset>
         <div className="analytics-exceptions">
-          <label>Exception date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
+          <label>Excluded date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
           <button type="button" className="portal-secondary" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {
             setDraft(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
             setExceptionDate('');

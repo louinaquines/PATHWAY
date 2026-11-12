@@ -1,5 +1,5 @@
 import { readMatchingPortalPage, readPortalPage } from '../portalRecordPages';
-import { PortalFormDialog } from '../components/PortalStates';
+import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -546,7 +546,9 @@ export default function CoordinatorDashboard() {
                   </div>}
                   <div className="requirements-student-list">
                   {!selectedSection && (
-                    <div style={s.empty}>Choose a section in the top bar.</div>
+                    sections.length === 0
+                      ? <PortalEmpty compact icon="section" title="No sections yet" description="Create a section to see students here." />
+                      : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section in the menu above." />
                   )}
                   {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
                     <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
@@ -610,16 +612,23 @@ export default function CoordinatorDashboard() {
                   </div>}
                   {!selectedStudent ? (
                     <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
-                      <div style={s.emptyStatePanel}>
-                        <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Requirements" /></div>
-                        <h3 style={s.emptyTitle}>Select a Student</h3>
-                        <p style={s.emptySub}>Choose a student from the list to review documents, attachments, and approvals.</p>
-                      </div>
+                      {sections.length === 0 ? (
+                        <PortalEmpty icon="section" title="Start by creating a section"
+                          description="Student documents appear here once a section has students and requirements."
+                          steps={['Create a section', 'Add requirements and deadlines', 'Students upload — you review here']}
+                          action={{ label: 'Go to Sections & Students', onClick: () => setActiveTab('sections') }} />
+                      ) : sectionRequirements.length === 0 ? (
+                        <PortalEmpty title="No requirements yet"
+                          description="Add the documents students must submit for this section."
+                          action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />
+                      ) : (
+                        <PortalEmpty icon="user" title="Select a student"
+                          description="Choose a student on the left to review their documents and approvals." />
+                      )}
                     </div>
                   ) : (
                     <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
+                      {sectionRequirements.length === 0 && <PortalEmpty title="No requirements yet" description="Add the documents students must submit for this section." action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />}
                       {REQUIREMENT_CATEGORIES.map(cat => {
                         const catReqs = sectionRequirements.filter(r => requirementCategory(r.category) === cat);
                         if (catReqs.length === 0) return null;

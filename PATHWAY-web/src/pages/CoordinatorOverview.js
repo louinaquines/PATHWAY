@@ -64,7 +64,10 @@ export default function CoordinatorOverview({ section, students, requirementsCou
   }, [load]);
   usePortalAutoRefresh(load, { enabled: !!section && !!summary, scope: section?.id, intervalMs: 60000 });
 
-  if (!section) return <PortalEmpty title="No section assigned" description="Your overview will appear when a section is assigned to you." />;
+  if (!section) return <PortalEmpty icon="section" title="No section yet"
+    description="Your dashboard fills in once you have a section with students."
+    steps={['Create a section in Sections & Students', 'Add or approve students in it', 'Come back here to see progress and alerts']}
+    action={{ label: 'Go to Sections & Students', onClick: () => { window.location.assign('/coordinator/sections'); } }} />;
   if (summary?.sectionId !== section.id) return <PageSkeleton label="Loading overview" />;
   const tasks = [
     ['requirements', 'requirements', 'Review requirements', requirementsCount, 'students', 'clipboard'],

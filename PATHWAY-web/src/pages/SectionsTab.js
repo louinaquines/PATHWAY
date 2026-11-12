@@ -11,6 +11,7 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton, InlineSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
+import { PortalEmpty } from '../components/PortalStates';
 import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
 import '../components/RequirementAutoCheckDialog.css';
 import './SectionsTab.css';
@@ -237,7 +238,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
         <div style={t.secList}>
           {filteredSections.length === 0 && (
-            <div style={t.empty}>{searchQuery ? 'No matching sections.' : 'Create your first section to get started.'}</div>
+            searchQuery
+              ? <div style={t.empty}>No sections match “{searchQuery}”.</div>
+              : <PortalEmpty compact icon="section" title="No sections yet" description="Click + New Section to create your first one." />
           )}
           <RecordPagination pagination={sectionsPage} label="Sections" />
           {sectionsPage.items.map(sec => (
@@ -260,11 +263,15 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       {/* Right Column: Detail Area */}
       <div className="sections-detail" style={t.right}>
         {!selected ? (
-          <div style={t.emptyDetail}>
-            <div style={t.emptyIcon}><Icon name="section" size={28} label="Sections" /></div>
-            <h3 style={t.emptyTitle}>Select a Section</h3>
-            <p style={t.emptySub}>Select a section on the left to manage enrolled students, assign newcomers, or configure requirement deadlines.</p>
-          </div>
+          sections.length === 0 ? (
+            <PortalEmpty icon="section" title="Create your first section"
+              description="A section groups your OJT students, their required hours and the documents they must submit."
+              steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']}
+              action={{ label: '+ New Section', onClick: () => setModal(true) }} />
+          ) : (
+            <PortalEmpty icon="section" title="Select a section"
+              description="Pick a section on the left to manage students, requirements and deadlines." />
+          )
         ) : (
           <>
             {/* Section Header Card */}

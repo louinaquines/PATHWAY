@@ -1,3 +1,4 @@
+import { PortalEmpty } from '../components/PortalStates';
 import { readPortalPage, readMatchingPortalPage } from '../portalRecordPages';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
@@ -353,7 +354,9 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         {pendingOnly && <div className="logbook-pending-filter"><span>Journals awaiting review</span>
           <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
         </div>}
-        {!selectedSection ? <p className="logbook-table-empty">Choose a section to see its students.</p> : <>
+        {!selectedSection ? (sections.length === 0
+          ? <PortalEmpty icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." action={{ label: 'Go to Sections & Students', onClick: () => window.location.assign('/coordinator/sections') }} />
+          : <PortalEmpty icon="section" title="Choose a section" description="Pick a section above to see students' attendance and journals." />) : <>
           {loading && <p role="status">Loading students…</p>}
           {currentRoster?.error && <p role="alert">{currentRoster.error} <button type="button" className="portal-secondary"
             onClick={() => setRosterRetry(value => value + 1)}>Retry</button></p>}

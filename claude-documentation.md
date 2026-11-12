@@ -61,3 +61,25 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - Run backend emulator tests (`npm run test:security`, Java 21).
 - Update `PATHWAY-DOCUMENTATION.md` to point to these notes.
 - Clean up `.git/stale/` and the `%TEMP%` worktree folder.
+
+## 8. Demo environment (Nov 13, 2026, ~2:30 AM)
+- Plan (made partly in Codex): keep working on this laptop in `PATHWAY-main`; a teammate's account owns a **separate Firebase project `pathway-demo4`** (website + Firestore) and grants our Google account access; separate Render backend `pathway-demo4-backend.onrender.com`; Expo app points to the demo.
+- AI: stay with **Anthropic only** (no Gemini). Teammate buying API credits **only after Anthropic confirms** it's allowed while the original account is on hold. Until then `ANTHROPIC_ENABLED=0` on the demo backend (uploads → coordinator review).
+- Files:
+  - `PATHWAY-web/.env.demo.local` — demo Firebase web config + demo backend URL (not in Git).
+  - `PATHWAY-web/.env` — real project `pathway-57400` (unchanged).
+  - `firebase.demo-hosting.json` — deploys to site `pathway-demo4`.
+- Issue: demo sign-in failed with `API_KEY_INVALID` (identitytoolkit). Cause: the whole Firebase JS snippet (`const firebaseConfig = {…`) had been pasted into the env file. Fix: one plain `KEY=value` per line. Verified fixed.
+- Demo build + deploy steps:
+  1. `cd PATHWAY-web` → `npx vite build --mode demo`
+  2. Check bundle contains `pathway-demo4` and NOT `pathway-57400`
+  3. `firebase.cmd deploy --only hosting --config firebase.demo-hosting.json --project pathway-demo4`
+  4. Sign in with an account that exists in pathway-demo4.
+- Next: deploy and test sign-in; create demo coordinator/student accounts if missing; set up demo Render backend and Expo config.
+- 2:38 AM: demo build verified (bundle has pathway-demo4, not pathway-57400). Deploy failed: "Failed to get Firebase project pathway-demo4" — CLI account lacks access. Fix: teammate adds our Google account as Editor (Project settings → Users and permissions), or `firebase login:add` + `--account`. Ensure Hosting is initialized in pathway-demo4.
+- 2:43 AM: deployed portal to pathway-demo4 with `--account janeilformoso05@gmail.com` (CLI default account is pathwaysystem4). Sign-in to Firebase Auth succeeds; the next step (reading `users/{uid}` from Firestore) fails → generic error. Fix: create the Firestore database if needed, deploy `firestore:rules,firestore:indexes` to pathway-demo4, create `users/{uid}` with `role: admin`.
+- 2:49 AM: Firestore (default) exists in pathway-demo4; `users/UXT5ge3IgqbpeYRHL2X157ZDYAJ3` created with `role: admin` (matches admin@gmail.com UID). Deployed firestore rules + indexes to pathway-demo4 successfully. Also: Brave Shields blocked Firestore (`ERR_BLOCKED_BY_CLIENT`) — turn Shields off for PATHWAY sites or use Chrome/Edge.
+- 2:50 AM: **admin sign-in works on pathway-demo4.** But portal was built from the `main` checkout (old UI), not `codex/requirement-auto-check`. Rebuild from the branch worktree with `.env.demo.local`.
+- 2:52 AM: rebuilt from `codex/requirement-auto-check` with demo env; new UI live on pathway-demo4.web.app.
+- 2:59 AM: demo Render backend (pathway-demo4-backend) verified: GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/credentials.json (secret file project_id pathway-demo4), GOOGLE_CLOUD_PROJECT, CORS, EVALUATION_WEB_URL set; added ANTHROPIC_ENABLED=0; redeployed. Gmail + Cloudinary shared with production (use test emails).
+- 3:10 AM: improved empty states (commit below): shared `PortalEmpty` (icon, title, short text, steps, action button) used on Dashboard overview, Student Requirements (one message instead of two stacked), Attendance & Journals, Sections & Students (left list + right panel with "+ New Section"). Build passes; 4 pre-existing jest failures unchanged.

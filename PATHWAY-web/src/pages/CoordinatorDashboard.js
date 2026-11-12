@@ -568,6 +568,7 @@ export default function CoordinatorDashboard() {
                       onClick={() => setSelectedStudent(student)}
                     >
                       <div className="student-card-identity">
+                        <span className="student-card-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
                         <div className="student-card-name">
                           <strong>{student.firstName} {student.lastName}</strong>
                           <span>ID {student.idNumber || 'not provided'}</span>

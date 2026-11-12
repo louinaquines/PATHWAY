@@ -140,3 +140,44 @@
 .coordinator-page .cdash .cdash-caught-up { margin-bottom: 12px; }
 .coordinator-page .cdash .cdash-metric { padding: 16px 18px !important; gap: 8px !important; }
 .coordinator-page .cdash .cdash-metric-value { font-size: 28px !important; }
+
+/* ===== Student Requirements ===== */
+.coordinator-page .requirements-workspace { background: transparent !important; padding: 24px 28px !important; gap: 20px !important; }
+.coordinator-page .requirements-workspace > div { background: rgba(255,255,255,.86) !important; -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255,255,255,.8) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important; overflow: hidden; }
+.coordinator-page .requirements-workspace .requirements-students { width: 340px !important; display: flex; flex-direction: column; }
+.coordinator-page .requirements-workspace > div > div:first-child { padding: 18px 20px !important; border-bottom: 1px solid rgba(148,163,184,.22) !important; background: transparent !important; color: #0f172a !important; font-size: 16px !important; font-weight: 700 !important; }
+.coordinator-page .requirements-workspace > div > div:first-child p { margin: 3px 0 0 !important; color: #64748b !important; font-size: 13px !important; font-weight: 400 !important; }
+.coordinator-page .requirements-workspace .requirements-queue-section { -webkit-appearance: none; appearance: none; width: 100%; height: 42px; margin-top: 10px; padding: 0 38px 0 12px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; color: #0f172a !important; font: inherit; font-size: 14px !important; font-weight: 600 !important; cursor: pointer; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 12px center / 16px no-repeat !important; }
+.coordinator-page .requirements-workspace .requirements-search-row { display: flex; gap: 8px; padding: 14px 16px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .requirements-workspace .requirements-search-row input { height: 42px; min-height: 42px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; }
+.coordinator-page .requirements-workspace .requirements-filter-icon { width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; }
+.coordinator-page .requirements-workspace .requirements-filter-icon[data-active='true'] { border-color: #075fc9 !important; color: #075fc9; background: #eef4ff !important; }
+.coordinator-page .requirements-workspace .requirements-student-list { flex: 1; overflow: auto; padding: 8px 10px; }
+.coordinator-page .requirements-workspace .requirements-student-card { width: calc(100% - 4px) !important; margin: 4px 2px !important; padding: 12px !important; border: 1px solid transparent !important; border-radius: 12px !important; background: transparent !important; text-align: left; transition: background .12s ease, border-color .12s ease; }
+.coordinator-page .requirements-workspace .requirements-student-card:hover { background: rgba(7,95,201,.05) !important; }
+.coordinator-page .requirements-workspace .requirements-student-card[aria-pressed='true'] { border-color: #bfdbfe !important; background: #eff6ff !important; box-shadow: inset 3px 0 0 #075fc9; }
+.coordinator-page .student-card-identity { display: flex !important; align-items: center; gap: 12px; }
+.student-card-avatar { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #dbeafe, #e0e7ff); color: #1e40af; font-size: 13px; font-weight: 700; }
+.coordinator-page .student-card-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.coordinator-page .student-card-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #0f172a !important; }
+.coordinator-page .student-card-name > span:not(.coordinator-queue-status) { color: #64748b !important; font-size: 12px !important; }
+.coordinator-page .coordinator-queue-status { display: inline-flex; align-items: center; gap: 5px; width: fit-content; padding: 3px 9px !important; border-radius: 99px !important; font-size: 11.5px !important; font-weight: 650 !important; }
+.coordinator-page .coordinator-queue-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.coordinator-page .coordinator-queue-status[data-status='review'] { background: #fef3c7 !important; color: #92400e !important; }
+.coordinator-page .coordinator-queue-status[data-status='complete'] { background: #dcfce7 !important; color: #15803d !important; }
+.coordinator-page .coordinator-queue-status[data-status='neutral'] { background: #f1f5f9 !important; color: #475569 !important; }
+.coordinator-page .student-card-progress { margin: 10px 0 0 50px; }
+.coordinator-page .requirements-students .portal-record-pagination { padding: 10px 14px; border-top: 1px solid rgba(148,163,184,.2); }
+.coordinator-page .requirements-workspace .requirements-detail { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.coordinator-page .requirements-workspace .coordinator-review-progress { padding: 14px 22px !important; border-bottom: 1px solid rgba(148,163,184,.2); }
+.coordinator-page .requirements-workspace .requirements-category { margin: 18px 22px 8px !important; color: #475569 !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; }
+.coordinator-page .requirements-workspace .requirements-document { margin: 0 22px 10px !important; padding: 14px 16px !important; border: 1px solid #e2e8f0 !important; border-radius: 14px !important; background: #fff !important; box-shadow: none !important; transition: border-color .15s ease, box-shadow .15s ease; }
+.coordinator-page .requirements-workspace .requirements-document:hover { border-color: #bfdbfe !important; box-shadow: 0 6px 16px rgba(15,23,42,.05) !important; }
+.coordinator-page .requirements-workspace .requirements-document-icon { width: 40px !important; height: 40px !important; border-radius: 12px !important; background: #eef4ff !important; color: #075fc9 !important; }
+.coordinator-page .requirements-workspace .requirements-document-title { color: #0f172a !important; font-size: 15px !important; font-weight: 650 !important; }
+.coordinator-page .requirements-workspace .requirements-document-status { border-radius: 99px !important; padding: 4px 10px !important; font-size: 12px !important; font-weight: 650 !important; }
+.coordinator-page .requirements-workspace .requirements-document-status[data-status='not_submitted'] { background: #f1f5f9 !important; color: #475569 !important; }
+.coordinator-page .requirements-workspace .requirements-document-status[data-status='approved'] { background: #dcfce7 !important; color: #15803d !important; }
+.coordinator-page .requirements-workspace .requirements-document-status[data-status='rejected'] { background: #fee2e2 !important; color: #b42343 !important; }
+.coordinator-page .requirements-workspace .portal-empty { margin: 40px auto; }
+@media (max-width: 1100px) { .coordinator-page .requirements-workspace .requirements-students { width: 280px !important; } }

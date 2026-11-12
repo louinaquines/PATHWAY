@@ -40,3 +40,19 @@ Everything done in this session, in order.
 - Re-deploy the Announcements fix properly (install → build → confirm → deploy).
 - Leftover git temp folders moved to `.git/stale/` (safe to delete).
 - Update `PATHWAY-DOCUMENTATION.md` to point to these notes.
+
+## 6. Portal deployed from branch (8:22 PM)
+- Built and deployed `codex/requirement-auto-check` (7c43058) to pathway-portal.web.app from worktree `PATHWAY-main\%TEMP%\pathway-autocheck` (PowerShell did not expand %TEMP%).
+- Live now: Announcements fix + "Add reference file" buttons. Backend NOT updated yet, so saving reference files fails until Render deploys the merged branch.
+- If broken: roll back to 4e13fb in Firebase Hosting.
+
+## 7. Blank portal root cause + reference button moved
+- Blank page cause: build had no Firebase keys (`auth/invalid-api-key`). Keys are in `PATHWAY-web/.env`; only `.env.production` had been copied. Always copy both before building.
+- Reference files now set from one **"📄 Reference files"** button at the top of Student Requirements (per requirement, for the whole section), not per student row.
+- Final decision: reference files are set **only** in Sections & Students → Requirements & deadlines (per requirement, whole section). The Student Requirements page has no upload button; it only shows badges and Undo.
+- Render deploy failed: `Cannot find module ./nameMatch` — Dockerfile copies files by name. Added nameMatch.js to the Dockerfile COPY list.
+
+## 8. Anthropic account hold (Nov 12, 2026)
+- Account pathwaysystem4@gmail.com put on hold ("unusual activity"); $5.54 of $5.60 credits refunded. Review ref TS-01a1cf3d-fd13-75d0-975a-007858d3bb67.
+- Decision: request review + ask support; do not open another account. Optional: Gemini fallback with Claude as default (pending adviser approval).
+- Summary handout: https://claude.ai/artifact/Jp91KoCYanr9UCzmX9sAjZ

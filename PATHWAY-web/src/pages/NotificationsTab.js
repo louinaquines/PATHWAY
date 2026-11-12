@@ -328,13 +328,25 @@ export function NotificationWorkspace({
               <button onClick={() => setRetry((v) => v + 1)}>Retry</button>
             </div>
           ) : !page.records.length ? (
-            <p className="inbox-state">
-              {query
-                ? "No matching notifications."
-                : filter === "unread"
-                  ? "No unread notifications."
-                  : "No notifications yet."}
-            </p>
+            <div className="inbox-state is-empty">
+              <span className="inbox-empty-icon" aria-hidden="true">
+                <Icon name={kind === "attendance" ? "clock" : "bell"} size={26} />
+              </span>
+              <strong>
+                {query
+                  ? "No matching notifications."
+                  : filter === "unread"
+                    ? "No unread notifications."
+                    : "No notifications yet."}
+              </strong>
+              <span>
+                {query
+                  ? "Try a different search term or clear the filter."
+                  : kind === "attendance"
+                    ? "Attendance risk alerts for this section will appear here."
+                    : "Student submissions, reviews and other section activity will appear here."}
+              </span>
+            </div>
           ) : (
             page.records.map((row) => (
               <button

@@ -563,12 +563,12 @@ export default function AdminDashboard() {
                   {' · '}<span>{selectedSection.hoursRequired ?? '—'} hrs</span>
                   {' · Coordinator: '}{sectionCoordinator ? [sectionCoordinator.firstName, sectionCoordinator.lastName].filter(Boolean).join(' ') : 'Unassigned'}
                 </p>}
-                <div className="admin-student-summary admin-compact-student-stats">
-                  <div><span>Total students</span><strong>{directoryStudents.length}</strong></div>
-                  <div><span>Active accounts</span><strong>{directoryStudents.filter(student => student.accountApproved).length}</strong></div>
-                  <div><span>Pending accounts</span><strong data-zero={directoryStudents.every(student => student.accountApproved || student.status === 'rejected_registration')}>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</strong></div>
-                  <div><span>Sections</span><strong>{selectedSection ? 1 : departmentSections.length}</strong></div>
-                </div>
+                <dl className="admin-stat-cards admin-stat-cards-compact" aria-label="Student summary">
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={20} /></span><dt>Total students</dt><dd>{directoryStudents.length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="check" size={20} /></span><dt>Active accounts</dt><dd>{directoryStudents.filter(student => student.accountApproved).length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="amber"><Icon name="clock" size={20} /></span><dt>Pending accounts</dt><dd>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={20} /></span><dt>Sections</dt><dd>{selectedSection ? 1 : departmentSections.length}</dd></div>
+                </dl>
                 <UserTable
                   key={departmentFilter + ':' + sectionFilter}
                   users={directoryStudents}
@@ -600,15 +600,16 @@ export default function AdminDashboard() {
             {/* COORDINATORS */}
             {['coordinators', 'create'].includes(activeTab) && (
               <div style={s.tabContent} className="admin-directory-screen admin-coordinators-directory">
-                <div style={s.tabHeader}>
-                  <button style={s.addCoordinatorBtn} onClick={() => setActiveTab('create')}>
-                    + Create Coordinator
+                <div className="admin-directory-head">
+                  <dl className="admin-stat-cards admin-stat-cards-compact admin-stat-cards-3" aria-label="Coordinator summary">
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="teal"><Icon name="users" size={20} /></span><dt>Coordinators</dt><dd>{coordinators.length}</dd></div>
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="building" size={20} /></span><dt>Departments</dt><dd>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</dd></div>
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="section" size={20} /></span><dt>Assigned sections</dt><dd>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</dd></div>
+                  </dl>
+                  <button type="button" className="admin-primary-action" onClick={() => setActiveTab('create')}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                    Create Coordinator
                   </button>
-                </div>
-                <div className="admin-directory-summary">
-                  <div><span>Coordinators</span><strong>{coordinators.length}</strong></div>
-                  <div><span>Departments</span><strong>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</strong></div>
-                  <div><span>Assigned sections</span><strong>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</strong></div>
                 </div>
                 <UserTable
                   users={coordinators}
@@ -1335,7 +1336,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
 
       {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
       <RecordPagination pagination={recordsPage} label="Accounts" />
-      <div style={s.tableWrap}>
+      <div style={s.tableWrap} className="admin-table-scroll">
         <table style={s.table}>
           <thead>
             <tr>
@@ -1352,8 +1353,11 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
             {recordsPage.items.map(user => (
               <tr key={user.id} style={s.tr}>
                 <td style={s.td}>
-                  <strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
-                  {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}
+                  <div className="admin-person">
+                    <span className="admin-avatar" aria-hidden="true">{((user.firstName || '?')[0] + (user.lastName || '')[0] || '').toUpperCase()}</span>
+                    <span className="admin-person-text"><strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
+                    {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}</span>
+                  </div>
                 </td>
                 {showAccountId && <td style={s.td}><span style={s.idCode}>{user.idNumber || user.employeeId || '—'}</span></td>}
                 {showAccountContact && <td style={s.td}>{(studentDirectory ? user.username : user.email) || '—'}</td>}

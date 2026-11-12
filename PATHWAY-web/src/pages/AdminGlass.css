@@ -68,3 +68,45 @@
 .admin-action-card > svg:last-child { color: #94a3b8; flex-shrink: 0; }
 @media (max-width: 1280px) { .admin-stat-cards, .admin-action-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .admin-stat-cards, .admin-action-cards { grid-template-columns: minmax(0, 1fr); } }
+
+/* ===== Directory screens (Students, Coordinators) ===== */
+.admin-stat-icon[data-tone='amber'] { background: #fef3c7; color: #b45309; }
+.admin-stat-cards-compact { margin-bottom: 20px; }
+.admin-stat-cards-compact .admin-stat-card { grid-template-areas: 'icon label' 'icon value'; padding: 16px 18px; }
+.admin-stat-cards-compact .admin-stat-icon { width: 42px; height: 42px; border-radius: 12px; }
+.admin-stat-cards-compact .admin-stat-card dd { font-size: 24px; }
+.admin-stat-cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.admin-directory-head { display: flex; align-items: stretch; gap: 20px; margin-bottom: 20px; }
+.admin-directory-head .admin-stat-cards { flex: 1; margin: 0; }
+.admin-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: center; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #075fc9; color: #fff; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 20px rgba(7,95,201,.28); transition: background .15s ease, transform .15s ease; }
+.admin-primary-action:hover { background: #054ea6; transform: translateY(-1px); }
+.admin-primary-action:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+
+/* Records card: glass, sticky toolbar + header, scroll inside */
+.admin-page main :is(.admin-student-records, .admin-directory-records) {
+  background: rgba(255,255,255,.84) !important; -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important;
+}
+.admin-page main :is(.admin-student-filters, .admin-directory-search) { display: flex !important; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px !important; margin: 0 !important; border-bottom: 1px solid rgba(148,163,184,.22); }
+.admin-page main :is(.admin-student-filters, .admin-directory-search) input { flex: 1 1 260px; min-width: 0 !important; max-width: none !important; min-height: 44px; padding: 0 14px 0 40px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 14px center no-repeat !important; font-size: 14px !important; }
+.admin-page main :is(.admin-student-filters, .admin-directory-search) select { min-height: 44px; padding: 0 34px 0 12px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background-color: #fff !important; font-size: 14px !important; }
+.admin-page main :is(.admin-student-filters, .admin-directory-search) label { margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
+.admin-page main :is(.admin-student-filters, .admin-directory-search) > span { margin-left: auto; padding: 6px 12px !important; border-radius: 99px !important; background: #eef4ff !important; color: #075fc9 !important; font-size: 12px !important; font-weight: 700; white-space: nowrap; }
+.admin-page main .admin-table-scroll { max-height: min(62vh, 640px); overflow: auto !important; }
+.admin-page main .admin-table-scroll table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.admin-page main .admin-table-scroll thead th { text-align: left; position: sticky; top: 0; z-index: 1; background: #f4f7fb !important; color: #526174 !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .02em; text-transform: uppercase !important; padding: 12px 18px !important; border-bottom: 1px solid #e2e8f0 !important; white-space: nowrap; }
+.admin-page main .admin-table-scroll tbody td { padding: 12px 18px !important; font-size: 14px !important; color: #334155 !important; border-bottom: 1px solid rgba(148,163,184,.2) !important; vertical-align: middle; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-page main .admin-table-scroll tbody tr { background: transparent !important; transition: background .12s ease; }
+.admin-page main .admin-table-scroll tbody tr:hover { background: rgba(7,95,201,.05) !important; }
+.admin-page main .admin-table-scroll tbody tr:last-child td { border-bottom: 0 !important; }
+.admin-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.admin-avatar { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #dbeafe, #e0e7ff); color: #1e40af; font-size: 13px; font-weight: 700; }
+.admin-person-text { display: flex; flex-direction: column; min-width: 0; }
+.admin-person-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #0f172a !important; font-weight: 650 !important; }
+.admin-person-text .admin-student-id { color: #64748b; font-size: 12px; }
+.admin-page main .admin-student-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px !important; border: 0 !important; border-radius: 99px !important; font-size: 12px !important; font-weight: 650 !important; }
+.admin-page main .admin-student-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.admin-page main :is(.admin-student-records, .admin-directory-records) .portal-empty, .admin-page main :is(.admin-student-records, .admin-directory-records) [class*='empty'] { background: transparent; }
+@media (max-width: 1100px) { .admin-directory-head { flex-direction: column; } .admin-primary-action { align-self: flex-end; } .admin-stat-cards-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .admin-stat-cards-3 { grid-template-columns: minmax(0, 1fr); } .admin-primary-action { align-self: stretch; } .admin-page main :is(.admin-student-filters, .admin-directory-search) > span { margin-left: 0; } }

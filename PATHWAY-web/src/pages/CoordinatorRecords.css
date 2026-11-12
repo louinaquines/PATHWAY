@@ -177,3 +177,15 @@
   .accounts-card th, .accounts-card td { padding-inline: 6px; }
   .accounts-card th { white-space: normal; overflow-wrap: normal; }
 }
+.coordinator-analytics-page { flex: 1 1 0; width: 100%; max-width: none; }
+.analytics-toolbar, .analytics-table-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.analytics-table-controls > :first-child { flex: 1 1 240px; min-width: 0; }
+.analytics-table-scroll { max-height: 55dvh; overflow: auto; }
+.analytics-table-scroll th { position: sticky; top: 0; z-index: 1; white-space: nowrap; background: #f5f7fa; }
+dialog.analytics-schedule-drawer { padding: 0; overflow: hidden; }
+.analytics-schedule-drawer form { display: flex; flex-direction: column; height: 100%; }
+.analytics-schedule-drawer header, .analytics-schedule-drawer footer { padding: 16px 24px; border-bottom: 1px solid #dce2e9; }
+.analytics-schedule-drawer h2 { margin: 0; }
+.analytics-schedule-drawer footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; border-bottom: 0; border-top: 1px solid #dce2e9; }
+.analytics-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 24px; }
+.analytics-drawer-body fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; display: grid; gap: 16px; }

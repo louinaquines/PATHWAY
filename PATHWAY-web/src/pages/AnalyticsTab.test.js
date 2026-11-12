@@ -28,7 +28,7 @@ test('unavailable metrics stay unavailable and schedule saves through scoped API
   await screen.findByText('Test Student');
   expect(screen.getByText('Completion estimate unavailable')).toBeInTheDocument();
   expect(screen.queryByText('100%')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText('Edit'));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }));
   const dates = container.querySelectorAll('input[type=date]');
   fireEvent.change(dates[0], { target: { value: '2026-10-01' } });
   fireEvent.change(dates[1], { target: { value: '2026-12-31' } });
@@ -54,7 +54,8 @@ test('explicit tiers, progress and data quality override compatibility status an
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
   expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
-  expect(screen.getByText(/last 20 eligible/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit schedule' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent(/last 20 eligible/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();
 });
 

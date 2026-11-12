@@ -1,3 +1,4 @@
+import { PortalFormDialog } from '../components/PortalStates';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -34,6 +35,13 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const [progressFilter, setProgressFilter] = useState('all');
   const [exceptionDate, setExceptionDate] = useState('');
   const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
+  const [draft, setDraft] = useState(null);
+  const [scheduleError, setScheduleError] = useState('');
+  const editButton = useRef(null);
+  function closeSchedule() {
+    setDraft(null);
+    requestAnimationFrame(() => editButton.current?.focus({ preventScroll: true }));
+  }
   const [saving, setSaving] = useState(false);
   const requestRevision = useRef(0);
   const [editing, setEditing] = useState(null);
@@ -58,7 +66,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     return;
   }, [coordinatorId, selectedSection]); // Access lifetime is controlled by the keyed boundary.
 
-  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing, scope: selectedSection?.id || '', protectInputs: true });
+  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing && !draft, scope: selectedSection?.id || '', protectInputs: true });
 
 
   useEffect(() => {
@@ -69,12 +77,16 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     if (data && highlightStudentId) document.getElementById(`attendance-student-${highlightStudentId}`)?.scrollIntoView?.({ block: 'center' });
   }, [data, highlightStudentId]);
   const saveSchedule = async event => {
-    event.preventDefault(); if (saving) return; setSaving(true); setError('');
+    event.preventDefault(); if (saving) return; setSaving(true); setScheduleError('');
     const revision = requestRevision.current;
     try {
-      await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule }), deadlineMs: 15000 });
-      if (isCurrent() && revision === requestRevision.current) await loadData();
-    } catch (failure) { if (isCurrent() && revision === requestRevision.current) { setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
+      const saved = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule: draft }), deadlineMs: 15000 });
+      if (isCurrent()) {
+        setSchedule(saved?.schedule || draft);
+        closeSchedule();
+        await loadData({ silent: true });
+      }
+    } catch (failure) { if (isCurrent()) { setScheduleError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
     finally { if (isCurrent()) setSaving(false); }
   };
 
@@ -123,39 +135,56 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   return (
     <div className="coordinator-analytics-page" style={s.page}>
       {/* Top Header */}
-      <div style={s.headerRow}>
+      <div className="analytics-toolbar">
         <div>
 
-          <p style={s.sub}>Student hours, completion, and reported attendance for {selectedSection?.name || 'your assigned sections'}.</p>
+          <strong>Work schedule</strong>
+          <p style={s.sub}>{schedule.startDate && schedule.deadline ? [schedule.startDate, schedule.deadline, schedule.startTime].join(' · ') : 'Schedule not set'}</p>
+          {selectedSection?.id && <button ref={editButton} type="button" className="portal-secondary" onClick={() => {
+            setScheduleError('');
+            setExceptionDate('');
+            setDraft(schedule);
+          }}>Edit schedule</button>}
         </div>
         <div className="analytics-actions" style={s.actions}>
+      <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
-            <Icon name="download" size={15} /> Export analytics CSV
+            <Icon name="download" size={15} /> Export CSV
           </button>
         </div>
       </div>
 
-      <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
+
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
-        <details className="analytics-schedule-edit" key={selectedSection.id}>
-          <summary>Work schedule · {schedule.startDate || 'Start date not set'} to {schedule.deadline || 'Deadline not set'} · {schedule.startTime} <strong>Edit</strong></summary>
+      {draft && <PortalFormDialog className="admin-create-drawer analytics-schedule-drawer" label="Edit work schedule" closeOnBackdrop
+        onCancel={() => { if (!saving) closeSchedule(); }}>
+        <form onSubmit={saveSchedule}>
+          <header><h2>Edit work schedule</h2></header>
+          <div className="analytics-drawer-body">
+            <fieldset disabled={saving}>
         <details><summary>How is this calculated?</summary><p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p></details>
-        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
-        <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
+        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
+        <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={draft.workingDays.includes(index)} onChange={event => setDraft(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
         <div className="analytics-exceptions">
           <label>Exception date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
-          <button type="button" className="portal-secondary" disabled={!exceptionDate || schedule.exceptions.includes(exceptionDate)} onClick={() => {
-            setSchedule(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
+          <button type="button" className="portal-secondary" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {
+            setDraft(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
             setExceptionDate('');
           }}>Add date</button>
-          {schedule.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
-            onClick={() => setSchedule(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
+          {draft.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
+            onClick={() => setDraft(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
         </div>
-        <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
-        </details>
-      </form>}
+
+            </fieldset>
+            {scheduleError && <p role="alert">{scheduleError}</p>}
+          </div>
+          <footer>
+            <button type="button" className="portal-secondary" disabled={saving} onClick={() => closeSchedule()}>Cancel</button>
+            <button type="submit" style={s.primaryBtn} disabled={saving}>{saving ? 'Saving…' : 'Save schedule'}</button>
+          </footer>
+        </form>
+      </PortalFormDialog>}
 
       {/* Metrics Summary Grid */}
       {data && (
@@ -176,24 +205,24 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             <h3 style={s.cardTitle}>Student progress</h3>
             <p style={s.sub}>{data?.students?.length || 0} intern(s) loaded in this section. Search covers this loaded section only. As of {data?.today || 'unavailable'}.</p>
           </div>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
+          <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
           <label>Progress filter <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
             <option value="all">All students</option>
             <option value="risk">At risk</option>
             <option value="complete">Target met</option>
             <option value="unavailable">Attendance unavailable</option>
-          </select></label>
+          </select></label></div>
         </div>
 
-        <RecordPagination pagination={recordsPage} label="Analytics students" />
-        <div style={s.tableWrap}>
+        <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
+        <div className="analytics-table-scroll" style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
                 <th style={s.th}>Student ID</th>
                 <th style={s.th}>Student name</th>
                 {!selectedSection?.id && <th style={s.th}>Section</th>}
-                <th style={s.th}>Hours counted / Hours required</th>
+                <th style={s.th}>Hours</th>
                 <th style={s.th}>Progress</th>
                 <th style={s.th}>Attendance</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
@@ -221,6 +250,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                     <td style={s.td}>
                       <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
                         <summary>Attendance details</summary>
+                        <span style={{ display: 'block' }}>Risk: {st.riskTier ?? 'Unavailable'} · Data: {st.dataStatus ?? 'Unavailable'}</span>
                         <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}

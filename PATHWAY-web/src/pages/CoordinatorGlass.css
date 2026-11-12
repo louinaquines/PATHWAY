@@ -420,3 +420,5 @@
 .directory-edit-drawer .directory-form-actions button { height: 44px !important; padding: 0 20px !important; border-radius: 10px !important; font-size: 14px !important; font-weight: 600 !important; border: 1px solid #dbe3ee !important; background: #fff !important; color: #334155 !important; cursor: pointer; }
 .directory-edit-drawer .directory-form-actions button[type="submit"] { order: 2; border: 0 !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; box-shadow: 0 6px 16px rgba(37,99,235,.25) !important; }
 @media (max-width: 860px) { .coordinator-page .company-directory-records .directory-controls { flex-wrap: wrap; } .coordinator-page .directory-controls .directory-search { flex: 1 1 100%; } }
+.coordinator-page .directory-controls > .coordinator-add-company:hover:not(:disabled) { color: #fff !important; background: linear-gradient(135deg,#1d4ed8,#1e40af) !important; box-shadow: 0 8px 20px rgba(37,99,235,.35) !important; transform: translateY(-1px); }
+.coordinator-page .directory-controls > .coordinator-add-company { transition: background .15s, box-shadow .15s, transform .15s; }

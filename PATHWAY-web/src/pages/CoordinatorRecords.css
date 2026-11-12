@@ -105,7 +105,7 @@
 .analytics-schedule-edit > summary strong { margin-left:auto; color:#0752ad; font-size:14px; }
 .analytics-schedule-edit[open] { padding-bottom:20px; }
 .analytics-schedule-edit > :not(summary) { margin:12px 20px; }
-.analytics-metrics { grid-template-columns:repeat(6,minmax(0,1fr)) !important; gap:12px !important; margin:16px 0 !important; }
+.analytics-metrics { grid-template-columns:repeat(6,minmax(0,1fr)) !important; gap:12px !important; margin:0 0 16px !important; }
 .analytics-metric-card { padding:16px !important; border-radius:10px !important; box-shadow:none !important; min-width:0; }
 .analytics-metric-card > div:first-child { color:#526174 !important; font-size:13px !important; }
 .analytics-metric-card > div:last-child { font-size:24px !important; font-weight:600 !important; margin-top:8px !important; }

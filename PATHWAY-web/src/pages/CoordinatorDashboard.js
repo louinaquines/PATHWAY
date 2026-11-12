@@ -38,6 +38,7 @@ import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCateg
 import { downloadSectionExcel } from '../sectionExport';
 import './RequirementsWorkspace.css';
 import './CoordinatorProfile.css';
+import './CoordinatorGlass.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -76,7 +77,7 @@ export default function CoordinatorDashboard() {
   const overviewView = selectedSection && location.state?.sectionId === selectedSection.id ? location.state.view : undefined;
   const [loadedSectionId, setLoadedSectionId] = useState(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const activeTab = COORDINATOR_TABS.includes(page) ? page : 'requirements';
+  const activeTab = COORDINATOR_TABS.includes(page) ? page : 'overview';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();

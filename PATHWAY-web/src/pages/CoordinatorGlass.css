@@ -1,0 +1,44 @@
+/* Coordinator portal: same campus backdrop + glass components as the admin portal.
+   Sidebar and top bar stay solid. */
+.coordinator-page main {
+  position: relative;
+  background:
+    linear-gradient(100deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.86) 45%, rgba(255,255,255,.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='174' height='100'%3E%3Cpath d='M29 0h58l29 50-29 50H29L0 50zM116 50h58' fill='none' stroke='%23cbd5e1' stroke-width='1.5' opacity='.5'/%3E%3C/svg%3E"),
+    url("../assets/uc-campus.jpg") right bottom / cover no-repeat,
+    #f8fafc !important;
+}
+.coordinator-page main > header { position: relative; z-index: 30; background: #fff !important; }
+.coordinator-page main :is(.coordinator-overview) { background: transparent !important; }
+
+/* ===== Dashboard ===== */
+.coordinator-page .coordinator-metric, .coordinator-page .coordinator-chart, .coordinator-page .coordinator-queue {
+  background: rgba(255,255,255,.84) !important; color: #0f172a !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important;
+  box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important;
+}
+.coordinator-page .coordinator-metric { display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'icon label' 'icon value' 'note note'; column-gap: 14px; align-items: center; padding: 20px 22px !important; transition: transform .18s ease, box-shadow .18s ease; }
+.coordinator-page .coordinator-metric:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(15,23,42,.12) !important; }
+.coordinator-page .coordinator-metric dt { display: contents; color: #526174 !important; font-size: 13px; font-weight: 600; }
+.coordinator-page .coordinator-metric dt { grid-area: label; }
+.coordinator-page .coordinator-metric-icon { grid-area: icon; grid-row: 1 / span 2; display: inline-flex !important; align-items: center; justify-content: center; width: 48px !important; height: 48px !important; border-radius: 14px !important; background: #e0edff !important; color: #075fc9 !important; }
+.coordinator-page .coordinator-metric:nth-child(2) .coordinator-metric-icon { background: #e8e7ff !important; color: #4f46e5 !important; }
+.coordinator-page .coordinator-metric:nth-child(3) .coordinator-metric-icon { background: #dcfce7 !important; color: #15803d !important; }
+.coordinator-page .coordinator-metric dd { margin: 0; }
+.coordinator-page .coordinator-metric > dd:not(.coordinator-metric-detail) { grid-area: value; color: #0f172a !important; font-size: 30px !important; font-weight: 700 !important; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.coordinator-page .coordinator-metric-detail { grid-area: note; margin-top: 14px !important; padding-top: 12px; border-top: 1px solid rgba(148,163,184,.22); color: #64748b !important; font-size: 12.5px !important; }
+.coordinator-page .coordinator-chart, .coordinator-page .coordinator-queue { padding: 22px 24px !important; }
+.coordinator-page :is(.coordinator-chart, .coordinator-queue) h2 { color: #0f172a !important; font-size: 16px !important; font-weight: 700 !important; }
+.coordinator-page :is(.coordinator-chart, .coordinator-queue) :is(p, .coordinator-chart-note) { color: #64748b !important; font-size: 13px !important; }
+.coordinator-page .coordinator-attention-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.coordinator-page .coordinator-attention-grid > * { display: grid !important; grid-template-columns: auto 1fr auto; grid-template-areas: 'icon label arrow' 'icon count arrow'; align-items: center; column-gap: 12px; padding: 14px 16px !important; border: 1px solid #e2e8f0 !important; border-radius: 14px !important; background: #fff !important; text-align: left; transition: transform .15s ease, border-color .15s ease; }
+.coordinator-page .coordinator-attention-grid > *:hover { transform: translateY(-2px); border-color: #93c5fd !important; }
+.coordinator-page .coordinator-queue-icon { grid-area: icon; grid-row: 1 / span 2; display: inline-flex !important; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: #eef2f7; color: #475569; }
+.coordinator-page .coordinator-queue-label { grid-area: label; color: #0f172a !important; font-size: 14px !important; font-weight: 650 !important; }
+.coordinator-page .coordinator-attention-grid > * > :is(strong, b, .coordinator-queue-count) { grid-area: count; color: #0f172a; font-size: 20px; font-weight: 700; }
+.coordinator-page .coordinator-attention-grid > * > svg:last-child { grid-area: arrow; color: #94a3b8; }
+.coordinator-page .coordinator-queue .portal-secondary { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #075fc9; font-weight: 650; }
+.coordinator-page .coordinator-attention-grid > [data-pending='true'] .coordinator-queue-icon { background: #fff4d6; color: #b45309; }
+.coordinator-page .coordinator-attention-grid > [data-pending='true'] > strong { color: #b45309; }
+@media (max-width: 640px) { .coordinator-page .coordinator-metric { padding: 16px !important; } }

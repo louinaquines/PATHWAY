@@ -262,3 +262,38 @@
 .coordinator-page .evaluation-records-card [style*="text-align: center"] > div:first-child { background: #eff6ff !important; color: #2563eb !important; border-radius: 14px !important; }
 .coordinator-page .evaluation-record { background: #fff !important; border: 1px solid #e2e8f0 !important; border-radius: 14px !important; box-shadow: none !important; }
 @media (max-width: 860px) { .coordinator-page .evaluation-records-actions .coordinator-search { min-width: 0; flex: 1; } .coordinator-page .evaluation-builder-launch { align-items: flex-start; margin-left: 0; } }
+
+/* ===== Student Clearance ===== */
+.coordinator-page .clearance-page { background: transparent !important; }
+.coordinator-page .clearance-toolbar { margin-bottom: 16px !important; }
+.coordinator-page .clearance-toolbar button { height: 42px !important; padding: 0 16px !important; display: inline-flex !important; align-items: center; gap: 8px; border-radius: 10px !important; font-size: 13px !important; font-weight: 600 !important; border: 1px solid #dbe3ee !important; background: rgba(255,255,255,.9) !important; color: #334155 !important; box-shadow: 0 1px 2px rgba(15,23,42,.04) !important; cursor: pointer; }
+.coordinator-page .clearance-toolbar button:hover:not(:disabled) { background: #fff !important; border-color: #bfdbfe !important; color: #1d4ed8 !important; }
+.coordinator-page .clearance-toolbar button:last-child:not(:disabled) { background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; border-color: transparent !important; color: #fff !important; box-shadow: 0 6px 16px rgba(37,99,235,.25) !important; }
+.coordinator-page .clearance-toolbar button:disabled { opacity: .55; cursor: not-allowed; }
+.coordinator-page .clearance-metrics { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important; gap: 14px !important; margin-bottom: 20px !important; }
+.coordinator-page .clearance-metrics .clearance-filter { display: grid !important; grid-template-columns: 40px 1fr; grid-template-rows: auto auto; column-gap: 12px; row-gap: 2px; align-items: center; text-align: left; min-height: 92px; padding: 16px 18px !important; background: rgba(255,255,255,.84) !important; backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255,255,255,.75) !important; border-radius: 16px !important; box-shadow: 0 8px 24px rgba(15,23,42,.07) !important; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.coordinator-page .clearance-metrics .clearance-filter:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(15,23,42,.1) !important; }
+.coordinator-page .clearance-metrics .clearance-filter[aria-pressed="true"] { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.18), 0 8px 24px rgba(15,23,42,.07) !important; }
+.clearance-metric-icon { grid-row: 1 / span 2; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; font-style: normal; }
+.coordinator-page .clearance-filter span { grid-column: 2; font-size: 12px !important; font-weight: 600; color: #64748b !important; line-height: 1.3; }
+.coordinator-page .clearance-filter strong { grid-column: 2; grid-row: 1; font-size: 26px !important; font-weight: 700 !important; color: #0f172a !important; line-height: 1.1; }
+.coordinator-page .clearance-filter strong[data-zero="true"] { color: #94a3b8 !important; }
+.clearance-filter[data-tone="all"] .clearance-metric-icon { background: #eff6ff; color: #2563eb; }
+.clearance-filter[data-tone="cleared"] .clearance-metric-icon { background: #dcfce7; color: #16a34a; }
+.clearance-filter[data-tone="ready"] .clearance-metric-icon { background: #e0e7ff; color: #4f46e5; }
+.clearance-filter[data-tone="requirements"] .clearance-metric-icon { background: #fef3c7; color: #d97706; }
+.clearance-filter[data-tone="hours"] .clearance-metric-icon { background: #ccfbf1; color: #0d9488; }
+.coordinator-page .clearance-records { background: rgba(255,255,255,.84) !important; backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important; overflow: hidden; }
+.coordinator-page .clearance-records > div:first-child { padding: 16px 20px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .clearance-records .coordinator-search { height: 42px; max-width: 420px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #94a3b8; }
+.coordinator-page .clearance-records .coordinator-search:focus-within { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+.coordinator-page .clearance-records .coordinator-search input { flex: 1; min-width: 0; height: 40px !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; font-size: 14px; }
+.coordinator-page .clearance-records table { background: transparent !important; }
+.coordinator-page .clearance-records thead th { position: sticky; top: 0; z-index: 1; padding: 12px 20px !important; background: rgba(248,250,252,.96) !important; border-bottom: 1px solid #e2e8f0 !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; }
+.coordinator-page .clearance-records tbody td { padding: 12px 20px !important; border-bottom: 1px solid rgba(226,232,240,.8) !important; background: transparent !important; font-size: 14px; }
+.coordinator-page .clearance-records tbody tr:hover td { background: rgba(239,246,255,.6) !important; }
+.coordinator-page .clearance-empty { display: flex !important; flex-direction: column; align-items: center; gap: 10px; padding: 56px 20px !important; color: #64748b !important; font-size: 14px !important; }
+.clearance-empty-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: #eff6ff; color: #2563eb; font-style: normal; }
+.coordinator-page .clearance-list-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px !important; border-top: 1px solid rgba(148,163,184,.18); font-size: 13px; color: #64748b; background: transparent !important; }
+.coordinator-page .clearance-list-footer nav { display: flex; align-items: center; gap: 8px; }
+.coordinator-page .clearance-list-footer nav button { width: 34px; height: 34px; display: grid; place-items: center; padding: 0 !important; border: 1px solid #dbe3ee !important; border-radius: 9px !important; background: #fff !important; }

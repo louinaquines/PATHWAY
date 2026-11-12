@@ -25,6 +25,14 @@ export function escapeReportText(value) {
   }[character]));
 }
 
+const CLEARANCE_ICONS = {
+  all: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c-.4-2-1.4-3.5-2.9-4.5" /></>,
+  cleared: <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>,
+  ready: <><path d="M4 21V4h11l-1.5 4L15 12H4" /></>,
+  requirements: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
+  hours: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+};
+
 export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all' }) {
   const loadVersion = useRef(0);
   const [rows, setRows]       = useState([]);
@@ -224,7 +232,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       {/* Metrics Grid */}
       <div className="clearance-metrics" style={s.metrics}>
         {summaries.map(([id, label, value]) => <button type="button" key={id} className="portal-secondary clearance-filter"
-          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><span>{label}</span> <strong data-zero={value === 0}>{error && !rows.length ? '—' : value}</strong></button>)}
+          data-tone={id} aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><i className="clearance-metric-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{CLEARANCE_ICONS[id]}</svg></i><span>{label}</span> <strong data-zero={value === 0}>{error && !rows.length ? '—' : value}</strong></button>)}
       </div>
 
       {/* Table Card */}
@@ -292,7 +300,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             </tbody>
           </table>
           {!filteredRows.length && (
-            <div style={s.empty}>{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
+            <div style={s.empty} className="clearance-empty"><i className="clearance-empty-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m22 10-10-5-10 5 10 5 10-5z" /><path d="M6 12v5c3 2 9 2 12 0v-5" /></svg></i>{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students yet. Clearance progress will appear here once students join this section.' : 'Select a section to review clearance readiness.'}</div>
           )}
         </div>
         <footer className="clearance-list-footer"><span>{error ? "Records unavailable" : recordsPage.total ? `${recordsPage.start + 1}–${Math.min(recordsPage.start + recordsPage.size, recordsPage.total)} of ${recordsPage.total} students` : "0 students"}</span><nav aria-label="Clearance students pagination"><button type="button" className="portal-secondary" aria-label="Previous page" disabled={recordsPage.page === 1} onClick={() => recordsPage.onPageChange(recordsPage.page - 1)}><Icon name="chevronLeft" size={16} /></button><span>Page {recordsPage.page} of {recordsPage.pageCount}</span><button type="button" className="portal-secondary" aria-label="Next page" disabled={recordsPage.page === recordsPage.pageCount} onClick={() => recordsPage.onPageChange(recordsPage.page + 1)}><Icon name="chevronRight" size={16} /></button></nav></footer>

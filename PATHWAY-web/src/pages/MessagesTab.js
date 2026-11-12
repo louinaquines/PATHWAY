@@ -181,7 +181,6 @@ export default function MessagesTab({ selectedSection }) {
       {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
 
       {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older messages…' : 'Load older messages'}</button>}
-      <RecordPagination pagination={studentsPage} label="Conversations" />
       <div className="messages-panel-list" aria-busy={loading}>
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>
           {studentsPage.items.map(student => {
@@ -198,6 +197,7 @@ export default function MessagesTab({ selectedSection }) {
           {students.length > 0 && search && !students.some(student => `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${conversations.find(item => item.studentId === student.id)?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase())) && <p className="messages-empty-copy">No matching students or messages.</p>}
         </>}
       </div>
+      {selectedSection && !loading && <RecordPagination pagination={studentsPage} label="Conversations" compact />}
     </section>
     <section className="messages-conversation">
       {selected ? <>

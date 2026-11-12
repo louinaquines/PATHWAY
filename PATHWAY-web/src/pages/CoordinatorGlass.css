@@ -121,3 +121,22 @@
   .cdash-hours-body { grid-template-columns: minmax(0, 1fr); justify-items: center; }
   .cdash-legend { width: 100%; }
 }
+
+/* v3: no hero; compact task tiles (override older CoordinatorOverview.css button rules) */
+.cdash-refresh { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #075fc9; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; flex-shrink: 0; }
+.cdash-refresh:hover { border-color: #93c5fd; background: #f5f9ff; }
+.cdash-refresh:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.coordinator-page .cdash .cdash-task-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important; gap: 10px !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task { display: grid !important; grid-template-columns: auto minmax(0, 1fr) auto !important; grid-template-areas: 'icon label count' !important; align-items: center !important; gap: 10px !important; min-height: 0 !important; height: auto !important; padding: 10px 12px !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; background: #fff !important; text-align: left !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task > .cdash-task-icon { grid-area: icon; width: 34px !important; height: 34px !important; border-radius: 10px !important; margin: 0 !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task > .cdash-task-label { grid-area: label; margin: 0 !important; font-size: 13px !important; line-height: 1.3; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task > strong { grid-area: count; width: auto !important; margin: 0 !important; min-width: 28px; height: 26px; padding: 0 8px !important; border-radius: 99px !important; font-size: 13px !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task > svg:last-child { display: none !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task:hover { transform: translateY(-1px); border-color: #93c5fd !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task[data-pending='true'] { border-color: #fde68a !important; background: linear-gradient(90deg, #fffbeb, #fff 70%) !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task[data-pending='true'] > strong { background: #f59e0b !important; color: #fff !important; }
+.coordinator-page .cdash .cdash-task-list > .cdash-task:not([data-pending='true']) > strong { background: #f1f5f9 !important; color: #64748b !important; }
+.coordinator-page .cdash .cdash-card-head p { margin-top: 3px; }
+.coordinator-page .cdash .cdash-caught-up { margin-bottom: 12px; }
+.coordinator-page .cdash .cdash-metric { padding: 16px 18px !important; gap: 8px !important; }
+.coordinator-page .cdash .cdash-metric-value { font-size: 28px !important; }

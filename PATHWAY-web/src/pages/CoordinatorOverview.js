@@ -78,25 +78,12 @@ export default function CoordinatorOverview({ section, students, requirementsCou
   ];
   const pendingTotal = tasks.reduce((sum, task) => sum + (task[3] || 0), 0);
   return <section className="coordinator-overview cdash" aria-label="Section overview">
-    <header className="cdash-hero">
-      <div>
-        <p className="cdash-eyebrow">Section overview</p>
-        <h2>{section.name || 'Your section'}</h2>
-        <p className="cdash-hero-meta">
-          <span><Icon name="users" size={15} /> {students.length} {students.length === 1 ? 'student' : 'students'}</span>
-          {section.hoursRequired ? <span><Icon name="clock" size={15} /> {section.hoursRequired} required hours</span> : null}
-          <span role="status"><Icon name="refresh" size={15} /> {summary.incomplete ? 'Last refresh attempt' : 'Counts updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></span>
-        </p>
-      </div>
-      <div className="cdash-hero-side">
-        <div className="cdash-hero-pending" data-zero={pendingTotal === 0}><strong>{pendingTotal}</strong><span>{pendingTotal === 1 ? 'item needs you' : 'items need you'}</span></div>
-        <button type="button" className="cdash-button" onClick={() => load()}><Icon name="refresh" size={16} /> Refresh</button>
-      </div>
-    </header>
     <SectionCharts students={students} section={section}>
     <section className="cdash-card cdash-queue" aria-labelledby="overview-attention-title">
       <header className="cdash-card-head">
-        <div><h2 id="overview-attention-title">Needs attention</h2><p>Tasks waiting for your review.</p></div>
+        <div><h2 id="overview-attention-title">Needs attention</h2>
+          <p role="status">{pendingTotal} pending · {summary.incomplete ? 'last refresh attempt' : 'updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></p></div>
+        <button type="button" className="cdash-refresh" onClick={() => load()}><Icon name="refresh" size={16} /> Refresh</button>
       </header>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p className="cdash-caught-up"><Icon name="check" size={16} /> You’re caught up for this section.</p>}

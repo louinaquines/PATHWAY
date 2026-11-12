@@ -134,25 +134,19 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   }
   return (
     <div className="coordinator-analytics-page" style={s.page}>
-      {/* Top Header */}
       <div className="analytics-toolbar">
-
-          {selectedSection?.id && <button ref={editButton} type="button" className="portal-secondary" onClick={() => {
+        <div className="analytics-actions" style={s.actions}>
+          <button type="button" style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
+          {selectedSection?.id && <button ref={editButton} type="button" style={s.secondaryBtn} onClick={() => {
             setScheduleError('');
             setExceptionDate('');
             setDraft(schedule);
           }}>Work schedule</button>}
-
-        <div className="analytics-toolbar-actions">
-          <div className="analytics-actions" style={s.actions}>
-          <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
-          <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
+          <button type="button" style={s.secondaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
             <Icon name="download" size={15} /> Export CSV
           </button>
-          </div>
         </div>
       </div>
-
 
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {draft && <PortalFormDialog className="admin-term-dialog analytics-schedule-modal" label="Edit work schedule" closeOnBackdrop
@@ -212,7 +206,6 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           </select></div>
         </div>
 
-        <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
         <div className="analytics-table-scroll" style={s.tableWrap}>
           <table style={s.table}>
             <thead>
@@ -285,6 +278,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             </tbody>
           </table>
         </div>
+        <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
       </div>
     </div>
   );
@@ -421,7 +415,7 @@ const s = {
     verticalAlign: 'middle',
   },
   studentName: {
-    fontWeight: 800,
+    fontWeight: 600,
     color: '#000000',
     fontSize: 14,
   },

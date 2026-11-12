@@ -126,3 +126,31 @@
 .admin-page main :is(.admin-student-filters, .admin-directory-search) select:hover { border-color: #94a3b8 !important; }
 .admin-page main :is(.admin-student-filters, .admin-directory-search) :is(select, input):focus-visible { outline: none; border-color: #075fc9 !important; box-shadow: 0 0 0 3px rgba(7,95,201,.15); }
 .admin-page main :is(.admin-student-filters, .admin-directory-search) input { height: 44px; box-sizing: border-box; }
+
+/* ===== Companies (and shared records card) ===== */
+.admin-page main .admin-records-card {
+  background: rgba(255,255,255,.84); -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,.75); border-radius: 18px; overflow: hidden;
+  box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7);
+}
+.admin-page main .admin-filter-bar { display: flex !important; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px 18px !important; margin: 0 !important; border-bottom: 1px solid rgba(148,163,184,.22); background: transparent !important; }
+.admin-page main .admin-filter-bar label { display: inline-flex !important; align-items: center; height: 44px; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; flex: 0 0 auto; }
+.admin-page main .admin-filter-bar .admin-filter-search { flex: 1 1 280px; }
+.admin-page main .admin-filter-bar input { width: 100%; height: 44px; box-sizing: border-box; padding: 0 14px 0 40px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; font: inherit; font-size: 14px !important; color: #1e293b; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") 14px center no-repeat !important; }
+.admin-page main .admin-filter-bar select { -webkit-appearance: none; appearance: none; box-sizing: border-box; height: 44px; min-width: 160px; padding: 0 40px 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; color: #1e293b; font: inherit; font-size: 14px !important; cursor: pointer; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 14px center / 16px no-repeat !important; }
+.admin-page main .admin-filter-bar :is(input, select):focus-visible { outline: none; border-color: #075fc9 !important; box-shadow: 0 0 0 3px rgba(7,95,201,.15); }
+.admin-icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #475569; cursor: pointer; }
+.admin-icon-button:hover { color: #075fc9; border-color: #93c5fd; }
+.admin-icon-button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.admin-count-pill { margin-left: auto; padding: 6px 12px; border-radius: 99px; background: #eef4ff; color: #075fc9; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.admin-avatar-square { border-radius: 10px; background: linear-gradient(135deg, #e0e7ff, #ede9fe); color: #4338ca; }
+.admin-muted { color: #94a3b8; }
+.admin-capacity { display: flex; flex-direction: column; gap: 6px; min-width: 120px; font-variant-numeric: tabular-nums; }
+.admin-capacity progress { width: 100%; height: 6px; }
+.admin-page main .admin-company-slots[data-zero='true'] { color: #b42343 !important; font-weight: 700; }
+.admin-page main .admin-student-status.is-inactive { background: #f1f5f9 !important; color: #64748b !important; }
+.admin-page main .admin-table-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-top: 1px solid rgba(148,163,184,.22); color: #64748b; font-size: 13px; }
+.admin-page main .admin-table-footer > div { display: flex; align-items: center; gap: 10px; }
+.admin-page main .admin-records-card .portal-empty { margin: 32px auto; border-style: dashed; background: rgba(255,255,255,.6); }
+.admin-page main .admin-company-directory > .admin-stat-cards { margin-bottom: 20px; }
+@media (max-width: 640px) { .admin-count-pill { margin-left: 0; } .admin-page main .admin-filter-bar label:not(.admin-filter-search) { flex: 1 1 140px; } .admin-page main .admin-filter-bar select { width: 100%; min-width: 0; } }

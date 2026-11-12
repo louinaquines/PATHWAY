@@ -156,7 +156,23 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           <div className="analytics-drawer-body">
             <fieldset disabled={saving}>
         <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
-        <fieldset className="analytics-working-days"><legend>Working days</legend>{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={draft.workingDays.includes(index)} onChange={event => setDraft(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</fieldset>
+              <fieldset className="analytics-working-days">
+                <legend>Working days</legend>
+                <div className="analytics-weekday-tiles">
+                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                    <label key={day}>
+                      <input type="checkbox" aria-label={day} checked={draft.workingDays.includes(index)}
+                        onChange={event => setDraft(current => ({
+                          ...current,
+                          workingDays: event.target.checked
+                            ? [...current.workingDays, index]
+                            : current.workingDays.filter(value => value !== index),
+                        }))} />
+                      {day.slice(0, 3)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
         <div className="analytics-exceptions">
           <label>Excluded date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
           <button type="button" className="portal-secondary" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {

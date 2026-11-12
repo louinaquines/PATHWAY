@@ -10,7 +10,7 @@ import './MessagesTab.css';
 
 const formatDate = value => value ? new Date(value).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
 
-export default function MessagesTab({ selectedSection }) {
+export default function MessagesTab({ selectedSection, sections = [], onSectionChange }) {
   const coordinatorId = auth.currentUser?.uid;
   const historyCursor = useRef(null);
   const historyBusy = useRef(false);
@@ -170,9 +170,15 @@ export default function MessagesTab({ selectedSection }) {
       </div>
     </dialog>
     <section className="messages-students">
-      <header><div><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></div>    <div className="messages-alert-toolbar">
-      <button className="messages-alert-trigger" type="button" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Unread messages
+      <header><div><h2>Students</h2><select className="messages-section-picker" aria-label="Current section" value={selectedSection?.id || ''} disabled={!sections.length} onChange={event => {
+        const section = sections.find(item => item.id === event.target.value);
+        if (section) onSectionChange?.(section);
+      }}>
+        {!sections.length && <option value="">No sections assigned to you</option>}
+        {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+      </select></div>    <div className="messages-alert-toolbar">
+      <button className="messages-alert-trigger" type="button" aria-label="Unread messages" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
         {messageAlerts.length > 0 && <span className="messages-alert-count">{messageAlerts.length}</span>}
       </button>
     </div>

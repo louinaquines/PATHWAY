@@ -1,499 +1,519 @@
-import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
-import usePortalAutoRefresh from '../usePortalAutoRefresh';
-// src/pages/NotificationsTab.js
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { collection, getDocs, query, where, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase';
-import { adminRequest } from '../adminApi';
-import { COLORS, THEME } from '../theme';
-import Icon from '../components/Icons';
-import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
-import { PageSkeleton } from '../components/LoadingSkeleton';
-import './NotificationsTab.css';
-import AnnouncementEmailDelivery from '../components/AnnouncementEmailDelivery';
-import AttendanceRiskNotices from '../components/AttendanceRiskNotices';
-import AttendanceAccess from '../components/AttendanceAccess';
-
-export default function NotificationsTab({ userId, onOpenAttendanceRisk }) {
-  return <AttendanceAccess key={userId} actorId={userId}>{access => <NotificationsContent userId={userId} onOpenAttendanceRisk={onOpenAttendanceRisk} access={access} />}</AttendanceAccess>;
+import { useEffect, useRef, useState } from "react";
+import { adminRequest } from "../adminApi";
+import { PortalFormDialog } from "../components/PortalStates";
+import Icon from "../components/Icons";
+import AttendanceAccess from "../components/AttendanceAccess";
+import AnnouncementEmailDelivery from "../components/AnnouncementEmailDelivery";
+import "./NotificationsTab.css";
+const timestamp = (value) =>
+  value
+    ? new Date(value).toLocaleString("en-PH", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Manila",
+      })
+    : "Date unavailable";
+export default function NotificationsTab({
+  userId,
+  section,
+  sections = [],
+  onOpenAttendanceRisk,
+}) {
+  return (
+    <AttendanceAccess key={userId} actorId={userId}>
+      {(access) => (
+        <NotificationWorkspace
+          userId={userId}
+          section={section}
+          sections={sections}
+          onOpenAttendanceRisk={onOpenAttendanceRisk}
+          access={access}
+        />
+      )}
+    </AttendanceAccess>
+  );
 }
-
-function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
-  const { isCurrent, onDenied } = access;
-  const inboxCursor = useRef(null);
-  const pageBusy = useRef(false);
-  const [hasOlder, setHasOlder] = useState(false);
-  const [olderBusy, setOlderBusy] = useState(false);
-  const [items, setItems]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [sections, setSections]     = useState([]);
-  const [sectionId, setSectionId]   = useState('');
-  const [title, setTitle]           = useState('');
-  const [message, setMessage]       = useState('');
-  const [sending, setSending]       = useState(false);
-  const [sendStatus, setSendStatus] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [workspace, setWorkspace] = useState('inbox');
-  const [loadError, setLoadError] = useState('');
-  const [announcementId, setAnnouncementId] = useState('');
-  useEffect(() => {
-    try { setAnnouncementId(sessionStorage.getItem(`pathway-last-announcement:${userId}`) || ''); } catch {}
-  }, [userId]);
-
-  const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
-    if (!userId) return;
-    if (!silent) setLoading(true);
-    setLoadError('');
+export function NotificationWorkspace({
+  userId,
+  section,
+  sections = [],
+  onOpenAttendanceRisk,
+  access,
+}) {
+  const storage = `pathway-inbox:${userId}`;
+  const saved = useRef(null);
+  if (saved.current === null) {
     try {
-      const page = await readPortalPage(query(collection(db, 'notifications'), where('recipientId', '==', userId), orderBy('createdAt', 'desc')));
-      if (!isRefreshCurrent()) return;
-      if (!isCurrent()) return;
-      if (!silent || !inboxCursor.current) { inboxCursor.current = page.cursor; setHasOlder(page.hasMore); }
-      setItems(previous => (silent ? mergePortalRecords(previous, page.records) : page.records).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))));
-    } catch (e) {
-      if (!isRefreshCurrent()) return;
-      if (!isCurrent()) return;
-      if (e.code === 'permission-denied') { onDenied(); return; }
-      console.error(e);
-      setLoadError('Could not load notifications. Please try refreshing.');
-    } finally {
-      if (isCurrent()) setLoading(false);
+      saved.current = JSON.parse(sessionStorage.getItem(storage)) || {};
+    } catch {
+      saved.current = {};
     }
-  }, [userId]);
-
-  usePortalAutoRefresh(load, { enabled: !loading && !sending, scope: userId, protectInputs: true });
-
-
+  }
+  const [kind, setKind] = useState(saved.current.kind || "activity"),
+    [search, setSearch] = useState(saved.current.search || ""),
+    [query, setQuery] = useState(search),
+    [filter, setFilter] = useState(saved.current.filter || "all");
+  const [cursors, setCursors] = useState(
+      saved.current.sectionId === section?.id
+        ? saved.current.cursors || [null]
+        : [null],
+    ),
+    [index, setIndex] = useState(
+      saved.current.sectionId === section?.id ? saved.current.index || 0 : 0,
+    ),
+    [page, setPage] = useState({ records: [] }),
+    [counts, setCounts] = useState({}),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [retry, setRetry] = useState(0);
+  const [detail, setDetail] = useState(null),
+    [draft, setDraft] = useState(null),
+    [saving, setSaving] = useState(false),
+    [formError, setFormError] = useState(""),
+    [announcement, setAnnouncement] = useState(null);
+  const version = useRef(0),
+    list = useRef(null),
+    opener = useRef(null),
+    restoreScroll = useRef(saved.current.scroll || 0);
+  const scope = JSON.stringify([section?.id, kind, query, filter]),
+    previousScope = useRef(scope),
+    detailVersion = useRef(0);
+  const persist = () => {
+    try {
+      sessionStorage.setItem(
+        storage,
+        JSON.stringify({
+          sectionId: section?.id,
+          kind,
+          search,
+          filter,
+          cursors,
+          index,
+          scroll: list.current?.scrollTop || 0,
+        }),
+      );
+    } catch {}
+  };
+  const close = () => {
+    if (saving) return;
+    detailVersion.current++;
+    setDetail(null);
+    setDraft(null);
+    setFormError("");
+    setAnnouncement(null);
+    requestAnimationFrame(() => opener.current?.focus());
+  };
   useEffect(() => {
-    load();
-  }, [load]);
-
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
   useEffect(() => {
-    if (!userId) return;
-    getDocs(query(collection(db, 'sections'), where('coordinatorId', '==', userId)))
-      .then(snap => { if (isCurrent()) setSections(snap.docs.map(d => ({ id: d.id, ...d.data() }))); })
-      .catch(failure => { if (isCurrent()) { if (failure.code === 'permission-denied') onDenied(); else setLoadError('Could not load assigned sections.'); } });
-  }, [userId]);
-
-  const sendAnnouncement = async e => {
-    e.preventDefault();
-    if (!sectionId || !title.trim() || !message.trim()) {
-      setSendStatus('Please select a target section and fill in all announcement fields.');
+    if (previousScope.current !== scope) {
+      previousScope.current = scope;
+      setIndex(0);
+      setCursors([null]);
+      detailVersion.current++;
+      setDetail(null);
+      restoreScroll.current = 0;
       return;
     }
-    setSending(true);
-    setSendStatus('');
-    try {
-      const result = await adminRequest('/coordinator/announcements', {
-        method: 'POST', body: JSON.stringify({ sectionId, title: title.trim(), message: message.trim() }),
+    if (!section?.id) return;
+    const request = ++version.current;
+    setBusy(true);
+    setError("");
+    const params = new URLSearchParams({
+      sectionId: section.id,
+      search: query,
+      unread: filter === "unread" ? "1" : "0",
+    });
+    if (cursors[index]) params.set("cursor", cursors[index]);
+    adminRequest(`/coordinator/inbox/${kind}?${params}`)
+      .then((result) => {
+        if (request !== version.current || !access.isCurrent()) return;
+        setPage(result);
+        requestAnimationFrame(() => {
+          if (list.current) list.current.scrollTop = restoreScroll.current;
+        });
+      })
+      .catch((error) => {
+        if (request === version.current) {
+          setError("Could not load notifications. Try again.");
+          setPage({ records: [] });
+          if (error.status === 400 && index > 0) {
+            setIndex(0);
+            setCursors([null]);
+          }
+        }
+      })
+      .finally(() => {
+        if (request === version.current) setBusy(false);
       });
-      if (!isCurrent()) return;
-      setTitle('');
-      setMessage('');
-      setAnnouncementId(result.announcementId || '');
-      try { if (result.announcementId) sessionStorage.setItem(`pathway-last-announcement:${userId}`, result.announcementId); } catch {}
-      setSendStatus(`Announcement broadcasted to ${result.count} student(s) in the section.`);
-    } catch (e) {
-      if (!isCurrent()) return;
-      if ([401,403].includes(e.status)) { onDenied(); return; }
-      console.error(e);
-      setSendStatus('Could not broadcast the announcement.');
-    } finally {
-      if (isCurrent()) setSending(false);
+    return () => {
+      version.current++;
+    };
+    // Access is a generation guard, not a request dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, index, cursors, retry]);
+  useEffect(() => {
+    if (!section?.id) return;
+    let current = true;
+    setCounts({});
+    adminRequest(
+      `/coordinator/inbox/${kind}/counts?sectionId=${encodeURIComponent(section.id)}`,
+    )
+      .then((result) => {
+        if (current && access.isCurrent()) setCounts(result);
+      })
+      .catch(() => {
+        if (current) setCounts({});
+      });
+    return () => {
+      current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, section?.id, retry]);
+  useEffect(() => {
+    persist();
+  }, [kind, search, filter, index, cursors, section?.id]);
+  const changePage = (next) => {
+    restoreScroll.current = 0;
+    if (next > index)
+      setCursors((old) => [...old.slice(0, index + 1), page.cursor]);
+    setIndex(next);
+  };
+  async function open(row, event) {
+    opener.current = event.currentTarget;
+    const generation = ++detailVersion.current;
+    setDetail({ ...row, loading: true });
+    setFormError("");
+    try {
+      const result = await adminRequest(
+        `/coordinator/inbox/${kind}/${encodeURIComponent(row.id)}?sectionId=${encodeURIComponent(section.id)}`,
+      );
+      if (detailVersion.current === generation && access.isCurrent())
+        setDetail(result);
+    } catch {
+      if (detailVersion.current === generation)
+        setFormError(
+          "Could not open this notification. Close it and try again.",
+        );
     }
-  };
-
-  const markRead = async item => {
-    if (item.read) return;
-    try {
-    await updateDoc(doc(db, 'notifications', item.id), { read: true });
-    if (!isCurrent()) return;
-    setItems(prev => prev.map(current => current.id === item.id ? { ...current, read: true } : current));
-    } catch (failure) { if (isCurrent()) { if (failure.code === 'permission-denied') onDenied(); else setLoadError('Could not mark this notification as read. Please try again.'); } }
-  };
-
-  const loadOlder = async () => {
-    if (pageBusy.current || !hasOlder) return;
-    pageBusy.current = true; setOlderBusy(true);
-    try {
-      const page = await readPortalPage(query(collection(db, 'notifications'), where('recipientId', '==', userId), orderBy('createdAt', 'desc')), inboxCursor.current);
-      if (!isCurrent()) return;
-      inboxCursor.current = page.cursor; setHasOlder(page.hasMore);
-      setItems(previous => mergePortalRecords(previous, page.records).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))));
-    } catch { setLoadError('Could not load older notifications. Try again.'); }
-    finally { pageBusy.current = false; setOlderBusy(false); }
-  };
-  const filteredItems = items.filter(item => matchesCoordinatorSearch(searchQuery, item.title, item.message, item.type));
-  const inboxPage = useRecordPage(filteredItems, userId + ':' + searchQuery);
-
-  if (loading) {
-    return <PageSkeleton label="Loading notifications" variant="cards" />;
   }
-
+  async function read() {
+    const generation = detailVersion.current;
+    setSaving(true);
+    setFormError("");
+    try {
+      await adminRequest(
+        `/coordinator/inbox/${kind}/${encodeURIComponent(detail.id)}/read?sectionId=${encodeURIComponent(section.id)}`,
+        { method: "POST", body: "{}" },
+      );
+      if (!access.isCurrent() || generation !== detailVersion.current) return;
+      setDetail((old) => ({ ...old, read: true }));
+      restoreScroll.current = list.current?.scrollTop || 0;
+      if (filter === "unread" && page.records.length === 1 && index > 0)
+        setIndex(index - 1);
+      setRetry((v) => v + 1);
+    } catch {
+      setFormError("Could not mark this notification as read. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function post(event) {
+    event.preventDefault();
+    if (!draft.sectionId || !draft.title.trim() || !draft.message.trim())
+      return;
+    setSaving(true);
+    setFormError("");
+    try {
+      const result = await adminRequest("/coordinator/announcements", {
+        method: "POST",
+        body: JSON.stringify({
+          ...draft,
+          title: draft.title.trim(),
+          message: draft.message.trim(),
+        }),
+      });
+      if (access.isCurrent()) setAnnouncement(result);
+    } catch {
+      setFormError(
+        "Could not post the announcement. Your draft is still here.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
-    <div style={s.page} className="notifications-page">
-      <div className="notification-workspace-header">
-        <div className={`notification-switch is-${workspace}`} role="tablist" aria-label="Notification workspace">
-
-          <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
-          <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Post an announcement</button>
-        </div>
-      </div>
-      {/* Announcement form */}
-      <form id="notification-broadcast-panel" role="tabpanel" aria-labelledby="notification-broadcast-tab" hidden={workspace !== 'broadcast'} style={s.compose} onSubmit={sendAnnouncement}>
-        <div style={s.composeHeader}>
-          <div style={s.iconWrap}><Icon name="megaphone" size={22} label="Post an announcement" /></div>
-          <div>
-            <h2 style={s.composeTitle}>Post an announcement</h2>
-            <p style={s.sub}>Send an immediate in-app notice and alert to all students in a section.</p>
-          </div>
-        </div>
-
-        <div style={s.formGrid}>
-          <div style={s.formGroup}>
-            <label style={s.label}>Target Section</label>
-            <select
-              style={s.select}
-              value={sectionId}
-              onChange={e => setSectionId(e.target.value)}
-              disabled={sending}
-              required
-            >
-              <option value="">Select section to broadcast...</option>
-              {sections.map(section => (
-                <option key={section.id} value={section.id}>
-                  {section.name} — {section.department}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={s.formGroup}>
-            <label style={s.label}>Subject / Title</label>
-            <input
-              style={s.input}
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. MOA Submission Deadline Extension"
-              disabled={sending}
-              required
-            />
-          </div>
-
-          <div style={{ ...s.formGroup, ...s.messageGroup }}>
-            <label style={s.label}>Announcement Message</label>
-            <textarea
-              style={s.textarea}
-              rows={3}
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Type your message to the enrolled students..."
-              disabled={sending}
-              required
-            />
-          </div>
-        </div>
-
-        <div style={s.composeFooter}>
-          <button type="submit" style={s.sendButton} disabled={sending}>
-            <Icon name="megaphone" size={15} />
-            {sending ? 'Broadcasting...' : 'Send Announcement'}
+    <div className="notifications-workspace">
+      <div className="inbox-heading">
+        <div role="tablist" aria-label="Inbox">
+          <button
+            role="tab"
+            aria-selected={kind === "activity"}
+            onClick={() => setKind("activity")}
+          >
+            Activity
           </button>
-          {sendStatus && (
-            <span style={s.statusText}>
-              {sendStatus}
-            </span>
+          <button
+            role="tab"
+            aria-selected={kind === "attendance"}
+            onClick={() => setKind("attendance")}
+          >
+            Attendance alerts
+          </button>
+        </div>
+        <button
+          className="inbox-primary"
+          onClick={(event) => {
+            opener.current = event.currentTarget;
+            setFormError("");
+            setDraft({ sectionId: section?.id || "", title: "", message: "" });
+          }}
+        >
+          Post announcement
+        </button>
+      </div>
+      <section
+        className="inbox-panel"
+        aria-label={
+          kind === "activity" ? "Activity inbox" : "Attendance alerts"
+        }
+      >
+        <div className="inbox-toolbar">
+          <label className="inbox-search">
+            <Icon name="search" size={18} />
+            <input
+              aria-label="Search notifications"
+              placeholder="Search notifications…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <select
+            aria-label="Read status"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="unread">Unread</option>
+          </select>
+          <button onClick={() => setRetry((v) => v + 1)} disabled={busy}>
+            <Icon name="refresh" size={16} />
+            Refresh
+          </button>
+          <span className="inbox-count">
+            {Number.isFinite(counts.unread)
+              ? `${counts.unread} unread`
+              : "Unread count unavailable"}
+          </span>
+        </div>
+        <div
+          className="inbox-rows"
+          ref={list}
+          onScroll={persist}
+          aria-busy={busy}
+        >
+          {!section ? (
+            <p className="inbox-state">Select a section to open your inbox.</p>
+          ) : busy ? (
+            <p className="inbox-state" role="status">
+              Loading notifications…
+            </p>
+          ) : error ? (
+            <div className="inbox-state" role="alert">
+              {error}
+              <button onClick={() => setRetry((v) => v + 1)}>Retry</button>
+            </div>
+          ) : !page.records.length ? (
+            <p className="inbox-state">
+              {query
+                ? "No matching notifications."
+                : filter === "unread"
+                  ? "No unread notifications."
+                  : "No notifications yet."}
+            </p>
+          ) : (
+            page.records.map((row) => (
+              <button
+                className="inbox-row"
+                key={row.id}
+                onClick={(event) => open(row, event)}
+              >
+                <span className="inbox-row-icon">
+                  <Icon
+                    name={kind === "attendance" ? "clock" : "bell"}
+                    size={20}
+                  />
+                </span>
+                <span className="inbox-row-copy">
+                  <strong>{row.title}</strong>
+                  <span>{row.message}</span>
+                </span>
+                <time>{timestamp(row.createdAt)}</time>
+                <span
+                  className={`inbox-dot ${row.read ? "is-read" : ""}`}
+                  aria-label={row.read ? "Read" : "Unread"}
+                />
+              </button>
+            ))
           )}
         </div>
-      </form>
-      {workspace === 'broadcast' && announcementId && <AnnouncementEmailDelivery announcementId={announcementId} />}
-
-      {/* Notifications Log */}
-      {workspace === 'inbox' && <AttendanceRiskNotices onOpen={onOpenAttendanceRisk} access={access} />}
-      <div id="notification-inbox-panel" role="tabpanel" aria-labelledby="notification-inbox-tab" hidden={workspace !== 'inbox'} style={s.listCard}>
-          <div style={s.listHeader}>
-          <div>
-            <h2 style={s.listTitle}>Recent activity</h2>
-            <p style={s.sub}>Your activity alerts. Click a notification to mark it read.</p>
-          </div>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />
-          <button type="button" style={s.refreshBtn} onClick={load}>
-            <Icon name="refresh" size={14} /> Refresh
-          </button>
-        </div>
-
-<p>Search and unread counts cover loaded notifications.</p>
-        {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older notifications…' : 'Load older notifications'}</button>}
-        <RecordPagination pagination={inboxPage} label="Inbox notifications" />
-        {loadError && <p role="alert">{loadError}</p>}
-        {!loadError && !filteredItems.length ? (
-          <div style={s.empty}>
-            <div style={s.emptyIcon}><Icon name="bell" size={28} label="Notifications" /></div>
-            <p style={{ margin: 0, color: '#000000' }}>
-              {items.length ? 'No notifications match your search.' : 'No notifications at this time.'}
-            </p>
-          </div>
-        ) : (
-          <div style={s.itemsWrap}>
-            {inboxPage.items.map(item => (
-              <button type="button"
-                key={item.id}
-                style={{ ...s.item, ...(item.read ? {} : s.unread) }}
-                onClick={() => markRead(item)}
-              >
-                <div style={s.itemHeader}>
-                  <div style={s.itemTitle}>
-                    {!item.read && <span style={s.unreadDot} />}
-                    {item.title}
-                  </div>
-                  <span style={s.date}>
-                    {new Date(item.createdAt).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <div style={s.itemMessage}>{item.message}</div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        <footer className="inbox-footer">
+          <span>
+            {busy
+              ? "Loading…"
+              : error
+                ? "Records unavailable"
+                : page.records.length
+                  ? `${index * 10 + 1}–${index * 10 + page.records.length}${Number.isFinite(page.total) ? ` of ${page.total}` : ""} notifications`
+                  : "0 notifications"}
+          </span>
+          <nav aria-label="Inbox pages">
+            <button
+              aria-label="Previous page"
+              disabled={busy || index === 0}
+              onClick={() => changePage(index - 1)}
+            >
+              ‹
+            </button>
+            <span>
+              Page {index + 1}
+              {Number.isFinite(page.total)
+                ? ` of ${Math.max(1, Math.ceil(page.total / 10))}`
+                : ""}
+            </span>
+            <button
+              aria-label="Next page"
+              disabled={busy || !page.hasMore}
+              onClick={() => changePage(index + 1)}
+            >
+              ›
+            </button>
+          </nav>
+        </footer>
+      </section>
+      {(detail || draft) && (
+        <PortalFormDialog
+          label={draft ? "Post announcement" : "Notification details"}
+          className="inbox-drawer"
+          closeOnBackdrop
+          onCancel={close}
+        >
+          <header>
+            <h2>{draft ? "Post announcement" : "Notification details"}</h2>
+            <button onClick={close} disabled={saving} aria-label="Close drawer">
+              ×
+            </button>
+          </header>
+          {draft ? (
+            <form onSubmit={post}>
+              <div className="inbox-drawer-body">
+                {announcement ? (
+                  <>
+                    <p role="status">
+                      Announcement posted to {announcement.count} students.
+                    </p>
+                    {announcement.announcementId && (
+                      <AnnouncementEmailDelivery
+                        announcementId={announcement.announcementId}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <fieldset disabled={saving}>
+                    <label>
+                      Section
+                      <select
+                        required
+                        value={draft.sectionId}
+                        onChange={(e) =>
+                          setDraft({ ...draft, sectionId: e.target.value })
+                        }
+                      >
+                        <option value="">Choose section</option>
+                        {sections.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Title
+                      <input
+                        required
+                        maxLength={200}
+                        value={draft.title}
+                        onChange={(e) =>
+                          setDraft({ ...draft, title: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Message
+                      <textarea
+                        required
+                        rows={7}
+                        maxLength={5000}
+                        value={draft.message}
+                        onChange={(e) =>
+                          setDraft({ ...draft, message: e.target.value })
+                        }
+                      />
+                    </label>
+                  </fieldset>
+                )}
+                {formError && <p role="alert">{formError}</p>}
+              </div>
+              <footer>
+                <button type="button" onClick={close} disabled={saving}>
+                  {announcement ? "Close" : "Cancel"}
+                </button>
+                {!announcement && (
+                  <button className="inbox-primary" disabled={saving}>
+                    {saving ? "Posting…" : "Post announcement"}
+                  </button>
+                )}
+              </footer>
+            </form>
+          ) : (
+            <>
+              <div className="inbox-drawer-body">
+                <h3>{detail.title}</h3>
+                <time>{timestamp(detail.createdAt)}</time>
+                <p className="inbox-detail-message">{detail.message}</p>
+                {detail.loading && <p role="status">Loading details…</p>}
+                {formError && <p role="alert">{formError}</p>}
+              </div>
+              <footer>
+                {kind === "attendance" && !detail.loading && (
+                  <button
+                    onClick={() => {
+                      persist();
+                      onOpenAttendanceRisk?.({
+                        studentId: detail.studentId,
+                        sectionId: detail.sectionId,
+                      });
+                    }}
+                  >
+                    View student
+                  </button>
+                )}
+                <button
+                  className="inbox-primary"
+                  onClick={read}
+                  disabled={saving || detail.read || detail.loading}
+                >
+                  {saving ? "Saving…" : detail.read ? "Read" : "Mark as read"}
+                </button>
+              </footer>
+            </>
+          )}
+        </PortalFormDialog>
+      )}
     </div>
   );
 }
-
-const s = {
-  page: {
-    flex: 1,
-    overflowY: 'auto',
-    padding: 28,
-    backgroundColor: COLORS.slate50,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 24,
-    alignItems: 'start',
-    width: '100%',
-    maxWidth: 'none',
-    minWidth: 0,
-    boxSizing: 'border-box',
-  },
-  compose: {
-    backgroundColor: COLORS.white,
-    border: `1px solid ${COLORS.slate300}`,
-    borderRadius: THEME.radius.lg,
-    padding: 24,
-    boxShadow: THEME.shadows.xs,
-  },
-  composeHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 18,
-  },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: THEME.radius.md,
-    backgroundColor: COLORS.yellow100,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 18,
-    flexShrink: 0,
-    border: `1px solid ${COLORS.yellow300}`,
-  },
-  composeTitle: {
-    margin: '0 0 2px',
-    fontSize: 17,
-    fontWeight: 800,
-    color: '#000000',
-  },
-  sub: {
-    margin: 0,
-    color: '#000000',
-    fontSize: 13,
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-    gap: 14,
-  },
-  messageGroup: {
-    gridColumn: '1 / -1',
-  },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 800,
-    color: '#000000',
-    marginBottom: 6,
-  },
-  select: {
-    width: '100%',
-    boxSizing: 'border-box',
-    border: `1.5px solid ${COLORS.slate300}`,
-    borderRadius: THEME.radius.md,
-    padding: '10px 14px',
-    fontSize: 13,
-    backgroundColor: COLORS.white,
-    fontFamily: THEME.fonts.main,
-    color: '#000000',
-  },
-  input: {
-    width: '100%',
-    boxSizing: 'border-box',
-    border: `1.5px solid ${COLORS.slate300}`,
-    borderRadius: THEME.radius.md,
-    padding: '10px 14px',
-    fontSize: 13,
-    backgroundColor: COLORS.white,
-    fontFamily: THEME.fonts.main,
-    color: '#000000',
-  },
-  textarea: {
-    width: '100%',
-    boxSizing: 'border-box',
-    border: `1.5px solid ${COLORS.slate300}`,
-    borderRadius: THEME.radius.md,
-    padding: '10px 14px',
-    fontSize: 13,
-    backgroundColor: COLORS.white,
-    fontFamily: THEME.fonts.main,
-    color: '#000000',
-    resize: 'vertical',
-  },
-  composeFooter: {
-    marginTop: 16,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14,
-    flexWrap: 'wrap',
-  },
-  sendButton: {
-    backgroundColor: COLORS.sky600,
-    color: COLORS.white,
-    border: 'none',
-    borderRadius: THEME.radius.md,
-    padding: '11px 22px',
-    cursor: 'pointer',
-    fontWeight: 800,
-    fontSize: 13,
-    boxShadow: '0 1px 2px rgba(2, 132, 199, 0.2)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-  },
-  statusText: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: 700,
-  },
-  listCard: {
-    backgroundColor: COLORS.white,
-    border: `1px solid ${COLORS.slate300}`,
-    borderRadius: THEME.radius.lg,
-    padding: 24,
-    boxShadow: THEME.shadows.xs,
-  },
-  listHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  listTitle: {
-    margin: '0 0 2px',
-    fontSize: 17,
-    fontWeight: 800,
-    color: '#000000',
-  },
-  refreshBtn: {
-    backgroundColor: COLORS.white,
-    border: `1.5px solid ${COLORS.slate300}`,
-    color: '#000000',
-    borderRadius: THEME.radius.md,
-    padding: '7px 14px',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-  },
-  itemsWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-  },
-  item: {
-    padding: 16,
-    border: `1px solid ${COLORS.slate300}`,
-    backgroundColor: COLORS.white,
-    borderRadius: THEME.radius.md,
-    cursor: 'pointer',
-  },
-  unread: {
-    backgroundColor: COLORS.sky50,
-  },
-  itemHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  itemTitle: {
-    color: '#000000',
-    fontWeight: 800,
-    fontSize: 14,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-  },
-  unreadDot: {
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    backgroundColor: COLORS.yellow500,
-  },
-  itemMessage: {
-    color: '#000000',
-    fontSize: 13,
-    lineHeight: 1.5,
-  },
-  date: {
-    color: '#000000',
-    fontSize: 11,
-    fontWeight: 600,
-  },
-  empty: {
-    color: '#000000',
-    padding: 40,
-    textAlign: 'center',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  loadingWrap: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 60,
-    gap: 12,
-    color: '#000000',
-  },
-  spinner: {
-    width: 24,
-    height: 24,
-    border: `3px solid ${COLORS.sky200}`,
-    borderTopColor: COLORS.sky600,
-    borderRadius: '50%',
-    animation: 'spin 0.8s linear infinite',
-  },
-};

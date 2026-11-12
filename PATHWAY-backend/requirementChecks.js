@@ -1,3 +1,4 @@
+const indexedNotice = data => ({ ...data, ...require('./coordinatorInbox').inboxFields(data) });
 const crypto=require('node:crypto');
 const {resolveRequirementPolicy,validate}=require('./requirementCheckPolicy');
 const fingerprint=r=>crypto.createHash('sha256').update(JSON.stringify([r.cloudinaryAssetId||'',r.cloudinaryPublicId,r.cloudinaryVersion,r.submittedAt,r.uploadedBytes])).digest('hex');
@@ -19,7 +20,7 @@ function createRequirementChecks({db,ai,getBytes,enabled=()=>true,clock=()=>Date
   for(const [recipientId,title,message] of [
    [studentId,status==='checks_passed'?'Document checks finished':'Document needs coordinator review',status==='checks_passed'?'Automatic checks found no checklist issues. Your coordinator still needs to approve the document.':coordinatorId?'Your document is saved. Your coordinator has been notified to review it.':'Your document is saved. Check your section assignment with your coordinator.'],
    [coordinatorId,'Document ready for your review',status==='checks_passed'?'Automatic document checks finished. Review the original file before approving.':'A submitted document needs your review. Open Requirements for the checking result.'],
-  ])if(id(recipientId))tx.set(db.collection('notifications').doc(`${key}_${recipientId}`),{recipientId,title,message,type:'requirement_check',read:false,createdAt:now});
+  ])if(id(recipientId))tx.set(db.collection('notifications').doc(`${key}_${recipientId}`),indexedNotice({recipientId,title,message,type:'requirement_check',read:false,createdAt:now}));
  }
  async function context(tx,studentId,requirementId){
   const ref=db.collection('users').doc(studentId),snap=await tx.get(ref),student=snap.data();

@@ -747,7 +747,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget && attendanceTarget.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
-            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
+            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} section={selectedSection} sections={sections} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
           </div>

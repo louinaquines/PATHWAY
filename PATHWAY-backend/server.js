@@ -1,3 +1,4 @@
+const indexedNotice = data => ({ ...data, ...require('./coordinatorInbox').inboxFields(data) });
 // pathway-backend/server.js
 if (process.env.NODE_ENV !== 'production' && process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
 // Fail before Firebase initialization or any local QA credential loading.
@@ -639,12 +640,12 @@ app.post('/student/placement-requests', requireUser, async (req, res) => {
       transaction.set(proposalRef, data);
       if (status === 'pending_review') {
         const isResubmission = existing && ['needs_revision', 'rejected'].includes(existing.status);
-        transaction.set(adminDb.collection('notifications').doc(), {
+        transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: coordinatorId, senderId: req.user.uid, senderRole: 'student',
           title: 'Company placement request',
           message: `${data.studentName} submitted a company placement for review.`,
           type: 'placement', read: false, createdAt: now,
-        });
+        }));
         writeAuditInTransaction(transaction, {
           actorId: req.user.uid, actorRole: 'student',
           action: isResubmission ? 'placement.resubmitted' : 'placement.submitted',
@@ -772,12 +773,12 @@ app.post('/student/final-reviews', requireUser, async (req, res) => {
         createdAt: existing?.createdAt || now, reviewedBy: null, reviewedAt: null,
       };
       transaction.set(requestRef, data);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: coordinatorId, senderId: req.user.uid, senderRole: 'student',
         title: existing ? 'Final review resubmitted' : 'Final review submitted',
         message: `${placementStudentName(student)} submitted a pre-deployment package for review.`,
         type: 'review', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.user.uid, actorRole: 'student',
         action: existing ? 'final_review.resubmitted' : 'final_review.submitted',
@@ -853,14 +854,14 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
       studentId = review.studentId;
       transaction.update(requestRef, { status, reviewReason: note, reviewedBy: req.staff.uid, reviewedAt: now, updatedAt: now });
       if (status === 'approved') transaction.update(studentRef, { preDeploymentStatus: 'approved' });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: studentId,
         senderId: req.staff.uid,
         senderRole: req.staff.role,
         title: `Final review ${status === 'needs_revision' ? 'needs changes' : status}`,
         message: status === 'approved' ? 'Your final review was approved.' : note,
         type: 'review', read: false, createdAt: now,
-      });
+      }));
     });
     return res.json({ success: true, status, studentId });
   } catch (error) {
@@ -900,12 +901,12 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
       if (entrySnap.data().status !== 'pending') throw Object.assign(new Error('This entry is no longer awaiting review.'), { status: 409 });
       const reviewReason = status === 'rejected' ? `Please revise and resubmit this ${entrySnap.data().frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '';
       transaction.update(entryRef, { status, reviewedBy: req.staff.uid, reviewedAt: now, reviewReason });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Logbook approved' : 'Logbook rejected',
         message: status === 'approved' ? 'Your logbook entry was approved.' : reviewReason,
         type: 'logbook', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'logbook.reviewed',
         targetType: 'logbook', targetId: req.params.entryId,
@@ -1214,11 +1215,11 @@ app.post('/coordinator/endorsements/:proposalId/send', requireStaff, async (req,
           ...(accepted ? { sentAt: recordedAt, messageId: sentMessageId } : { failedAt: recordedAt }),
         } };
         transaction.update(endorsementRef, { deliveryRecipients: recipients });
-        if (accepted && kind === 'student') transaction.set(adminDb.collection('notifications').doc(), {
+        if (accepted && kind === 'student') transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: endorsement.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
           title: 'Signed endorsement sent', message: 'Your verified signed endorsement copy was emailed to you.',
           type: 'endorsement', read: false, createdAt: recordedAt,
-        });
+        }));
         writeAuditInTransaction(transaction, {
           actorId: req.staff.uid, actorRole: 'coordinator',
           action: accepted ? 'endorsement.email_accepted' : 'endorsement.email_failed',
@@ -1485,14 +1486,14 @@ async function decideCompanyPlacement(req, res) {
       }
       if (directAssignment) transaction.create(proposalRef, { ...proposal, ...decisionFields });
       else transaction.update(proposalRef, decisionFields);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: proposal.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: `Company placement ${status === 'needs_revision' ? 'needs changes' : status}`,
         message: status === 'approved'
           ? `Your company placement was approved. Endorsement paperwork is pending preparation; no letter has been issued or emailed yet.${needsFreshFinalReview ? ' Your previous final review was superseded. Update the endorsement letter and signed MOA, then submit a new review for this placement.' : ''}`
           : note,
         type: 'placement', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'placement.reviewed',
         targetType: 'companyProposals', targetId: proposalRef.id,
@@ -1601,11 +1602,11 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
       if (!Number.isFinite(hoursRequired) || hoursRequired <= 0) throw Object.assign(new Error('Section has an invalid required-hours setting.'), { status: 409 });
       transaction.update(studentRef, { sectionId, hoursRequired });
       markSupportAssignment(transaction, adminDb, studentId);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: 'Section assignment updated', message: `You have been assigned to ${sectionSnap.data().name || 'your OJT section'}.`,
         type: 'registration', read: false, createdAt: now,
-      });
+      }));
     });
     await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'student.assigned', targetType: 'users', targetId: studentId, details: { sectionId } });
     return res.json({ success: true });
@@ -1722,12 +1723,12 @@ app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (
       } : {
         accountApproved: false, status: 'rejected_registration', rejectedBy: req.staff.uid, rejectedAt: now,
       });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Registration approved' : 'Registration needs attention',
         message: status === 'approved' ? 'Your student registration was approved by your OJT Coordinator.' : 'Your student registration was not approved. Please contact your OJT Coordinator.',
         type: 'registration', read: false, createdAt: now,
-      });
+      }));
     });
     registrationSnapshots.clear();
     await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: status === 'approved' ? 'registration.approved' : 'registration.rejected', targetType: 'users', targetId: req.params.studentId, details: { department: req.staff.data.department } });
@@ -1806,12 +1807,12 @@ app.post('/coordinator/students/:studentId/requirements/:requirementId/decision'
         [`requirements.${req.params.requirementId}`]: requirements[req.params.requirementId],
         ...(allPreDeploymentApproved ? { requirementsStatus: 'approved' } : {}),
       });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Requirement approved' : 'Requirement needs attention',
         message: status === 'approved' ? 'Your submitted requirement was approved.' : `Your document needs attention: ${note}`,
         type: 'requirement', read: false, createdAt: now,
-      });
+      }));
       if (status === 'approved' && req.params.requirementId === 'endorsement_letter' && matchesCurrentEndorsement) {
         transaction.update(endorsementRef, {
           status: 'signed_copy_verified',
@@ -1936,11 +1937,11 @@ app.post('/messages', requireUser, async (req, res) => {
         body: messageBody, message: messageBody, read: false, createdAt: now, type: 'direct_message',
       };
       transaction.create(messageRef, message);
-      transaction.create(notificationRef, {
+      transaction.create(notificationRef, indexedNotice({
         recipientId: recipientRef.id, senderId: senderRef.id, senderRole: sender.role,
         senderName, title: `New ${sender.role === 'student' ? 'student' : 'coordinator'} message`,
         message: messageBody, type: 'message', read: false, createdAt: now,
-      });
+      }));
       responseData = { messageId: messageRef.id, conversationId: message.conversationId, createdAt: now };
     });
     return res.status(201).json({ success: true, ...responseData });
@@ -1984,10 +1985,10 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
       transaction.create(announcementRef, { coordinatorId: req.staff.uid, sectionId, title: cleanTitle, message: cleanMessage,
         createdAt: now, emailRecipients: Object.fromEntries(students.map(student => [student.id, require('./announcementEmail').initialRecipient(student.data())])) });
       for (const student of students) {
-        transaction.create(adminDb.collection('notifications').doc(), {
+        transaction.create(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: student.id, senderId: req.staff.uid, senderRole: 'coordinator',
           title: cleanTitle, message: cleanMessage, type: 'announcement', read: false, createdAt: now,
-        });
+        }));
       }
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'announcement.sent',
@@ -2129,11 +2130,11 @@ app.post('/coordinator/students/:studentId/clearance', requireStaff, async (req,
       if (student.clearanceStatus === 'cleared') throw Object.assign(new Error('Clearance is already approved.'), { status: 409 });
       const now = new Date().toISOString();
       transaction.update(studentRef, { clearanceStatus: 'cleared', clearedBy: req.staff.uid, clearedAt: now });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: 'Clearance approved', message: 'Your OJT clearance has been approved by your coordinator.',
         type: 'clearance', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: req.staff.role, action: 'clearance.updated',
         targetType: 'users', targetId: req.params.studentId, details: { clearanceStatus: 'cleared' },
@@ -2659,6 +2660,7 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
 require('./dtrReview').installDtrReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction });
+require('./coordinatorInbox').installCoordinatorInbox({ app, db: adminDb, requireStaff, allowRate });
 require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, audit: writeAuditInTransaction });
 require('./attendanceExcusedDates').installAttendanceExcusedDates({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction });
 const { installAttendanceRiskAlerts, riskAlertsEnabled } = require('./attendanceRiskAlerts');
@@ -2777,7 +2779,7 @@ app.post('/evaluation/:token/submit', async (req, res) => {
         submission = { ratings, comments: comments.trim() };
       }
       transaction.update(ref, { ...submission, submittedAt, used: true });
-      transaction.create(notificationRef, { recipientId: data.studentId, title: 'Supervisor evaluation submitted', message: `Your supervisor submitted an evaluation for ${data.companyName}.`, type: 'evaluation', read: false, createdAt: submittedAt });
+      transaction.create(notificationRef, indexedNotice({ recipientId: data.studentId, title: 'Supervisor evaluation submitted', message: `Your supervisor submitted an evaluation for ${data.companyName}.`, type: 'evaluation', read: false, createdAt: submittedAt }));
     });
     res.json({ success: true });
   } catch (e) {

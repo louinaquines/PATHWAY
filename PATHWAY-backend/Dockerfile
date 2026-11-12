@@ -13,7 +13,7 @@ COPY companyProfileImport.js coordinatorAccounts.js coordinatorAssignmentPolicy.
 COPY anthropicAnalysis.js ./
 COPY studentUpdateNotifications.js journalAiReview.js departmentJournals.js studentJournalSubmission.js workplaceJournalConsent.js workplaceRealUsePolicy.js ./
 COPY attendanceAiReview.js ./
-COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
+COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js coordinatorInbox.js ./
 COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js ./
 COPY companyMailInbox.js ./
 COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./

@@ -15,9 +15,9 @@
   .admin-stat-card, .admin-action-card, .admin-chart-card, .admin-overview-recent,
   .dashboardSearch, .dashboardTools > button, .dashboardTools select
 ) {
-  background: rgba(255,255,255,.55) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
+  background: rgba(255,255,255,.84) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  backdrop-filter: blur(28px) saturate(1.5);
   border: 1px solid rgba(255,255,255,.75) !important;
   box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important;
 }
@@ -30,7 +30,7 @@
 .admin-page main .admin-overview-recent td { border-color: rgba(148,163,184,.25) !important; }
 .admin-page main .admin-attention h2 { color: #17212f !important; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .admin-page main :is(.admin-stat-card, .admin-action-card, .admin-chart-card, .admin-overview-recent, .dashboardSearch, .dashboardTools > button, .dashboardTools select) { background: rgba(255,255,255,.88) !important; }
+  .admin-page main :is(.admin-stat-card, .admin-action-card, .admin-chart-card, .admin-overview-recent, .dashboardSearch, .dashboardTools > button, .dashboardTools select) { background: rgba(255,255,255,.95) !important; }
 }
 
 /* System Overview redesign */

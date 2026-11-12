@@ -1,58 +1,63 @@
 # Claude Documentation — Session 2026-11-12
 
-Everything done in this session, in order.
+Everything Claude did with the team in this session, in order. Latest state is at the bottom.
+
+## 0. Setup / configuration used
+- Repo on PC: `C:\Users\Lenovo\PATHWAY-main` (GitHub: louinaquines/PATHWAY). Claude worked in a cloud copy and pushed commits into this local repo; pushes to GitHub were done from Windows.
+- Git commit author used: `Loui <louinaquines@gmail.com>` (+ Claude co-author trailer).
+- Live services:
+  - Coordinator portal: Firebase Hosting site `pathway-portal` (project `pathway-57400`), config `firebase.portal-hosting.json`, build output `PATHWAY-web/build-vite`.
+  - Backend: Render `PATHWAY-backend` (srv-db4iq96i0phs73cr7au0), Docker build from `PATHWAY-backend/Dockerfile`.
+  - AI: Anthropic Claude (`claude-haiku-5-5`) via env `ANTHROPIC_API_KEY`, `ANTHROPIC_ENABLED`, `ANTHROPIC_MODEL`, `ANTHROPIC_DAILY_REQUEST_LIMIT`, `REQUIREMENT_AI_ENABLED`.
+- Firebase CLI isn't on PATH; use `PATHWAY-backend\node_modules\.bin\firebase.cmd`.
+- Build worktree: `C:\Users\Lenovo\PATHWAY-main\%TEMP%\pathway-autocheck` (literal folder name — PowerShell didn't expand `%TEMP%`). Remove later with `git worktree remove --force "%TEMP%\pathway-autocheck"`.
+- **Portal build needs BOTH** `PATHWAY-web/.env` (Firebase keys) **and** `.env.production` (backend URL) copied into the build folder.
 
 ## 1. Analysis (no code changes)
-- Read the whole repo, the manuscript (PATHWAY-OJT-Management-System-with-AI-Analytics-1) and all .md files.
-- Finding: `PATHWAY-DOCUMENTATION.md` is out of date; many features are only recorded in `project-notes/*.md`.
-- Finding: the live portal was built from branch `codex/placement-workspace` (f535242), which is **not on main**.
+- Read the repo, the manuscript (PATHWAY-OJT-Management-System-with-AI-Analytics-1) and all .md files.
+- `PATHWAY-DOCUMENTATION.md` is out of date; many features are only in `project-notes/*.md`.
+- The live portal had been built from `codex/placement-workspace` (f535242), which is **not on main**.
 
 ## 2. Announcements & Alerts UI fix (coordinator)
-- Branch `codex/notifications-ui-fix`, commit `4adeedd` (based on f535242). Pushed to GitHub.
-- Files: `PATHWAY-web/src/pages/NotificationsTab.js`, `NotificationsTab.css`
-  - Panel fills width; header has a divider; filter dropdown restyled with chevron; count shown as a pill.
-  - Empty state now has an icon, title and hint instead of plain text.
-- Tests: 12/12 focused tests pass; build passes.
+- Branch `codex/notifications-ui-fix`, commit `4adeedd` (based on f535242).
+- `PATHWAY-web/src/pages/NotificationsTab.js` / `.css`: full-width panel, header divider, restyled filter dropdown, count pill, empty state with icon and hint.
+- Tests 12/12 focused; build passes.
 
-## 3. Deploy incident (portal went blank)
-- `tmp/deploy-notif-fix.cmd`: the build step was interrupted (`^C` in `tmp/notif-deploy.log`), but
-  `tmp/deploy-notif-fix-step2.cmd` (run via `tmp/deploy-all.cmd`) still deployed hosting → **an incomplete build went live at 7:34 PM (release 8a0382) → blank page**.
-- Fix: user rolled back to release **4e13fb (4:53 PM)** in Firebase Hosting.
-- `tmp/rebuild-deploy.cmd` attempt failed: `'vite' is not recognized` (packages not installed in `%TEMP%\pathway-notif-fix`). Nothing deployed.
-- **Current live portal = 4e13fb (before today's changes).**
-- Lesson: only deploy after the log shows `✓ built in …`.
-
-## 4. Requirement auto-check (design + implementation)
+## 3. Requirement auto-check feature
 - Design: `project-notes/REQUIREMENT-AUTO-CHECK-DESIGN-2026-11-12.md`
-- Implementation details: `project-notes/REQUIREMENT-AUTO-CHECK-IMPLEMENTATION-2026-11-12.md`
-- Branch `codex/requirement-auto-check` (on top of the UI fix):
-  - `2b3ea8f` backend + first UI: reference file per requirement, deterministic name match (`nameMatch.js`), Green/Yellow/Red tiers, optional auto-approve with undo, audit logs. Pushed to GitHub.
-  - `ee311f8` simpler coordinator UI: "📄 Add reference file" button, drag-and-drop upload, 3-step guide, advanced options collapsed, tip banner on Sections → Requirements.
-  - `43b34f6` same button added to **Student Requirements** page on every requirement (works without AI).
-  - `ee311f8` and `43b34f6` are in the local repo only — run `git push origin codex/requirement-auto-check`.
+- Implementation: `project-notes/REQUIREMENT-AUTO-CHECK-IMPLEMENTATION-2026-11-12.md`
+- Branch `codex/requirement-auto-check` commits:
+  - `2b3ea8f` backend + first UI: reference file per requirement, deterministic name match (`nameMatch.js`), Green/Yellow/Red tiers, optional auto-approve, undo, audit logs.
+  - `ee311f8` simpler UI: "📄 Add reference file", drag-and-drop, 3-step guide, advanced options collapsed.
+  - `43b34f6`, `51e55c1` experiments placing the button on Student Requirements (later removed).
+  - `dcbe182` **final:** reference files set only in **Sections & Students → Requirements & deadlines** (one per requirement, for the whole section). Student Requirements shows only badges + Undo.
+  - `d14983a` Dockerfile: add `nameMatch.js` (Render failed with `Cannot find module './nameMatch'`).
+  - `7c43058`, `7efcde1` this documentation.
 - Tests: name-match 5/5; web build passes; component tests 76/76. Emulator tests not run (need Java 21).
-- Not deployed. Needs merge to main (Loui), Render backend deploy, then portal deploy.
 
-## 5. Known issues / to do
-- Auto-approve does not recompute the student's overall `requirementsStatus` — keep auto-approve off for Pre-OJT until fixed.
-- Reference file limit 700 KB (stored in Firestore).
-- Green/Yellow/Red badges need `ANTHROPIC_ENABLED=1` on Render and student AI consent.
-- Re-deploy the Announcements fix properly (install → build → confirm → deploy).
-- Leftover git temp folders moved to `.git/stale/` (safe to delete).
+## 4. Deploy incidents and fixes
+- 7:34 PM deploy (release 8a0382) → **blank portal**. Rolled back to **4e13fb (4:53 PM)**.
+- 8:22 PM deploy from the branch → **blank again**. Console: `auth/invalid-api-key`.
+- **Root cause of both:** the build had no Firebase keys — only `.env.production` was copied, not `.env`. (An interrupted build was also involved earlier.)
+- Fixed by copying both env files and adding a check that the key (`AIza…`) is in the bundle before deploying. Portal then loaded correctly.
+- Render backend: branch temporarily switched to `codex/requirement-auto-check` for testing; first deploy failed (missing `nameMatch.js` in Dockerfile), fixed in `d14983a`.
+
+## 5. Anthropic account hold
+- Nov 12, 2026: account pathwaysystem4@gmail.com put **on hold** ("unusual activity"). $5.54 of $5.60 credits refunded (≈ $0.06 used). Review ref `TS-01a1cf3d-fd13-75d0-975a-007858d3bb67`, ~10 days, decisions final.
+- Decision: submit review + contact support; **do not** open another account or try to hide the project (would count as getting around the hold).
+- Option offered: Gemini fallback provider with Claude as default (needs adviser approval; small manuscript note).
+- Handout: https://claude.ai/artifact/Jp91KoCYanr9UCzmX9sAjZ
+
+## 6. Current state (end of session)
+- GitHub `codex/requirement-auto-check`: code up to `d14983a`; docs commit `7efcde1` waiting to be pushed (`tmp\a-push.cmd`).
+- Portal: deployed from the branch (with Announcements fix + reference-file UI) — check it matches `dcbe182`; redeploy if it still shows the button on Student Requirements.
+- Render: may still be on branch `codex/requirement-auto-check` — **switch back to `main`** after Loui merges.
+- AI: off in practice (account on hold). Uploads go to coordinator review.
+
+## 7. To do
+- Loui reviews and merges `codex/requirement-auto-check` → `main`; Render back to `main`.
+- Fix: auto-approve doesn't recompute `requirementsStatus` (keep auto-approve off for Pre-OJT).
+- Reference file limit 700 KB (Firestore) — move to Cloudinary if needed.
+- Run backend emulator tests (`npm run test:security`, Java 21).
 - Update `PATHWAY-DOCUMENTATION.md` to point to these notes.
-
-## 6. Portal deployed from branch (8:22 PM)
-- Built and deployed `codex/requirement-auto-check` (7c43058) to pathway-portal.web.app from worktree `PATHWAY-main\%TEMP%\pathway-autocheck` (PowerShell did not expand %TEMP%).
-- Live now: Announcements fix + "Add reference file" buttons. Backend NOT updated yet, so saving reference files fails until Render deploys the merged branch.
-- If broken: roll back to 4e13fb in Firebase Hosting.
-
-## 7. Blank portal root cause + reference button moved
-- Blank page cause: build had no Firebase keys (`auth/invalid-api-key`). Keys are in `PATHWAY-web/.env`; only `.env.production` had been copied. Always copy both before building.
-- Reference files now set from one **"📄 Reference files"** button at the top of Student Requirements (per requirement, for the whole section), not per student row.
-- Final decision: reference files are set **only** in Sections & Students → Requirements & deadlines (per requirement, whole section). The Student Requirements page has no upload button; it only shows badges and Undo.
-- Render deploy failed: `Cannot find module ./nameMatch` — Dockerfile copies files by name. Added nameMatch.js to the Dockerfile COPY list.
-
-## 8. Anthropic account hold (Nov 12, 2026)
-- Account pathwaysystem4@gmail.com put on hold ("unusual activity"); $5.54 of $5.60 credits refunded. Review ref TS-01a1cf3d-fd13-75d0-975a-007858d3bb67.
-- Decision: request review + ask support; do not open another account. Optional: Gemini fallback with Claude as default (pending adviser approval).
-- Summary handout: https://claude.ai/artifact/Jp91KoCYanr9UCzmX9sAjZ
+- Clean up `.git/stale/` and the `%TEMP%` worktree folder.

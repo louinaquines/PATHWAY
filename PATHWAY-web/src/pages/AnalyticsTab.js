@@ -139,15 +139,15 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         <div>
 
           <strong>Work schedule</strong>
-          <p style={s.sub}>{schedule.startDate && schedule.deadline ? [schedule.startDate, schedule.deadline, schedule.startTime].join(' · ') : 'Schedule not set'}</p>
+          <p style={s.sub}>{schedule.startDate && schedule.deadline ? [schedule.startDate, schedule.deadline, schedule.startTime].join(' · ') : 'Schedule not set'}</p></div>
           {selectedSection?.id && <button ref={editButton} type="button" className="portal-secondary" onClick={() => {
             setScheduleError('');
             setExceptionDate('');
             setDraft(schedule);
           }}>Edit schedule</button>}
         </div>
-        <div className="analytics-actions" style={s.actions}>
-      <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
+        <div className="analytics-toolbar-actions">
+          <div className="analytics-actions" style={s.actions}>
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
             <Icon name="download" size={15} /> Export CSV
@@ -203,10 +203,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         <div style={s.cardHeader}>
           <div>
             <h3 style={s.cardTitle}>Student progress</h3>
-            <p style={s.sub}>{data?.students?.length || 0} intern(s) loaded in this section. Search covers this loaded section only. As of {data?.today || 'unavailable'}.</p>
+            {data?.today && <p style={s.sub}>As of <time dateTime={data.today}>{data.today}</time></p>}
           </div>
-          <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
-          <label>Progress filter <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
+          <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" placeholder="Search by name or ID…" />
+          <label>Progress <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
             <option value="all">All students</option>
             <option value="risk">At risk</option>
             <option value="complete">Target met</option>

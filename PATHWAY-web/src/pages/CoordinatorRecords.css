@@ -189,3 +189,14 @@ dialog.analytics-schedule-drawer { padding: 0; overflow: hidden; }
 .analytics-schedule-drawer footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; border-bottom: 0; border-top: 1px solid #dce2e9; }
 .analytics-drawer-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 24px; }
 .analytics-drawer-body fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; display: grid; gap: 16px; }
+.analytics-toolbar { background: #fff; border: 1px solid #dce2e9; border-radius: 12px; padding: 12px 16px; }
+.analytics-schedule-summary, .analytics-toolbar-actions .analytics-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.analytics-toolbar-actions { display: grid; justify-items: end; gap: 4px; }
+.analytics-toolbar-actions [role="status"] { font-size: 12px !important; }
+.analytics-table-controls { flex: 0 1 660px; }
+.analytics-table-controls > label { display: flex; align-items: center; gap: 8px; }
+.analytics-table-controls input, .analytics-table-controls select { min-height: 44px; box-sizing: border-box; }
+@media (max-width: 640px) {
+  .analytics-toolbar-actions { justify-items: start; }
+  .analytics-table-controls > :first-child { flex-basis: 100%; }
+}

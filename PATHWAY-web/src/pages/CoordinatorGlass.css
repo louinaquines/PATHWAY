@@ -348,3 +348,10 @@
 .coordinator-page .placement-page .placement-queue-filters button { height: 40px !important; min-height: 0 !important; padding: 0 12px !important; border: 0 !important; border-radius: 9px !important; background: transparent !important; color: #475569 !important; font-size: 14px !important; font-weight: 600 !important; box-shadow: none !important; cursor: pointer; transition: background .15s, color .15s; }
 .coordinator-page .placement-page .placement-queue-filters button:hover:not([aria-pressed="true"]) { background: #f1f5f9 !important; color: #0f172a !important; }
 .coordinator-page .placement-page .placement-queue-filters button[aria-pressed="true"] { background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; box-shadow: 0 6px 14px rgba(37,99,235,.28) !important; }
+/* Placements v3: no underline on view tabs, centered switch labels */
+.coordinator-page .placement-page .placement-workspace-tabs { border-bottom: 0 !important; }
+.coordinator-page .placement-page .placement-workspace-tabs button,
+.coordinator-page .placement-page .placement-workspace-tabs button[aria-pressed="true"] { border-bottom: 0 !important; margin-bottom: 0; text-decoration: none !important; }
+.coordinator-page .placement-page .placement-workspace-tabs button::before,
+.coordinator-page .placement-page .placement-workspace-tabs button::after { display: none !important; content: none !important; }
+.coordinator-page .placement-page .placement-queue-filters button { display: flex !important; align-items: center !important; justify-content: center !important; text-align: center !important; }

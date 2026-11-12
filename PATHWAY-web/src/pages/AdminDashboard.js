@@ -1011,33 +1011,34 @@ function CreateCoordinatorTab({ onCreated, onCancel }) {
 
 function AdminNotificationsPage({ items, notificationsRead, onMarkAllRead }) {
   return (
-    <div style={s.notificationsPage}>
-      <div style={s.notificationsPageHeader}>
-        <div>
-          <h2 style={s.subTitle}>Recent Notifications</h2>
-          <p style={s.subText}>Review recent account and section activity across the admin workspace.</p>
-        </div>
-        <button type="button" style={s.markReadBtn} onClick={onMarkAllRead}>
-          <Icon name="check" size={15} />
+    <section className="admin-records-card admin-notifications-card" aria-labelledby="admin-notifications-title">
+      <header className="admin-records-head">
+        <div><h2 id="admin-notifications-title">Recent Notifications</h2><p>Review recent account and section activity across the admin workspace.</p></div>
+        <button type="button" className="admin-secondary-action" onClick={onMarkAllRead} disabled={notificationsRead || items.length === 0}>
+          <Icon name="check" size={16} />
           {notificationsRead ? 'All notifications read' : 'Mark all as read'}
         </button>
-      </div>
-      <div style={s.notificationsPageCard}>
-        {items.length > 0 ? items.map(item => (
-          <button type="button" key={item.key} style={s.notificationsPageItem} onClick={item.action}>
-            <span style={s.notificationIcon}><Icon name={item.icon} size={17} /></span>
-            <span style={s.notificationCopy}>
-              <strong>{item.title}</strong>
-              <span>{item.detail}</span>
-              <small>{item.time}</small>
-            </span>
-            <Icon name="chevronRight" size={16} className="sidebar-user-chevron" />
-          </button>
-        )) : (
-          <div style={s.notificationEmpty}>No recent notifications.</div>
-        )}
-      </div>
-    </div>
+      </header>
+      {items.length > 0 ? (
+        <ul className="admin-notification-list">
+          {items.map(item => (
+            <li key={item.key}>
+              <button type="button" className="admin-notification-row" data-unread={!notificationsRead} onClick={item.action}>
+                <span className="admin-stat-icon" data-tone="blue"><Icon name={item.icon} size={20} /></span>
+                <span className="admin-notification-text">
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </span>
+                <small>{item.time}</small>
+                <Icon name="chevronRight" size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <PortalEmpty icon="bell" compact title="You're all caught up" description="New account and section activity will appear here." />
+      )}
+    </section>
   );
 }
 

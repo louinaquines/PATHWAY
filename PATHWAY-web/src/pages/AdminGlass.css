@@ -244,3 +244,34 @@
 .admin-page main .admin-audit-details summary { color: #075fc9; font-size: 13px; font-weight: 650; cursor: pointer; }
 .admin-page main .admin-audit-details pre { max-height: 220px; overflow: auto; border-radius: 10px; background: #0f172a !important; color: #e2e8f0 !important; font-size: 12px; padding: 12px !important; }
 .admin-page main .admin-audit-records .admin-records-head .admin-secondary-action { flex-shrink: 0; }
+
+/* ===== Top bar: title above description on every admin screen ===== */
+.admin-page main > header { min-height: 84px; box-sizing: border-box; padding: 18px 28px !important; }
+.admin-page main > header .admin-page-heading { display: flex !important; flex-direction: column !important; align-items: flex-start !important; justify-content: center; gap: 4px !important; min-width: 0; }
+.admin-page main > header .admin-page-heading h1 { margin: 0 !important; color: #0f172a !important; font-size: 22px !important; font-weight: 700 !important; letter-spacing: -.3px; line-height: 1.25; }
+.admin-page main > header .portal-page-description { margin: 0 !important; color: #64748b !important; font-size: 14px !important; line-height: 1.45; }
+
+/* ===== Notifications ===== */
+.admin-notifications-card { max-width: 1100px; }
+.admin-notification-list { list-style: none; margin: 0; padding: 0; max-height: min(66vh, 680px); overflow: auto; }
+.admin-notification-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 16px; width: 100%; padding: 16px 20px; border: 0; border-bottom: 1px solid rgba(148,163,184,.2); background: transparent; text-align: left; font: inherit; cursor: pointer; transition: background .12s ease; }
+.admin-notification-list li:last-child .admin-notification-row { border-bottom: 0; }
+.admin-notification-row:hover { background: rgba(7,95,201,.05); }
+.admin-notification-row:focus-visible { outline: 2px solid #075fc9; outline-offset: -2px; }
+.admin-notification-row[data-unread='true'] { box-shadow: inset 3px 0 0 #075fc9; }
+.admin-notification-row .admin-stat-icon { width: 42px; height: 42px; border-radius: 12px; }
+.admin-notification-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.admin-notification-text strong { color: #0f172a; font-size: 15px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-notification-text span { color: #64748b; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-notification-row small { color: #94a3b8; font-size: 12px; white-space: nowrap; }
+.admin-notification-row > svg:last-child { color: #94a3b8; }
+.admin-secondary-action:disabled { opacity: .55; cursor: default; }
+@media (max-width: 640px) { .admin-notification-row { grid-template-columns: auto minmax(0, 1fr) auto; } .admin-notification-row small { grid-column: 2; grid-row: 2; } }
+
+/* Fix: overview filter row is fixed above the scrolling content; give it its own
+   solid band so cards don't appear cut off behind it while scrolling */
+.admin-page main .admin-dashboard-toolbar { position: relative; z-index: 2; padding-bottom: 16px !important; background: rgba(255,255,255,.92) !important; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(148,163,184,.25) !important; box-shadow: 0 6px 16px rgba(15,23,42,.05); }
+.admin-page main .admin-dashboard-toolbar :is(.dashboardSearch, .dashboardTools > button, .dashboardTools select) { background: #fff !important; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none !important; border: 1px solid #dbe3ee !important; }
+.admin-page main .admin-dashboard-toolbar .dashboardTools select { -webkit-appearance: none; appearance: none; height: 44px; padding: 0 40px 0 14px !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") right 14px center / 16px no-repeat !important; }
+.admin-page main .admin-dashboard-toolbar .dashboardTools > label { border: 0 !important; background: transparent !important; padding: 0 !important; }
+.admin-page main .admin-dashboard-toolbar ~ div .admin-system-overview, .admin-page main .admin-dashboard-toolbar + * { padding-top: 24px; }

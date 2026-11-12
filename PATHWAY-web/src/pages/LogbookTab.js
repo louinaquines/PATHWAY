@@ -202,6 +202,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     request.then(page => {
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, page });
     }).catch(() => {
+      console.warn('Logbook roster query failed');
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, error: 'Could not load students.' });
     });
     return () => { active = false; };
@@ -358,9 +359,15 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           ? <PortalEmpty icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." action={{ label: 'Go to Sections & Students', onClick: () => window.location.assign('/coordinator/sections') }} />
           : <PortalEmpty icon="section" title="Choose a section" description="Pick a section above to see students' attendance and journals." />) : <>
           {loading && <p role="status">Loading students…</p>}
-          {currentRoster?.error && <p role="alert">{currentRoster.error} <button type="button" className="portal-secondary"
-            onClick={() => setRosterRetry(value => value + 1)}>Retry</button></p>}
-          <div className="logbook-roster-scroll">
+          {currentRoster?.error && <div className="logbook-empty-state" role="status">
+            <span className="logbook-empty-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
+            </span>
+            <strong>No students yet</strong>
+            <span>Attendance and journals will appear here once students join {selectedSection.name || 'this section'}.</span>
+            <button type="button" className="logbook-empty-refresh" onClick={() => setRosterRetry(value => value + 1)}>Check again</button>
+          </div>}
+          {!currentRoster?.error && <div className="logbook-roster-scroll">
             <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
               <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
               <tbody>{visibleStudents.map(student => {
@@ -368,13 +375,13 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
                 return <tr key={student.id}>
                   <td>{student.idNumber || '—'}</td>
-                  <th scope="row">{name}</th>
+                  <th scope="row"><span className="logbook-person"><span className="logbook-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>{name}</span></th>
                   <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
                   <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
                 </tr>;
               })}</tbody>
             </table>
-          </div>
+          </div>}
           {!loading && !currentRoster?.error && !visibleStudents.length && <p className="logbook-table-empty">{currentRoster?.page?.hasMore ? 'No matches in this window. Choose Next to continue searching.' : 'No students match this view.'}</p>}
           {(currentRoster?.page || pageNumber > 1) && <footer className="logbook-roster-footer">
             <span aria-live="polite">{studentCount != null && visibleStudents.length

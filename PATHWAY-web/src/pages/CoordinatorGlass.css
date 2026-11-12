@@ -193,3 +193,32 @@
 .requirements-empty-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: #eff6ff; color: #2563eb; margin-bottom: 6px; }
 .requirements-empty-refresh { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
 .requirements-empty-refresh:hover { background: #eff6ff; border-color: #bfdbfe; }
+
+/* ===== Attendance & Journals (logbook) ===== */
+.coordinator-page .logbook-table-page { background: transparent !important; }
+.coordinator-page .logbook-roster { background: rgba(255,255,255,.84) !important; backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important; overflow: hidden; }
+.coordinator-page .logbook-roster .logbook-roster-toolbar { display: flex !important; align-items: flex-end; gap: 12px; padding: 18px 20px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .logbook-roster .logbook-section-field { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+.coordinator-page .logbook-roster .logbook-section-field > span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.coordinator-page .logbook-roster .logbook-section-field select { appearance: none; -webkit-appearance: none; height: 42px; padding: 0 38px 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center !important; font-size: 14px; font-weight: 600; color: #0f172a; cursor: pointer; }
+.coordinator-page .logbook-roster .logbook-roster-toolbar .coordinator-search { flex: 1; min-width: 0; height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #94a3b8; box-shadow: none; }
+.coordinator-page .logbook-roster .logbook-roster-toolbar .coordinator-search:focus-within { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+.coordinator-page .logbook-roster .logbook-roster-toolbar .coordinator-search input { flex: 1; min-width: 0; height: 40px !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; font-size: 14px; color: #0f172a; }
+.coordinator-page .logbook-roster .logbook-roster-scroll { max-height: min(62vh, 640px); overflow: auto; }
+.coordinator-page .logbook-roster table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent !important; }
+.coordinator-page .logbook-roster thead th { position: sticky; top: 0; z-index: 1; padding: 12px 20px !important; background: rgba(248,250,252,.96) !important; border-bottom: 1px solid #e2e8f0; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; text-align: left; }
+.coordinator-page .logbook-roster tbody td, .coordinator-page .logbook-roster tbody th { padding: 12px 20px !important; border-bottom: 1px solid rgba(226,232,240,.8); font-size: 14px; color: #334155; text-align: left; background: transparent !important; }
+.coordinator-page .logbook-roster tbody tr:hover td, .coordinator-page .logbook-roster tbody tr:hover th { background: rgba(239,246,255,.6) !important; }
+.coordinator-page .logbook-roster tbody td:first-child { font-variant-numeric: tabular-nums; color: #64748b; }
+.logbook-person { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; color: #0f172a; }
+.logbook-avatar { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: #1d4ed8; font-size: 12px; font-weight: 700; }
+.coordinator-page .logbook-roster tbody td button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 12px !important; border: 1px solid #e2e8f0 !important; border-radius: 999px !important; background: #fff !important; color: #1e40af !important; font-size: 13px; font-weight: 600; cursor: pointer; }
+.coordinator-page .logbook-roster tbody td button:hover { border-color: #bfdbfe !important; background: #eff6ff !important; }
+.coordinator-page .logbook-roster .logbook-roster-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid rgba(148,163,184,.18); font-size: 13px; color: #64748b; background: transparent !important; }
+.coordinator-page .logbook-roster .logbook-table-empty { padding: 32px 20px; text-align: center; color: #64748b; }
+.logbook-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 56px 20px; color: #64748b; font-size: 13px; line-height: 1.5; }
+.logbook-empty-state strong { color: #0f172a; font-size: 15px; }
+.logbook-empty-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: #eff6ff; color: #2563eb; margin-bottom: 6px; }
+.logbook-empty-refresh { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
+.logbook-empty-refresh:hover { background: #eff6ff; border-color: #bfdbfe; }
+@media (max-width: 720px) { .coordinator-page .logbook-roster .logbook-roster-toolbar { flex-wrap: wrap; } .coordinator-page .logbook-roster .logbook-section-field { flex: 1 1 100%; } }

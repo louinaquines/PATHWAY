@@ -181,3 +181,15 @@
 .coordinator-page .requirements-workspace .requirements-document-status[data-status='rejected'] { background: #fee2e2 !important; color: #b42343 !important; }
 .coordinator-page .requirements-workspace .portal-empty { margin: 40px auto; }
 @media (max-width: 1100px) { .coordinator-page .requirements-workspace .requirements-students { width: 280px !important; } }
+
+/* Student Requirements: single-border search + friendly empty state */
+.coordinator-page .requirements-workspace .requirements-search-row { align-items: center; }
+.coordinator-page .requirements-workspace .requirements-search-row .coordinator-search { flex: 1; min-width: 0; height: 42px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #94a3b8; box-shadow: none; }
+.coordinator-page .requirements-workspace .requirements-search-row .coordinator-search:focus-within { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+.coordinator-page .requirements-workspace .requirements-search-row .coordinator-search input { flex: 1; min-width: 0; height: 40px !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; color: #0f172a; font-size: 14px; }
+.coordinator-page .requirements-workspace .requirements-search-row .requirements-filter-icon { width: 42px; height: 42px; flex: none; }
+.requirements-empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 36px 20px; color: #64748b; font-size: 13px; line-height: 1.5; }
+.requirements-empty-state strong { color: #0f172a; font-size: 15px; }
+.requirements-empty-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: #eff6ff; color: #2563eb; margin-bottom: 6px; }
+.requirements-empty-refresh { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
+.requirements-empty-refresh:hover { background: #eff6ff; border-color: #bfdbfe; }

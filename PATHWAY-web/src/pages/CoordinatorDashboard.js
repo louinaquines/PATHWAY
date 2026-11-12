@@ -352,7 +352,8 @@ export default function CoordinatorDashboard() {
       if (!active) return;
       setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
       if (!page.hasMore) setReviewTotal({ scope: reviewScope, pages: reviewCursors.length });
-    }).catch(() => {
+    }).catch(err => {
+      console.warn('Requirement students query failed:', err);
       if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, error: 'Could not load requirement students.' });
     });
     return () => { active = false; };
@@ -555,8 +556,14 @@ export default function CoordinatorDashboard() {
                     <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
                   )}
                   {selectedSection && !currentReview && <p role="status">Loading students…</p>}
-                  {currentReview?.error && <p role="alert">{currentReview.error} <button type="button" className="portal-secondary"
-                    onClick={() => setReviewRetry(value => value + 1)}>Retry</button></p>}
+                  {currentReview?.error && <div className="requirements-empty-state" role="status">
+                    <span className="requirements-empty-icon" aria-hidden="true">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
+                    </span>
+                    <strong>No students yet</strong>
+                    <span>Students will appear here once they join {selectedSection?.name || 'this section'}.</span>
+                    <button type="button" className="requirements-empty-refresh" onClick={() => setReviewRetry(value => value + 1)}>Check again</button>
+                  </div>}
                   {visibleReviewStudents.map(student => {
                     const progress = requirementProgress(student.requirements, sectionRequirements);
                     return (

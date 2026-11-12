@@ -32,6 +32,8 @@ import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
 import RequirementCheckResult from '../components/RequirementCheckResult';
+import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
+import '../components/RequirementAutoCheckDialog.css';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
 import { downloadSectionExcel } from '../sectionExport';
@@ -87,6 +89,7 @@ export default function CoordinatorDashboard() {
   const [documentPreview, setDocumentPreview] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [sectionRequirements, setSectionRequirements] = useState([]);
+  const [autoCheckReq, setAutoCheckReq] = useState(null);
   const [coordDept, setCoordDept] = useState('');
   const [coordinatorProfile, setCoordinatorProfile] = useState(null);
   const [error, setError] = useState('');
@@ -624,9 +627,11 @@ export default function CoordinatorDashboard() {
                         if (catReqs.length === 0) return null;
                         return (
                           <div key={cat} style={s.reqGroup}>
+                            {autoCheckReq && selectedSection && cat === REQUIREMENT_CATEGORIES.find(c => sectionRequirements.some(r => requirementCategory(r.category) === c)) && <RequirementAutoCheckDialog sectionId={selectedSection.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
+                              onSaved={saved => setSectionRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck: saved } : r))} />}
                             <div style={s.reqGroupLabel} className="requirements-category">{cat} Requirements</div>
                             <div style={s.reqCardsList}>
-                              {catReqs.map(({ id, label, deadline }) => {
+                              {catReqs.map(({ id, label, deadline, autoCheck }) => {
                                 const req = selectedStudent.requirements?.[id];
                                 const status = req?.status || 'not_submitted';
                                 const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
@@ -683,6 +688,11 @@ export default function CoordinatorDashboard() {
                                       </div>
                                     </div>
                                     <div style={s.reqRight} className="requirements-document-actions">
+                                      <button type="button" className={'autocheck-chip' + (autoCheck?.enabled ? ' is-on' : '')}
+                                        title="Reference file and auto-check settings for the whole section"
+                                        onClick={() => setAutoCheckReq({ id, label })}>
+                                        {autoCheck?.referenceName ? `✓ Reference: ${autoCheck.referenceName}` : autoCheck?.enabled ? 'Auto-check on' : '📄 Add reference file'}
+                                      </button>
                                       <span style={{
                                         ...s.statusBadge,
                                         backgroundColor: STATUS_COLOR[status],

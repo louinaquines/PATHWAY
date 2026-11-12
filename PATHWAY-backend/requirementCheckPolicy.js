@@ -54,4 +54,13 @@ function validate(result, policy) {
   return result;
 }
 
-module.exports = { resolveRequirementPolicy, sniff, validate };
+// Coordinator auto-check settings extend the checklist with reference/phrase comparisons.
+function withAutoCheck(policy, definition = {}) {
+  const a = definition.autoCheck;
+  if (!a || a.enabled !== true) return policy;
+  const requiredChecks = [...policy.requiredChecks];
+  if (a.referenceVersion && !requiredChecks.includes('reference_match')) requiredChecks.push('reference_match');
+  if (Array.isArray(a.requiredPhrases) && a.requiredPhrases.length && !requiredChecks.includes('required_phrases')) requiredChecks.push('required_phrases');
+  return { ...policy, requiredChecks, explicit: true };
+}
+module.exports = { withAutoCheck, resolveRequirementPolicy, sniff, validate };

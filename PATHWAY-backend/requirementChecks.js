@@ -1,6 +1,7 @@
 const indexedNotice = data => ({ ...data, ...require('./coordinatorInbox').inboxFields(data) });
 const crypto=require('node:crypto');
-const {resolveRequirementPolicy,validate}=require('./requirementCheckPolicy');
+const {resolveRequirementPolicy,validate,withAutoCheck}=require('./requirementCheckPolicy');
+const {compareStudentName}=require('./nameMatch');
 const fingerprint=r=>crypto.createHash('sha256').update(JSON.stringify([r.cloudinaryAssetId||'',r.cloudinaryPublicId,r.cloudinaryVersion,r.submittedAt,r.uploadedBytes])).digest('hex');
 const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,128}$/.test(value);
 const identity=s=>({name:[s.firstName,s.lastName].filter(Boolean).join(' ').trim(),id:s.idNumber||''});
@@ -13,7 +14,7 @@ const reasons={
  policy_missing:'This requirement has no supported automatic checklist. Coordinator review is required.',
  incomplete:'One or more automatic checks need coordinator review.',
 };
-function createRequirementChecks({db,ai,getBytes,enabled=()=>true,clock=()=>Date.now(),audit=()=>{}}){
+function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enabled=()=>true,clock=()=>Date.now(),audit=()=>{}}){
  const jobs=db.collection('requirementCheckJobs'); let running=false;
  function notices(tx,key,studentId,coordinatorId,status){
   const now=new Date(clock()).toISOString();
@@ -59,12 +60,16 @@ function createRequirementChecks({db,ai,getBytes,enabled=()=>true,clock=()=>Date
   let result,reason;
   try{
    if(!enabled()||claim.job.attempts>=2)throw Error('AI unavailable');
-   const policy=resolveRequirementPolicy(claim.c.definition);
+   const policy=withAutoCheck(resolveRequirementPolicy(claim.c.definition),claim.c.definition);
    if(!policy.explicit)throw Object.assign(Error('Unsupported checklist'),{code:'POLICY_MISSING'});
    const bytes=await getBytes({studentId:claim.job.studentId,requirementId:claim.job.requirementId,requirement:claim.r});
-   result=await ai.checkUploadedRequirement({bytes,definition:claim.c.definition,student:identity(claim.c.student),placement:{companyName:claim.c.student.company||claim.c.student.companyName||'',startDate:claim.c.student.startDate||'',endDate:claim.c.student.endDate||''}});
+   const auto=claim.c.definition.autoCheck;
+   const reference=auto?.enabled===true&&auto.referenceVersion?await getReference({sectionId:claim.c.student.sectionId,requirementId:claim.job.requirementId}):null;
+   result=await ai.checkUploadedRequirement({reference,bytes,definition:claim.c.definition,student:identity(claim.c.student),placement:{companyName:claim.c.student.company||claim.c.student.companyName||'',startDate:claim.c.student.startDate||'',endDate:claim.c.student.endDate||''}});
    if(result.advisoryOnly!==true||result.requiresHumanReview!==true)throw Error('Invalid review');
+   const nameOnDocument=result.nameOnDocument||'';
    result=validate({checks:result.checks,findings:result.findings,confidence:0},policy);
+   result.nameOnDocument=nameOnDocument;
   }catch(error){reason=error.code==='POLICY_MISSING'?'policy_missing':error.code==='AI_INPUT'?'unsupported_file':'ai_unavailable';result={checks:[],findings:[reasons[reason]]};}
   await db.runTransaction(async tx=>{
    const job=(await tx.get(jobRef)).data(),c=await context(tx,claim.job.studentId,claim.job.requirementId),r=c?.student.requirements?.[claim.job.requirementId];
@@ -74,10 +79,17 @@ function createRequirementChecks({db,ai,getBytes,enabled=()=>true,clock=()=>Date
    if(contextKey(c.student,c.definition)!==claim.context){reason='assignment_changed';result={checks:[],findings:[reasons[reason]]};}
    const status=!reason&&result.checks.length>0&&result.checks.every(check=>check.passed)?'checks_passed':'needs_review';
    const now=new Date(clock()).toISOString();
-   tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:true}});
+   const auto=c.definition.autoCheck?.enabled===true?c.definition.autoCheck:null;
+   const nameCheck=!reason&&auto&&auto.nameMustMatch!==false?compareStudentName(c.student,result.nameOnDocument):null;
+   const failed=key=>result.checks.some(check=>check.key===key&&!check.passed);
+   // Green: all checks + name match. Red: wrong person or wrong document. Yellow: everything else. Red is never auto-rejected.
+   const tier=reason?'yellow':nameCheck?.result==='mismatch'||failed('document_type')||failed('reference_match')?'red':status==='checks_passed'&&(!nameCheck||nameCheck.result==='match')?'green':'yellow';
+   const autoApprove=!!auto&&auto.autoApprove===true&&tier==='green';
+   tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove}});
+   if(autoApprove)tx.update(c.ref,{[`requirements.${job.requirementId}.status`]:'approved',[`requirements.${job.requirementId}.reviewedBy`]:'system',[`requirements.${job.requirementId}.reviewedAt`]:now,[`requirements.${job.requirementId}.autoApproved`]:true,[`requirements.${job.requirementId}.rejectionReason`]:null});
    tx.update(jobRef,{state:'done',completedAt:now});
    notices(tx,jobRef.id,job.studentId,c.section.coordinatorId,status);
-   audit(tx,{actorId:'system',actorRole:'system',action:'requirement.updated',targetType:'requirements',targetId:job.requirementId,details:{studentId:job.studentId,sectionId:c.student.sectionId,action:'automatic_advisory_check',status}});
+   audit(tx,{actorId:'system',actorRole:'system',action:'requirement.updated',targetType:'requirements',targetId:job.requirementId,details:{studentId:job.studentId,sectionId:c.student.sectionId,action:autoApprove?'automatic_approval':'automatic_advisory_check',status,tier}});
   });
  }
  async function assignmentException(tx,jobRef,job){

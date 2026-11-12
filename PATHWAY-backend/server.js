@@ -2309,6 +2309,82 @@ app.patch('/coordinator/sections/:sectionId/requirements/:requirementId', requir
   }
 });
 
+// --- Requirement auto-check settings (see project-notes/REQUIREMENT-AUTO-CHECK-IMPLEMENTATION-2026-11-12.md)
+const REFERENCE_MAX_BYTES = 700 * 1024; // stored in Firestore; keep the doc under the 1 MiB limit
+app.get('/coordinator/sections/:sectionId/requirements/:requirementId/auto-check', requireStaff, async (req, res) => {
+  try {
+    await coordinatorSection(req, req.params.sectionId);
+    const snap = await adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(req.params.requirementId).get();
+    if (!snap.exists) return res.status(404).json({ error: 'Requirement not found.' });
+    return res.json({ autoCheck: snap.data().autoCheck || { enabled: false, autoApprove: false, nameMustMatch: true, requiredPhrases: [], notes: '' } });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not load auto-check settings.' });
+  }
+});
+app.put('/coordinator/sections/:sectionId/requirements/:requirementId/auto-check', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(req.params.requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  const { enabled, autoApprove, nameMustMatch = true, requiredPhrases = [], notes = '', reference, removeReference } = req.body || {};
+  if (typeof enabled !== 'boolean' || typeof autoApprove !== 'boolean' || typeof nameMustMatch !== 'boolean') return res.status(400).json({ error: 'Invalid settings.' });
+  if (!Array.isArray(requiredPhrases) || requiredPhrases.length > 20 || requiredPhrases.some(p => typeof p !== 'string' || !p.trim() || p.length > 120)) return res.status(400).json({ error: 'Required phrases: up to 20, each up to 120 characters.' });
+  if (typeof notes !== 'string' || notes.length > 1000) return res.status(400).json({ error: 'Notes must be under 1000 characters.' });
+  let refBytes = null;
+  if (reference) {
+    if (typeof reference.data !== 'string' || typeof reference.fileName !== 'string') return res.status(400).json({ error: 'Invalid reference file.' });
+    refBytes = Buffer.from(reference.data, 'base64');
+    if (refBytes.length > REFERENCE_MAX_BYTES) return res.status(413).json({ error: 'Reference file must be 700 KB or smaller.' });
+    try { require('./requirementCheckPolicy').sniff(refBytes); } catch { return res.status(400).json({ error: 'Reference must be a PDF, PNG or JPEG.' }); }
+  }
+  try {
+    await coordinatorSection(req, req.params.sectionId);
+    const ref = adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(req.params.requirementId);
+    const fileRef = adminDb.collection('requirementReferences').doc(`${req.params.sectionId}_${req.params.requirementId}`);
+    const auditRef = adminDb.collection('auditLogs').doc();
+    let saved;
+    await adminDb.runTransaction(async transaction => {
+      const existing = await transaction.get(ref);
+      if (!existing.exists) throw Object.assign(new Error('Requirement not found.'), { status: 404 });
+      const prev = existing.data().autoCheck || {};
+      const now = new Date().toISOString();
+      saved = { enabled, autoApprove: enabled && autoApprove, nameMustMatch, requiredPhrases: requiredPhrases.map(p => p.trim()), notes: notes.trim(),
+        referenceVersion: refBytes ? now : removeReference ? null : prev.referenceVersion || null,
+        referenceName: refBytes ? reference.fileName.slice(0, 200) : removeReference ? null : prev.referenceName || null,
+        updatedAt: now, updatedBy: req.staff.uid };
+      if (refBytes) transaction.set(fileRef, { data: refBytes.toString('base64'), fileName: saved.referenceName, uploadedAt: now, uploadedBy: req.staff.uid });
+      else if (removeReference) transaction.delete(fileRef);
+      transaction.update(ref, { autoCheck: saved });
+      transaction.set(auditRef, auditEntry({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.updated', targetType: 'sectionRequirements', targetId: req.params.requirementId, details: { sectionId: req.params.sectionId, action: 'auto_check_settings', enabled: saved.enabled, autoApprove: saved.autoApprove, reference: !!saved.referenceVersion } }));
+    });
+    return res.json({ success: true, autoCheck: saved });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not save auto-check settings.' });
+  }
+});
+app.post('/coordinator/students/:studentId/requirements/:requirementId/undo-auto-approval', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(req.params.requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  const studentRef = adminDb.collection('users').doc(req.params.studentId);
+  try {
+    await adminDb.runTransaction(async transaction => {
+      const snap = await transaction.get(studentRef), student = snap.data();
+      if (!snap.exists || student.role !== 'student') throw Object.assign(new Error('Student not found.'), { status: 404 });
+      if (!(await coordinatorOwnsStudent(req.staff.uid, student))) throw Object.assign(new Error('You can only review students in your assigned sections.'), { status: 403 });
+      assertRecordsOpen(student);
+      const current = student.requirements?.[req.params.requirementId];
+      if (!current || current.status !== 'approved' || current.autoApproved !== true) throw Object.assign(new Error('Only automatic approvals can be undone here.'), { status: 409 });
+      const key = `requirements.${req.params.requirementId}`;
+      transaction.update(studentRef, { [`${key}.status`]: 'submitted', [`${key}.autoApproved`]: false, [`${key}.reviewedBy`]: null, [`${key}.reviewedAt`]: null, [`${key}.autoApprovalUndoneBy`]: req.staff.uid, [`${key}.autoApprovalUndoneAt`]: new Date().toISOString() });
+      writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.updated', targetType: 'requirements', targetId: req.params.requirementId, details: { studentId: req.params.studentId, sectionId: student.sectionId, action: 'auto_approval_undone' } });
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not undo the automatic approval.' });
+  }
+});
+
 app.delete('/coordinator/sections/:sectionId/requirements/:requirementId', requireStaff, async (req, res) => {
   try {
     await coordinatorSection(req, req.params.sectionId);
@@ -2792,6 +2868,10 @@ app.post('/evaluation/:token/submit', async (req, res) => {
 const anthropicAnalysis = require('./anthropicAnalysis').createAnthropicAnalysis();
 const requirementChecks = require('./requirementChecks').createRequirementChecks({
   db: adminDb, ai: anthropicAnalysis, audit: writeAuditInTransaction,
+  getReference: async ({ sectionId, requirementId }) => {
+    const snap = await adminDb.collection('requirementReferences').doc(`${sectionId}_${requirementId}`).get();
+    return snap.exists && snap.data().data ? { bytes: Buffer.from(snap.data().data, 'base64'), fileName: snap.data().fileName } : null;
+  },
   enabled: () => process.env.REQUIREMENT_AI_ENABLED !== '0' && process.env.ANTHROPIC_ENABLED === '1'
     && require('./anthropicAnalysis').configErrors(process.env).length === 0,
   getBytes: async ({ studentId, requirementId, requirement }) => {

@@ -238,6 +238,17 @@ export default function CoordinatorDashboard() {
     if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
+  const handleUndoAutoApproval = async (studentId, reqId) => {
+    setSaving(true); setError('');
+    try {
+      await adminRequest(`/coordinator/students/${encodeURIComponent(studentId)}/requirements/${encodeURIComponent(reqId)}/undo-auto-approval`, { method: 'POST' });
+      const undo = st => st.id !== studentId ? st : { ...st, requirements: { ...st.requirements, [reqId]: { ...st.requirements[reqId], status: 'submitted', autoApproved: false } } };
+      setSelectedStudent(prev => prev ? undo(prev) : prev);
+      setStudents(prev => prev.map(undo));
+    } catch (e) { setError(e.message || 'Could not undo the automatic approval.'); }
+    finally { setSaving(false); }
+  };
+
   const handleRequirement = async (studentId, reqId, status, reason = '') => {
     const request = sectionLoad.current;
     setSaving(true);
@@ -625,7 +636,12 @@ export default function CoordinatorDashboard() {
                                       <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
                                       <div>
                                         <div style={s.reqLabel} className="requirements-document-title">{label}</div>
-                                        {status === 'submitted' && <RequirementCheckResult review={req?.autoReview} compact />}
+                                        {(status === 'submitted' || req?.autoApproved) && <RequirementCheckResult review={req?.autoReview} compact />}
+                                        {status === 'approved' && req?.autoApproved && (
+                                          <button type="button" className="autocheck-chip" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, id)}>
+                                            Auto-approved · Undo
+                                          </button>
+                                        )}
                                         {deadline && (
                                           <div style={{ fontSize: 11, color: isOverdue ? COLORS.rose700 : '#000000', fontWeight: isOverdue ? 800 : 600, marginTop: 2 }}>
                                             <><Icon name="calendar" size={12} /> Deadline: {new Date(deadline).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</>

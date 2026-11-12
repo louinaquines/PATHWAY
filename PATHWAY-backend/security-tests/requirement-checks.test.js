@@ -68,3 +68,12 @@ test('failing checks never approve a document or unlock the dashboard',async()=>
  await upload();await workflow.run();const student=await saved();
  assert.equal(student.requirements.application_form.status,'submitted');assert.equal(student.requirements.application_form.autoReview.status,'needs_review');assert.equal(student.preDeploymentStatus,'not_started');
 });
+test('auto-check: green + autoApprove approves and records tier; name mismatch is red and stays submitted',async()=>{
+ await f.db.doc('sections/check-section/requirements/application_form').set({label:'Application Form',category:'Pre-OJT',autoCheck:{enabled:true,autoApprove:true,nameMustMatch:true,requiredPhrases:[]}});
+ const ok=response; response=async i=>({...(await ok(i)),nameOnDocument:'STUDENT, EXAMPLE'});
+ await upload(); await workflow.run(); let r=(await saved()).requirements.application_form;
+ assert.equal(r.autoReview.tier,'green'); assert.equal(r.status,'approved'); assert.equal(r.autoApproved,true); assert.equal(r.reviewedBy,'system');
+ response=async i=>({...(await ok(i)),nameOnDocument:'Someone Else'});
+ await upload(true,{submittedAt:'2026-11-06T11:00:00Z'}); await workflow.run(); r=(await saved()).requirements.application_form;
+ assert.equal(r.autoReview.tier,'red'); assert.equal(r.status,'submitted');
+});

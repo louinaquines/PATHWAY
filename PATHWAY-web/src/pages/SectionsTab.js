@@ -11,6 +11,8 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton, InlineSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
+import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
+import '../components/RequirementAutoCheckDialog.css';
 import './SectionsTab.css';
 
 function groupChatHref(value) {
@@ -35,6 +37,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [reqModal, setReqModal]         = useState(null); // null | 'add'
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm]                 = useState({ name: '', year: '', section: '', hoursRequired: '', messengerLink: '' });
+  const [autoCheckReq, setAutoCheckReq] = useState(null);
   const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
   const [searchQuery, setSearchQuery]   = useState('');
 
@@ -351,7 +354,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 <div style={t.reqHeader}>
                   <div>
                     <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
-                    <p style={t.reqSubText}>Set specific deadlines for each requirement. Overdue alerts are automatically shown to students.</p>
+                    <p style={t.reqSubText}>Set deadlines and, per requirement, turn on AI auto-check with a reference file. Overdue alerts are shown to students automatically.</p>
+                    {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
+                      onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
                   </div>
                   <button
                     style={t.addReqBtn}
@@ -398,6 +403,14 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                                   )}
                                 </div>
                               </div>
+                              <button
+                                type="button"
+                                className={'autocheck-chip' + (req.autoCheck?.enabled ? ' is-on' : '')}
+                                onClick={() => setAutoCheckReq(req)}
+                                title="AI auto-check settings"
+                              >
+                                {req.autoCheck?.enabled ? (req.autoCheck.autoApprove ? 'Auto-check + approve' : 'Auto-check on') : 'Set up auto-check'}
+                              </button>
                               <button
                                 style={t.deleteBtn}
                                 onClick={() => setDeleteConfirm(req)}

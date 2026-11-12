@@ -4,7 +4,8 @@ Branch: `codex/requirement-auto-check` (based on `codex/notifications-ui-fix`). 
 
 ## What the coordinator gets
 - **Sections → Requirements & deadlines**: each requirement now has a chip — *Set up auto-check* / *Auto-check on* / *Auto-check + approve*.
-- Chip opens a dialog with:
+- Button text: "📄 Add reference file" → after upload "✓ Reference: <file>". A tip banner on the page points to it.
+- Button opens a dialog: 3-step guide, big drag-and-drop box (uploading turns auto-check on), name-match toggle, and collapsed "Advanced options" (phrases, notes, auto-approve). Contents:
   - On/off toggle for auto-check
   - **Reference / standard file** upload (PDF/PNG/JPEG, ≤ 700 KB) — a correct sample of the document
   - "Name on the document must match the student's profile" (default on)

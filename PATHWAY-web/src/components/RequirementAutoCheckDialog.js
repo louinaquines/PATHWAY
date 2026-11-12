@@ -19,6 +19,7 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
   const [removeReference, setRemoveReference] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     adminRequest(path).then(r => setForm({ ...r.autoCheck, phrasesText: (r.autoCheck.requiredPhrases || []).join('\n') }))
@@ -31,7 +32,7 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
     if (!f) return setFile(null);
     if (!['application/pdf', 'image/png', 'image/jpeg'].includes(f.type)) return setError('Reference must be a PDF, PNG or JPEG.');
     if (f.size > MAX_BYTES) return setError('Reference file must be 700 KB or smaller.');
-    setFile(f); setRemoveReference(false);
+    setFile(f); setRemoveReference(false); setForm(prev => ({ ...prev, enabled: true }));
   };
 
   const save = async () => {
@@ -53,25 +54,31 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
   return (
     <div className="autocheck-backdrop" role="presentation" onClick={onClose}>
       <div className="autocheck-dialog" role="dialog" aria-modal="true" aria-labelledby="autocheck-title" onClick={e => e.stopPropagation()}>
-        <header><h2 id="autocheck-title">Auto-check: {requirement.label}</h2>
-          <p>Claude compares each student upload to your reference and checks the name. Results are Green, Yellow or Red. Red is never rejected automatically.</p></header>
+        <header><h2 id="autocheck-title">Reference file · {requirement.label}</h2>
+          <p>Upload what a correct document looks like. Each student upload is compared to it and its name checked.</p></header>
         {!form ? <p>{error || 'Loading…'}</p> : <>
-          <label className="autocheck-toggle"><input type="checkbox" checked={!!form.enabled} onChange={e => set({ enabled: e.target.checked })} /> Turn on auto-check for this requirement</label>
-          <fieldset disabled={!form.enabled}>
-            <div className="autocheck-field">
-              <span className="autocheck-label">Reference / standard file</span>
-              {form.referenceName && !removeReference && !file && <div className="autocheck-current">Current: <strong>{form.referenceName}</strong> <button type="button" onClick={() => setRemoveReference(true)}>Remove</button></div>}
-              <input type="file" accept="application/pdf,image/png,image/jpeg" onChange={pickFile} />
-              <small>A correctly filled sample of this document (PDF, PNG or JPEG, up to 700 KB). Blur out real personal data first.</small>
-            </div>
-            <label className="autocheck-toggle"><input type="checkbox" checked={form.nameMustMatch !== false} onChange={e => set({ nameMustMatch: e.target.checked })} /> Name on the document must match the student's profile</label>
-            <label className="autocheck-field"><span className="autocheck-label">Required words or phrases (one per line)</span>
-              <textarea rows={3} value={form.phrasesText} onChange={e => set({ phrasesText: e.target.value })} placeholder={'e.g. Certificate of Registration\nFirst Semester 2026-2027'} /></label>
-            <label className="autocheck-field"><span className="autocheck-label">Notes for the checker</span>
-              <textarea rows={2} maxLength={1000} value={form.notes || ''} onChange={e => set({ notes: e.target.value })} placeholder="e.g. Must have the registrar's dry seal area" /></label>
-            <label className="autocheck-toggle autocheck-approve"><input type="checkbox" checked={!!form.autoApprove} onChange={e => set({ autoApprove: e.target.checked })} /> Auto-approve when the result is Green
-              <small>You can undo any automatic approval from the student's Requirements view. Every auto-approval is logged.</small></label>
-          </fieldset>
+          <ol className="autocheck-steps"><li>Upload a correct sample</li><li>Students upload theirs</li><li>You see Green / Yellow / Red</li></ol>
+          <label className={'autocheck-drop' + (dragging ? ' is-drag' : '')}
+            onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
+            onDrop={e => { e.preventDefault(); setDragging(false); pickFile({ target: { files: e.dataTransfer.files } }); }}>
+            <input type="file" accept="application/pdf,image/png,image/jpeg" onChange={pickFile} hidden />
+            {file ? <><strong>✓ {file.name}</strong><span>Ready to save · click to change</span></>
+              : form.referenceName && !removeReference ? <><strong>✓ Current: {form.referenceName}</strong><span>Click or drop a file to replace</span></>
+              : <><strong>📄 Drop a correct sample of this document here</strong><span>or click to choose · PDF, PNG or JPEG · up to 700 KB · blur real personal data</span></>}
+          </label>
+          {form.referenceName && !removeReference && !file && <button type="button" className="autocheck-link" onClick={() => setRemoveReference(true)}>Remove reference file</button>}
+          <label className="autocheck-toggle"><input type="checkbox" checked={!!form.enabled} onChange={e => set({ enabled: e.target.checked })} /> Auto-check student uploads for this requirement</label>
+          <label className="autocheck-toggle"><input type="checkbox" disabled={!form.enabled} checked={form.nameMustMatch !== false} onChange={e => set({ nameMustMatch: e.target.checked })} /> Student's name on the document must match their profile</label>
+          <details className="autocheck-advanced"><summary>Advanced options</summary>
+            <fieldset disabled={!form.enabled}>
+              <label className="autocheck-field"><span className="autocheck-label">Required words or phrases (one per line)</span>
+                <textarea rows={3} value={form.phrasesText} onChange={e => set({ phrasesText: e.target.value })} placeholder={'e.g. Certificate of Registration\nFirst Semester 2026-2027'} /></label>
+              <label className="autocheck-field"><span className="autocheck-label">Notes for the checker</span>
+                <textarea rows={2} maxLength={1000} value={form.notes || ''} onChange={e => set({ notes: e.target.value })} placeholder="e.g. Must have the registrar's dry seal area" /></label>
+              <label className="autocheck-toggle autocheck-approve"><input type="checkbox" checked={!!form.autoApprove} onChange={e => set({ autoApprove: e.target.checked })} /> Auto-approve when the result is Green
+                <small>You can undo any automatic approval. Red results are never rejected automatically.</small></label>
+            </fieldset>
+          </details>
           {error && <p className="autocheck-error" role="alert">{error}</p>}
           <footer><button type="button" className="autocheck-secondary" onClick={onClose}>Cancel</button>
             <button type="button" className="autocheck-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save settings'}</button></footer>

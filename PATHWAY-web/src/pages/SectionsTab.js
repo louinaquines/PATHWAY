@@ -355,6 +355,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   <div>
                     <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
                     <p style={t.reqSubText}>Set deadlines and, per requirement, turn on AI auto-check with a reference file. Overdue alerts are shown to students automatically.</p>
+                    <div className="autocheck-tip">💡 Tip: click <strong>📄 Add reference file</strong> on a requirement so student uploads are checked automatically.</div>
                     {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
                       onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
                   </div>
@@ -407,9 +408,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                                 type="button"
                                 className={'autocheck-chip' + (req.autoCheck?.enabled ? ' is-on' : '')}
                                 onClick={() => setAutoCheckReq(req)}
-                                title="AI auto-check settings"
+                                title="Reference file and auto-check settings"
                               >
-                                {req.autoCheck?.enabled ? (req.autoCheck.autoApprove ? 'Auto-check + approve' : 'Auto-check on') : 'Set up auto-check'}
+                                {req.autoCheck?.referenceName ? `✓ Reference: ${req.autoCheck.referenceName}${req.autoCheck.autoApprove ? ' · auto-approve' : ''}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : '📄 Add reference file'}
                               </button>
                               <button
                                 style={t.deleteBtn}

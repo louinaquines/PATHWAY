@@ -14,7 +14,7 @@ COPY anthropicAnalysis.js ./
 COPY studentUpdateNotifications.js journalAiReview.js departmentJournals.js studentJournalSubmission.js workplaceJournalConsent.js workplaceRealUsePolicy.js ./
 COPY attendanceAiReview.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js coordinatorInbox.js ./
-COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js ./
+COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js nameMatch.js ./
 COPY companyMailInbox.js ./
 COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./
 COPY localCompanyInbox.js ./

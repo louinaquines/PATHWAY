@@ -74,7 +74,8 @@ export default function SystemSettingsTab() {
       {message && <div role="status" style={s.success}>{message}</div>}
 
       <form onSubmit={save} style={s.form} className="admin-configuration-form">
-        <div><h3>Hours & attendance</h3><p>Defaults for new sections and attendance tracking.</p></div>
+        <section className="admin-settings-card">
+        <header className="admin-settings-card-head"><span className="admin-stat-icon" data-tone="blue"><Icon name="clock" size={20} /></span><div><h3>Hours & attendance</h3><p>Defaults for new sections and attendance tracking.</p></div></header>
         <div style={s.grid} className="admin-settings-fields">
           <div style={s.field}>
             <label style={s.label} htmlFor="settings-required-hours">Default required OJT hours (hrs)</label>
@@ -135,9 +136,9 @@ export default function SystemSettingsTab() {
           </div>
         </div>
 
-        <div style={s.workdaysSection} className="admin-workdays">
-          <h3>Expected workdays</h3>
-          <p style={s.hint}>Used to calculate attendance and missed shifts.</p>
+        </section>
+        <section className="admin-settings-card admin-workdays">
+          <header className="admin-settings-card-head"><span className="admin-stat-icon" data-tone="indigo"><Icon name="calendar" size={20} /></span><div><h3>Expected workdays</h3><p>Used to calculate attendance and missed shifts.</p></div></header>
           <div className="admin-weekday-row">
             {DAYS.map(day => {
               const active = settings.expectedWorkdays.includes(day);
@@ -154,27 +155,28 @@ export default function SystemSettingsTab() {
                   }}
                   onClick={() => toggleDay(day)}
                 >
-                  <span aria-hidden="true">{day.slice(0, 3)} · {active ? 'On' : 'Off'}</span><span className="sr-only">{day}</span>
+                  {active && <Icon name="check" size={14} />}<span aria-hidden="true">{day.slice(0, 3)}</span><span className="sr-only">{day}</span>
                 </button>
               );
             })}
           </div>
-        </div>
 
-        <div style={s.notificationsWrap} className="admin-notification-preference">
+        </section>
+        <section className="admin-settings-card admin-notification-preference">
+          <header className="admin-settings-card-head"><span className="admin-stat-icon" data-tone="teal"><Icon name="bell" size={20} /></span><div><h3>Notifications</h3><p>Choose which updates the system sends.</p></div></header>
           <label style={s.checkboxLabel}>
             <input
               type="checkbox"
               checked={settings.notificationsEnabled}
               onChange={e => update('notificationsEnabled', e.target.checked)}
-              style={{ width: 18, height: 18, cursor: 'pointer' }}
+              className="admin-switch"
             />
             <div>
               <div style={s.checkboxTitle}>In-app notifications</div>
               <div style={s.checkboxSub}>Send notices for logbook reviews and clearance updates.</div>
             </div>
           </label>
-        </div>
+        </section>
 
         {dirty && <div className="admin-settings-savebar">
           <strong>Unsaved changes</strong>

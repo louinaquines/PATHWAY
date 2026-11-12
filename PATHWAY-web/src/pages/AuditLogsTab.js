@@ -6,6 +6,7 @@ import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import { PortalEmpty } from '../components/PortalStates';
 import './AdminConfiguration.css';
 
 function auditLabel(value) {
@@ -48,34 +49,32 @@ export default function AuditLogsTab() {
 
   return (
     <div style={s.page} className="admin-configuration admin-audit">
-      <div style={s.headerRow}>
-        <p style={s.sub}>Recent administrative and automated activity. Search covers the loaded events.</p>
-        <button style={s.refreshBtn} onClick={loadLogs}><Icon name="refresh" size={15} /> Refresh Logs</button>
-      </div>
 
       {error && <div role="alert" style={s.error}>{error}</div>}
 
-      <div style={s.card} className="admin-audit-records">
-        <div style={s.searchBarRow}>
+      <div className="admin-records-card admin-audit-records">
+        <header className="admin-records-head">
+          <div><h2>Activity log</h2><p>Recent administrative and automated activity. Search covers the loaded events.</p></div>
+          <button type="button" className="admin-secondary-action" onClick={loadLogs}><Icon name="refresh" size={16} /> Refresh Logs</button>
+        </header>
+        <div className="admin-filter-bar">
           <input
             type="text"
             aria-label="Search audit logs"
             placeholder="Search by action, role, actor ID, or target..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={s.searchInput}
+            className="admin-filter-input"
           />
-          <span style={s.countBadge}>{filteredLogs.length} of {logs.length} logged events</span>
+          <span className="admin-count-pill">{filteredLogs.length} of {logs.length} logged events</span>
         </div>
 
         <RecordPagination pagination={recordsPage} label="Audit events" />
         {filteredLogs.length === 0 ? (
-          <div style={s.empty}>
-            <div style={s.emptyIcon}><Icon name="shield" size={28} label="Audit logs" /></div>
-            <p style={{ margin: 0, color: '#000000' }}>{error ? 'Audit records could not be loaded. Try Refresh Logs.' : logs.length ? 'No audit records match your query.' : 'No audit records yet.'}</p>
-          </div>
+          <PortalEmpty icon="shield" compact title={error ? 'Could not load records' : logs.length ? 'No matching records' : 'No audit records yet'}
+            description={error ? 'Audit records could not be loaded. Try Refresh Logs.' : logs.length ? 'No audit records match your query.' : 'Administrative actions will be recorded here.'} />
         ) : (
-          <div style={s.tableWrap}>
+          <div style={s.tableWrap} className="admin-table-scroll">
             <table style={s.table}>
               <thead>
                 <tr>

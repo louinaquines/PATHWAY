@@ -497,23 +497,30 @@ export default function AdminDashboard() {
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="admin-system-overview" style={s.overviewGrid}>
-                <dl className="admin-compact-stats" aria-label="Overview statistics">
-                  <div><dt>Students</dt><dd>{departmentStudents.length}</dd></div>
-                  <div><dt>Sections</dt><dd>{departmentSections.length}</dd></div>
-                  <div><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd></div>
-                  <div><dt>Students who completed required hours</dt><dd>{hoursCompletion.completed}<span> of {hoursCompletion.total} students</span></dd><p className="hours-completion-note">{hoursCompletion.percent}% reached their hours target</p>{hoursCompletion.missingTargets > 0 && <p className="hours-completion-note">{hoursCompletion.missingTargets} missing a required-hours target</p>}</div>
+                <dl className="admin-stat-cards" aria-label="Overview statistics">
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={22} /></span><dt>Students</dt><dd>{departmentStudents.length}</dd><p>Enrolled OJT records</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={22} /></span><dt>Sections</dt><dd>{departmentSections.length}</dd><p>Active class sections</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="teal"><Icon name="users" size={22} /></span><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd><p>Assigned faculty</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="clock" size={22} /></span><dt>Students who completed required hours</dt><dd>{hoursCompletion.completed}<span> of {hoursCompletion.total} students</span></dd>
+                    <div className="admin-stat-progress" role="progressbar" aria-label="Hours completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={hoursCompletion.percent}><span style={{ width: `${Math.min(100, hoursCompletion.percent || 0)}%` }} /></div>
+                    <p className="hours-completion-note">{hoursCompletion.percent}% reached their hours target</p>{hoursCompletion.missingTargets > 0 && <p className="hours-completion-note">{hoursCompletion.missingTargets} missing a required-hours target</p>}</div>
                 </dl>
                 <section className="admin-attention" aria-labelledby="admin-attention-heading">
-                  <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>
-                  <div className="admin-attention-grid">
-                    <button type="button" onClick={() => openStudents('pending')}>
-                      <span>Pending approvals</span><strong data-zero={scopedPending === 0}>{scopedPending}</strong><Icon name="chevronRight" size={14} />
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}>
-                      <span>Sections without a coordinator</span><strong data-zero={unassignedSections === 0}>{unassignedSections}</strong><Icon name="chevronRight" size={14} />
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}><span>Student hours</span><Icon name="chevronRight" size={14} /></button>
-                    <button type="button" onClick={() => setActiveTab('companies')}><span>Company capacity</span><Icon name="chevronRight" size={14} /></button>
+                  <div className="admin-section-head"><h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2><p>Items that may need an action from you.</p></div>
+                  <div className="admin-action-cards">
+                    {[
+                      { label: 'Pending approvals', hint: 'Student accounts waiting for review', icon: 'user', count: scopedPending, onClick: () => openStudents('pending') },
+                      { label: 'Sections without a coordinator', hint: 'Assign faculty to these sections', icon: 'section', count: unassignedSections, onClick: () => openStudents('all') },
+                      { label: 'Student hours', hint: 'Check rendered OJT hours', icon: 'clock', onClick: () => openStudents('all') },
+                      { label: 'Company capacity', hint: 'Partner slots and placements', icon: 'building', onClick: () => setActiveTab('companies') },
+                    ].map(item => (
+                      <button type="button" key={item.label} className="admin-action-card" data-alert={item.count > 0} onClick={item.onClick}>
+                        <span className="admin-action-icon"><Icon name={item.icon} size={20} /></span>
+                        <span className="admin-action-text"><span className="admin-action-label">{item.label}</span><span className="admin-action-hint">{item.hint}</span></span>
+                        {typeof item.count === 'number' && <strong data-zero={item.count === 0}>{item.count === 0 ? <Icon name="check" size={14} label="None" /> : item.count}</strong>}
+                        <Icon name="chevronRight" size={16} />
+                      </button>
+                    ))}
                   </div>
                 </section>
                 <AdminCharts

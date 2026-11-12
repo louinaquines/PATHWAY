@@ -222,3 +222,43 @@
 .logbook-empty-refresh { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
 .logbook-empty-refresh:hover { background: #eff6ff; border-color: #bfdbfe; }
 @media (max-width: 720px) { .coordinator-page .logbook-roster .logbook-roster-toolbar { flex-wrap: wrap; } .coordinator-page .logbook-roster .logbook-section-field { flex: 1 1 100%; } }
+
+/* ===== Supervisor Evaluations ===== */
+.coordinator-page .evaluation-panel { background: transparent !important; gap: 20px; }
+.coordinator-page .evaluation-panel .evaluation-invitation,
+.coordinator-page .evaluation-panel .evaluation-records-card { background: rgba(255,255,255,.84) !important; backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5); border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important; padding: 24px 28px !important; }
+.coordinator-page .evaluation-invitation-header { align-items: center !important; padding-bottom: 20px; margin-bottom: 20px !important; border-bottom: 1px solid rgba(148,163,184,.18); }
+.coordinator-page .evaluation-invitation-header > div:first-child { width: 48px !important; height: 48px !important; border-radius: 14px !important; background: linear-gradient(135deg,#fef3c7,#fde68a) !important; color: #b45309 !important; display: grid !important; place-items: center; }
+.coordinator-page .evaluation-panel h2, .coordinator-page .evaluation-panel h3 { font-size: 18px !important; font-weight: 700 !important; color: #0f172a !important; margin: 0 !important; }
+.coordinator-page .evaluation-panel h2 + p, .coordinator-page .evaluation-panel h3 + p { font-size: 13px !important; color: #64748b !important; margin: 4px 0 0 !important; }
+.coordinator-page .evaluation-builder-launch { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-left: auto; }
+.coordinator-page .evaluation-builder-launch button { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 16px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #1d4ed8 !important; font-weight: 600; font-size: 13px; cursor: pointer; }
+.coordinator-page .evaluation-builder-launch button:hover { background: #eff6ff !important; border-color: #bfdbfe !important; }
+.coordinator-page .evaluation-builder-launch span { font-size: 12px; color: #64748b; padding: 2px 10px; border-radius: 999px; background: #f1f5f9; }
+.coordinator-page .evaluation-panel form label, .coordinator-page .evaluation-panel form label[style] { font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; }
+.coordinator-page .evaluation-section-control { display: flex; flex-direction: column; gap: 6px; max-width: 300px; margin-bottom: 18px; }
+.coordinator-page .evaluation-panel form select,
+.coordinator-page .evaluation-panel form input { height: 44px !important; padding: 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background-color: #fff !important; font-size: 14px !important; color: #0f172a !important; text-transform: none; letter-spacing: 0; box-shadow: none !important; }
+.coordinator-page .evaluation-panel form select { appearance: none; -webkit-appearance: none; padding-right: 38px !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: right 12px center !important; cursor: pointer; }
+.coordinator-page .evaluation-panel form select:focus, .coordinator-page .evaluation-panel form input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; outline: none; }
+.coordinator-page .evaluation-panel form select:disabled, .coordinator-page .evaluation-panel form input:disabled { background-color: #f8fafc !important; color: #94a3b8 !important; }
+.coordinator-page .evaluation-students-trigger { height: 44px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; font-size: 14px !important; }
+.coordinator-page .evaluation-students-trigger:disabled { background: #f8fafc !important; }
+.coordinator-page .evaluation-field-note { display: flex; align-items: center; gap: 6px; margin: 8px 0 0 !important; font-size: 12px !important; color: #64748b !important; }
+.coordinator-page .evaluation-field-note::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; flex: none; }
+.coordinator-page .evaluation-form-actions { display: flex; justify-content: flex-end; padding-top: 18px; margin-top: 6px; border-top: 1px solid rgba(148,163,184,.18); }
+.coordinator-page .evaluation-form-actions button { height: 44px !important; padding: 0 22px !important; border: 0 !important; border-radius: 10px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; font-weight: 600 !important; font-size: 14px !important; box-shadow: 0 6px 16px rgba(37,99,235,.25) !important; cursor: pointer; }
+.coordinator-page .evaluation-form-actions button:disabled { background: #cbd5e1 !important; box-shadow: none !important; cursor: not-allowed; }
+.coordinator-page .evaluation-records-header { align-items: center !important; padding-bottom: 18px; margin-bottom: 4px; border-bottom: 1px solid rgba(148,163,184,.18); }
+.coordinator-page .evaluation-records-actions { align-items: center !important; gap: 10px !important; }
+.coordinator-page .evaluation-records-actions .coordinator-search { height: 42px; min-width: 260px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #94a3b8; }
+.coordinator-page .evaluation-records-actions .coordinator-search:focus-within { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+.coordinator-page .evaluation-records-actions .coordinator-search input { flex: 1; min-width: 0; height: 40px !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; font-size: 14px; }
+.coordinator-page .evaluation-records-utilities > button { height: 42px !important; padding: 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #334155 !important; font-weight: 600 !important; font-size: 13px !important; }
+.coordinator-page .evaluation-records-utilities > button:hover { background: #f8fafc !important; }
+.coordinator-page .evaluation-records-card > div:last-child:not(.evaluation-records-header) { min-height: 0; }
+.evaluation-empty-title { display: block; font-size: 15px; color: #0f172a; }
+.evaluation-empty-text { margin: 4px 0 0; font-size: 13px; color: #64748b; }
+.coordinator-page .evaluation-records-card [style*="text-align: center"] > div:first-child { background: #eff6ff !important; color: #2563eb !important; border-radius: 14px !important; }
+.coordinator-page .evaluation-record { background: #fff !important; border: 1px solid #e2e8f0 !important; border-radius: 14px !important; box-shadow: none !important; }
+@media (max-width: 860px) { .coordinator-page .evaluation-records-actions .coordinator-search { min-width: 0; flex: 1; } .coordinator-page .evaluation-builder-launch { align-items: flex-start; margin-left: 0; } }

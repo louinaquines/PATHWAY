@@ -228,7 +228,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 <option value="">Select company</option>
                 {companies.map(([key, name]) => <option key={key} value={key}>{name}</option>)}
               </select>
-              {!companies.length && <p className="evaluation-field-note">No students in this section have an assigned company.</p>}
+              {!companies.length && <p className="evaluation-field-note">Companies will appear here once students in this section are placed.</p>}
             </div>
             <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
               <label style={styles.label} id="evaluation-students-label">Students</label>
@@ -366,7 +366,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
         {evaluations.length === 0 ? (
           <div style={styles.empty}>
             <div style={styles.emptyIcon}><Icon name="clipboard" size={28} label="Evaluation records" /></div>
-            <p style={{ margin: 0, color: '#000000' }}>No evaluation links created yet.</p>
+            <strong className="evaluation-empty-title">No evaluations yet</strong><p className="evaluation-empty-text">Evaluation links you create will show up here with their status.</p>
           </div>
         ) : (
           <div style={styles.recordsGrid}>
@@ -669,8 +669,14 @@ const styles = {
     alignItems: 'center',
   },
   emptyIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    width: 52,
+    height: 52,
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: 14,
+    background: '#eff6ff',
+    color: '#2563eb',
+    marginBottom: 12,
   },
   loadingWrap: {
     display: 'flex',

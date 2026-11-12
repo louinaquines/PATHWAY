@@ -335,7 +335,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
 
     {error && items.length > 0 && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
-    {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} selectedSection={selectedSection} onOpenStudent={student => {setWorkspace("reviews");setSelectedQueueStudent(student.id);}} />}
+    {workspace === 'companies' && selectedSection && <PlacementCompanies key={selectedSection.id} selectedSection={selectedSection} onOpenStudent={student => {setWorkspace("reviews");setSelectedQueueStudent(student.id);}} />}
     {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>
       <p style={{ margin: '0 0 12px', color: '#475569' }}>Submitted requests appear in Placement Reviews. Students appear under a company after their placement is approved.</p>
       <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>

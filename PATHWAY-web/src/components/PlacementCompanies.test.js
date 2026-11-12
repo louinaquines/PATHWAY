@@ -44,10 +44,11 @@ test('debounces search and discards old section responses', async () => {
   expect(adminRequest).toHaveBeenCalledTimes(calls);
   await waitFor(() => expect(adminRequest).toHaveBeenLastCalledWith(expect.stringContaining('search=North+%26+West')));
 });
-test('shows errors and retries', async () => {
+test('keeps the table on load errors and retries', async () => {
   adminRequest.mockRejectedValueOnce(new Error('Unavailable'));
   render(<PlacementCompanies selectedSection={{ id: 'a', name: 'A' }} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent('Unavailable');
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(await screen.findByText(/No companies yet/)).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: 'Company' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
   expect(await screen.findByText('Northwind')).toBeInTheDocument();
 });

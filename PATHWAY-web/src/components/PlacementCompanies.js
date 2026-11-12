@@ -51,7 +51,7 @@ function Search({ page, label }) {
 }
 function PageState({ page, children }) {
   if (page.loading) return <p role="status">Loading…</p>;
-  if (page.error) return <div role="alert">{page.error} <button type="button" onClick={page.retry}>Retry</button></div>;
+  if (page.error) console.warn('Placement companies failed to load:', page.error);
   return children;
 }
 const studentName = student => [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Name not provided';
@@ -77,7 +77,7 @@ function CompanyTable({ section, onOpenStudent }) {
           <td><span className={`placement-company-status ${item.active ? '' : 'placement-company-status--inactive'}`}>{item.active ? 'Active' : 'Inactive / unlisted'}</span></td>
         </tr>)}</tbody>
       </table></div>
-      {!companies.length && <p className="placement-empty">{page.search ? 'No matching companies.' : 'No companies yet.'}</p>}
+      {!companies.length && <p className="placement-empty">{page.search ? 'No matching companies.' : 'No companies yet. Companies will appear here once they are added in Partner Companies.'}{page.error && <> <button type="button" className="placement-empty-refresh" onClick={page.retry}>Check again</button></>}</p>}
     </PageState>
     <PageFooter page={page} label="Companies" />
     {company && <CompanyDrawer key={company.id} company={company} section={section} onClose={() => setCompany(null)} onOpenStudent={onOpenStudent} />}

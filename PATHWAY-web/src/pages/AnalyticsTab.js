@@ -136,28 +136,26 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     <div className="coordinator-analytics-page" style={s.page}>
       {/* Top Header */}
       <div className="analytics-toolbar">
-        <div>
 
-          <strong>Work schedule</strong>
-          <p style={s.sub}>{schedule.startDate && schedule.deadline ? [schedule.startDate, schedule.deadline, schedule.startTime].join(' · ') : 'Schedule not set'}</p></div>
           {selectedSection?.id && <button ref={editButton} type="button" className="portal-secondary" onClick={() => {
             setScheduleError('');
             setExceptionDate('');
             setDraft(schedule);
-          }}>Edit schedule</button>}
-        </div>
+          }}>Work schedule</button>}
+
         <div className="analytics-toolbar-actions">
           <div className="analytics-actions" style={s.actions}>
           <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
             <Icon name="download" size={15} /> Export CSV
           </button>
+          </div>
         </div>
       </div>
 
 
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {draft && <PortalFormDialog className="admin-create-drawer analytics-schedule-drawer" label="Edit work schedule" closeOnBackdrop
+      {draft && <PortalFormDialog className="admin-term-dialog analytics-schedule-modal" label="Edit work schedule" closeOnBackdrop
         onCancel={() => { if (!saving) closeSchedule(); }}>
         <form onSubmit={saveSchedule}>
           <header><h2>Edit work schedule</h2></header>
@@ -206,12 +204,12 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             {data?.today && <p style={s.sub}>As of <time dateTime={data.today}>{data.today}</time></p>}
           </div>
           <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" placeholder="Search by name or ID…" />
-          <label>Progress <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
+          <select aria-label="Progress filter" value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
             <option value="all">All students</option>
             <option value="risk">At risk</option>
             <option value="complete">Target met</option>
             <option value="unavailable">Attendance unavailable</option>
-          </select></label></div>
+          </select></div>
         </div>
 
         <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />

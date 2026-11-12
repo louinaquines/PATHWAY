@@ -32,3 +32,9 @@
 .autocheck-advanced summary{cursor:pointer;font-weight:700;font-size:13px;margin-bottom:10px}
 .autocheck-tip{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:13px;margin:8px 0}
 .autocheck-chip{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
+
+.autocheck-reflist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.autocheck-reflist li{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px}
+.autocheck-reflist li span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.autocheck-reflist small{color:#64748b;font-size:12px}
+.autocheck-backdrop + .autocheck-backdrop{z-index:1001}

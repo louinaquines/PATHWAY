@@ -90,6 +90,7 @@ export default function CoordinatorDashboard() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [sectionRequirements, setSectionRequirements] = useState([]);
   const [autoCheckReq, setAutoCheckReq] = useState(null);
+  const [refsOpen, setRefsOpen] = useState(false);
   const [coordDept, setCoordDept] = useState('');
   const [coordinatorProfile, setCoordinatorProfile] = useState(null);
   const [error, setError] = useState('');
@@ -483,6 +484,33 @@ export default function CoordinatorDashboard() {
             onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
             {activeTab === 'sections' ? 'Class List & Accounts' : 'Back to sections'}
           </button>}
+          {activeTab === 'requirements' && selectedSection && (
+            <button type="button" className="section-export-button" onClick={() => setRefsOpen(true)}
+              title="Upload one reference file per requirement, used for every student in this section">
+              <span>📄 Reference files</span>
+            </button>
+          )}
+          {refsOpen && selectedSection && (
+            <div className="autocheck-backdrop" role="presentation" onClick={() => setRefsOpen(false)}>
+              <div className="autocheck-dialog" role="dialog" aria-modal="true" aria-labelledby="refs-title" onClick={e => e.stopPropagation()}>
+                <header><h2 id="refs-title">Reference files · {selectedSection.name}</h2>
+                  <p>Upload one correct sample per requirement. It is used to check <strong>every student's</strong> upload in this section.</p></header>
+                <ul className="autocheck-reflist">
+                  {sectionRequirements.map(r => (
+                    <li key={r.id}>
+                      <span><strong>{r.label}</strong><small>{r.autoCheck?.referenceName ? `✓ ${r.autoCheck.referenceName}${r.autoCheck.autoApprove ? ' · auto-approve' : ''}` : 'No reference yet'}</small></span>
+                      <button type="button" className="autocheck-chip" onClick={() => setAutoCheckReq({ id: r.id, label: r.label })}>
+                        {r.autoCheck?.referenceName ? 'Change' : '📄 Upload'}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <footer><button type="button" className="autocheck-secondary" onClick={() => setRefsOpen(false)}>Done</button></footer>
+              </div>
+            </div>
+          )}
+          {autoCheckReq && selectedSection && <RequirementAutoCheckDialog sectionId={selectedSection.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
+            onSaved={saved => setSectionRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck: saved } : r))} />}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
               type="button"
@@ -627,11 +655,10 @@ export default function CoordinatorDashboard() {
                         if (catReqs.length === 0) return null;
                         return (
                           <div key={cat} style={s.reqGroup}>
-                            {autoCheckReq && selectedSection && cat === REQUIREMENT_CATEGORIES.find(c => sectionRequirements.some(r => requirementCategory(r.category) === c)) && <RequirementAutoCheckDialog sectionId={selectedSection.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
-                              onSaved={saved => setSectionRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck: saved } : r))} />}
+                            
                             <div style={s.reqGroupLabel} className="requirements-category">{cat} Requirements</div>
                             <div style={s.reqCardsList}>
-                              {catReqs.map(({ id, label, deadline, autoCheck }) => {
+                              {catReqs.map(({ id, label, deadline }) => {
                                 const req = selectedStudent.requirements?.[id];
                                 const status = req?.status || 'not_submitted';
                                 const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
@@ -688,11 +715,6 @@ export default function CoordinatorDashboard() {
                                       </div>
                                     </div>
                                     <div style={s.reqRight} className="requirements-document-actions">
-                                      <button type="button" className={'autocheck-chip' + (autoCheck?.enabled ? ' is-on' : '')}
-                                        title="Reference file and auto-check settings for the whole section"
-                                        onClick={() => setAutoCheckReq({ id, label })}>
-                                        {autoCheck?.referenceName ? `✓ Reference: ${autoCheck.referenceName}` : autoCheck?.enabled ? 'Auto-check on' : '📄 Add reference file'}
-                                      </button>
                                       <span style={{
                                         ...s.statusBadge,
                                         backgroundColor: STATUS_COLOR[status],

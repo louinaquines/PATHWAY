@@ -32,7 +32,6 @@ import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
 import RequirementCheckResult from '../components/RequirementCheckResult';
-import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
 import '../components/RequirementAutoCheckDialog.css';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
@@ -89,8 +88,6 @@ export default function CoordinatorDashboard() {
   const [documentPreview, setDocumentPreview] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [sectionRequirements, setSectionRequirements] = useState([]);
-  const [autoCheckReq, setAutoCheckReq] = useState(null);
-  const [refsOpen, setRefsOpen] = useState(false);
   const [coordDept, setCoordDept] = useState('');
   const [coordinatorProfile, setCoordinatorProfile] = useState(null);
   const [error, setError] = useState('');
@@ -484,33 +481,6 @@ export default function CoordinatorDashboard() {
             onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
             {activeTab === 'sections' ? 'Class List & Accounts' : 'Back to sections'}
           </button>}
-          {activeTab === 'requirements' && selectedSection && (
-            <button type="button" className="section-export-button" onClick={() => setRefsOpen(true)}
-              title="Upload one reference file per requirement, used for every student in this section">
-              <span>📄 Reference files</span>
-            </button>
-          )}
-          {refsOpen && selectedSection && (
-            <div className="autocheck-backdrop" role="presentation" onClick={() => setRefsOpen(false)}>
-              <div className="autocheck-dialog" role="dialog" aria-modal="true" aria-labelledby="refs-title" onClick={e => e.stopPropagation()}>
-                <header><h2 id="refs-title">Reference files · {selectedSection.name}</h2>
-                  <p>Upload one correct sample per requirement. It is used to check <strong>every student's</strong> upload in this section.</p></header>
-                <ul className="autocheck-reflist">
-                  {sectionRequirements.map(r => (
-                    <li key={r.id}>
-                      <span><strong>{r.label}</strong><small>{r.autoCheck?.referenceName ? `✓ ${r.autoCheck.referenceName}${r.autoCheck.autoApprove ? ' · auto-approve' : ''}` : 'No reference yet'}</small></span>
-                      <button type="button" className="autocheck-chip" onClick={() => setAutoCheckReq({ id: r.id, label: r.label })}>
-                        {r.autoCheck?.referenceName ? 'Change' : '📄 Upload'}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <footer><button type="button" className="autocheck-secondary" onClick={() => setRefsOpen(false)}>Done</button></footer>
-              </div>
-            </div>
-          )}
-          {autoCheckReq && selectedSection && <RequirementAutoCheckDialog sectionId={selectedSection.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
-            onSaved={saved => setSectionRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck: saved } : r))} />}
           {['requirements', 'sections'].includes(activeTab) && (
             <button
               type="button"

@@ -49,7 +49,7 @@ test('explicit tiers, progress and data quality override compatibility status an
       status: 'On Track', risk: 'On Track', reasonCodes: [{ code: 'PROJECTED_SHORTFALL' }], observationCounts: { attendanceEligibleDays: 5, projectionEligibleDays: 9 } })) });
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Student 0');
-  for (const tier of ['Low','Medium','High']) expect(screen.getByText(`Risk: ${tier}`)).toBeInTheDocument();
+  for (const label of ['On track','At risk','High risk']) expect(screen.getByText(label)).toBeInTheDocument();
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
@@ -132,6 +132,6 @@ test('available zero totals remain zero rather than being confused with unavaila
   await screen.findByText('Test Student');
   expect(screen.getAllByText('0 hrs')).toHaveLength(2);
   expect(screen.getAllByText('0%')).toHaveLength(2);
-  expect(screen.getByText('Risk: High')).toBeInTheDocument();
-  expect(screen.queryByText('Risk: Low')).not.toBeInTheDocument();
+  expect(screen.getByText('High risk')).toBeInTheDocument();
+  expect(screen.queryByText('On track')).not.toBeInTheDocument();
 });

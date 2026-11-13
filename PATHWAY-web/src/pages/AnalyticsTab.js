@@ -248,7 +248,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               {recordsPage.items.map(st => {
                 const percent = st.completionPercentage;
                 return (
-                  <tr key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
+                  <tr data-risk={st.riskTier || undefined} key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
                     <td style={s.td}><span style={s.idCode}>{st.idNumber || '—'}</span></td>
                     <td style={s.td}><div style={s.studentName}>{st.name}</div></td>
                     {!selectedSection?.id && <td style={s.td}>{st.section}</td>}
@@ -281,14 +281,12 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       </details>
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }} className="analytics-status-cell">
-                      <span style={{
-                        ...s.statusBadge,
-                        backgroundColor: st.riskTier === 'High' ? COLORS.rose50 : st.riskTier === 'Medium' ? COLORS.yellow100 : COLORS.sky50,
-                        color: '#000000',
-                        border: `1px solid ${COLORS.slate300}`,
-                      }}>
-                        Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')}
-                      </span>
+                      {(() => {
+                        const label = st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable');
+                        const tone = { High: 'high', Medium: 'medium', Low: 'low', Completed: 'done' }[label] || 'none';
+                        const text = { High: 'High risk', Medium: 'At risk', Low: 'On track' }[label] || label;
+                        return <span className="risk-badge" data-tone={tone}><i aria-hidden="true" />{text}</span>;
+                      })()}
                       <small className="analytics-status-sub">Progress: {st.progressStatus ?? 'Unavailable'}</small>
                       <small className="analytics-status-sub">Data: {st.dataStatus ?? 'Unavailable'}</small>
                     </td>

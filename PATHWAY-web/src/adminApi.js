@@ -2,6 +2,14 @@ import { auth } from './firebase';
 
 export const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
+// Tracks in-flight backend requests so the UI can tell staff when the server is still waking up.
+let pendingRequests = 0;
+const pendingListeners = new Set();
+export function subscribeBackendPending(listener) { pendingListeners.add(listener); listener(pendingRequests); return () => pendingListeners.delete(listener); }
+function setPending(delta) { pendingRequests = Math.max(0, pendingRequests + delta); pendingListeners.forEach(listener => listener(pendingRequests)); }
+async function trackedFetch(url, init) { setPending(1); try { return await fetch(url, init); } finally { setPending(-1); } }
+export function warmUpBackend() { trackedFetch(`${API}/healthz`, { method: 'GET' }).catch(() => {}); }
+
 async function authenticatedFetch(path, options = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in again.');
@@ -9,7 +17,7 @@ async function authenticatedFetch(path, options = {}) {
     const token = await user.getIdToken(forceRefresh);
     if (options.signal?.aborted) throw new Error('Request cancelled.');
     if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
-    return fetch(`${API}${path}`, {
+    return trackedFetch(`${API}${path}`, {
       ...options,
       headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
     });

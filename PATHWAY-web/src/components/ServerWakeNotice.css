@@ -1,0 +1,8 @@
+/* PATHWAY-web/src/components/ServerWakeNotice.css */
+@keyframes swn-spin { to { transform: rotate(360deg); } }
+@keyframes swn-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.server-wake-notice { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 12px; max-width: min(460px, calc(100vw - 32px)); padding: 12px 18px 12px 14px; border: 1px solid #bfdbfe; border-radius: 14px; background: rgba(255,255,255,.97); box-shadow: 0 12px 32px rgba(15,23,42,.14); color: #1e3a8a; font-size: 13px; animation: swn-in .2s ease-out; }
+.server-wake-notice strong { display: block; font-size: 14px; color: #0f172a; }
+.server-wake-notice span:not(.server-wake-spinner) { display: block; margin-top: 2px; color: #64748b; }
+.server-wake-spinner { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2.5px solid #dbeafe; border-top-color: #2563eb; animation: swn-spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .server-wake-notice, .server-wake-spinner { animation: none; } }

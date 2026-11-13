@@ -1,4 +1,5 @@
 import { completedHoursSummary } from '../completedHoursSummary';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
@@ -272,6 +273,7 @@ export default function AdminDashboard() {
 
   return (
     <div style={s.page} className={`admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
+      <ServerWakeNotice />
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>

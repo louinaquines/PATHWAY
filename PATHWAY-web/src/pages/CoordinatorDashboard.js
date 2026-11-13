@@ -32,6 +32,7 @@ import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
 import RequirementCheckResult from '../components/RequirementCheckResult';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 import '../components/RequirementAutoCheckDialog.css';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
@@ -395,6 +396,7 @@ export default function CoordinatorDashboard() {
 
   return (
     <div style={s.page} className={activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page'}>
+      <ServerWakeNotice />
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>

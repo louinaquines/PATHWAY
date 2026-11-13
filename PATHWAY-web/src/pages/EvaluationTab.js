@@ -14,6 +14,7 @@ import './CoordinatorOperations.css';
 import './EvaluationTab.css';
 import { defaultEvaluationForm } from './EvaluationFormBuilder';
 import EvaluationBuilderDialog from './EvaluationBuilderDialog';
+import AlertDialog from '../components/AlertDialog';
 
 const EVALUATIONS_PER_PAGE = 5;
 
@@ -22,6 +23,18 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const [formDefinition, setFormDefinition] = useState(defaultEvaluationForm);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [evaluations, setEvaluations] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const deleteEvaluation = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await adminRequest('/coordinator/evaluations/' + encodeURIComponent(deleteTarget.id), { method: 'DELETE' });
+      setEvaluations(previous => previous.filter(item => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (error) { window.alert(error.message || 'Could not delete this evaluation.'); }
+    finally { setDeleting(false); }
+  };
   const [form, setForm]               = useState({
     studentId: '',
     supervisorName: '',
@@ -335,6 +348,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
 
       {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
       {/* Evaluations Log Card */}
+      <AlertDialog open={Boolean(deleteTarget)} title="Delete this evaluation?"
+        description={deleteTarget ? `The record for ${deleteTarget.studentName || 'this student'} will be removed and its evaluation link will stop working. This cannot be undone.` : ''}
+        confirmLabel="Delete" busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={deleteEvaluation} />
       <div className="evaluation-records-card" style={styles.card}>
           <div className="evaluation-records-header" style={styles.recordsHeader}>
           <div>
@@ -389,6 +405,9 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                     }}>
                       {submitted ? 'Submitted' : 'Awaiting Response'}
                     </span>
+                    <button type="button" className="evaluation-delete" aria-label={`Delete evaluation for ${item.studentName || 'student'}`} title="Delete evaluation" onClick={() => setDeleteTarget(item)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
+                    </button>
                   </div>
 
                   <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Email service accepted the message. Inbox delivery is unconfirmed.', sending: 'Sending — awaiting confirmation', authorization_failed: 'Email wasn’t sent. Reconnect the email account before retrying.', delivery_unknown: 'Email status unknown. Check the email service before resending.', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Status unavailable'}</p></div>

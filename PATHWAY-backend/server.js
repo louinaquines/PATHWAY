@@ -2737,6 +2737,26 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 });
 
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
+// Coordinators can remove evaluation history they created (the link stops working).
+app.delete('/coordinator/evaluations/:evaluationId', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.evaluationId)) return res.status(400).json({ error: 'Invalid evaluation.' });
+  const ref = adminDb.collection('evaluations').doc(req.params.evaluationId);
+  try {
+    await adminDb.runTransaction(async transaction => {
+      const snap = await transaction.get(ref);
+      if (!snap.exists) throw Object.assign(new Error('Evaluation not found.'), { status: 404 });
+      if (snap.data().createdBy !== req.staff.uid) throw Object.assign(new Error('You can only delete evaluations you created.'), { status: 403 });
+      transaction.delete(ref);
+      writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'evaluation.deleted', targetType: 'evaluations', targetId: ref.id, details: { studentId: snap.data().studentId || null } });
+    });
+    return res.json({ deleted: true });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error('Evaluation delete failed:', error.code || 'unknown');
+    return res.status(500).json({ error: 'Could not delete this evaluation.' });
+  }
+});
 require('./dtrReview').installDtrReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction });
 require('./coordinatorInbox').installCoordinatorInbox({ app, db: adminDb, requireStaff, allowRate });
 require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, audit: writeAuditInTransaction });

@@ -732,3 +732,25 @@
 .logbook-reject-reason span { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
 .logbook-reject-reason textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #dbe3ee; border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; color: #0f172a; }
 .logbook-reject-reason textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+
+/* Evaluation records: compact */
+.coordinator-page .evaluation-record { padding: 16px 18px !important; position: relative; }
+.coordinator-page .evaluation-record > div:first-child { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px !important; }
+.coordinator-page .evaluation-record > div:first-child > div:first-child { flex: 1; min-width: 0; }
+.coordinator-page .evaluation-record h4 { margin: 0 0 2px !important; font-size: 15px !important; font-weight: 700 !important; color: #0f172a !important; }
+.coordinator-page .evaluation-record h4 + div { font-size: 12.5px !important; line-height: 1.5 !important; color: #64748b !important; }
+.coordinator-page .evaluation-record h4 + div br { display: none; }
+.coordinator-page .evaluation-record h4 + div span + span::before { content: " · "; }
+.coordinator-page .evaluation-record > div:first-child > span { flex: none; padding: 3px 10px !important; border-radius: 999px !important; font-size: 12px !important; font-weight: 600 !important; }
+.evaluation-delete { flex: none; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #94a3b8; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.evaluation-delete:hover { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+.coordinator-page .evaluation-record .evaluation-delivery { display: flex; gap: 8px; align-items: baseline; margin: 0 0 8px !important; padding: 0 !important; background: none !important; font-size: 12px !important; color: #64748b; }
+.coordinator-page .evaluation-record .evaluation-delivery span { font-weight: 600; color: #475569; white-space: nowrap; }
+.coordinator-page .evaluation-record .evaluation-delivery p { margin: 0 !important; font-size: 12px !important; }
+.coordinator-page .evaluation-record .evaluation-form-title { display: none; }
+.coordinator-page .evaluation-record .evaluation-custom-answers { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px !important; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eef2f7; }
+.coordinator-page .evaluation-record .evaluation-custom-answers > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px !important; margin: 0 !important; border-radius: 8px !important; background: #f8fafc !important; border: 1px solid #eef2f7 !important; }
+.coordinator-page .evaluation-record .evaluation-custom-answers strong { font-size: 12px !important; font-weight: 600 !important; color: #475569 !important; }
+.coordinator-page .evaluation-record .evaluation-custom-answers p { margin: 0 !important; font-size: 13px !important; font-weight: 700 !important; color: #0f172a !important; white-space: nowrap; }
+.coordinator-page .evaluation-record .evaluation-custom-answers > div:last-child:not(:only-child) { grid-column: 1 / -1; display: block; }
+.coordinator-page .evaluation-record .evaluation-custom-answers > div:last-child:not(:only-child) p { margin-top: 2px !important; font-weight: 400 !important; white-space: normal; }

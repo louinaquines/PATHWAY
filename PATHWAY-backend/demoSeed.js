@@ -217,6 +217,7 @@ async function seed({ db, auth }) {
         const day = daysAgo(n);
         if ([0, 6].includes(weekday(day))) continue;
         if (opts.atRisk && n % 3 === 0) continue;
+        if (n === 0 && idNumber !== '26200008') continue; // leave today free so students can time in live
         const date = dateKey(day);
         const timeIn = daysAgo(n, 8); timeIn.setUTCMinutes(opts.atRisk && n % 2 ? 25 : 2);
         const timeOut = daysAgo(n, 17);

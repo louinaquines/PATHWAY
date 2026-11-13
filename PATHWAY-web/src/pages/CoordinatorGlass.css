@@ -675,3 +675,8 @@
 .coordinator-page .analytics-group .analytics-metric-card > .analytics-metric-label { font-size: 13px !important; font-weight: 500 !important; line-height: 1.4 !important; color: #64748b !important; margin: 0 !important; letter-spacing: 0 !important; text-transform: none !important; }
 .coordinator-page .analytics-group .analytics-metric-card { justify-content: flex-start; }
 .coordinator-page .analytics-group .analytics-metric-icon { margin-bottom: 10px !important; }
+/* Student Requirements: student list scrolls vertically only */
+.coordinator-page .requirements-workspace .requirements-student-list { overflow-x: hidden !important; overflow-y: auto !important; }
+.coordinator-page .requirements-workspace .requirements-student-card { box-sizing: border-box !important; max-width: 100% !important; min-width: 0 !important; }
+.coordinator-page .requirements-workspace .requirements-student-card * { min-width: 0; }
+.coordinator-page .requirements-workspace .student-card-name strong, .coordinator-page .requirements-workspace .student-card-name span { overflow: hidden; text-overflow: ellipsis; }

@@ -236,7 +236,9 @@
 .coordinator-page .requirements-students .portal-record-pagination button { width: 30px !important; height: 30px !important; min-height: 30px !important; padding: 0 !important; border-radius: 8px !important; }
 .coordinator-page .requirements-detail .req-table-filters { margin: -8px 0 12px !important; align-items: center; }
 .req-phase-filter { margin-left: auto; }
-.coordinator-page .req-phase-filter select { min-height: 32px !important; height: 32px; padding: 0 34px 0 12px !important; font-size: 12.5px !important; font-weight: 600; border-radius: 99px !important; background-position: right 10px center !important; }
+.coordinator-page .req-phase-filter select { -webkit-appearance: none !important; appearance: none !important; box-sizing: border-box !important; height: 32px !important; min-height: 32px !important; padding: 0 30px 0 12px !important; line-height: 30px !important; font-size: 12.5px !important; font-weight: 600; color: hsl(215 25% 27%) !important; border: 1px solid hsl(214 32% 88%) !important; border-radius: 99px !important; box-shadow: none !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center !important; cursor: pointer; }
+.coordinator-page .req-phase-filter select:hover { border-color: hsl(214 32% 78%) !important; }
+.coordinator-page .req-phase-filter select:focus { outline: none !important; border-color: hsl(217 91% 60%) !important; box-shadow: 0 0 0 3px hsl(217 91% 60% / .15) !important; }
 @media (max-width: 700px) { .req-phase-filter { margin-left: 0; } }
 .req-skel { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 24px; padding: 28px 32px; }
 .req-skel-left, .req-skel-right { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 18px; background: rgba(255,255,255,.92); border: 1px solid hsl(214 32% 91%); }

@@ -49,6 +49,9 @@ const STUDENTS = [
   ['26200013', 'Abad', 'Joanna', 'done', { company: 'island', hours: 486, frequency: 'weekly', evaluation: 'submitted' }],
   ['26200014', 'Salazar', 'Gabriel', 'cleared', { company: 'lapu', hours: 492, frequency: 'weekly', evaluation: 'submitted' }],
   ['26200015', 'Pascual', 'Hannah', 'awaiting'],
+  ['26200016', 'Lim', 'Sofia', 'new'],
+  ['26200017', 'Tan', 'Marco', 'new'],
+  ['26200018', 'Villanueva', 'Kristine', 'new'],
 ];
 
 const iso = date => date.toISOString();

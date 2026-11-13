@@ -2050,7 +2050,7 @@ const AUDIT_ACTIONS = new Set([
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated', 'evaluation.email_accepted', 'evaluation.email_unknown',
+  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',

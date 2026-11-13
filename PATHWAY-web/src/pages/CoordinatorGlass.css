@@ -754,3 +754,5 @@
 .coordinator-page .evaluation-record .evaluation-custom-answers p { margin: 0 !important; font-size: 13px !important; font-weight: 700 !important; color: #0f172a !important; white-space: nowrap; }
 .coordinator-page .evaluation-record .evaluation-custom-answers > div:last-child:not(:only-child) { grid-column: 1 / -1; display: block; }
 .coordinator-page .evaluation-record .evaluation-custom-answers > div:last-child:not(:only-child) p { margin-top: 2px !important; font-weight: 400 !important; white-space: normal; }
+.coordinator-page .evaluation-record h4 + div > span { display: inline; }
+.coordinator-page .evaluation-record h4 + div > span + br + span::before, .coordinator-page .evaluation-record h4 + div > span:nth-of-type(2)::before { content: " · "; }

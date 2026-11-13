@@ -358,22 +358,23 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             {/* Requirements View */}
             {view === 'requirements' && (
               <div style={t.viewContent}>
-                <div style={t.reqHeader}>
+                <div className="req-header-card" style={t.reqHeader}>
                   <div>
                     <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
                     <p style={t.reqSubText}>Set deadlines and, per requirement, turn on AI auto-check with a reference file. Overdue alerts are shown to students automatically.</p>
-                    <div className="autocheck-tip">💡 Tip: click <strong>📄 Add reference file</strong> on a requirement so student uploads are checked automatically.</div>
+                    <div className="autocheck-tip"><span className="autocheck-tip-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg></span><span><strong>Tip:</strong> click <strong>Add reference file</strong> on a requirement so student uploads are checked automatically.</span></div>
                     {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
                       onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
                   </div>
                   <button
+                    className="req-add-btn"
                     style={t.addReqBtn}
                     onClick={() => {
                       setReqModal('add');
                       setReqForm({ label: '', category: 'Pre-OJT', deadline: '' });
                     }}
                   >
-                    + Add requirement
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Add requirement
                   </button>
                 </div>
 
@@ -381,21 +382,21 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   const catReqs = requirements.filter(r => r.category === cat);
                   if (catReqs.length === 0) return null;
                   return (
-                    <div key={cat} style={t.catBlock}>
-                      <div style={t.catLabel}>{cat} requirements</div>
+                    <div key={cat} className="req-cat-block" style={t.catBlock}>
+                      <div className="req-cat-label" style={t.catLabel}>{cat} requirements</div>
                       <div style={t.reqList}>
                         {catReqs.map(req => {
                           const isOverdue = req.deadline && new Date(req.deadline) < new Date();
                           return (
-                            <div key={req.id} style={t.reqRow}>
+                            <div key={req.id} className="req-row" style={t.reqRow}>
                               <div style={t.reqLeft}>
-                                <div style={t.reqLabel}>{req.label}</div>
+                                <div className="req-label" style={t.reqLabel}>{req.label}</div>
                                 <div style={t.deadlineRow}>
                                   <span style={t.deadlineLabel}>Deadline:</span>
                                   <input
                                     type="date"
                                     aria-label={`${req.label} deadline`}
-                                    style={t.dateInput}
+                                    className="req-date" style={t.dateInput}
                                     value={req.deadline || ''}
                                     onChange={e => handleUpdateDeadline(req.id, e.target.value)}
                                   />
@@ -417,9 +418,10 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                                 onClick={() => setAutoCheckReq(req)}
                                 title="Reference file and auto-check settings"
                               >
-                                {req.autoCheck?.referenceName ? `✓ Reference: ${req.autoCheck.referenceName}${req.autoCheck.autoApprove ? ' · auto-approve' : ''}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : '📄 Add reference file'}
+                                {req.autoCheck?.referenceName ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg><span>Reference: {req.autoCheck.referenceName}{req.autoCheck.autoApprove ? ' · auto-approve' : ''}</span></> : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg><span>{req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'}</span></>}
                               </button>
                               <button
+                                className="req-delete"
                                 style={t.deleteBtn}
                                 onClick={() => setDeleteConfirm(req)}
                                 title="Delete requirement"

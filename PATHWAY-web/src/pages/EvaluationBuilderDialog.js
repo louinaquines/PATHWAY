@@ -26,7 +26,7 @@ export default function EvaluationBuilderDialog({ value, onSave, onClose }) {
         <h2 id="evaluation-builder-title">Evaluation questions</h2>
         <div className="evaluation-editor-actions">
           <button type="button" onClick={() => setPreview(!preview)}>{preview ? 'Back to editing' : 'Preview'}</button>
-          <button type="button" aria-label="Close evaluation builder" onClick={onClose}>✕</button>
+          <button type="button" aria-label="Close evaluation builder" onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
         </div>
       </header>
       <div className="evaluation-builder-dialog-content">

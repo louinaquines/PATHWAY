@@ -590,3 +590,40 @@
 .inbox-check-again { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
 .inbox-check-again:hover { background: #eff6ff; border-color: #bfdbfe; }
 .coordinator-page .inbox-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px !important; border-top: 1px solid rgba(148,163,184,.18); font-size: 13px; color: #64748b; background: transparent !important; }
+
+/* Sections fix: backdrop-filter on the header card trapped the fixed Journal-schedule dialog inside it */
+.coordinator-page .section-overview { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(255,255,255,.94) !important; }
+.journal-frequency-dialog { border-radius: 18px !important; padding: 26px 28px !important; box-shadow: 0 24px 64px rgba(15,23,42,.25) !important; max-width: 480px; }
+.journal-frequency-dialog h2 { margin: 0 0 6px !important; font-size: 20px !important; font-weight: 700 !important; color: #0f172a !important; }
+.journal-frequency-dialog legend { margin-bottom: 12px; font-size: 13px; color: #64748b; }
+.journal-frequency-dialog fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.journal-frequency-dialog fieldset legend { grid-column: 1 / -1; }
+.journal-frequency-dialog fieldset label { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; font-weight: 600; color: #334155; cursor: pointer; transition: border-color .15s, background .15s; }
+.journal-frequency-dialog fieldset label:has(input:checked) { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+.journal-frequency-dialog input[type="radio"] { accent-color: #2563eb; width: 16px; height: 16px; }
+
+/* Requirements & deadlines */
+.coordinator-page .req-header-card, .coordinator-page .req-cat-block { background: rgba(255,255,255,.9) !important; border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08) !important; padding: 22px 24px !important; }
+.coordinator-page .req-header-card { display: flex !important; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.coordinator-page .req-header-card h3 { margin: 0 0 4px !important; }
+.coordinator-page .req-header-card p { font-size: 13px !important; color: #64748b !important; }
+.coordinator-page .autocheck-tip { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px !important; border: 1px solid #fde68a !important; border-radius: 12px !important; background: #fffbeb !important; color: #78350f !important; font-size: 13px !important; }
+.autocheck-tip-icon { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 9px; background: #fef3c7; color: #d97706; }
+.coordinator-page .req-add-btn { flex: none; height: 42px !important; display: inline-flex !important; align-items: center; gap: 6px; padding: 0 18px !important; border: 0 !important; border-radius: 10px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; font-size: 14px !important; font-weight: 600 !important; box-shadow: 0 6px 16px rgba(37,99,235,.25) !important; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.coordinator-page .req-add-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,.35) !important; }
+.coordinator-page .req-cat-label { margin-bottom: 14px !important; font-size: 12px !important; font-weight: 700 !important; letter-spacing: .07em; text-transform: uppercase; color: #2563eb !important; }
+.coordinator-page .req-row { display: flex !important; align-items: center; gap: 12px; padding: 14px 16px !important; margin-bottom: 10px; border: 1px solid #e2e8f0 !important; border-radius: 14px !important; background: #fff !important; box-shadow: none !important; transition: border-color .15s, box-shadow .15s; }
+.coordinator-page .req-row:hover { border-color: #bfdbfe !important; box-shadow: 0 4px 14px rgba(15,23,42,.06) !important; }
+.coordinator-page .req-row > div:first-child { flex: 1; min-width: 0; }
+.coordinator-page .req-label { font-size: 15px !important; font-weight: 700 !important; color: #0f172a !important; margin-bottom: 8px !important; }
+.coordinator-page .req-row span { font-size: 12px !important; }
+.coordinator-page .req-date { height: 34px !important; padding: 0 10px !important; border: 1px solid #dbe3ee !important; border-radius: 8px !important; background: #fff !important; font-size: 13px !important; color: #0f172a !important; }
+.coordinator-page .req-date:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); outline: none; }
+.coordinator-page .autocheck-chip { display: inline-flex !important; align-items: center; gap: 8px; height: 38px; padding: 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #1d4ed8 !important; font-size: 13px !important; font-weight: 600 !important; cursor: pointer; white-space: nowrap; max-width: 320px; }
+.coordinator-page .autocheck-chip span { overflow: hidden; text-overflow: ellipsis; font-size: 13px !important; }
+.coordinator-page .autocheck-chip:hover { background: #eff6ff !important; border-color: #bfdbfe !important; }
+.coordinator-page .autocheck-chip.is-on { background: #ecfdf5 !important; border-color: #a7f3d0 !important; color: #047857 !important; }
+.coordinator-page .req-delete { width: 38px; height: 38px; display: grid !important; place-items: center; padding: 0 !important; border: 1px solid #e2e8f0 !important; border-radius: 10px !important; background: #fff !important; color: #94a3b8 !important; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.coordinator-page .req-delete:hover { color: #dc2626 !important; border-color: #fecaca !important; background: #fef2f2 !important; }
+.autocheck-dropzone strong svg, .requirement-autocheck-dialog strong svg { vertical-align: -2px; margin-right: 4px; }
+@media (max-width: 860px) { .coordinator-page .req-header-card, .coordinator-page .req-row { flex-wrap: wrap; } }

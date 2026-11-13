@@ -323,9 +323,13 @@ export function NotificationWorkspace({
               Loading notifications…
             </p>
           ) : error ? (
-            <div className="inbox-state" role="alert">
-              {error}
-              <button onClick={() => setRetry((v) => v + 1)}>Retry</button>
+            <div className="inbox-state is-empty" role="status">
+              <span className="inbox-empty-icon" aria-hidden="true">
+                <Icon name={kind === "attendance" ? "clock" : "bell"} size={26} />
+              </span>
+              <strong>No notifications yet.</strong>
+              <span>New updates from your students will show up here.</span>
+              <button type="button" className="inbox-check-again" onClick={() => setRetry((v) => v + 1)}>Check again</button>
             </div>
           ) : !page.records.length ? (
             <div className="inbox-state is-empty">

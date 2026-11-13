@@ -499,3 +499,94 @@
 .accounts-empty-state button:hover { background: #eff6ff; border-color: #bfdbfe; }
 .coordinator-page .accounts-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px !important; border-top: 1px solid rgba(148,163,184,.18); font-size: 13px; color: #64748b; }
 @media (max-width: 760px) { .coordinator-page .accounts-toolbar { flex-wrap: wrap; } .coordinator-page .registration-tabs { grid-template-columns: 1fr; } }
+
+/* ===== Internship Progress / Messages / Announcements: shared glass ===== */
+.coordinator-page .coordinator-analytics-page, .coordinator-page .messages-workspace, .coordinator-page .notifications-workspace { background: transparent !important; }
+.coordinator-page .analytics-records, .coordinator-page .analytics-metric-card, .coordinator-page .messages-students, .coordinator-page .messages-conversation, .coordinator-page .inbox-panel {
+  background: rgba(255,255,255,.84) !important; backdrop-filter: blur(28px) saturate(1.5); -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,.75) !important; border-radius: 18px !important; box-shadow: 0 8px 32px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7) !important; }
+.coordinator-page .analytics-table-controls .coordinator-search, .coordinator-page .inbox-search, .coordinator-page .messages-students > input[type="search"] { height: 42px; display: flex; align-items: center; gap: 8px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; box-shadow: none !important; }
+.coordinator-page .analytics-table-controls .coordinator-search { flex: 1; min-width: 0; padding: 0 12px; color: #94a3b8; }
+.coordinator-page .analytics-table-controls .coordinator-search input { flex: 1; min-width: 0; height: 40px !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; font-size: 14px; }
+.coordinator-page .analytics-table-controls .coordinator-search:focus-within, .coordinator-page .messages-students > input[type="search"]:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; outline: none; }
+.coordinator-page .coordinator-analytics-page table, .coordinator-page .inbox-panel table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent !important; }
+.coordinator-page .coordinator-analytics-page thead th { padding: 12px 20px !important; background: rgba(248,250,252,.96) !important; border-bottom: 1px solid #e2e8f0 !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; text-align: left; }
+.coordinator-page .coordinator-analytics-page tbody td, .coordinator-page .coordinator-analytics-page tbody th { padding: 12px 20px !important; border-bottom: 1px solid rgba(226,232,240,.8) !important; background: transparent !important; font-size: 14px; }
+.coordinator-page .coordinator-analytics-page tbody tr:hover td, .coordinator-page .coordinator-analytics-page tbody tr:hover th { background: rgba(239,246,255,.6) !important; }
+
+/* Internship Progress */
+.coordinator-page .analytics-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-bottom: 18px; }
+.coordinator-page .analytics-toolbar button, .coordinator-page .analytics-actions button { height: 42px !important; display: inline-flex !important; align-items: center; gap: 8px; padding: 0 16px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: rgba(255,255,255,.92) !important; color: #334155 !important; font-size: 13px !important; font-weight: 600 !important; box-shadow: none !important; cursor: pointer; }
+.coordinator-page .analytics-toolbar button:hover:not(:disabled), .coordinator-page .analytics-actions button:hover:not(:disabled) { border-color: #bfdbfe !important; color: #1d4ed8 !important; background: #fff !important; }
+.coordinator-page .analytics-toolbar select { appearance: none; -webkit-appearance: none; height: 42px; padding: 0 38px 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center !important; font-size: 14px; font-weight: 600; color: #0f172a; }
+.coordinator-page .analytics-metrics { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; gap: 14px !important; margin-bottom: 20px !important; }
+.coordinator-page .analytics-metric-card { padding: 18px 20px !important; border-radius: 16px !important; position: relative; overflow: hidden; transition: transform .15s, box-shadow .15s; }
+.coordinator-page .analytics-metric-card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(180deg,#3b82f6,#1d4ed8); }
+.coordinator-page .analytics-metric-card:nth-child(2)::before { background: linear-gradient(180deg,#22c55e,#16a34a); }
+.coordinator-page .analytics-metric-card:nth-child(3)::before { background: linear-gradient(180deg,#f59e0b,#d97706); }
+.coordinator-page .analytics-metric-card:nth-child(4)::before { background: linear-gradient(180deg,#14b8a6,#0d9488); }
+.coordinator-page .analytics-metric-card:hover { transform: translateY(-1px); box-shadow: 0 12px 28px rgba(15,23,42,.1) !important; }
+.coordinator-page .analytics-records { padding: 0 !important; overflow: hidden; }
+.coordinator-page .analytics-records > div:first-child { padding: 18px 20px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .analytics-table-controls { display: flex; align-items: center; gap: 10px; }
+.coordinator-page .analytics-table-scroll { max-height: min(62vh, 640px); overflow: auto; }
+
+/* Messages */
+.coordinator-page .messages-workspace { gap: 20px !important; }
+.coordinator-page .messages-students { padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; }
+.coordinator-page .messages-students > header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 12px !important; background: transparent !important; border: 0 !important; }
+.coordinator-page .messages-students h2 { font-size: 18px !important; font-weight: 700 !important; color: #0f172a !important; margin: 0; }
+.coordinator-page .messages-section-picker select { appearance: none; -webkit-appearance: none; height: 40px; padding: 0 36px 0 12px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center !important; font-size: 14px; font-weight: 600; color: #0f172a; }
+.coordinator-page .messages-alert-trigger { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #475569 !important; cursor: pointer; }
+.coordinator-page .messages-alert-trigger:hover { border-color: #bfdbfe !important; color: #1d4ed8 !important; }
+.coordinator-page .messages-alert-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.coordinator-page .messages-students > input[type="search"] { margin: 0 18px 12px; padding: 0 12px 0 38px !important; width: auto; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center !important; font-size: 14px; }
+.coordinator-page .messages-panel-list { flex: 1; overflow: auto; padding: 4px 10px 10px; border-top: 1px solid rgba(148,163,184,.18); }
+.coordinator-page .messages-choice { display: grid !important; gap: 2px; width: 100%; margin-top: 6px; padding: 12px 14px !important; border: 1px solid transparent !important; border-radius: 12px !important; background: transparent !important; text-align: left; cursor: pointer; transition: background .15s; }
+.coordinator-page .messages-choice:hover { background: rgba(241,245,249,.9) !important; }
+.coordinator-page .messages-choice[aria-pressed="true"] { background: #eff6ff !important; border-color: #bfdbfe !important; box-shadow: inset 3px 0 0 #2563eb; }
+.coordinator-page .messages-student-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.coordinator-page .messages-student-title strong { font-size: 14px; color: #0f172a; }
+.coordinator-page .messages-unread { padding: 2px 8px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 11px; font-weight: 700; }
+.coordinator-page .messages-choice > span { font-size: 12px; color: #64748b; }
+.coordinator-page .messages-preview { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #94a3b8 !important; }
+.coordinator-page .messages-empty-copy { padding: 36px 16px; text-align: center; font-size: 13px; color: #64748b; }
+.coordinator-page .messages-error { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 18px 12px; padding: 24px 16px !important; border: 0 !important; border-radius: 14px !important; background: #f8fafc !important; color: #64748b !important; font-size: 13px; text-align: center; }
+.coordinator-page .messages-error button { padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
+.coordinator-page .messages-conversation { padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; }
+.coordinator-page .messages-conversation > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .messages-conversation > header h2 { margin: 0; font-size: 17px; font-weight: 700; color: #0f172a; }
+.coordinator-page .messages-conversation > header p { margin: 2px 0 0; font-size: 12px; color: #64748b; }
+.coordinator-page .messages-close { height: 36px; padding: 0 14px; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff !important; color: #334155 !important; font-weight: 600; font-size: 13px; cursor: pointer; }
+.coordinator-page .messages-thread { flex: 1; overflow: auto; padding: 20px 22px !important; background: transparent !important; }
+.coordinator-page .messages-bubble { max-width: 72%; padding: 10px 14px !important; border-radius: 16px 16px 16px 4px !important; background: #fff !important; border: 1px solid #e2e8f0 !important; color: #0f172a; font-size: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+.coordinator-page .messages-bubble-row.is-outgoing .messages-bubble { border-radius: 16px 16px 4px 16px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; border-color: transparent !important; color: #fff; }
+.coordinator-page .messages-bubble small { display: block; margin-top: 4px; font-size: 11px; opacity: .7; }
+.coordinator-page .messages-welcome { text-align: center; padding: 48px 20px; color: #64748b; }
+.coordinator-page .messages-welcome h3 { font-size: 16px; color: #0f172a; margin: 0 0 6px; }
+.coordinator-page .messages-composer { display: flex; gap: 10px; padding: 14px 18px !important; border-top: 1px solid rgba(148,163,184,.18); background: rgba(255,255,255,.6) !important; }
+.coordinator-page .messages-composer textarea, .coordinator-page .messages-composer input { flex: 1; min-height: 44px; padding: 10px 14px !important; border: 1px solid #dbe3ee !important; border-radius: 12px !important; background: #fff !important; font-size: 14px; resize: none; }
+.coordinator-page .messages-composer textarea:focus, .coordinator-page .messages-composer input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); outline: none; }
+.coordinator-page .messages-composer button { height: 44px; padding: 0 20px !important; border: 0 !important; border-radius: 12px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; font-weight: 600; font-size: 14px; box-shadow: 0 6px 16px rgba(37,99,235,.25); cursor: pointer; }
+.coordinator-page .messages-composer button:disabled { background: #cbd5e1 !important; box-shadow: none; }
+
+/* Announcements & Alerts */
+.coordinator-page .inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.coordinator-page .inbox-primary { height: 42px !important; display: inline-flex !important; align-items: center; gap: 8px; padding: 0 18px !important; border: 0 !important; border-radius: 10px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; font-weight: 600 !important; font-size: 14px !important; box-shadow: 0 6px 16px rgba(37,99,235,.25) !important; cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.coordinator-page .inbox-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(37,99,235,.35) !important; color: #fff !important; }
+.coordinator-page .inbox-panel { padding: 0 !important; overflow: hidden; }
+.coordinator-page .inbox-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 16px 20px !important; border-bottom: 1px solid rgba(148,163,184,.18); background: transparent !important; }
+.coordinator-page .inbox-toolbar select { appearance: none; -webkit-appearance: none; height: 42px; padding: 0 38px 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center !important; font-size: 14px; font-weight: 600; }
+.coordinator-page .inbox-toolbar button { height: 38px; padding: 0 14px !important; border: 1px solid #dbe3ee !important; border-radius: 999px !important; background: #fff !important; color: #475569 !important; font-size: 13px !important; font-weight: 600 !important; cursor: pointer; }
+.coordinator-page .inbox-toolbar button[aria-pressed="true"] { background: #1d4ed8 !important; border-color: #1d4ed8 !important; color: #fff !important; }
+.coordinator-page .inbox-search { flex: 1; min-width: 200px; padding: 0 12px !important; }
+.coordinator-page .inbox-search input { flex: 1; height: 40px !important; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; font-size: 14px; padding: 0 !important; }
+.coordinator-page .inbox-row { display: flex !important; align-items: center; gap: 14px; width: 100%; padding: 14px 20px !important; border: 0 !important; border-bottom: 1px solid rgba(226,232,240,.8) !important; background: transparent !important; text-align: left; cursor: pointer; transition: background .15s; }
+.coordinator-page .inbox-row:hover { background: rgba(239,246,255,.6) !important; }
+.coordinator-page .inbox-row-icon { width: 40px; height: 40px; flex: none; display: grid !important; place-items: center; border-radius: 12px !important; background: #eff6ff !important; color: #2563eb !important; }
+.coordinator-page .inbox-state { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 52px 20px !important; text-align: center; color: #64748b !important; font-size: 13px; }
+.coordinator-page .inbox-state strong { font-size: 15px; color: #0f172a; }
+.coordinator-page .inbox-empty-icon { width: 52px; height: 52px; display: grid !important; place-items: center; margin-bottom: 6px; border-radius: 14px !important; background: #eff6ff !important; color: #2563eb !important; }
+.inbox-check-again { margin-top: 8px; padding: 8px 16px; border: 1px solid #dbe3ee; border-radius: 10px; background: #fff; color: #1d4ed8; font-weight: 600; font-size: 13px; cursor: pointer; }
+.inbox-check-again:hover { background: #eff6ff; border-color: #bfdbfe; }
+.coordinator-page .inbox-footer { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px !important; border-top: 1px solid rgba(148,163,184,.18); font-size: 13px; color: #64748b; background: transparent !important; }

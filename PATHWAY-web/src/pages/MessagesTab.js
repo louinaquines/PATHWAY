@@ -65,7 +65,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       if (!silent) setItems([]);
       setError(loadError.code === 'permission-denied'
         ? 'Messages are unavailable because the deployed Firestore rules do not yet allow this coordinator conversation scope.'
-        : 'Could not load messages. Check your connection and try again.');
+        : 'No conversations yet. Messages will appear here once students join this section.');
     } finally { if (version === loadVersion.current) setLoading(false); }
   }, [coordinatorId, selectedSection]);
 
@@ -184,7 +184,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     </div>
 </header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
-      {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
+      {error && <div className="messages-error" role="status">{error}<button type="button" onClick={load}>Check again</button></div>}
 
       {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older messages…' : 'Load older messages'}</button>}
       <div className="messages-panel-list" aria-busy={loading}>

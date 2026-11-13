@@ -874,8 +874,10 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
 app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 60, windowMs: 60 * 60_000, key: request => `logbook-review:${request.staff.uid}` })) return;
-  const { status } = req.body || {};
+  const { status, reason } = req.body || {};
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Invalid logbook decision.' });
+  const customReason = typeof reason === 'string' ? reason.trim().slice(0, 1000) : '';
+  if (status === 'rejected' && !customReason) return res.status(400).json({ error: 'Add a reason so the student knows what to change.' });
   if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.entryId)) return res.status(400).json({ error: 'Invalid logbook entry.' });
   const studentRef = adminDb.collection('users').doc(req.params.studentId);
   const coordinatorRef = adminDb.collection('users').doc(req.staff.uid);
@@ -899,7 +901,7 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
       assertRecordsOpen(student);
       if (!entrySnap.exists) throw Object.assign(new Error('Logbook entry not found.'), { status: 404 });
       if (entrySnap.data().status !== 'pending') throw Object.assign(new Error('This entry is no longer awaiting review.'), { status: 409 });
-      const reviewReason = status === 'rejected' ? `Please revise and resubmit this ${entrySnap.data().frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '';
+      const reviewReason = status === 'rejected' ? customReason : '';
       transaction.update(entryRef, { status, reviewedBy: req.staff.uid, reviewedAt: now, reviewReason });
       transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',

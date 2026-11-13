@@ -59,10 +59,12 @@ test('a pending journal can be rejected inside the records drawer', async () => 
   fireEvent.click(await within(drawer).findByRole('button', { name: 'Reject Entry' }));
   expect(getDocs.mock.calls.some(([request]) => request?.path === 'users/student/logbook' && request.constraints.some(item => item.limit === 26))).toBe(true);
   const confirm = within(drawer).getByRole('alertdialog');
+  expect(within(confirm).getByRole('button', { name: 'Reject entry' })).toBeDisabled();
+  fireEvent.change(within(confirm).getByLabelText('Reason for the student'), { target: { value: 'Add dates.' } });
   fireEvent.click(within(confirm).getByRole('button', { name: 'Reject entry' }));
   expect(await within(drawer).findByText('Changes requested')).toBeVisible();
   expect(adminRequest).toHaveBeenCalledWith('/coordinator/students/student/logbook/journal/decision',
-    expect.objectContaining({ method: 'POST', body: '{"status":"rejected"}' }));
+    expect.objectContaining({ method: 'POST', body: '{"status":"rejected","reason":"Add dates."}' }));
 });
 
 test('the roster shows the latest attendance date and latest submitted journal, excluding drafts', async () => {

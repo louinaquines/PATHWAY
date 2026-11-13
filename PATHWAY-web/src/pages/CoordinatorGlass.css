@@ -728,3 +728,7 @@
 /* Attendance & Journals v3: fixed-width pills so every chevron lines up */
 .coordinator-page .logbook-roster tbody td button { width: 180px !important; max-width: 100%; justify-content: space-between !important; box-sizing: border-box !important; }
 .coordinator-page .logbook-roster tbody td button span { overflow: hidden; text-overflow: ellipsis; min-width: 0; text-align: left; }
+.logbook-reject-reason { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; text-align: left; }
+.logbook-reject-reason span { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #64748b; }
+.logbook-reject-reason textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #dbe3ee; border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; color: #0f172a; }
+.logbook-reject-reason textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }

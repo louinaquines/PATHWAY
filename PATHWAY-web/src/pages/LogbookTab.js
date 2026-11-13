@@ -273,15 +273,16 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     if (options.isCurrent() && selectedStudent && recordView === 'journals') await fetchEntries(selectedStudent, options);
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
-  const handleAction = async (entryId, status) => {
+  const [rejectReason, setRejectReason] = useState('');
+  const handleAction = async (entryId, status, reason = '') => {
     setSaving(true);
     try {
       await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/logbook/${encodeURIComponent(entryId)}/decision`, {
         method: 'POST',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(status === 'rejected' ? { reason } : {}) }),
       });
       setEntries(prev => prev.map(e => e.id === entryId ? {
-        ...e, status, reviewReason: status === 'rejected' ? `Please revise and resubmit this ${e.frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '',
+        ...e, status, reviewReason: status === 'rejected' ? reason : '',
       } : e));
       if (journalStatus && journalStatus !== status) await fetchEntries(selectedStudent);
       setDecisionRevision(value => value + 1);
@@ -530,15 +531,22 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         portalTarget={confirmHost.current || undefined}
         open={Boolean(rejectConfirm)}
         title="Reject this logbook entry?"
-        description="The student will be notified and can revise and resubmit this journal entry."
+        description="The student will see your reason and must edit the entry before resubmitting."
         confirmLabel="Reject entry"
         busy={saving}
-        onCancel={() => setRejectConfirm(null)}
+        confirmDisabled={!rejectReason.trim()}
+        onCancel={() => { setRejectConfirm(null); setRejectReason(''); }}
         onConfirm={async () => {
-          const saved = await handleAction(rejectConfirm.id, 'rejected');
-          if (saved) setRejectConfirm(null);
+          const saved = await handleAction(rejectConfirm.id, 'rejected', rejectReason.trim());
+          if (saved) { setRejectConfirm(null); setRejectReason(''); }
         }}
-        />
+        >
+          <label className="logbook-reject-reason">
+            <span>Reason for the student</span>
+            <textarea rows={4} maxLength={1000} value={rejectReason} onChange={event => setRejectReason(event.target.value)}
+              placeholder="e.g. Add the calendar dates for each day and your supervisor's name." autoFocus />
+          </label>
+        </AlertDialog>
       </PortalFormDialog>}
     </div>
   );

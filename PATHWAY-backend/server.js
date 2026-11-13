@@ -119,11 +119,18 @@ const defaultRequirementIds = new Set(['application_form', 'updated_resume', 'me
 const uploadIntents = adminDb.collection('cloudinaryUploadIntents');
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
+// Ongoing / post-deployment documents stay uploadable after internship tracking is approved (until clearance).
+const ONGOING_REQUIREMENT_IDS = new Set(['dtr', 'logbook', 'narrative', 'eval_sheet', 'coc']);
+function requirementLocked(data, requirementId) {
+  if (!data || !data.accountApproved || data.clearanceStatus === 'cleared') return true;
+  return data.preDeploymentStatus === 'approved' && !ONGOING_REQUIREMENT_IDS.has(requirementId);
+}
+
 async function getEditableRequirement(uid, requirementId) {
   const userRef = adminDb.collection('users').doc(uid);
   const profile = await userRef.get();
-  if (!profile.exists || !profile.data().accountApproved || profile.data().preDeploymentStatus === 'approved') {
-    throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+  if (!profile.exists || requirementLocked(profile.data(), requirementId)) {
+    throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
   }
   const student = profile.data();
   assertRecordsOpen(student);
@@ -273,8 +280,8 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
         ]);
         if (!freshIntent.exists || freshIntent.data().status !== 'issued' || freshIntent.data().uid !== req.user.uid
           || freshIntent.data().expiresAt < Date.now()) throw Object.assign(new Error('Upload authorization was already used or expired.'), { status: 409 });
-        if (!freshUser.exists || !freshUser.data().accountApproved || freshUser.data().preDeploymentStatus === 'approved') {
-          throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+        if (!freshUser.exists || requirementLocked(freshUser.data(), requirementId)) {
+          throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
         }
         if (freshUser.data().requirements?.[requirementId]?.status === 'approved') {
           throw Object.assign(new Error('An approved document cannot be replaced.'), { status: 409 });
@@ -327,8 +334,8 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
 
     await adminDb.runTransaction(async transaction => {
       const profile = await transaction.get(userRef);
-      if (!profile.exists || !profile.data().accountApproved || profile.data().preDeploymentStatus === 'approved') {
-        throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+      if (!profile.exists || requirementLocked(profile.data(), requirementId)) {
+        throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
       }
       const student = profile.data();
       const existing = student.requirements?.[requirementId] || {};

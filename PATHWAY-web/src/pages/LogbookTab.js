@@ -12,7 +12,7 @@ import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
-import { PageSkeleton } from '../components/LoadingSkeleton';
+import { JournalEntriesSkeleton, LogbookRows } from '../components/PageSkeletons';
 import AlertDialog from '../components/AlertDialog';
 import SubmissionNotifications from '../components/SubmissionNotifications';
 import JournalKeywordSettings from '../components/JournalKeywordSettings';
@@ -392,7 +392,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         {!selectedSection ? (sections.length === 0
           ? <PortalEmpty icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." action={{ label: 'Go to Sections & Students', onClick: () => window.location.assign('/coordinator/sections') }} />
           : <PortalEmpty icon="section" title="Choose a section" description="Pick a section above to see students' attendance and journals." />) : <>
-          {loading && <div className="logbook-skel" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4, 5, 6].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="logbook-skel-person"><span className="cdash-skel" style={{ width: 32, height: 32, borderRadius: 99 }} /><span className="cdash-skel" style={{ width: 140, height: 13, borderRadius: 6 }} /></span><span className="cdash-skel" style={{ width: 150, height: 28, borderRadius: 99 }} /><span className="cdash-skel" style={{ width: 150, height: 28, borderRadius: 99 }} /></div>)}</div>}
+          {loading && <div className="logbook-skel" role="status" aria-label="Loading students"><LogbookRows /></div>}
           {currentRoster?.error && <div className="logbook-empty-state" role="status">
             <span className="logbook-empty-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
@@ -484,7 +484,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           }} /></details>}
           {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
 
-          {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
+          {recordView === 'journals' && entriesLoading && <JournalEntriesSkeleton />}
           {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
           {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
             <div className="logbook-record-empty">

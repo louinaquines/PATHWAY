@@ -10,7 +10,7 @@ import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import PaginationButtonGroup from '../components/PaginationButtonGroup';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
-import { PageSkeleton } from '../components/LoadingSkeleton';
+import { EvaluationSkeleton } from '../components/PageSkeletons';
 import './CoordinatorOperations.css';
 import './EvaluationTab.css';
 import { defaultEvaluationForm } from './EvaluationFormBuilder';
@@ -209,7 +209,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   }, [pageCount]);
 
   if (loading) {
-    return <PageSkeleton label="Loading supervisor evaluations" variant="cards" />;
+    return <EvaluationSkeleton />;
   }
 
   return (

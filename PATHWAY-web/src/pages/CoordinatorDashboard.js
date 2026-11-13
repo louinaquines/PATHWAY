@@ -30,6 +30,7 @@ import Icon from '../components/Icons';
 import { COORDINATOR_PAGE_TITLES, setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import { EvaluationSkeleton, LogbookSkeleton } from '../components/PageSkeletons';
 import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
@@ -571,7 +572,7 @@ export default function CoordinatorDashboard() {
         {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
-          activeTab === 'overview' ? <OverviewSkeleton /> : activeTab === 'requirements' ? <RequirementsSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
+          activeTab === 'overview' ? <OverviewSkeleton /> : activeTab === 'requirements' ? <RequirementsSkeleton /> : activeTab === 'logbook' ? <LogbookSkeleton /> : activeTab === 'evaluations' ? <EvaluationSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
             <CoordinatorProfileTab

@@ -339,3 +339,17 @@
 .logbook-checks summary { cursor: pointer; font-weight: 600; color: hsl(215 25% 35%); }
 .logbook-checks[open] summary { margin-bottom: 8px; }
 .logbook-time-note, .logbook-record-controls { display: none !important; }
+
+/* Page skeletons: Attendance & Journals, Evaluations */
+.pskel { display: flex; flex-direction: column; gap: 20px; padding: 24px 32px; }
+.pskel-card { background: rgba(255,255,255,.94); border: 1px solid hsl(214 32% 91%); border-radius: 18px; overflow: hidden; }
+.pskel-pad { padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+.pskel-toolbar { display: grid; grid-template-columns: 220px 1fr; gap: 14px; padding: 22px 24px; border-bottom: 1px solid hsl(214 32% 93%); }
+.pskel-head { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr 1.2fr; gap: 16px; padding: 16px 24px; border-bottom: 1px solid hsl(214 32% 93%); }
+.pskel-stack { display: flex; flex-direction: column; gap: 8px; }
+.pskel-row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pskel-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.pskel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.pskel-eval, .pskel-journal { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid hsl(214 32% 91%); border-radius: 14px; background: #fff; }
+.pskel-journals { display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 900px) { .pskel { padding: 16px; } .pskel-fields, .pskel-toolbar { grid-template-columns: 1fr; } }

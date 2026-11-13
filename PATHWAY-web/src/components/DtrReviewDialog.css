@@ -25,3 +25,55 @@
 .dtr-scan-image { display: block; max-width: 100%; max-height: 600px; object-fit: contain; margin: 12px auto; }
 .dtr-ocr-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-size: 13px; }
 .dtr-import-info details { margin: 12px 0; }
+
+/* Refined layout */
+.dtr-review { width: min(920px, 96vw); max-height: 92vh; padding: 0; border: 0; border-radius: 18px; box-shadow: 0 24px 64px hsl(222 47% 11% / .25); overflow: auto; color: hsl(222 47% 11%); }
+.dtr-review::backdrop { background: hsl(222 47% 11% / .45); }
+.dtr-review > header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 24px; background: #fff; border-bottom: 1px solid hsl(214 32% 91%); }
+.dtr-review > header h2 { margin: 0; font-size: 18px; letter-spacing: -.01em; }
+.dtr-review > header p { margin: 2px 0 0; font-size: 13px; color: hsl(215 16% 47%); }
+.dtr-review > header button { width: 36px; height: 36px; border: 1px solid hsl(214 32% 89%); border-radius: 10px; background: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.dtr-review form { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 28px; }
+.dtr-review form > p { margin: 0; font-size: 13px; line-height: 1.55; color: hsl(215 16% 47%); max-width: 72ch; }
+.dtr-step { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; font-size: 14px; font-weight: 700; }
+.dtr-step span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: hsl(217 83% 45%); color: #fff; font-size: 12px; }
+.dtr-review .dtr-import, .dtr-review .dtr-scan-layout, .dtr-review .dtr-month { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: hsl(215 19% 35%); }
+.dtr-review input[type="file"] { font-size: 13px; }
+.dtr-review select, .dtr-review input[type="month"] { height: 38px; padding: 0 10px; border: 1px solid hsl(214 32% 85%); border-radius: 9px; background: #fff; font: inherit; }
+.dtr-review .dtr-primary, .dtr-review .dtr-primary-outline { align-self: flex-start; height: 40px; padding: 0 18px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background .15s, transform .1s; }
+.dtr-review .dtr-primary { border: 0; background: hsl(217 83% 45%); color: #fff; }
+.dtr-review .dtr-primary:hover:not(:disabled) { background: hsl(220 80% 38%); }
+.dtr-review .dtr-primary-outline { border: 1px solid hsl(214 80% 80%); background: hsl(214 100% 97%); color: hsl(220 80% 38%); }
+.dtr-review button:active:not(:disabled) { transform: scale(.98); }
+.dtr-review button:disabled { opacity: .5; cursor: not-allowed; }
+.dtr-import-info { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid hsl(214 32% 89%); border-radius: 12px; background: hsl(210 40% 98%); font-size: 13px; }
+.dtr-import-info p { margin: 0; }
+.dtr-confirm { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 10px 12px; border-radius: 10px; background: hsl(48 100% 96%); border: 1px solid hsl(48 96% 80%); font-weight: 600; font-size: 13px; color: hsl(32 81% 29%); cursor: pointer; }
+.dtr-confirm input { width: 16px; height: 16px; accent-color: hsl(217 83% 45%); }
+.dtr-grid { max-height: 360px; overflow: auto; border: 1px solid hsl(214 32% 89%); border-radius: 12px; }
+.dtr-grid table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.dtr-grid thead th { position: sticky; top: 0; z-index: 1; padding: 10px 8px; background: hsl(210 40% 97%); border-bottom: 1px solid hsl(214 32% 89%); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: hsl(215 16% 47%); text-align: left; }
+.dtr-grid tbody th { width: 52px; padding: 4px 10px; font-size: 13px; font-weight: 600; color: hsl(215 19% 35%); background: hsl(210 40% 99%); text-align: left; }
+.dtr-grid td { padding: 3px 6px; border-bottom: 1px solid hsl(214 32% 95%); }
+.dtr-grid input { width: 100%; box-sizing: border-box; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 7px; background: transparent; font: inherit; font-size: 13px; }
+.dtr-grid input:not(:placeholder-shown), .dtr-grid input[value]:not([value=""]) { background: hsl(214 100% 97%); }
+.dtr-grid input:focus { outline: none; border-color: hsl(217 83% 55%); background: #fff; box-shadow: 0 0 0 3px hsl(217 83% 55% / .15); }
+.dtr-results { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid hsl(214 32% 91%); }
+.dtr-results h3, .dtr-history h3 { margin: 0; font-size: 15px; }
+.dtr-results > p { margin: 0; font-size: 12.5px; color: hsl(215 16% 47%); }
+.dtr-results textarea { width: 100%; min-height: 70px; box-sizing: border-box; padding: 10px 12px; border: 1px solid hsl(214 32% 85%); border-radius: 10px; font: inherit; font-size: 13px; resize: vertical; }
+.dtr-results label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
+.dtr-result { padding: 12px 14px; border: 1px solid hsl(214 32% 89%); border-radius: 12px; background: #fff; }
+.dtr-result p { margin: 4px 0 0; font-size: 13px; color: hsl(215 19% 35%); }
+.dtr-result-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dtr-result-head strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.dtr-chip { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: hsl(48 100% 94%); color: hsl(32 81% 29%); }
+.dtr-result[data-status="match"] .dtr-chip { background: hsl(142 76% 94%); color: hsl(142 64% 26%); }
+.dtr-result[data-status="differ"] .dtr-chip, .dtr-result[data-status="mismatch"] .dtr-chip { background: hsl(0 86% 96%); color: hsl(0 70% 38%); }
+.dtr-diff { font-weight: 600; color: hsl(222 47% 20%) !important; }
+.dtr-meta { color: hsl(215 16% 47%) !important; }
+.dtr-history { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid hsl(214 32% 91%); }
+.dtr-history details { padding: 10px 12px; border: 1px solid hsl(214 32% 89%); border-radius: 10px; font-size: 13px; }
+.dtr-history summary { cursor: pointer; font-weight: 600; }
+@media (max-width: 640px) { .dtr-review form { padding: 16px; } .dtr-grid thead th, .dtr-grid td { padding: 4px; } }
+@media (prefers-reduced-motion: reduce) { .dtr-review button { transition: none; } }

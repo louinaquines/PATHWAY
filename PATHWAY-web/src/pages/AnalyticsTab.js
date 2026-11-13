@@ -265,7 +265,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                     </td>
                     <td style={s.td}>
                       <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
-                        <summary>Attendance details</summary>
+                        <summary><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span><span className="analytics-att-more">Attendance details</span></summary>
+                        <div className="analytics-att-panel">
                         <span style={{ display: 'block' }}>Risk: {st.riskTier ?? 'Unavailable'} · Data: {st.dataStatus ?? 'Unavailable'}</span>
                         <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
@@ -276,9 +277,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
                         {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
                         {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
+                        </div>
                       </details>
                     </td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
+                    <td style={{ ...s.td, textAlign: 'right' }} className="analytics-status-cell">
                       <span style={{
                         ...s.statusBadge,
                         backgroundColor: st.riskTier === 'High' ? COLORS.rose50 : st.riskTier === 'Medium' ? COLORS.yellow100 : COLORS.sky50,
@@ -287,8 +289,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       }}>
                         Risk: {st.riskTier ?? 'Unavailable'}
                       </span>
-                      <p>Progress: {st.progressStatus ?? 'Unavailable'}</p>
-                      <p>Data: {st.dataStatus ?? 'Unavailable'}</p>
+                      <small className="analytics-status-sub">Progress: {st.progressStatus ?? 'Unavailable'}</small>
+                      <small className="analytics-status-sub">Data: {st.dataStatus ?? 'Unavailable'}</small>
                     </td>
                   </tr>
                 );

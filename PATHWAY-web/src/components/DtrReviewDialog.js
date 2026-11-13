@@ -14,6 +14,14 @@ const comparisonStatusLabels = {
   needs_review: 'Needs review',
 };
 
+const minutesText = value => { const m = Math.abs(Number(value) || 0); const h = Math.floor(m / 60), r = m % 60; return h ? `${h} h${r ? ` ${r} min` : ''}` : `${r} min`; };
+// Positive = Form 48 later than the app record.
+const diffText = (label, value, earlierWord, laterWord) => {
+  const n = Number(value) || 0;
+  if (!n) return `${label} matches`;
+  const word = label === 'Arrival' ? (n < 0 ? 'earlier' : 'later') : (n > 0 ? 'later' : 'earlier');
+  return `${label} ${minutesText(n)} ${word} on Form 48`;
+};
 export default function DtrReviewDialog({ student, onClose }) {
   const dialog = useRef(null);
   const [month, setMonth] = useState('');
@@ -127,9 +135,10 @@ export default function DtrReviewDialog({ student, onClose }) {
     <header><div><h2>Daily Time Record comparison (Form 48)</h2><p>{student.firstName} {student.lastName} · Form 48</p></div>
       <button type="button" aria-label="Close Daily Time Record comparison (Form 48)" onClick={onClose}>×</button></header>
     <form onSubmit={compare}>
-      <p>Enter the times from the document. Use 08:00 or 1:00 PM. Blank fields stay missing. Attendance records will not change.</p>
+      <h3 className="dtr-step"><span>1</span> Load the Form 48</h3>
+      <p className="dtr-hint">Use the student’s submitted file, or import one. Times can be edited below (e.g. 08:00 or 1:00 PM). Attendance records are never changed.</p>
       <label className="dtr-import">Import Form 48 file <input type="file" accept=".xls,.xlsx,.pdf,.png,.jpg,.jpeg" disabled={busy || importing} onChange={importFile} /></label>
-      <button type="button" disabled={busy || importing} onClick={importSubmitted}>Use the student’s submitted Form 48</button>
+      <button type="button" className="dtr-primary-outline" disabled={busy || importing} onClick={importSubmitted}>Use the student’s submitted Form 48</button>
       <label className="dtr-scan-layout">Scan layout <select value={scanCopies} disabled={busy || importing} onChange={event => setScanCopies(Number(event.target.value))}>
         <option value={1}>One copy</option><option value={2}>Two copies side by side</option></select></label>
       <p>Import replaces the entered times after the file is read. Files stay on this device; only reviewed times are sent for comparison. OCR needs an initial engine download and can misread handwriting.</p>
@@ -138,8 +147,9 @@ export default function DtrReviewDialog({ student, onClose }) {
         {importInfo.warnings.map((warning, i) => <p key={i}>{warning}</p>)}
         {scanPreview && <details><summary>View scan</summary>{scanPreview.pdf ? <PdfPreview url={scanPreview.url} /> : <img className="dtr-scan-image" src={scanPreview.url} alt="Original DTR scan for checking extracted times" />}</details>}
         {importInfo.extractedText && <details><summary>Text read from the scan</summary><pre className="dtr-ocr-text">{importInfo.extractedText}</pre></details>}
-        <label><input type="checkbox" checked={reviewed} disabled={importing} onChange={event => setReviewed(event.target.checked)} /> I checked the document month and times in every copy.</label></div>}
-      <label>Document month <input type="month" required min="1900-01" max="2200-12" value={month} onChange={event => {
+        <label className="dtr-confirm"><input type="checkbox" checked={reviewed} disabled={importing} onChange={event => setReviewed(event.target.checked)} /> I checked the document month and times in every copy.</label></div>}
+      <h3 className="dtr-step"><span>2</span> Check the times</h3>
+      <label className="dtr-month">Document month <input type="month" required min="1900-01" max="2200-12" value={month} onChange={event => {
         revision.current++; setMonth(event.target.value); setReviewed(false); setResult(null); setError('');
       }} disabled={importing} /></label>
       {copies.length > 1 && <div className="dtr-copy-controls">{copies.map((_, index) => <button type="button" key={index} aria-pressed={copyIndex === index} onClick={() => setCopyIndex(index)}>Copy {index + 1}</button>)}</div>}
@@ -148,22 +158,22 @@ export default function DtrReviewDialog({ student, onClose }) {
           <td key={field}><input aria-label={`Day ${row.day} ${headings[i]}`} value={row[field] || ''} maxLength={80} disabled={importing}
             onChange={event => change(row.day, field, event.target.value)} /></td>)}</tr>)}</tbody></table></div>
       {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={busy || importing || !month || (importInfo && !reviewed)}>{busy ? 'Comparing…' : 'Compare attendance'}</button>
-      {result && <section aria-label="Comparison results"><h3>Results</h3><p>{result.limitation}</p>
+      <button type="submit" className="dtr-primary" disabled={busy || importing || !month || (importInfo && !reviewed)}>{busy ? 'Comparing…' : 'Compare attendance'}</button>
+      {result && <section aria-label="Comparison results" className="dtr-results"><h3>Results</h3><p>{result.limitation}</p>
         <DocumentAiAssistance studentId={student.id} requirementId="dtr" text={importInfo?.extractedText || ''} sourceVersion={sourceVersion} form={{ year: Number(month.split('-')[0]), month: Number(month.split('-')[1]), copies: copies.map(rows => rows.filter(row => row.day <= days).map(row => ({ ...row, needsReview: row.ocrReview && reviewed ? Boolean(row.reviewFields?.length) : row.needsReview }))) }} />
         <label>Review notes <textarea maxLength={2000} value={notes} disabled={busy} onChange={event => { setNotes(event.target.value); saveId.current = crypto.randomUUID(); setSavedMessage(''); }} /></label>
-        <button type="button" disabled={busy || importing || !sourceVersion || !reviewed || Boolean(savedMessage)} onClick={saveReview}>Save review</button>
+        <button type="button" className="dtr-primary" disabled={busy || importing || !sourceVersion || !reviewed || Boolean(savedMessage)} onClick={saveReview}>Save review</button>
         {!sourceVersion && <p>Use the student’s submitted Form 48 to save a review for that file.</p>}
         {savedMessage && <p role="status">{savedMessage}</p>}
-        {result.results.filter(row => row.status !== 'blank').map(row => <article key={row.date}>
-          <strong>{row.date} — {comparisonStatusLabels[row.status] ?? 'Status unavailable'}</strong>
-          {row.endpointDifferences && <p>Difference from digital record: arrival {row.endpointDifferences.arrival} min; departure {row.endpointDifferences.departure} min.</p>}
-          {row.workedMinutes != null && <p>Time recorded on Form 48: {row.workedMinutes} min.</p>}
+        {result.results.filter(row => row.status !== 'blank').map(row => <article key={row.date} className="dtr-result" data-status={row.status}>
+          <div className="dtr-result-head"><strong>{row.date}</strong><span className="dtr-chip">{comparisonStatusLabels[row.status] ?? 'Status unavailable'}</span></div>
+          {row.endpointDifferences && <p className="dtr-diff">{diffText('Arrival', row.endpointDifferences.arrival, 'earlier', 'later')} · {diffText('Departure', row.endpointDifferences.departure, 'later', 'earlier')}</p>}
+          {row.workedMinutes != null && <p className="dtr-meta">Form 48 total: {minutesText(row.workedMinutes)}</p>}
           {row.issues.map((issue, i) => <p key={i}>{issue}</p>)}</article>)}
         {result.results.every(row => row.status === 'blank') && <p>No DTR times entered.</p>}
         {result.digitalOnlyDates.length > 0 && <p>App attendance dates missing from Form 48: {result.digitalOnlyDates.join(', ')}</p>}
       </section>}
-      <section aria-label="Saved DTR reviews"><h3>Saved reviews</h3>{historyError && <p>{historyError}</p>}
+      <section aria-label="Saved DTR reviews" className="dtr-history"><h3>Saved reviews</h3>{historyError && <p>{historyError}</p>}
         {history.map(item => <details key={item.id}><summary>{item.period} · {new Date(item.createdAt).toLocaleString()}</summary>
           <p>{item.fileName} · Reviewed by {item.coordinatorId}</p><p>{item.notes || 'No notes.'}</p>
           <p>This review reflects the records at the time it was saved.</p>

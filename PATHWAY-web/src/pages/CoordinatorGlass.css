@@ -756,3 +756,21 @@
 .coordinator-page .evaluation-record .evaluation-custom-answers > div:last-child:not(:only-child) p { margin-top: 2px !important; font-weight: 400 !important; white-space: normal; }
 .coordinator-page .evaluation-record h4 + div > span { display: inline; }
 .coordinator-page .evaluation-record h4 + div > span + br + span::before, .coordinator-page .evaluation-record h4 + div > span:nth-of-type(2)::before { content: " · "; }
+
+/* Internship Progress table: compact rows, details open as a floating panel */
+.coordinator-page .analytics-records td { vertical-align: middle !important; }
+.coordinator-page .analytics-attendance-metrics { position: relative; display: inline-block; }
+.coordinator-page .analytics-attendance-metrics > summary { display: inline-flex; align-items: center; gap: 10px; list-style: none; cursor: pointer; font-size: 13px; }
+.coordinator-page .analytics-attendance-metrics > summary::-webkit-details-marker { display: none; }
+.analytics-att-rate { font-weight: 600; color: hsl(222 47% 11%); }
+.analytics-att-more { padding: 3px 10px; border: 1px solid hsl(214 32% 85%); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 600; color: hsl(220 80% 38%); }
+.coordinator-page .analytics-attendance-metrics[open] .analytics-att-more { background: hsl(214 100% 97%); border-color: hsl(214 80% 80%); }
+.analytics-att-panel { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: min(380px, 80vw); display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid hsl(214 32% 89%); border-radius: 14px; background: #fff; box-shadow: 0 18px 40px hsl(222 47% 11% / .16); font-size: 13px; line-height: 1.5; color: hsl(215 19% 35%); text-align: left; }
+.analytics-att-panel small { color: hsl(215 16% 47%); font-size: 12px; }
+.analytics-att-panel button { align-self: flex-start; height: 34px; padding: 0 12px; border: 1px solid hsl(214 32% 85%); border-radius: 9px; background: #fff; color: hsl(220 80% 38%); font-weight: 600; font-size: 13px; cursor: pointer; }
+.analytics-att-panel button:hover { background: hsl(214 100% 97%); }
+.analytics-att-panel textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; border: 1px solid hsl(214 32% 85%); border-radius: 9px; font: inherit; font-size: 13px; }
+.analytics-att-panel > * { margin: 0 !important; }
+.analytics-att-panel details, .analytics-att-panel section, .analytics-att-panel > div { padding: 10px 12px; border: 1px solid hsl(214 32% 91%); border-radius: 10px; background: hsl(210 40% 99%); }
+.analytics-status-cell > span { display: inline-block; }
+.analytics-status-sub { display: block; margin-top: 4px; font-size: 12px; color: hsl(215 16% 47%); }

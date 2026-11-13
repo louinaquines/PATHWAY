@@ -31,6 +31,9 @@ const COMPANIES = [
     supervisorName: 'Mr. Paolo Reyes', supervisorEmail: 'paolo.reyes@cebucreativelabs.ph', role: 'UI/UX Design Intern', arrangement: 'Hybrid', capacity: 3 },
   { key: 'island', name: 'Island Cloud Systems', address: 'A.S. Fortuna St, Mandaue City', industry: 'Cloud Services', phone: '0917 555 0404',
     supervisorName: 'Engr. Liza Fernandez', supervisorEmail: 'liza.fernandez@islandcloud.ph', role: 'Cloud Operations Intern', arrangement: 'Remote', capacity: 3 },
+  { key: 'uclm', name: 'University of Cebu Lapu-Lapu and Mandaue', address: 'A.C. Cortes Avenue, Brgy. Looc, Mandaue City, Cebu', industry: 'Education', phone: '(032) 345 6666',
+    supervisorName: 'Mr. Jonathan Ababa', supervisorEmail: 'ojt.office@uclm-demo.edu.ph', role: 'IT Office Intern', arrangement: 'On-site', capacity: 3,
+    geofence: { enabled: true, latitude: 10.32639, longitude: 123.95472, radiusMeters: 300 } },
 ];
 // stage drives everything: new | docs | proposal | finalReview | deployed | done | cleared | awaiting
 const STUDENTS = [
@@ -54,6 +57,7 @@ const STUDENTS = [
   ['26200018', 'Villanueva', 'Kristine', 'new'],
   ['26200019', 'Navarro', 'Paolo', 'deployed', { company: 'mactan', hours: 96, frequency: 'weekly', atRisk: true, severe: true }],
   ['26200020', 'Yap', 'Christine', 'deployed', { company: 'creative', hours: 120, frequency: 'daily', atRisk: true }],
+  ['26200021', 'Dela Cruz', 'Juan', 'deployed', { company: 'uclm', hours: 160, frequency: 'weekly', geofenceDemo: true }],
 ];
 
 const iso = date => date.toISOString();
@@ -150,7 +154,7 @@ async function seed({ db, auth }) {
     const ref = existing.empty ? db.collection('companies').doc() : existing.docs[0].ref;
     companyIds[c.key] = ref.id;
     await ref.set({ name: c.name, normalizedName: c.name.toLowerCase(), address: c.address, industry: c.industry, email: c.supervisorEmail, phone: c.phone,
-      capacity: c.capacity, active: true, occupiedSlots: 0, availableSlots: c.capacity, geofence: { enabled: false },
+      capacity: c.capacity, active: true, occupiedSlots: 0, availableSlots: c.capacity, geofence: c.geofence || { enabled: false },
       placementDefaults: { supervisorName: c.supervisorName, supervisorEmail: c.supervisorEmail, internshipRole: c.role, workArrangement: c.arrangement, startDate: '', endDate: '' },
       createdBy: coordinatorId, createdAt: iso(daysAgo(50)), updatedBy: coordinatorId, updatedAt: now }, { merge: true });
   }

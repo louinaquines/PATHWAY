@@ -70,7 +70,7 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    const nameOnDocument=result.nameOnDocument||'';
    result=validate({checks:result.checks,findings:result.findings,confidence:0},policy);
    result.nameOnDocument=nameOnDocument;
-  }catch(error){reason=error.code==='POLICY_MISSING'?'policy_missing':error.code==='AI_INPUT'?'unsupported_file':'ai_unavailable';result={checks:[],findings:[reasons[reason]]};}
+  }catch(error){console.warn('Requirement check failed:',claim.job.requirementId,error.code||error.message||'unknown');reason=error.code==='POLICY_MISSING'?'policy_missing':error.code==='AI_INPUT'?'unsupported_file':'ai_unavailable';result={checks:[],findings:[reasons[reason]]};}
   await db.runTransaction(async tx=>{
    const job=(await tx.get(jobRef)).data(),c=await context(tx,claim.job.studentId,claim.job.requirementId),r=c?.student.requirements?.[claim.job.requirementId];
    if(!job||job.state!=='checking'||job.token!==claim.token)return;

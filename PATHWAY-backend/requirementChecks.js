@@ -83,7 +83,8 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    const nameCheck=!reason&&auto&&auto.nameMustMatch!==false?compareStudentName(c.student,result.nameOnDocument):null;
    const failed=key=>result.checks.some(check=>check.key===key&&!check.passed);
    // Green: all checks + name match. Red: wrong person or wrong document. Yellow: everything else. Red is never auto-rejected.
-   const tier=reason?'yellow':nameCheck?.result==='mismatch'||failed('document_type')||failed('reference_match')?'red':status==='checks_passed'&&(!nameCheck||nameCheck.result==='match')?'green':'yellow';
+   const unfilled=failed('blanks_filled')&&failed('signature_presence');
+   const tier=reason?'yellow':nameCheck?.result==='mismatch'||failed('document_type')||failed('reference_match')||unfilled?'red':status==='checks_passed'&&(!nameCheck||nameCheck.result==='match')?'green':'yellow';
    const autoApprove=!!auto&&auto.autoApprove===true&&tier==='green';
    tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove}});
    if(autoApprove)tx.update(c.ref,{[`requirements.${job.requirementId}.status`]:'approved',[`requirements.${job.requirementId}.reviewedBy`]:'system',[`requirements.${job.requirementId}.reviewedAt`]:now,[`requirements.${job.requirementId}.autoApproved`]:true,[`requirements.${job.requirementId}.rejectionReason`]:null});

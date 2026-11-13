@@ -60,6 +60,8 @@ function withAutoCheck(policy, definition = {}) {
   if (!a || a.enabled !== true) return policy;
   const requiredChecks = [...policy.requiredChecks];
   if (a.referenceVersion && !requiredChecks.includes('reference_match')) requiredChecks.push('reference_match');
+  // A reference is a blank template the coordinator uploaded: every blank must be filled and every signature line signed.
+  if (a.referenceVersion && a.templateChecks !== false) for (const key of ['blanks_filled', 'signature_presence']) if (!requiredChecks.includes(key)) requiredChecks.push(key);
   if (Array.isArray(a.requiredPhrases) && a.requiredPhrases.length && !requiredChecks.includes('required_phrases')) requiredChecks.push('required_phrases');
   return { ...policy, requiredChecks, explicit: true };
 }

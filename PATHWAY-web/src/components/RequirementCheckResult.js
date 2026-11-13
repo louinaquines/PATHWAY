@@ -1,5 +1,5 @@
 import './RequirementCheckResult.css';
-const labels={readability:'Readable file',document_type:'Correct document type',student_identity:'Profile details match',required_fields:'Required fields',date_consistency:'Date consistency',signature_presence:'Signature area present',placement_match:'Placement details match',reference_match:'Matches reference file',required_phrases:'Required phrases present'}
+const labels={readability:'Readable file',document_type:'Correct document type',student_identity:'Profile details match',required_fields:'Required fields',date_consistency:'Date consistency',signature_presence:'Signed over printed name',blanks_filled:'All blanks filled in',placement_match:'Placement details match',reference_match:'Matches reference file',required_phrases:'Required phrases present'}
 const tiers={green:'Green',yellow:'Yellow',red:'Red'};
 const nameText={match:'Name matches profile',partial:'Name partly matches — confirm',mismatch:'Name does not match profile',missing:'Name not found on document'};
 const Extra=({review})=><>{review.tier&&<span className={'requirement-tier requirement-tier-'+review.tier}>{tiers[review.tier]}</span>}{review.nameCheck&&<span className="requirement-name-check">{nameText[review.nameCheck.result]}</span>}</>;;

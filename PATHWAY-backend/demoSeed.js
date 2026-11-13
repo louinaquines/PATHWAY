@@ -142,7 +142,9 @@ async function seed({ db, auth }) {
   const sectionRef = db.collection('sections').doc();
   const sectionId = sectionRef.id;
   await sectionRef.set({ name: SECTION.name, department: DEPARTMENT, hoursRequired: SECTION.hoursRequired, messengerLink: 'https://m.me/j/demo-bsit4a',
-    coordinatorId, studentIds: [], createdAt: iso(daysAgo(60)), ...termFields });
+    coordinatorId, studentIds: [], createdAt: iso(daysAgo(60)), ...termFields,
+    // Needed by Progress analytics to compute attendance rate and risk.
+    attendanceSchedule: { startDate: dateKey(daysAgo(18)), deadline: dateKey(daysAgo(-75)), startTime: '08:00', workingDays: [1, 2, 3, 4, 5], exceptions: [] } });
   for (const [i, r] of REQUIREMENTS.entries()) {
     await sectionRef.collection('requirements').doc(r.id).set({ ...r, deadline: r.category === 'Pre-OJT' ? dateKey(daysAgo(-7 + i)) : '', createdAt: iso(daysAgo(60)) });
   }

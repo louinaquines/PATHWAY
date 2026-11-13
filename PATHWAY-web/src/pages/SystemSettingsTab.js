@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
+import DemoSeedCard from '../components/DemoSeedCard';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './AdminConfiguration.css';
 
@@ -72,6 +73,7 @@ export default function SystemSettingsTab() {
     <div style={s.page} className="admin-configuration admin-settings">
       {error   && <div role="alert" style={s.error}>{error}</div>}
       {message && <div role="status" style={s.success}>{message}</div>}
+      <DemoSeedCard />
 
       <form onSubmit={save} style={s.form} className="admin-configuration-form">
         <section className="admin-settings-card">

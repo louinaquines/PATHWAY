@@ -173,3 +173,10 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - `src/sidebarV2.js` + `src/sidebarV2.css`, used by Coordinator and Admin dashboards.
 - Dark navy sidebar, sliding active highlight, foldable groups, collapse to icon rail, live hints under items, section switcher card (coordinator). Admin uses a teal accent, coordinator blue.
 - Footer buttons: Collapse, and "Classic look" to switch back (saved per browser in localStorage). Remove the feature by deleting the `sidebar-v2` class use or reverting this commit.
+
+## Demo data (Nov 14, 2026)
+- `PATHWAY-backend/demoSeed.js`, endpoint `POST /admin/demo-seed` (admin only, needs `DEMO_SEED_ENABLED=1` on Render, body `{ confirm: "RESET DEMO" }`).
+- Admin portal → System Settings shows a "Demo data" card when enabled.
+- Wipes all students and their records (attendance, journals, proposals, endorsements, evaluations, final reviews, AI reviews, messages, announcements, notifications, company emails). Keeps admins, coordinators, sections (emptied) and companies.
+- Creates coordinator `coordinator.demo@pathway-demo.app` / `Demo@2026` (Maria Santos), section BSIT - 4A (486 h), 4 companies, 15 students `uclm-26200001`…`uclm-26200015` / `Demo@2026`.
+- Student stages: new (1 must change password), requirements pending / deficient / almost complete, placement request, final review, 5 deployed (daily & weekly journals, one at-risk, one with sent evaluation), completed with evaluation, cleared, 1 awaiting account approval.

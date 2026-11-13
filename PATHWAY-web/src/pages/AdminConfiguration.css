@@ -178,3 +178,10 @@
  .admin-page:has(.admin-audit) .sidebar-nav-scroll, .admin-page:has(.admin-audit) .sidebar-footer { grid-column:1 / -1; }
  .admin-page:has(.admin-audit) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
 }
+.demo-seed-card { margin-bottom: 16px; border: 1px solid hsl(38 92% 80%) !important; background: hsl(45 100% 98%) !important; }
+.demo-seed-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-top: 12px; }
+.demo-seed-row label { display: grid; gap: 6px; font-size: 13px; color: hsl(215 19% 35%); }
+.demo-seed-row input { height: 40px; padding: 0 12px; border: 1px solid hsl(214 32% 84%); border-radius: 10px; font-size: 14px; }
+.demo-seed-error { color: hsl(0 70% 40%); margin: 10px 0 0; }
+.demo-seed-result { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: hsl(142 76% 95%); color: hsl(142 70% 20%); font-size: 13.5px; }
+.demo-seed-result p { margin: 4px 0 0; }

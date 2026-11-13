@@ -2933,6 +2933,7 @@ require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requir
 require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
 require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 require('./companyEmailRouter').installCompanyEmailRouter({ app, db: adminDb, requireStaff, allowRate, ai: anthropicAnalysis });
+require('./demoSeed').installDemoSeed({ app, db: adminDb, auth: adminAuth, requireAdmin });
 app.post('/refine-logbook', requireUser, async (req, res) => {
   const { notes } = req.body || {};
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required' });

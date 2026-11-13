@@ -63,7 +63,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
       }
       for (let index = 0; index < sources.length; index += 10) await Promise.all(sources.slice(index, index + 10).map(({ id, student }) => assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, id, student, section)));
       await assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, null, null, section);
-      const scoped = students.filter(Boolean), hoursAvailable = scoped.every(s => s.hoursRendered !== null), riskAvailable = scoped.filter(s => s.riskEligible).every(s => s.riskTier !== null);
+      const scoped = students.filter(Boolean), hoursAvailable = scoped.every(s => s.hoursRendered !== null), riskAvailable = scoped.some(s => s.riskEligible && s.riskTier !== null) || !scoped.some(s => s.riskEligible);
       const total = hoursAvailable ? scoped.reduce((sum, s) => sum + s.hoursRendered, 0) : null;
       res.set('Cache-Control', 'private, no-store');
       return res.json({ students: scoped, schedule: section.attendanceSchedule || null, today,

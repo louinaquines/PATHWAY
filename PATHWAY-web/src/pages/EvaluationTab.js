@@ -31,8 +31,12 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     setDeleting(true);
     try {
       await adminRequest('/coordinator/evaluations/' + encodeURIComponent(deleteTarget.id), { method: 'DELETE' });
-      setEvaluations(previous => previous.filter(item => item.id !== deleteTarget.id));
+      const removedId = deleteTarget.id;
+      setEvaluations(previous => previous.filter(item => item.id !== removedId));
+      setPreparedInvitations(previous => previous.filter(item => item.id !== removedId));
+      if (invitation?.id === removedId) { setInvitation(null); setLink(''); }
       setDeleteTarget(null);
+      loadEvaluations().catch(() => {});
     } catch (error) { window.alert(error.message || 'Could not delete this evaluation.'); }
     finally { setDeleting(false); }
   };

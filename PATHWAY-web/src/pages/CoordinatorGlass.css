@@ -680,3 +680,25 @@
 .coordinator-page .requirements-workspace .requirements-student-card { box-sizing: border-box !important; max-width: 100% !important; min-width: 0 !important; }
 .coordinator-page .requirements-workspace .requirements-student-card * { min-width: 0; }
 .coordinator-page .requirements-workspace .student-card-name strong, .coordinator-page .requirements-workspace .student-card-name span { overflow: hidden; text-overflow: ellipsis; }
+
+/* AI bulk actions (Student Requirements) */
+.ai-bulk-bar { margin: 0 16px 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+.ai-bulk-counts { display: flex; gap: 6px; flex-wrap: wrap; }
+.ai-bulk-counts span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.ai-bulk-counts span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.ai-bulk-counts [data-tier="green"] { background: #ecfdf5; color: #047857; }
+.ai-bulk-counts [data-tier="yellow"] { background: #fffbeb; color: #b45309; }
+.ai-bulk-counts [data-tier="red"] { background: #fef2f2; color: #b91c1c; }
+.ai-bulk-actions, .ai-bulk-confirm > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ai-bulk-bar button { height: 36px; border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #dbe3ee; background: #fff; color: #334155; }
+.ai-bulk-bar button:disabled { opacity: .5; cursor: not-allowed; }
+.ai-bulk-bar .ai-bulk-approve { background: #059669; border-color: #059669; color: #fff; }
+.ai-bulk-bar .ai-bulk-approve:hover:not(:disabled) { background: #047857; }
+.ai-bulk-bar .ai-bulk-reject { background: #fff; border-color: #fecaca; color: #b91c1c; }
+.ai-bulk-bar .ai-bulk-reject:hover:not(:disabled) { background: #fef2f2; }
+.ai-bulk-confirm .ai-bulk-reject { background: #dc2626; border-color: #dc2626; color: #fff; }
+.ai-bulk-confirm p { margin: 0; font-size: 13px; font-weight: 600; color: #0f172a; }
+.ai-bulk-confirm { display: flex; flex-direction: column; gap: 8px; }
+.ai-bulk-confirm textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #dbe3ee; border-radius: 9px; font: inherit; font-size: 13px; resize: vertical; }
+.ai-bulk-note { margin: 0; font-size: 12px; color: #64748b; }
+.autocheck-hint { margin: 4px 0 8px; font-size: 12.5px; color: #64748b; }

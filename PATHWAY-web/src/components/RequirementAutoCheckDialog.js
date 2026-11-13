@@ -39,7 +39,7 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
     setSaving(true); setError('');
     try {
       const body = {
-        enabled: !!form.enabled, autoApprove: !!form.enabled && !!form.autoApprove, nameMustMatch: form.nameMustMatch !== false,
+        enabled: !!form.enabled, autoApprove: false, nameMustMatch: form.nameMustMatch !== false,
         requiredPhrases: form.phrasesText.split('\n').map(p => p.trim()).filter(Boolean),
         notes: form.notes || '', removeReference,
         ...(file ? { reference: { fileName: file.name, data: await toBase64(file) } } : {}),
@@ -68,6 +68,7 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
           </label>
           {form.referenceName && !removeReference && !file && <button type="button" className="autocheck-link" onClick={() => setRemoveReference(true)}>Remove reference file</button>}
           <label className="autocheck-toggle"><input type="checkbox" checked={!!form.enabled} onChange={e => set({ enabled: e.target.checked })} /> Auto-check student uploads for this requirement</label>
+          <p className="autocheck-hint">The AI only flags each upload Green, Yellow or Red. Nothing is approved or rejected until you decide.</p>
           <label className="autocheck-toggle"><input type="checkbox" disabled={!form.enabled} checked={form.nameMustMatch !== false} onChange={e => set({ nameMustMatch: e.target.checked })} /> Student's name on the document must match their profile</label>
           <details className="autocheck-advanced"><summary>Advanced options</summary>
             <fieldset disabled={!form.enabled}>
@@ -75,8 +76,6 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
                 <textarea rows={3} value={form.phrasesText} onChange={e => set({ phrasesText: e.target.value })} placeholder={'e.g. Certificate of Registration\nFirst Semester 2026-2027'} /></label>
               <label className="autocheck-field"><span className="autocheck-label">Notes for the checker</span>
                 <textarea rows={2} maxLength={1000} value={form.notes || ''} onChange={e => set({ notes: e.target.value })} placeholder="e.g. Must have the registrar's dry seal area" /></label>
-              <label className="autocheck-toggle autocheck-approve"><input type="checkbox" checked={!!form.autoApprove} onChange={e => set({ autoApprove: e.target.checked })} /> Auto-approve when the result is Green
-                <small>You can undo any automatic approval. Red results are never rejected automatically.</small></label>
             </fieldset>
           </details>
           {error && <p className="autocheck-error" role="alert">{error}</p>}

@@ -2347,7 +2347,7 @@ app.put('/coordinator/sections/:sectionId/requirements/:requirementId/auto-check
       if (!existing.exists) throw Object.assign(new Error('Requirement not found.'), { status: 404 });
       const prev = existing.data().autoCheck || {};
       const now = new Date().toISOString();
-      saved = { enabled, autoApprove: enabled && autoApprove, nameMustMatch, requiredPhrases: requiredPhrases.map(p => p.trim()), notes: notes.trim(),
+      saved = { enabled, autoApprove: false, nameMustMatch, requiredPhrases: requiredPhrases.map(p => p.trim()), notes: notes.trim(),
         referenceVersion: refBytes ? now : removeReference ? null : prev.referenceVersion || null,
         referenceName: refBytes ? reference.fileName.slice(0, 200) : removeReference ? null : prev.referenceName || null,
         updatedAt: now, updatedBy: req.staff.uid };

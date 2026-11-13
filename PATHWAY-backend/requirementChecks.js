@@ -85,7 +85,8 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    // Green: all checks + name match. Red: wrong person or wrong document. Yellow: everything else. Red is never auto-rejected.
    const unfilled=failed('blanks_filled')&&failed('signature_presence');
    const tier=reason?'yellow':nameCheck?.result==='mismatch'||failed('document_type')||failed('reference_match')||unfilled?'red':status==='checks_passed'&&(!nameCheck||nameCheck.result==='match')?'green':'yellow';
-   const autoApprove=!!auto&&auto.autoApprove===true&&tier==='green';
+   // Never auto-approve: the AI only flags Green/Yellow/Red; the coordinator decides.
+   const autoApprove=false;
    tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove}});
    if(autoApprove)tx.update(c.ref,{[`requirements.${job.requirementId}.status`]:'approved',[`requirements.${job.requirementId}.reviewedBy`]:'system',[`requirements.${job.requirementId}.reviewedAt`]:now,[`requirements.${job.requirementId}.autoApproved`]:true,[`requirements.${job.requirementId}.rejectionReason`]:null});
    tx.update(jobRef,{state:'done',completedAt:now});

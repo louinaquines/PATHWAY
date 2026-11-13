@@ -240,6 +240,19 @@ export default function CoordinatorDashboard() {
     if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
+  const [bulkConfirm, setBulkConfirm] = useState(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
+  const tierItems = (list, tier) => (list || []).flatMap(st => Object.entries(st.requirements || {})
+    .filter(([, r]) => r?.status === 'submitted' && r?.autoReview?.tier === tier).map(([reqId]) => ({ studentId: st.id, reqId })));
+  const runBulk = async () => {
+    if (!bulkConfirm) return;
+    const { items, status } = bulkConfirm;
+    setBulkBusy(true);
+    try { for (const item of items) await handleRequirement(item.studentId, item.reqId, status, status === 'rejected' ? bulkReason.trim() : ''); }
+    finally { setBulkBusy(false); setBulkConfirm(null); }
+  };
+
   const handleUndoAutoApproval = async (studentId, reqId) => {
     setSaving(true); setError('');
     try {
@@ -541,6 +554,23 @@ export default function CoordinatorDashboard() {
                       </select>
                     </div>
                   </div>
+                  {(() => {
+                    const greens = tierItems(visibleReviewStudents, 'green'), reds = tierItems(visibleReviewStudents, 'red'), yellows = tierItems(visibleReviewStudents, 'yellow');
+                    if (!greens.length && !reds.length && !yellows.length) return null;
+                    return <div className="ai-bulk-bar" aria-label="AI check results">
+                      <div className="ai-bulk-counts"><span data-tier="green">{greens.length} green</span><span data-tier="yellow">{yellows.length} yellow</span><span data-tier="red">{reds.length} red</span></div>
+                      {bulkConfirm ? <div className="ai-bulk-confirm" role="group" aria-label="Confirm bulk action">
+                        <p>{bulkConfirm.status === 'approved' ? `Approve ${bulkConfirm.items.length} green document${bulkConfirm.items.length === 1 ? '' : 's'}?` : `Reject ${bulkConfirm.items.length} red document${bulkConfirm.items.length === 1 ? '' : 's'}?`}</p>
+                        {bulkConfirm.status === 'rejected' && <textarea aria-label="Reason sent to students" rows={3} value={bulkReason} onChange={e => setBulkReason(e.target.value)} />}
+                        <div><button type="button" className="ai-bulk-cancel" disabled={bulkBusy} onClick={() => setBulkConfirm(null)}>Cancel</button>
+                          <button type="button" className={bulkConfirm.status === 'approved' ? 'ai-bulk-approve' : 'ai-bulk-reject'} disabled={bulkBusy || (bulkConfirm.status === 'rejected' && !bulkReason.trim())} onClick={runBulk}>{bulkBusy ? 'Working…' : 'Confirm'}</button></div>
+                      </div> : <div className="ai-bulk-actions">
+                        <button type="button" className="ai-bulk-approve" disabled={!greens.length || saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve all green</button>
+                        <button type="button" className="ai-bulk-reject" disabled={!reds.length || saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Reject all red</button>
+                      </div>}
+                      {yellows.length > 0 && !bulkConfirm && <p className="ai-bulk-note">Review yellow documents one by one.</p>}
+                    </div>;
+                  })()}
                   {reviewFilter !== 'all' && <div className="requirements-filter-chip">
                     <button type="button" onClick={() => setReviewFilter('all')} aria-label="Clear status filter">
                       {REVIEW_FILTERS.find(([value]) => value === reviewFilter)?.[1]} <Icon name="x" size={13} />

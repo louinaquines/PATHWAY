@@ -421,11 +421,11 @@ export default function CoordinatorDashboard() {
         { id: 'clearance', icon: 'cap' },
     ] },
     { title: 'Placements', items: [
-        { id: 'placements', icon: 'building' },
+        { id: 'placements', icon: 'briefcase' },
         { id: 'companies', icon: 'building' },
     ] },
     { title: 'Students', items: [
-        { id: 'sections', icon: 'section', hint: selectedSection ? `${students.length} students` : null },
+        { id: 'sections', icon: 'users', hint: selectedSection ? `${students.length} students` : null },
         { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true, hint: pendingRegistrations > 0 ? `${pendingRegistrations} to approve` : null },
         { id: 'analytics', icon: 'chart' },
         { id: 'messages', icon: 'chat' },

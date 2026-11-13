@@ -652,3 +652,26 @@
 .coordinator-page .section-list-card[data-selected="true"] { box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
 .coordinator-page .messages-choice[aria-pressed="true"] { box-shadow: none !important; }
 .coordinator-page .requirements-student-card[aria-pressed="true"] { border-left-width: 1px !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
+
+/* Section header v2: actions on the right, group chat editor as a popover */
+.coordinator-page .section-overview { display: flex !important; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px 24px; position: relative; z-index: 5; overflow: visible !important; }
+.coordinator-page .section-overview > div:first-child { flex: 1 1 320px; min-width: 0; }
+.coordinator-page .section-overview > .section-view-toggle { flex: 1 1 100%; }
+.coordinator-page .section-management-actions { position: relative; flex: none; display: flex !important; flex-wrap: nowrap; gap: 10px; }
+.coordinator-page .section-chat-editor { position: relative; }
+.coordinator-page .section-chat-editor[open] > summary { border-color: #3b82f6 !important; color: #1d4ed8 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+.coordinator-page .section-chat-editor > form { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: min(380px, 80vw); display: flex; flex-direction: column; gap: 10px; padding: 16px !important; margin: 0 !important; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 18px 44px rgba(15,23,42,.16); }
+.coordinator-page .section-chat-editor > form label { display: flex !important; flex-direction: column; gap: 6px; margin: 0 !important; font-size: 11px !important; font-weight: 700 !important; letter-spacing: .06em; text-transform: uppercase; color: #64748b !important; }
+.coordinator-page .section-chat-editor > form input { width: 100% !important; height: 42px !important; padding: 0 12px !important; border: 1px solid #dbe3ee !important; border-radius: 10px !important; font-size: 14px !important; text-transform: none; letter-spacing: 0; color: #0f172a; box-sizing: border-box; }
+.coordinator-page .section-chat-editor > form input:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; outline: none; }
+.coordinator-page .section-chat-editor > form button[type="submit"] { align-self: flex-end; height: 38px !important; padding: 0 16px !important; border: 0 !important; border-radius: 10px !important; background: linear-gradient(135deg,#2563eb,#1d4ed8) !important; color: #fff !important; font-size: 13px !important; font-weight: 600 !important; box-shadow: 0 6px 14px rgba(37,99,235,.25) !important; cursor: pointer; margin: 0 !important; width: auto !important; }
+.coordinator-page .section-chat-editor > form p { margin: 0; font-size: 12px; color: #64748b; }
+.coordinator-page .section-chat-editor > summary::before { content: ""; width: 16px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7'/%3E%3Cpath d='M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'/%3E%3C/svg%3E") no-repeat center; }
+.coordinator-page .section-management-actions > button::before { content: ""; width: 16px; height: 16px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M16 3v4M8 3v4M3 11h18'/%3E%3C/svg%3E") no-repeat center; }
+@media (max-width: 760px) { .coordinator-page .section-management-actions { flex-wrap: wrap; } .coordinator-page .section-chat-editor > form { left: 0; right: auto; } }
+/* Internship Progress v3: lock sizes (older rules enlarged every div in the card) */
+.coordinator-page .analytics-group .analytics-metric-card > .analytics-metric-value { font-size: 26px !important; font-weight: 700 !important; line-height: 1.15 !important; color: #0f172a !important; margin: 0 !important; }
+.coordinator-page .analytics-group .analytics-metric-card > .analytics-metric-value.analytics-metric-unavailable { color: #cbd5e1 !important; }
+.coordinator-page .analytics-group .analytics-metric-card > .analytics-metric-label { font-size: 13px !important; font-weight: 500 !important; line-height: 1.4 !important; color: #64748b !important; margin: 0 !important; letter-spacing: 0 !important; text-transform: none !important; }
+.coordinator-page .analytics-group .analytics-metric-card { justify-content: flex-start; }
+.coordinator-page .analytics-group .analytics-metric-icon { margin-bottom: 10px !important; }

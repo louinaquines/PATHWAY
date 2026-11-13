@@ -210,7 +210,9 @@ async function verifyCloudinaryUpload({ req, intentId, publicId, version, respon
   if (!intentSnap.exists) throw Object.assign(new Error('Upload authorization was not found.'), { status: 403 });
   const intent = intentSnap.data();
   if (intent.uid !== req.user.uid || intent.kind !== kind || intent.status !== 'issued'
-    || intent.expiresAt < Date.now() || intent.publicId !== publicId) {
+    || intent.expiresAt < Date.now()
+    // Cloudinary appends the file extension to raw files (e.g. .xlsx/.docx) public IDs.
+    || !(publicId === intent.publicId || (kind !== 'profile' && new RegExp(`^${intent.publicId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.(pdf|docx?|xlsx?)$`, 'i').test(publicId)))) {
     throw Object.assign(new Error('Upload authorization is invalid or expired.'), { status: 403 });
   }
   const expectedSignature = signParams({ public_id: publicId, version }, config.apiSecret);

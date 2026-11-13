@@ -4,6 +4,7 @@ import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSidebarPrefs, SidebarIndicator, GroupTitle, SidebarTools } from '../sidebarV2';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -42,6 +43,7 @@ import './RequirementsWorkspace.css';
 import './CoordinatorProfile.css';
 import './CoordinatorGlass.css';
 import './PortalPolish.css';
+import '../sidebarV2.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -122,6 +124,8 @@ export default function CoordinatorDashboard() {
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterBusy, setRosterBusy] = useState(false);
   const attendanceNavigation = useRef(0);
+  const sidebarPrefs = useSidebarPrefs('coordinator');
+  const navRef = useRef(null);
   const sectionLoad = useRef(0);
   const requirementsActive = activeTab === 'requirements';
   const needsSectionRoster = ['overview', 'requirements', 'profile'].includes(activeTab);
@@ -410,7 +414,7 @@ export default function CoordinatorDashboard() {
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
     { title: 'Reviews', items: [
-        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
+        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true, hint: pendingCount > 0 ? `${pendingCount} to review` : 'All reviewed' },
         { id: 'logbook', icon: 'book' },
         { id: 'evaluations', icon: 'star' },
         { id: 'clearance', icon: 'cap' },
@@ -420,8 +424,8 @@ export default function CoordinatorDashboard() {
         { id: 'companies', icon: 'building' },
     ] },
     { title: 'Students', items: [
-        { id: 'sections', icon: 'section' },
-        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true },
+        { id: 'sections', icon: 'section', hint: selectedSection ? `${students.length} students` : null },
+        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true, hint: pendingRegistrations > 0 ? `${pendingRegistrations} to approve` : null },
         { id: 'analytics', icon: 'chart' },
         { id: 'messages', icon: 'chat' },
         { id: 'notifications', icon: 'bell' },
@@ -429,7 +433,7 @@ export default function CoordinatorDashboard() {
   ];
 
   return (
-    <div style={s.page} className={activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page'}>
+    <div style={s.page} className={(activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page') + sidebarPrefs.rootClass}>
       <ServerWakeNotice />
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
       {/* Sidebar */}
@@ -446,7 +450,18 @@ export default function CoordinatorDashboard() {
           </button>
         </div>
 
-        {coordDept && (
+        {sidebarPrefs.modern && sections.length > 0 && (
+          <label className="sidebar-section-card" title="Switch section">
+            <span className="sidebar-section-icon" aria-hidden="true"><Icon name="section" size={16} /></span>
+            <span className="sidebar-section-text"><small>{coordDept || 'Current section'}</small>
+              <strong>{selectedSection?.name || 'Choose a section'}</strong></span>
+            <select aria-label="Switch section" value={selectedSection?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
+              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+            <Icon name="chevronRight" size={14} className="sidebar-section-chevron" />
+          </label>
+        )}
+        {coordDept && !sidebarPrefs.modern && (
           <div className="coordinator-department" style={s.deptPill}>
             <span style={s.deptText}>{coordDept}</span>
           </div>
@@ -457,11 +472,12 @@ export default function CoordinatorDashboard() {
           onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? 'Close navigation' : 'Open navigation'}
         </button>
-        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
+        <nav ref={navRef} id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
+          {sidebarPrefs.modern && <SidebarIndicator navRef={navRef} activeKey={activeTab} deps={[sidebarPrefs.collapsed, sidebarPrefs.isFolded('Reviews'), sidebarPrefs.isFolded('Placements'), sidebarPrefs.isFolded('Students')]} />}
           {coordNavGroups.map(group => (
-            <div key={group.title} className="sidebar-group">
-              {group.title && <div className="sidebar-group-title">{group.title}</div>}
-              {group.items.map(item => (
+            <div key={group.title} className="sidebar-group" data-folded={sidebarPrefs.isFolded(group.title)}>
+              <GroupTitle prefs={sidebarPrefs} title={group.title} />
+              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id).map(item => (
                 <button
                   type="button"
                   key={item.id}
@@ -472,7 +488,10 @@ export default function CoordinatorDashboard() {
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />
-                    <span className="sidebar-btn-text" title={COORDINATOR_PAGE_TITLES[item.id]}>{NAV_LABELS[item.id] || COORDINATOR_PAGE_TITLES[item.id]}</span>
+                    <span className="sidebar-btn-label">
+                      <span className="sidebar-btn-text" title={COORDINATOR_PAGE_TITLES[item.id]}>{NAV_LABELS[item.id] || COORDINATOR_PAGE_TITLES[item.id]}</span>
+                      {sidebarPrefs.modern && item.hint && <span className="sidebar-btn-hint">{item.hint}</span>}
+                    </span>
                   </span>
                   {item.badge > 0 && (
                     <span className={item.isWarning ? 'sidebar-badge sidebar-badge-warning' : 'sidebar-badge'}>
@@ -486,6 +505,7 @@ export default function CoordinatorDashboard() {
         </nav>
 
         <div className="sidebar-footer">
+          <SidebarTools prefs={sidebarPrefs} />
           <button
             type="button"
             className={activeTab === 'profile' ? 'sidebar-user-pill sidebar-user-pill-active' : 'sidebar-user-pill'}

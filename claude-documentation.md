@@ -168,3 +168,8 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - Endpoints: `GET /coordinator/company-emails`, `POST /coordinator/company-emails/check`, `POST /coordinator/company-emails/:id/read`.
 - Portal: Placements → Company email shows `components/CompanyEmailInbox.js`.
 - Render env needed: `COMPANY_INBOX_ENABLED=1`, `COMPANY_INBOX_MAILBOX`, `COMPANY_INBOX_CLIENT_ID`, `COMPANY_INBOX_CLIENT_SECRET`, `COMPANY_INBOX_REFRESH_TOKEN` (gmail.readonly).
+
+## Sidebar v2 (Nov 14, 2026)
+- `src/sidebarV2.js` + `src/sidebarV2.css`, used by Coordinator and Admin dashboards.
+- Dark navy sidebar, sliding active highlight, foldable groups, collapse to icon rail, live hints under items, section switcher card (coordinator). Admin uses a teal accent, coordinator blue.
+- Footer buttons: Collapse, and "Classic look" to switch back (saved per browser in localStorage). Remove the feature by deleting the `sidebar-v2` class use or reverting this commit.

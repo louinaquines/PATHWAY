@@ -4,7 +4,8 @@ import ServerWakeNotice from '../components/ServerWakeNotice';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
-import { useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { useSidebarPrefs, SidebarIndicator, GroupTitle, SidebarTools } from '../sidebarV2';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -28,6 +29,7 @@ import './CreateCoordinator.css';
 import './AdminProfileNavigation.css';
 import './AdminGlass.css';
 import './PortalPolish.css';
+import '../sidebarV2.css';
 import {
   BarChart, Bar, CartesianGrid, Cell, Legend, Pie, PieChart,
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -245,6 +247,8 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const sidebarPrefs = useSidebarPrefs("admin");
+  const navRef = useRef(null);
   const adminNavGroups = [
     {
       title: 'Overview',
@@ -274,7 +278,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div style={s.page} className={`admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
+    <div style={s.page} className={sidebarPrefs.rootClass.trim() + ` admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
       <ServerWakeNotice />
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
@@ -293,11 +297,12 @@ export default function AdminDashboard() {
           onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? 'Close navigation' : 'Open navigation'}
         </button>
-        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
+        <nav ref={navRef} id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
+          {sidebarPrefs.modern && <SidebarIndicator navRef={navRef} activeKey={activeTab} deps={[sidebarPrefs.collapsed, ...adminNavGroups.map(group => sidebarPrefs.isFolded(group.title))]} />}
           {adminNavGroups.map(group => (
-            <div key={group.title} className="sidebar-group">
-              {group.title && <div className="sidebar-group-title">{group.title}</div>}
-              {group.items.map(item => (
+            <div key={group.title} className="sidebar-group" data-folded={sidebarPrefs.isFolded(group.title)}>
+              <GroupTitle prefs={sidebarPrefs} title={group.title} />
+              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id).map(item => (
                 <button
                   type="button"
                   key={item.id}
@@ -319,6 +324,7 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="sidebar-footer">
+          <SidebarTools prefs={sidebarPrefs} />
           <button
             type="button"
             className={activeTab === 'profile' ? 'sidebar-user-pill sidebar-user-pill-active' : 'sidebar-user-pill'}

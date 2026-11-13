@@ -67,6 +67,8 @@ function installStudentJournalSubmission({ app, db, requireUser, allowRate, asse
         let current, nextWeek;
         if (b.entryId) {
           const snap = await tx.get(entryRef); current = snap.exists && snap.data();
+          // A returned entry must actually be revised before resubmission.
+          if (current && current.status === 'rejected' && String(current.rawNotes || '').trim() === b.rawNotes.trim()) throw problem(400, 'Edit your journal to address the coordinator feedback before resubmitting.');
           if (!current || current.status !== (b.submitDraft ? 'draft' : 'rejected') || (current.sourceRevision ?? 0) !== b.expectedRevision
             || digest(sourceFields.map(key => current[key] ?? null)) !== digest(sourceFields.map(key => b.expectedSource[key]))) throw problem(409, 'This entry changed or is no longer available for revision. Reopen Logbook.');
         } else {

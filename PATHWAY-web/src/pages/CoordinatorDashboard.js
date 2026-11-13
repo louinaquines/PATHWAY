@@ -17,7 +17,7 @@ import AnalyticsTab from './AnalyticsTab';
 import NotificationsTab from './NotificationsTab';
 import EvaluationTab from './EvaluationTab';
 import ClearanceTab from './ClearanceTab';
-import CoordinatorOverview from './CoordinatorOverview';
+import CoordinatorOverview, { OverviewSkeleton } from './CoordinatorOverview';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
@@ -570,7 +570,7 @@ export default function CoordinatorDashboard() {
         {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
-          <PageSkeleton label="Loading coordinator data" variant="three-column" />
+          activeTab === 'overview' ? <OverviewSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
             <CoordinatorProfileTab
@@ -583,7 +583,7 @@ export default function CoordinatorDashboard() {
         ) : (
           <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
             {activeTab === 'overview' && (selectedSection && loadedSectionId !== selectedSection.id + ':roster'
-              ? !error && <PageSkeleton label="Loading section overview" />
+              ? !error && <OverviewSkeleton />
               : <CoordinatorOverview key={selectedSection?.id} section={selectedSection} students={students}
                   requirementsCount={reviewQueue.length} onOpen={(tab, view, pendingStudentIds) => navigate('/coordinator/' + tab, {
                     state: { sectionId: selectedSection.id, view, ...(view === 'journals' ? { pendingStudentIds } : {}) },

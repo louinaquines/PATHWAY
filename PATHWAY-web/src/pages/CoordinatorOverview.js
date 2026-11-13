@@ -68,7 +68,7 @@ export default function CoordinatorOverview({ section, students, requirementsCou
     description="Your dashboard fills in once you have a section with students."
     steps={['Create a section in Sections & Students', 'Add or approve students in it', 'Come back here to see progress and alerts']}
     action={{ label: 'Go to Sections & Students', onClick: () => { window.location.assign('/coordinator/sections'); } }} />;
-  if (summary?.sectionId !== section.id) return <PageSkeleton label="Loading overview" />;
+  if (summary?.sectionId !== section.id) return <OverviewSkeleton />;
   const tasks = [
     ['requirements', 'requirements', 'Review requirements', requirementsCount, 'students', 'clipboard'],
     ['placements', 'assign', 'Assign companies', summary.waitingCount, 'students', 'building'],
@@ -174,4 +174,36 @@ function SectionCharts({ students, section, children }) {
         </ol>}
     </section>
   </div>;
+}
+
+// Loading state shaped like the dashboard: 5 metric cards, two equal cards, 4 progress steps.
+export function OverviewSkeleton() {
+  const line = (width, height = 12) => <span className="cdash-skel" style={{ width, height }} />;
+  return <section className="coordinator-overview cdash" aria-busy="true" aria-label="Loading section overview">
+    <div className="cdash-body">
+      <div className="cdash-metrics">
+        {[0, 1, 2, 3, 4].map(key => <div key={key} className="cdash-metric cdash-skel-card">
+          <div className="cdash-skel-row">{line(40, 40)}{line('55%', 14)}</div>
+          {line(56, 30)}{line('100%', 6)}{line('60%', 11)}
+        </div>)}
+      </div>
+      <div className="cdash-columns">
+        <div className="cdash-card cdash-skel-card">
+          {line(150, 18)}{line(190, 12)}
+          <div className="cdash-skel-tasks">{[0, 1, 2, 3, 4].map(key => <span key={key} className="cdash-skel" style={{ height: 76 }} />)}</div>
+        </div>
+        <div className="cdash-card cdash-skel-card">
+          {line('75%', 18)}{line('60%', 12)}
+          <div className="cdash-skel-row" style={{ gap: 24, marginTop: 10 }}>
+            <span className="cdash-skel" style={{ width: 190, height: 190, borderRadius: '50%', flex: 'none' }} />
+            <div style={{ flex: 1, display: 'grid', gap: 12 }}>{[0, 1, 2, 3].map(key => <span key={key} className="cdash-skel" style={{ height: 40 }} />)}</div>
+          </div>
+        </div>
+      </div>
+      <div className="cdash-card cdash-skel-card">
+        {line(180, 18)}{line(260, 12)}
+        <div className="cdash-skel-steps">{[0, 1, 2, 3].map(key => <span key={key} className="cdash-skel" style={{ height: 110 }} />)}</div>
+      </div>
+    </div>
+  </section>;
 }

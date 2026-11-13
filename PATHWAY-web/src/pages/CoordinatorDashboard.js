@@ -387,15 +387,17 @@ export default function CoordinatorDashboard() {
     return () => { active = false; };
   }, [reviewReady, reviewScope, reviewCursor, sectionRequirements]);
 
+  // Short sidebar labels; full names stay as page titles and accessible names.
+  const NAV_LABELS = { overview: 'Dashboard', requirements: 'Requirements', logbook: 'Attendance & Journals', evaluations: 'Evaluations', clearance: 'Clearance', placements: 'Placements', companies: 'Companies', sections: 'Sections', registrations: 'Accounts', analytics: 'Progress', messages: 'Messages', notifications: 'Announcements' };
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
-    { title: 'Student reviews', items: [
+    { title: 'Reviews', items: [
         { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
         { id: 'logbook', icon: 'book' },
         { id: 'evaluations', icon: 'star' },
         { id: 'clearance', icon: 'cap' },
     ] },
-    { title: 'Internship placements', items: [
+    { title: 'Placements', items: [
         { id: 'placements', icon: 'building' },
         { id: 'companies', icon: 'building' },
     ] },
@@ -445,11 +447,12 @@ export default function CoordinatorDashboard() {
                   key={item.id}
                   className={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
                   onClick={() => setActiveTab(item.id)}
+                  aria-label={COORDINATOR_PAGE_TITLES[item.id]}
                   aria-current={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'page' : undefined}
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />
-                    <span className="sidebar-btn-text">{COORDINATOR_PAGE_TITLES[item.id]}</span>
+                    <span className="sidebar-btn-text" title={COORDINATOR_PAGE_TITLES[item.id]}>{NAV_LABELS[item.id] || COORDINATOR_PAGE_TITLES[item.id]}</span>
                   </span>
                   {item.badge > 0 && (
                     <span className={item.isWarning ? 'sidebar-badge sidebar-badge-warning' : 'sidebar-badge'}>

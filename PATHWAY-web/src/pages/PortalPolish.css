@@ -270,3 +270,18 @@
 .coordinator-page .requirements-students .portal-record-pagination button { width: 28px !important; height: 28px !important; min-height: 28px !important; background: none !important; border: 0 !important; box-shadow: none !important; color: hsl(215 25% 35%) !important; border-radius: 6px !important; }
 .coordinator-page .requirements-students .portal-record-pagination button:hover:not(:disabled) { background: hsl(214 32% 94%) !important; }
 .coordinator-page .requirements-students .portal-record-pagination button:disabled { opacity: .35; }
+
+/* Requirements table: fixed column grid + consistent alignment */
+.coordinator-page .req-table { table-layout: fixed !important; width: 100% !important; min-width: 860px; }
+.coordinator-page .req-table th, .coordinator-page .req-table td { vertical-align: middle !important; padding: 14px 12px !important; }
+.coordinator-page .req-table th:nth-child(1), .coordinator-page .req-table td:nth-child(1) { width: 44px; text-align: center !important; white-space: nowrap; padding-left: 16px !important; padding-right: 4px !important; font-variant-numeric: tabular-nums; }
+.coordinator-page .req-table th:nth-child(2) { width: 27%; }
+.coordinator-page .req-table th:nth-child(3) { width: 130px; }
+.coordinator-page .req-table th:nth-child(5) { width: 128px; }
+.coordinator-page .req-table th:nth-child(6) { width: 208px; }
+.coordinator-page .req-table td:nth-child(3), .coordinator-page .req-table td:nth-child(5) { white-space: nowrap; }
+.coordinator-page .req-table td.req-findings { overflow-wrap: anywhere; }
+.coordinator-page .req-table td.req-actions { white-space: nowrap; text-align: right !important; padding-right: 16px !important; }
+.coordinator-page .req-table td.req-actions > * { vertical-align: middle; }
+.coordinator-page .req-table td.req-actions .req-approve, .coordinator-page .req-table td.req-actions .req-reject { height: 32px !important; padding: 0 12px !important; font-size: 12.5px !important; }
+.coordinator-page .req-table-wrap { overflow-x: auto; }

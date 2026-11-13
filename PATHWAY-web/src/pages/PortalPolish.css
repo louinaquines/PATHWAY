@@ -285,3 +285,18 @@
 .coordinator-page .req-table td.req-actions > * { vertical-align: middle; }
 .coordinator-page .req-table td.req-actions .req-approve, .coordinator-page .req-table td.req-actions .req-reject { height: 32px !important; padding: 0 12px !important; font-size: 12.5px !important; }
 .coordinator-page .req-table-wrap { overflow-x: auto; }
+
+/* Stage filter: custom face over an invisible native select (immune to global select styles) */
+.coordinator-page .req-phase-filter { position: relative; display: inline-flex; margin-left: auto; }
+.coordinator-page .req-phase-face { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid hsl(214 32% 88%); background: #fff; color: hsl(215 25% 27%); font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap; pointer-events: none; }
+.coordinator-page .req-phase-face svg { color: hsl(215 16% 47%); }
+.coordinator-page .req-phase-filter:hover .req-phase-face { border-color: hsl(214 32% 78%); background: hsl(210 40% 97%); }
+.coordinator-page .req-phase-filter:focus-within .req-phase-face { border-color: hsl(217 91% 60%); box-shadow: 0 0 0 3px hsl(217 91% 60% / .15); }
+.coordinator-page .req-phase-filter select { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; min-height: 0 !important; padding: 0 !important; margin: 0 !important; opacity: 0 !important; cursor: pointer; }
+
+/* Bulk toolbar: force one line */
+.coordinator-page .ai-bulk-bar { flex-wrap: nowrap !important; }
+.coordinator-page .ai-bulk-bar > * { margin: 0 !important; }
+.coordinator-page .ai-bulk-actions { width: auto !important; flex: 0 0 auto !important; flex-wrap: nowrap !important; margin-left: auto !important; }
+.coordinator-page .ai-bulk-actions button { white-space: nowrap; padding: 2px 6px !important; line-height: 1.4 !important; }
+.coordinator-page .ai-bulk-bar:has(.ai-bulk-confirm) { flex-wrap: wrap !important; }

@@ -743,7 +743,7 @@ export default function CoordinatorDashboard() {
                               <button key={value} type="button" data-tone={value} aria-pressed={docFilter === value} onClick={() => setDocFilter(value)}>
                                 {value !== 'all' && <i aria-hidden="true" />}{label}</button>)}
                             <label className="req-phase-filter">
-                              <span className="sr-only">Requirement stage</span>
+                              <span className="req-phase-face" aria-hidden="true">{phaseFilter === 'all' ? 'All stages' : phaseFilter}<Icon name="chevronDown" size={13} /></span>
                               <select value={phaseFilter} onChange={event => setPhaseFilter(event.target.value)} aria-label="Filter by requirement stage">
                                 <option value="all">All stages</option>
                                 {REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => requirementCategory(row.category) === 'Other')).map(cat => <option key={cat} value={cat}>{cat} ({rows.filter(row => requirementCategory(row.category) === cat).length})</option>)}

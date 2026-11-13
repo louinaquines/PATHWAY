@@ -29,6 +29,7 @@ const PATHS = {
   search: 'm21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',
   chevronLeft: 'm15 18-6-6 6-6',
   chevronRight: 'm9 18 6-6-6-6',
+  chevronDown: 'm6 9 6 6 6-6',
   megaphone: 'm3 11 18-5v12L3 13v-2Zm0 0v2m4 1 1.5 5H12l-2-4.17',
   clock: 'M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
   mail: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 1 8 6 8-6',

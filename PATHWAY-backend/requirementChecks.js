@@ -40,9 +40,12 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
   const coordinator=candidate?(await tx.get(db.collection('users').doc(candidate))).data():null;
   const coordinatorId=coordinator?.role==='coordinator'&&coordinator.department===student.department&&coordinator.disabled!==true&&coordinator.accountApproved===true?candidate:null;
   const reason=!coordinatorId?'assignment_changed':requirement.aiReviewConsent!==true?'consent_required':!enabled()?'ai_unavailable':null;
-  if(reason){notices(tx,jobId,studentId,coordinatorId,'needs_review');return {status:'needs_review',reason,findings:[reasons[reason]],checks:[],advisoryOnly:true};}
+  // Reset the coordinator-only result for this new upload so an older result is never shown.
+  const reviewRef=db.collection('requirementReviews').doc(`${studentId}__${requirementId}`),base={studentId,requirementId,sectionId:student.sectionId||'',reviewedAt:new Date(clock()).toISOString(),advisoryOnly:true};
+  if(reason){notices(tx,jobId,studentId,coordinatorId,'needs_review');tx.set(reviewRef,{...base,status:'needs_review',reason,findings:[reasons[reason]],checks:[]});console.warn('Requirement check skipped:',requirementId,reason);return {status:'needs_review',advisoryOnly:true};}
+  tx.set(reviewRef,{...base,status:'queued',findings:[],checks:[]});
   tx.create(jobs.doc(jobId),{studentId,requirementId,fingerprint:key,state:'queued',attempts:0,createdAt:new Date(clock()).toISOString()});
-  return {status:'queued',checks:[],findings:[],advisoryOnly:true};
+  return {status:'queued',advisoryOnly:true};
  }
  async function processJob(jobRef){
   const claim=await db.runTransaction(async tx=>{

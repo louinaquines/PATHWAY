@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { collection, getCountFromServer, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { canAssignPlacement, hoursProgressDistribution, isReadyForClearance } from '../coordinatorOverviewData';
@@ -12,11 +12,12 @@ import './CoordinatorOverview.css';
 async function countPendingJournals(students, isCurrent) {
   const pendingStudentIds = [];
   let journalCount = 0;
-  for (let offset = 0; offset < students.length && isCurrent(); offset += 10) {
-    const batch = students.slice(offset, offset + 10);
+  // Small sequential batches of plain reads: bursts of count queries get rate-limited (429) on the free plan.
+  for (let offset = 0; offset < students.length && isCurrent(); offset += 4) {
+    const batch = students.slice(offset, offset + 4);
     const counts = await Promise.all(batch.map(async student => {
-      const result = await getCountFromServer(query(collection(db, 'users', student.id, 'logbook'), where('status', '==', 'pending')));
-      return result.data().count;
+      const result = await getDocs(query(collection(db, 'users', student.id, 'logbook'), where('status', '==', 'pending')));
+      return result.size;
     }));
     counts.forEach((count, index) => {
       journalCount += count;

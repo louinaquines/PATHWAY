@@ -725,3 +725,6 @@
 .coordinator-page .logbook-roster tbody td button:not([data-empty="true"]) { background: #eff6ff !important; border-color: #bfdbfe !important; color: #1d4ed8 !important; }
 .coordinator-page .logbook-roster tbody td button svg { flex: none; opacity: .7; }
 .coordinator-page .logbook-roster .logbook-avatar { width: 30px; height: 30px; font-size: 11px; }
+/* Attendance & Journals v3: fixed-width pills so every chevron lines up */
+.coordinator-page .logbook-roster tbody td button { width: 180px !important; max-width: 100%; justify-content: space-between !important; box-sizing: border-box !important; }
+.coordinator-page .logbook-roster tbody td button span { overflow: hidden; text-overflow: ellipsis; min-width: 0; text-align: left; }

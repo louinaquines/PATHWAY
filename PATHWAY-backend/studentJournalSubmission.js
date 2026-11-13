@@ -1,3 +1,5 @@
+const MIN_JOURNAL_WORDS = { daily: 50, weekly: 150 };
+const countWords = text => (String(text || '').trim().match(/\S+/g) || []).length;
 const { validId, digest, problem, assertFreshStudent, consentValue } = require('./workplaceJournalConsent');
 const sourceFields = ['rawNotes', 'refined', 'aiRefined', 'hours', 'reviewedAt'];
 function validExpectedSource(value) {
@@ -51,6 +53,10 @@ function installStudentJournalSubmission({ app, db, requireUser, allowRate, asse
         {
           const settingsSnap = await tx.get(settingsRef(db, profile.department));
           if (!periodAware && settingsSnap.exists) throw problem(409, 'Update PATHWAY to submit journals using your department settings.');
+          // Minimum length: weekly journals need more detail than daily ones.
+          const minFrequency = settingsValue(settingsSnap.exists ? settingsSnap.data() : null).frequency === 'daily' ? 'daily' : 'weekly';
+          const minWords = minFrequency === 'daily' ? MIN_JOURNAL_WORDS.daily : MIN_JOURNAL_WORDS.weekly;
+          if (countWords(b.rawNotes) < minWords) throw problem(400, `A ${minFrequency} journal needs at least ${minWords} words. Add more detail about your tasks and what you learned.`);
           if (periodAware && (!b.entryId || b.submitDraft)) {
             const settings = settingsValue(settingsSnap.exists ? settingsSnap.data() : null);
             period = journalPeriod(settings.frequency, now);

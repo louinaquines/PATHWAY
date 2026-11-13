@@ -8,7 +8,12 @@ const ID = /^[A-Za-z0-9_-]{1,128}$/;
 const emailOf = value => (String(value || '').match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/) || [''])[0].toLowerCase();
 const nameOf = value => String(value || '').replace(/<[^>]*>/g, '').replace(/"/g, '').trim();
 
-function inboxConfig(env) {
+function inboxConfig(source) {
+  // Reuse the sending Gmail client when no separate inbox client is set.
+  const env = { ...source,
+    COMPANY_INBOX_MAILBOX: source.COMPANY_INBOX_MAILBOX || source.GMAIL_FROM,
+    COMPANY_INBOX_CLIENT_ID: source.COMPANY_INBOX_CLIENT_ID || source.GMAIL_CLIENT_ID,
+    COMPANY_INBOX_CLIENT_SECRET: source.COMPANY_INBOX_CLIENT_SECRET || source.GMAIL_CLIENT_SECRET };
   if (env.COMPANY_INBOX_ENABLED !== '1' || !env.COMPANY_INBOX_MAILBOX || !env.COMPANY_INBOX_CLIENT_ID
     || !env.COMPANY_INBOX_CLIENT_SECRET || !env.COMPANY_INBOX_REFRESH_TOKEN) return null;
   return env;

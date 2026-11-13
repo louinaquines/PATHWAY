@@ -2932,6 +2932,7 @@ if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATO
 require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
 require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
+require('./companyEmailRouter').installCompanyEmailRouter({ app, db: adminDb, requireStaff, allowRate, ai: anthropicAnalysis });
 app.post('/refine-logbook', requireUser, async (req, res) => {
   const { notes } = req.body || {};
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required' });

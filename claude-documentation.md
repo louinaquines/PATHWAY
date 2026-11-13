@@ -160,3 +160,11 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - Accounts: kept (approval gate), card fills the page.
 - Company email: clearer copy; inbox still needs Gmail read access configured on Render.
 - 24 web tests still expect the old name order / labels and need updating.
+
+## Company email inbox (Nov 14, 2026)
+- One shared mailbox (`pathwaysystem2@gmail.com`) for sending and receiving.
+- `PATHWAY-backend/companyEmailRouter.js` checks the inbox every 3 minutes (read-only Gmail), stores each new email in `companyEmails`, and routes it: sender address → company (`email` or `placementDefaults.supervisorEmail`) → placed students → sections → coordinators. Unmatched emails keep `matched: false`.
+- Claude writes a 2-sentence summary and a suggested next step (`summarizeEmail` in `anthropicAnalysis.js`); each routed coordinator gets a bell notification.
+- Endpoints: `GET /coordinator/company-emails`, `POST /coordinator/company-emails/check`, `POST /coordinator/company-emails/:id/read`.
+- Portal: Placements → Company email shows `components/CompanyEmailInbox.js`.
+- Render env needed: `COMPANY_INBOX_ENABLED=1`, `COMPANY_INBOX_MAILBOX`, `COMPANY_INBOX_CLIENT_ID`, `COMPANY_INBOX_CLIENT_SECRET`, `COMPANY_INBOX_REFRESH_TOKEN` (gmail.readonly).

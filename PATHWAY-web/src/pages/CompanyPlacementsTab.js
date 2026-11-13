@@ -1,5 +1,6 @@
 import personName from '../personName';
 import PlacementPicker from '../components/PlacementPicker';
+import CompanyEmailInbox from '../components/CompanyEmailInbox';
 import * as adminApi from '../adminApi';
 import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
 import { compareStudents } from '../coordinatorStudentSort';
@@ -16,7 +17,6 @@ import AlertDialog from '../components/AlertDialog';
 import EndorsementDraftDialog from '../components/EndorsementDraftDialog';
 import { adminRequest } from '../adminApi';
 import PlacementCompanies from '../components/PlacementCompanies';
-import CompanyConversations from '../components/CompanyConversations';
 import './PlacementReviews.css';
 import Icon from '../components/Icons';
 
@@ -531,7 +531,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </PortalFormDialog>}
     </div>
     {workspace === 'reviews' && <footer className="placement-list-footer"><span>{queueRows.length} students on this page</span><nav aria-label="Placement students pagination"><button className="portal-secondary" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button className="portal-secondary" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav></footer>}
-    {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyConversations sectionId={selectedSection?.id}/></div></PortalFormDialog>}
+    {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyEmailInbox /></div></PortalFormDialog>}
     <AlertDialog
       open={Boolean(reviewConfirm)}
       tone={reviewConfirm?.status === 'approved' ? 'warning' : 'danger'}

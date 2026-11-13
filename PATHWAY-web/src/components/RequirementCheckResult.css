@@ -12,3 +12,24 @@
 .requirement-tier-yellow{background:#fef9c3;color:#854d0e}
 .requirement-tier-red{background:#fee2e2;color:#991b1b}
 .requirement-name-check{display:inline-block;font-size:11px;margin-right:6px;color:#334155}
+
+/* Unified AI result (coordinator) */
+.ai-result { padding: 12px 14px !important; border-radius: 12px !important; border: 1px solid; }
+.ai-result-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.ai-result-head strong { font-size: 13.5px; font-weight: 700; }
+.ai-result-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.ai-result-tag { margin-left: auto; font-size: 11px; font-weight: 600; opacity: .7; }
+.ai-result-note { margin: 6px 0 0 !important; font-size: 12.5px !important; }
+.ai-result-findings { margin: 8px 0 0 !important; padding-left: 18px !important; font-size: 13px; line-height: 1.5; }
+.ai-result-findings li + li { margin-top: 3px; }
+.ai-result details { margin-top: 8px; }
+.ai-result details > summary { min-height: 0 !important; font-size: 12.5px !important; font-weight: 600 !important; text-decoration: underline; cursor: pointer; display: list-item !important; }
+.ai-result-checks li[data-passed="false"] strong { color: #b91c1c; }
+.ai-result-green { background: #f0fdf4 !important; border-color: #bbf7d0 !important; color: #166534 !important; }
+.ai-result-yellow { background: #fffbeb !important; border-color: #fde68a !important; color: #92400e !important; }
+.ai-result-red { background: #fef2f2 !important; border-color: #fecaca !important; color: #991b1b !important; }
+.ai-result-pending { background: #eff6ff !important; border-color: #bfdbfe !important; color: #1e40af !important; }
+.ai-result-neutral { background: #f8fafc !important; border-color: #e2e8f0 !important; color: #475569 !important; }
+.ai-result-pending .ai-result-dot { animation: ai-pulse 1.2s ease-in-out infinite; }
+@keyframes ai-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .ai-result-pending .ai-result-dot { animation: none; } }

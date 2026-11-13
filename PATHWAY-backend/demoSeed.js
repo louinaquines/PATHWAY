@@ -52,6 +52,8 @@ const STUDENTS = [
   ['26200016', 'Lim', 'Sofia', 'new'],
   ['26200017', 'Tan', 'Marco', 'new'],
   ['26200018', 'Villanueva', 'Kristine', 'new'],
+  ['26200019', 'Navarro', 'Paolo', 'deployed', { company: 'mactan', hours: 96, frequency: 'weekly', atRisk: true, severe: true }],
+  ['26200020', 'Yap', 'Christine', 'deployed', { company: 'creative', hours: 120, frequency: 'daily', atRisk: true }],
 ];
 
 const iso = date => date.toISOString();
@@ -220,6 +222,7 @@ async function seed({ db, auth }) {
         const day = daysAgo(n);
         if ([0, 6].includes(weekday(day))) continue;
         if (opts.atRisk && n % 3 === 0) continue;
+        if (opts.severe && n % 2 === 1) continue;
         if (n === 0 && idNumber !== '26200008') continue; // leave today free so students can time in live
         const date = dateKey(day);
         const timeIn = daysAgo(n, 8); timeIn.setUTCMinutes(opts.atRisk && n % 2 ? 25 : 2);

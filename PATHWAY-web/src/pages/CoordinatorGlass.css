@@ -715,3 +715,13 @@
 .placement-skeleton-rows > div { display: grid; grid-template-columns: 1fr 2fr 2fr 1.5fr; gap: 20px; padding: 18px 20px; border-bottom: 1px solid rgba(226,232,240,.8); }
 .placement-skeleton-rows span { height: 14px; }
 @media (prefers-reduced-motion: reduce) { .placement-skeleton-number, .placement-skeleton-rows span, .placement-spinner { animation: none; } }
+
+/* Attendance & Journals v2: compact single-line record buttons */
+.coordinator-page .logbook-roster tbody td, .coordinator-page .logbook-roster tbody th { padding: 10px 20px !important; vertical-align: middle; }
+.coordinator-page .logbook-roster tbody td button { min-height: 0 !important; height: 32px !important; padding: 0 8px 0 12px !important; white-space: nowrap !important; gap: 4px !important; font-size: 13px !important; line-height: 1 !important; border-radius: 999px !important; }
+.coordinator-page .logbook-roster tbody td button span { white-space: nowrap !important; }
+.coordinator-page .logbook-roster tbody td button[data-empty="true"] { background: #f8fafc !important; border-color: #e2e8f0 !important; color: #64748b !important; font-weight: 500 !important; }
+.coordinator-page .logbook-roster tbody td button[data-empty="true"]:hover { background: #f1f5f9 !important; color: #334155 !important; }
+.coordinator-page .logbook-roster tbody td button:not([data-empty="true"]) { background: #eff6ff !important; border-color: #bfdbfe !important; color: #1d4ed8 !important; }
+.coordinator-page .logbook-roster tbody td button svg { flex: none; opacity: .7; }
+.coordinator-page .logbook-roster .logbook-avatar { width: 30px; height: 30px; font-size: 11px; }

@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { completedHoursSummary } from '../completedHoursSummary';
 import ServerWakeNotice from '../components/ServerWakeNotice';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
@@ -149,7 +150,7 @@ export default function AdminDashboard() {
     ...pending.slice(0, 3).map(student => ({
       key: `pending-${student.id}`,
       icon: 'user',
-      title: `New registration from ${`${student.firstName || ''} ${student.lastName || ''}`.trim() || 'a student'}`,
+      title: `New registration from ${personName(student) || 'a student'}`,
       detail: 'Student account needs approval',
       time: 'Needs review',
       action: () => { setNotificationOpen(false); setDepartmentFilter(student.department || ''); setSectionFilter(student.sectionId || 'all'); setActiveTab('students'); },
@@ -198,9 +199,9 @@ export default function AdminDashboard() {
         type: 'Student',
         targetTab: 'students',
         sectionId: student.sectionId || 'all',
-        title: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed student',
+        title: personName(student) || 'Unnamed student',
         detail: [student.idNumber, student.email].filter(Boolean).join(' · '),
-        value: `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.email || '',
+        value: personName(student) || student.idNumber || student.email || '',
         icon: 'user',
       })),
     ...departmentSections
@@ -228,7 +229,7 @@ export default function AdminDashboard() {
   const exportDashboard = () => {
     const header = ['Name', 'Student ID', 'Email', 'Department', 'Account Status', 'Registered'];
     const rows = filteredDashboardStudents.map(student => [
-      `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      personName(student),
       student.idNumber || '',
       student.email || '',
       student.department || '',
@@ -1265,7 +1266,7 @@ function ChartEmpty({ message }) {
 
 function CoordinatorActions({ user, saving, onToggle, onDelete }) {
   const menuId = 'coordinator-actions-' + user.id;
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const name = personName(user);
 
   function positionMenu(event) {
     const trigger = event.currentTarget.getBoundingClientRect();
@@ -1317,7 +1318,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
       {removeError && <div role="alert">{removeError}</div>}
       <AlertDialog open={Boolean(remove)} title="Delete coordinator account?" description={remove ? `Delete sign-in access for ${[remove.firstName,remove.lastName].filter(Boolean).join(' ')}? This cannot be undone. Historical records remain. Reassign all sections first.` : ''} confirmLabel="Delete coordinator" busy={removing} onCancel={()=>setRemove(null)} onConfirm={async()=>{setRemoving(true);setRemoveError('');try{await onDelete(remove.id);setRemove(null);}catch(e){setRemoveError(e.message);}finally{setRemoving(false);}}} />
       <AlertDialog open={Boolean(deactivate)} title={deactivate?.accountApproved ? "Deactivate account?" : "Activate account?"}
-        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + ([deactivate.firstName, deactivate.lastName].filter(Boolean).join(' ') || deactivate.username || 'this student') + '?' : ''}
+        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + (personName(deactivate) || deactivate.username || 'this student') + '?' : ''}
         confirmLabel={deactivate?.accountApproved ? "Deactivate account" : "Activate account"} busy={saving} onCancel={() => setDeactivate(null)}
         onConfirm={async () => { await onToggle(deactivate.id, deactivate.accountApproved); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
@@ -1359,7 +1360,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                 <td style={s.td}>
                   <div className="admin-person">
                     <span className="admin-avatar" aria-hidden="true">{((user.firstName || '?')[0] + (user.lastName || '')[0] || '').toUpperCase()}</span>
-                    <span className="admin-person-text"><strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
+                    <span className="admin-person-text"><strong style={{ color: '#000000' }}>{personName(user)}</strong>
                     {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}</span>
                   </div>
                 </td>
@@ -1388,7 +1389,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                       />
                     ) : user.accountApproved ? (
                       <details className="portal-row-menu">
-                        <summary aria-label={'Actions for ' + [user.firstName, user.lastName].filter(Boolean).join(' ')}>…</summary>
+                        <summary aria-label={'Actions for ' + personName(user)}>…</summary>
                         <button type="button" disabled={saving} onClick={event => {
                           event.currentTarget.closest('details').open = false;
                           setDeactivate(user);

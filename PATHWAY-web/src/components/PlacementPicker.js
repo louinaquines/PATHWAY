@@ -1,7 +1,8 @@
+import personName from '../personName';
 import { useEffect, useState } from 'react';
 import './PlacementPicker.css';
 import { adminRequest } from '../adminApi';
-export default function PlacementPicker({sectionId,view,queue,availability,label,name,required,onSelect,initialSelection, compact, emptyMessage}){
+export default function PlacementPicker({sectionId,view,queue,availability,label,name,required,onSelect,initialSelection, compact, emptyMessage, multiple}){
  const [search,setSearch]=useState('');const [term,setTerm]=useState('');const [cursors,setCursors]=useState([null]);const [data,setData]=useState({});const [selected,setSelected]=useState(initialSelection || null);const [error,setError]=useState('');const [loading,setLoading]=useState(true);
  useEffect(()=>{const t=setTimeout(()=>setTerm(search.trim()),300);return()=>clearTimeout(t);},[search]);
  useEffect(()=>setCursors([null]),[term,sectionId]);
@@ -9,9 +10,21 @@ export default function PlacementPicker({sectionId,view,queue,availability,label
  const [open,setOpen]=useState(false);
  const items=data.students||data.companies||[];
  if (compact) {
-   const itemLabel = item => item.name || [item.firstName, item.lastName].filter(Boolean).join(' ');
+   const itemLabel = item => item.name || personName(item);
+   const chosen = multiple ? (Array.isArray(selected) ? selected : []) : [];
+   const isChosen = item => chosen.some(entry => entry.id === item.id);
+   const toggle = item => {
+     const next = isChosen(item) ? chosen.filter(entry => entry.id !== item.id) : [...chosen, item];
+     setSelected(next);
+     onSelect?.(next.map(entry => entry.id), next);
+   };
    return <div className="placement-search-picker">
-     <input type="hidden" name={name} value={selected?.id || ''} />
+     {multiple ? chosen.map(item => <input key={item.id} type="hidden" name={name} value={item.id} />)
+       : <input type="hidden" name={name} value={selected?.id || ''} />}
+     {multiple && chosen.length > 0 && <div className="placement-chips" aria-label={'Selected ' + label.toLowerCase()}>
+       {chosen.map(item => <span key={item.id} className="placement-chip">{itemLabel(item)}
+         <button type="button" aria-label={'Remove ' + itemLabel(item)} onClick={() => toggle(item)}>×</button></span>)}
+     </div>}
      <div className="placement-picker-field" onBlur={event => {
        if (!event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setSearch(''); }
      }} onKeyDown={event => {
@@ -24,8 +37,8 @@ export default function PlacementPicker({sectionId,view,queue,availability,label
      }}>
        <input type="text" autoComplete="off" aria-label={label} aria-expanded={open}
          role="combobox" aria-controls={name + '-placement-options'} aria-haspopup="dialog"
-         placeholder={selected ? itemLabel(selected) : 'Choose ' + label.toLowerCase()}
-         value={open ? search : selected ? itemLabel(selected) : ''}
+         placeholder={multiple ? (chosen.length ? 'Add more students' : 'Search and select students') : selected ? itemLabel(selected) : 'Choose ' + label.toLowerCase()}
+         value={open || multiple ? search : selected ? itemLabel(selected) : ''}
          onFocus={() => setOpen(true)} onClick={() => setOpen(true)}
          onKeyDown={event => {
            if (event.key === 'ArrowDown') {
@@ -40,7 +53,9 @@ export default function PlacementPicker({sectionId,view,queue,availability,label
          {loading && <small role="status">Loading…</small>}
          {error && <small role="alert">{error}</small>}
          {!loading && !error && !items.length && <small role="status">{search ? 'No matches.' : emptyMessage}</small>}
-         {!loading && !error && items.map(item => <button className="placement-picker-option" key={item.id} type="button" onClick={event => {
+         {!loading && !error && multiple && items.map(item => <button className="placement-picker-option placement-picker-check" key={item.id} type="button" aria-pressed={isChosen(item)} onClick={() => toggle(item)}>
+           <span className="placement-check-box" aria-hidden="true">{isChosen(item) ? '✓' : ''}</span>{itemLabel(item)}{item.idNumber && ' · ' + item.idNumber}</button>)}
+         {!loading && !error && !multiple && items.map(item => <button className="placement-picker-option" key={item.id} type="button" onClick={event => {
            const picker = event.currentTarget.closest('.placement-picker-field');
            setSelected(item);
            onSelect?.(item.id, item);

@@ -1,7 +1,8 @@
+import personName from './personName';
 const alphabetical = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 export function studentName(student) {
-  return [student.firstName, student.lastName].filter(Boolean).join(' ').trim()
+  return personName(student)
     || student.studentName || student.name || student.student || '';
 }
 

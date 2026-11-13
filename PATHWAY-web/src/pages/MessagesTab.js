@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
@@ -91,7 +92,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     return Array.from(grouped.entries()).map(([id, messages]) => {
       const studentId = messages[0].studentId;
       const student = students.find(item => item.id === studentId);
-      return { id, studentId, name: student ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id : messages[0].senderRole === 'student' ? messages[0].senderName || studentId : 'Student', messages };
+      return { id, studentId, name: student ? personName(student) || student.idNumber || student.id : messages[0].senderRole === 'student' ? messages[0].senderName || studentId : 'Student', messages };
     });
   }, [items, students, allowedStudentIds, selectedSection]);
 
@@ -191,7 +192,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>
           {studentsPage.items.map(student => {
             const thread = conversations.find(item => item.studentId === student.id);
-            const name = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id;
+            const name = personName(student) || student.idNumber || student.id;
             const unread = thread?.messages.filter(message => message.recipientId === coordinatorId && !message.read).length || 0;
             return <button key={student.id} type="button" aria-label={name} aria-pressed={selected?.studentId === student.id} className="messages-choice" onClick={() => openConversation(thread || { id: [coordinatorId, student.id].sort().join('__'), studentId: student.id, name, messages: [] })}>
               <div className="messages-student-title"><strong>{name}</strong>{unread > 0 && <span className="messages-unread">{unread} unread</span>}</div>

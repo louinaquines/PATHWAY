@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { useEffect, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import { PortalFormDialog } from './PortalStates';
@@ -54,7 +55,7 @@ function PageState({ page, children }) {
   if (page.error) console.warn('Placement companies failed to load:', page.error);
   return children;
 }
-const studentName = student => [student.firstName, student.lastName].filter(Boolean).join(' ') || 'Name not provided';
+const studentName = student => personName(student) || 'Name not provided';
 
 export default function PlacementCompanies({ selectedSection, onOpenStudent }) {
   if (!selectedSection?.id) return <p className="placement-empty">Select a section to view companies.</p>;

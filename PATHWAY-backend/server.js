@@ -1629,7 +1629,7 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
 });
 
 const registrationSnapshots = new Map();
-const registrationName = row => [row.firstName, row.lastName].filter(Boolean).join(' ').trim();
+const registrationName = row => [row.lastName, row.firstName].filter(Boolean).join(', ').trim();
 const registrationOrder = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
 
 app.get('/coordinator/registrations', requireStaff, async (req, res) => {
@@ -2820,7 +2820,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     await adminDb.runTransaction(async transaction => {
       const freshStudent = await transaction.get(studentSnap.ref);
       assertRecordsOpen(freshStudent.data());
-      transaction.create(evaluation, { ...(formDefinition ? { formDefinition } : {}), studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
+      transaction.create(evaluation, { ...(formDefinition ? { formDefinition } : {}), studentId, studentName: [student.lastName, student.firstName].filter(Boolean).join(', '), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
     });
     res.set('Cache-Control', 'no-store').json({ id: evaluation.id, token: rawToken, expiresAt });
   } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); console.error(e); res.status(500).json({ error: 'Could not create evaluation link' }); }

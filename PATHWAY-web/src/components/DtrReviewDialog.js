@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest, adminDocumentBlob } from '../adminApi';
 import { readDtrSpreadsheet } from '../dtrSpreadsheet';
@@ -132,7 +133,7 @@ export default function DtrReviewDialog({ student, onClose }) {
   };
   const days = month ? new Date(Date.UTC(...month.split('-').map(Number), 0)).getUTCDate() : 31;
   return <dialog ref={dialog} className="dtr-review" onCancel={onClose}>
-    <header><div><h2>Daily Time Record comparison (Form 48)</h2><p>{student.firstName} {student.lastName} · Form 48</p></div>
+    <header><div><h2>Daily Time Record comparison (Form 48)</h2><p>{personName(student)} · Form 48</p></div>
       <button type="button" aria-label="Close Daily Time Record comparison (Form 48)" onClick={onClose}>×</button></header>
     <form onSubmit={compare}>
       <h3 className="dtr-step"><span>1</span> Load the Form 48</h3>

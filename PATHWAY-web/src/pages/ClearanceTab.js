@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -67,7 +68,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
           return {
             id: d.id,
             section: section.name || section.id,
-            student: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+            student: personName(student),
             idNumber: student.idNumber || '',
             requirements: requirements ? 'Approved' : (student.requirementsStatus || 'Not submitted'),
             rendered,
@@ -197,13 +198,11 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   const readyCount = rows.filter(row => row.ready && row.clearanceStatus !== 'cleared').length;
   const clearedCount = rows.filter(row => row.clearanceStatus === 'cleared').length;
   const needsReqs = rows.filter(row => row.requirements !== 'Approved').length;
-  const needsHours = rows.filter(row => row.hours !== 'Complete').length;
   const summaries = [
-    ['all', 'Total Students', rows.length, () => true],
-    ['cleared', 'Cleared', clearedCount, row => row.clearanceStatus === 'cleared'],
-    ['ready', 'Ready for clearance', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
+    ['all', 'Total students', rows.length, () => true],
     ['requirements', 'Requirements still pending', needsReqs, row => row.requirements !== 'Approved'],
-    ['hours', 'Internship hours still needed', needsHours, row => row.hours !== 'Complete'],
+    ['ready', 'Ready for clearance', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
+    ['cleared', 'Cleared', clearedCount, row => row.clearanceStatus === 'cleared'],
   ];
   const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
   const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
@@ -221,7 +220,6 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
 
         </div>
         <div style={s.actions}>
-          <button style={s.secondaryBtn} onClick={load}>Refresh</button>
           <button style={s.secondaryBtn} onClick={printReport} disabled={!rows.length}><Icon name="download" size={15} /> Print Report</button>
           <button style={s.primaryBtn} onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={15} /> Export clearance CSV</button>
         </div>

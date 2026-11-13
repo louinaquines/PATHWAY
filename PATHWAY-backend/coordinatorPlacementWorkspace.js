@@ -102,7 +102,7 @@ function createPlacementWorkspaceHandler({adminDb,allowRate}){
     }
     const records=companyId||queue==='waiting'?null:await readStudentRecords(d.id);const tasks=records?tasksFor(records):[];const needsAction=tasks.some(t=>t.needsAction);
     if(queue==='action'&&!needsAction||queue==='completed'&&(needsAction||!tasks.length)||queue==='history'&&!records?.history.length||stage!=='all'&&!tasks.some(t=>t.stage===stage&&t.needsAction))return null;
-    const name=[student.firstName,student.lastName].filter(Boolean).join(' ');const current=tasks.find(t=>t.needsAction)||tasks[0]||{step:student.placementStatus==='approved'?'Assigned':'Waiting for assignment',action:'View placement',stage:'placement'};
+    const name=[student.lastName,student.firstName].filter(Boolean).join(', ');const current=tasks.find(t=>t.needsAction)||tasks[0]||{step:student.placementStatus==='approved'?'Assigned':'Waiting for assignment',action:'View placement',stage:'placement'};
     const company=student.company||current.record?.companyName||current.record?.companySnapshot?.companyName||'—';
     if(term&&![name,student.idNumber,company].some(v=>String(v).toLowerCase().includes(term)))return null;
     return {...student,queue:{id:student.id,name,company,current,tasks,needsAction,hasHistory:!!records?.history.length},hasMoreRecords:records?.hasMoreRecords||false};

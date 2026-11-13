@@ -92,7 +92,7 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    const autoApprove=false;
    // Findings are coordinator-only: the student profile gets just the status; full results go to requirementReviews.
    tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,reviewedAt:now,advisoryOnly:!autoApprove}});
-   tx.set(db.collection('requirementReviews').doc(`${job.studentId}__${job.requirementId}`),{studentId:job.studentId,requirementId:job.requirementId,sectionId:c.student.sectionId||'',status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove});
+   tx.set(db.collection('requirementReviews').doc(`${job.studentId}__${job.requirementId}`),{studentId:job.studentId,requirementId:job.requirementId,sectionId:c.student.sectionId||'',status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,confidence:Number.isFinite(result.confidence)?result.confidence:null,reviewedAt:now,advisoryOnly:!autoApprove});
    if(autoApprove)tx.update(c.ref,{[`requirements.${job.requirementId}.status`]:'approved',[`requirements.${job.requirementId}.reviewedBy`]:'system',[`requirements.${job.requirementId}.reviewedAt`]:now,[`requirements.${job.requirementId}.autoApproved`]:true,[`requirements.${job.requirementId}.rejectionReason`]:null});
    tx.update(jobRef,{state:'done',completedAt:now});
    notices(tx,jobRef.id,job.studentId,c.section.coordinatorId,status);

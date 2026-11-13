@@ -211,19 +211,18 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           </div>
         ) : (
           <div style={s.tableContainer}>
-            <table style={s.table}>
+            <table style={s.table} className="roster-table">
               <thead>
                 <tr>
                   <th style={s.th}>Student ID</th>
                   <th style={s.th}>Student name</th>
                   <th style={s.th}>Username</th>
-                  <th style={s.th}>Department</th>
                   <th style={s.th}>Date Added</th>
                   <th style={{ ...s.th, textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredIds.length === 0 && <tr><td colSpan={6} style={s.td}>No matching students.</td></tr>}
+                {filteredIds.length === 0 && <tr><td colSpan={5} style={s.td}>No matching students.</td></tr>}
                 {recordsPage.items.map(item => (
                   <tr key={item.id} style={s.tr}>
                     <td style={s.td}>
@@ -231,25 +230,16 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
                     </td>
                     <td style={s.td}>{studentName(item) || '—'}</td>
                     <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Username unavailable'}</td>
-                    <td style={s.td}>{item.department}</td>
                     <td style={s.td}>
                       {item.createdAt
                         ? new Date(item.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
                         : '—'}
                     </td>
                     <td style={{ ...s.td, textAlign: 'right' }}>
-                      <details className="portal-row-menu">
-                        <summary aria-label={'Actions for student ' + item.id}>…</summary>
-                        <button type="button" disabled={saving} onClick={event => {
-                          event.currentTarget.closest('details').open = false;
-                          setRemoveConfirm(item);
-                        }}>Remove from roster</button>
-                        {item.claimedBy && <button type="button" disabled={saving} onClick={event => {
-                          event.currentTarget.closest('details').open = false;
-                          setResetResult(null);
-                          setResetConfirm(item);
-                        }}>Reset password</button>}
-                      </details>
+                      <div className="roster-row-actions">
+                        {item.claimedBy && <button type="button" className="roster-action" disabled={saving} onClick={() => { setResetResult(null); setResetConfirm(item); }}>Reset password</button>}
+                        <button type="button" className="roster-action roster-action-danger" disabled={saving} onClick={() => setRemoveConfirm(item)}>Remove</button>
+                      </div>
                     </td>
                   </tr>
                 ))}

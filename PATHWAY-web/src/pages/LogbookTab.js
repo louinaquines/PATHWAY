@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { PortalEmpty } from '../components/PortalStates';
 import { readPortalPage, readMatchingPortalPage } from '../portalRecordPages';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -19,7 +20,7 @@ import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
-const studentDisplayName = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+const studentDisplayName = student => personName(student);
 
 const rosterDateFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric',
@@ -43,7 +44,7 @@ async function latestJournalDate(records, field, isCurrent) {
       const data = item.data();
       if (!submittedJournalStatuses.has(data.status)) continue;
       const date = recordDate(data[field]);
-      if (date) return date;
+      if (date) return { date, frequency: data.frequency === 'daily' ? 'daily' : data.frequency === 'weekly' ? 'weekly' : '' };
     }
     if (page.docs.length < pageSize) break;
     cursor = page.docs[page.docs.length - 1];
@@ -62,14 +63,34 @@ async function latestRosterRecords(studentId, isCurrent) {
     Promise.all([
       latestJournalDate(journals, 'submittedAt', isCurrent),
       latestJournalDate(journals, 'createdAt', isCurrent),
-    ]).then(([submitted, created]) => submitted && (!created || submitted > created) ? submitted : created),
+    ]).then(([submitted, created]) => submitted && (!created || submitted.date > created.date) ? submitted : created),
   ]);
-  return { attendance: dateLabel(punch, 'No attendance'), journals: dateLabel(journal, 'No journal') };
+  return { attendance: attendanceLabel(punch), journals: journalLabel(journal) };
 }
 
-function dateLabel(result, empty) {
+// Show where each student stands for the current period instead of a raw date.
+const manilaDay = date => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
+function weekStart(date) {
+  const day = new Date(manilaDay(date) + 'T00:00:00');
+  day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+  return day.getTime();
+}
+function attendanceLabel(result) {
   if (result.status === 'rejected') return { text: 'Unavailable' };
-  return result.value ? { text: rosterDateFormat.format(result.value), dated: true } : { text: empty };
+  if (!result.value) return { text: 'No attendance yet' };
+  if (manilaDay(result.value) === manilaDay(new Date())) return { text: 'Present today', dated: true, tone: 'good' };
+  return { text: 'Last: ' + rosterDateFormat.format(result.value).replace(/, \d{4}$/, ''), dated: true, tone: 'warn' };
+}
+function journalLabel(result) {
+  if (result.status === 'rejected') return { text: 'Unavailable' };
+  if (!result.value) return { text: 'No journal yet' };
+  const { date, frequency } = result.value;
+  if (frequency === 'daily') return manilaDay(date) === manilaDay(new Date())
+    ? { text: 'Daily · Submitted today', dated: true, tone: 'good' }
+    : { text: 'Daily · Last ' + rosterDateFormat.format(date).replace(/, \d{4}$/, ''), dated: true, tone: 'warn' };
+  return weekStart(date) === weekStart(new Date())
+    ? { text: 'Weekly · Submitted this week', dated: true, tone: 'good' }
+    : { text: 'Weekly · Missing this week', dated: true, tone: 'warn' };
 }
 
 const RECORD_PAGE_SIZE = 25;
@@ -377,8 +398,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 return <tr key={student.id}>
                   <td>{student.idNumber || '—'}</td>
                   <th scope="row"><span className="logbook-person"><span className="logbook-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>{name}</span></th>
-                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} data-empty={!summary?.attendance.dated} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
-                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} data-empty={!summary?.journals.dated} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} data-empty={!summary?.attendance.dated} data-tone={summary?.attendance.tone} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} data-empty={!summary?.journals.dated} data-tone={summary?.journals.tone} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
                 </tr>;
               })}</tbody>
             </table>
@@ -398,10 +419,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           </footer>}
         </>}
       </section>
-      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
+      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${personName(selectedStudent) || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
         <header className="logbook-drawer-heading">
           <div className="logbook-drawer-title-row">
-            <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
+            <div><h2>{personName(selectedStudent) || 'Student'}</h2>
               <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
             <button type="button" className="portal-secondary logbook-drawer-close" aria-label="Close records" title="Close records" disabled={saving} onClick={closeRecords}><Icon name="x" size={19} /></button>
           </div>

@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/EvaluationTab.js
@@ -96,7 +97,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const companyStudents = placedStudents.filter(student => companyFor(student) === companyKey)
     .sort(compareStudents);
   const selectedStudents = companyStudents.filter(student => selectedStudentIds.includes(student.id));
-  const selectedNames = selectedStudents.map(student => [student.firstName, student.lastName].filter(Boolean).join(' ') || student.idNumber || student.id);
+  const selectedNames = selectedStudents.map(student => personName(student) || student.idNumber || student.id);
   const allStudentsSelected = selectedNames.length > 1 && selectedNames.length === companyStudents.length;
   const selectionSummary = !selectedNames.length ? 'Select students' : allStudentsSelected ? 'All ' + selectedNames.length + ' students selected' : selectedNames.slice(0, 2).join(', ') + (selectedNames.length > 2 ? ' +' + (selectedNames.length - 2) + ' more' : '');
   const supervisorEmails = new Set(selectedStudents.map(student => (student.supervisorEmail || '').trim().toLowerCase()).filter(Boolean));
@@ -127,7 +128,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
           method: 'POST', body: JSON.stringify({ ...form, studentId: student.id, formDefinition }),
         });
         const item = { id: data.id, token: data.token, studentId: student.id,
-          studentName: [student.firstName, student.lastName].filter(Boolean).join(' '),
+          studentName: personName(student),
           email: form.supervisorEmail, supervisorName: form.supervisorName };
         setPreparedInvitations(previous => [...previous, item]);
         showInvitation(item);
@@ -260,7 +261,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 {companyStudents.map(student => <label key={student.id} htmlFor={`evaluation-student-${student.id}`}>
                   <input id={`evaluation-student-${student.id}`} type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
                     updateSelection(event.target.checked ? [...selectedStudentIds, student.id] : selectedStudentIds.filter(id => id !== student.id))} />
-                  <span>{[student.firstName, student.lastName].filter(Boolean).join(' ')}<small>{student.idNumber || student.id}</small></span>
+                  <span>{personName(student)}<small>{student.idNumber || student.id}</small></span>
                 </label>)}
               </div>}
             </div>

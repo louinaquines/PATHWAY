@@ -1,3 +1,4 @@
+import personName from '../personName';
 import PlacementPicker from '../components/PlacementPicker';
 import * as adminApi from '../adminApi';
 import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
@@ -174,20 +175,27 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const assignPlacement = async event => {
     event.preventDefault();
     if (busy || !selectedSection?.id) return;
-    const { studentId, ...fields } = Object.fromEntries(new FormData(event.currentTarget));
-    if (!fields.companyId || !studentId) { setAssignmentError('Choose a company and student.'); return; }
+    const data = new FormData(event.currentTarget);
+    const studentIds = data.getAll('studentId').filter(Boolean);
+    data.delete('studentId');
+    const fields = Object.fromEntries(data);
+    if (!fields.companyId || !studentIds.length) { setAssignmentError('Choose a company and at least one student.'); return; }
+    if (!fields.supervisorName || !fields.supervisorEmail || !fields.internshipRole || !fields.workArrangement) {
+      setAssignmentError('This company has no supervisor or internship details yet. Add them in Companies first.'); return;
+    }
     setBusy('assignment');
     setAssignmentError('');
-    try {
-      await adminRequest('/coordinator/sections/' + encodeURIComponent(selectedSection.id)
-        + '/placements/' + encodeURIComponent(studentId) + '/assign', {
-        method: 'POST', body: JSON.stringify(fields),
-      });
-      setAssignmentOpen(false);
-      await load();
-    } catch (error) {
-      setAssignmentError(error.message || 'Unable to assign this placement.');
-    } finally { setBusy(''); }
+    const failed = [];
+    for (const studentId of studentIds) {
+      try {
+        await adminRequest('/coordinator/sections/' + encodeURIComponent(selectedSection.id)
+          + '/placements/' + encodeURIComponent(studentId) + '/assign', { method: 'POST', body: JSON.stringify(fields) });
+      } catch (error) { failed.push(error.message || 'Unable to assign'); }
+    }
+    setBusy('');
+    if (failed.length) { setAssignmentError(`${studentIds.length - failed.length} assigned, ${failed.length} failed: ${failed[0]}`); await load(); return; }
+    setAssignmentOpen(false);
+    await load();
   };
 
   const review = async (item, status) => {
@@ -281,7 +289,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const reviewStudentName = item => {
     const student = students.find(candidate => candidate.id === item.studentId);
-    const currentName = [student?.firstName, student?.lastName].filter(Boolean).join(' ').trim();
+    const currentName = personName(student);
     return currentName || item.studentName || items.find(proposal => proposal.studentId === item.studentId)?.studentName || item.studentId;
   };
 
@@ -364,18 +372,21 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
               ? 'Capacity not set' : assignmentCompany.availableSlots + ' slots available'}</small>}
           </section>
           <section className="placement-assignment-section">
-            <h3>Student</h3>
-            <PlacementPicker compact sectionId={selectedSection.id} view="students" queue="waiting"
-              label="Student" name="studentId" emptyMessage="No eligible students in this section." />
+            <h3>Students</h3>
+            <PlacementPicker compact multiple sectionId={selectedSection.id} view="students" queue="waiting"
+              label="Students" name="studentId" emptyMessage="No eligible students in this section." />
+            <small>Select one or more students to place at this company.</small>
           </section>
           <h3 className="placement-assignment-section">Placement details</h3>
           <div className="placement-assignment-details" key={assignmentCompany?.id}>
-          <label>Supervisor name<input name="supervisorName" defaultValue={assignmentCompany?.placementDefaults?.supervisorName ?? ''} required maxLength={160} /></label>
-          <label>Supervisor email<input name="supervisorEmail" defaultValue={assignmentCompany?.placementDefaults?.supervisorEmail ?? ''} type="email" required maxLength={254} /></label>
-          <label>Internship role or department<input name="internshipRole" defaultValue={assignmentCompany?.placementDefaults?.internshipRole ?? ''} required maxLength={160} /></label>
-          <label>Work arrangement<select name="workArrangement" required defaultValue={assignmentCompany?.placementDefaults?.workArrangement ?? ''}>
-            <option value="" disabled>Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option>
-          </select></label>
+          {['supervisorName', 'supervisorEmail', 'internshipRole', 'workArrangement'].map(key => <input key={key} type="hidden" name={key} value={assignmentCompany?.placementDefaults?.[key] ?? ''} />)}
+          {assignmentCompany && <dl className="placement-defaults-summary">
+            <div><dt>Supervisor</dt><dd>{assignmentCompany.placementDefaults?.supervisorName || 'Not set'}</dd></div>
+            <div><dt>Supervisor email</dt><dd>{assignmentCompany.placementDefaults?.supervisorEmail || 'Not set'}</dd></div>
+            <div><dt>Role</dt><dd>{assignmentCompany.placementDefaults?.internshipRole || 'Not set'}</dd></div>
+            <div><dt>Arrangement</dt><dd>{assignmentCompany.placementDefaults?.workArrangement || 'Not set'}</dd></div>
+            <p>To change these, edit the company in Companies.</p>
+          </dl>}
           <label>Start date<input name="startDate" defaultValue={assignmentCompany?.placementDefaults?.startDate ?? ''} type="date" required /></label>
           <label>End date<input name="endDate" defaultValue={assignmentCompany?.placementDefaults?.endDate ?? ''} type="date" required /></label>
           </div>

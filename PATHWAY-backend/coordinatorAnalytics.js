@@ -44,7 +44,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
           const { inputs, evidence } = await loadAttendanceInputs(doc.ref, student, section, today);
           const metrics = attendanceAnalytics(inputs);
           sources.push({ id: doc.id, student });
-          return { id: doc.id, name: `${student.firstName || ''} ${student.lastName || ''}`.trim(), idNumber: student.idNumber || '',
+          return { id: doc.id, name: [student.lastName, student.firstName].filter(Boolean).join(', '), idNumber: student.idNumber || '',
             section: section.name, department: section.department, companyName: student.companyName || student.company || '',
             hoursRendered: metrics.creditedHours, hoursRequired: Number.isFinite(required) ? required : null,
             ...metrics, excusedDates: inputs.excusedDates, excusedDatesVersion: evidence.excusedDatesVersion,

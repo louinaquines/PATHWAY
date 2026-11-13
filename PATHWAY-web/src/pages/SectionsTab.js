@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -26,7 +27,7 @@ function groupChatHref(value) {
   }
 }
 
-export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, department }) {
+export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, sectionActions, department }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
   const [selected, setSelected]         = useState(null);
@@ -42,16 +43,28 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
   const [searchQuery, setSearchQuery]   = useState('');
 
+  // Section names always follow "PROGRAM - 4A". Typing the name fills the year and letter;
+  // picking a year or letter rewrites the name, so the three never disagree.
+  const parseSectionName = name => {
+    const match = String(name).trim().toUpperCase().match(/^([A-Z]+)?\s*-?\s*([1-4])?([A-Z])?$/);
+    return match ? { program: match[1] || '', year: match[2] || '', section: match[3] || '' } : null;
+  };
+  function updateSectionName(value) {
+    const parsed = parseSectionName(value);
+    setForm(previous => ({ ...previous, name: value, year: parsed ? parsed.year : '', section: parsed ? parsed.section : '' }));
+  }
   function updateSectionChoice(key, value) {
     setForm(previous => {
       const next = { ...previous, [key]: value };
-      const suffix = previous.year || previous.section ? ' - ' + previous.year + previous.section : '';
-      const base = suffix && previous.name.endsWith(suffix) ? previous.name.slice(0, -suffix.length)
-        : previous.name === previous.year + previous.section ? '' : previous.name;
-      next.name = base + (next.year || next.section ? (base ? ' - ' : '') + next.year + next.section : '');
+      const program = parseSectionName(previous.name)?.program || String(previous.name).trim().split(/[\s-]+/)[0].toUpperCase() || 'BSIT';
+      next.name = program + (next.year || next.section ? ' - ' + next.year + next.section : '');
       return next;
     });
   }
+  const formattedSectionName = () => {
+    const parsed = parseSectionName(form.name);
+    return parsed?.program && form.year && form.section ? `${parsed.program} - ${form.year}${form.section}` : form.name.trim();
+  };
 
   const [chatSave, setChatSave] = useState(null);
   const chatHref = groupChatHref(selected?.messengerLink);
@@ -159,7 +172,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       await adminRequest('/coordinator/sections', {
         method: 'POST',
         body: JSON.stringify({
-          name: form.name.trim(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
+          name: formattedSectionName(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
         }),
       });
       setModal(false);
@@ -291,7 +304,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 </div>
               </div>
 
-              <div className="section-management-actions">{journalSettings}<details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+              <div className="section-management-actions">{sectionActions}{journalSettings}<details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
                 <label style={t.label}>Group chat link
                   <input name="messengerLink" type="url" maxLength={500} style={t.input}
                     defaultValue={chatHref} placeholder="https://m.me/j/…" />
@@ -332,7 +345,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                     <table className="coordinator-compact-table">
                       <thead><tr><th>Student ID</th><th>Student name</th><th>Account</th></tr></thead>
                       <tbody>{recordsPage.items.map(student => <tr key={student.id}>
-                        <td>{student.idNumber || '—'}</td><td>{student.firstName} {student.lastName}</td>
+                        <td>{student.idNumber || '—'}</td><td>{personName(student)}</td>
                         <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
                           {student.accountApproved ? 'Active' : 'Pending approval'}
                         </span></td>
@@ -452,7 +465,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 style={t.input}
                 id="new-section-name" placeholder="e.g. BSIT - 4A"
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onChange={e => updateSectionName(e.target.value)}
                 required
               />
             </div>
@@ -596,7 +609,7 @@ function UnassignedStudents({ sectionId, department, onAssign }) {
       {unassignedPage.items.map(st => (
         <div key={st.id} style={t.unassignedRow}>
           <div>
-            <div style={t.studentName}>{st.firstName} {st.lastName}</div>
+            <div style={t.studentName}>{personName(st)}</div>
             <div style={t.studentInfo}>ID {st.idNumber || 'not provided'}</div>
           </div>
           <button style={t.assignBtn} onClick={() => assign(st.id)}>

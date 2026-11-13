@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { useEffect, useRef, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -69,7 +70,7 @@ export default function SubmissionNotifications({ kind, coordinatorId, section, 
       <div className="messages-alert-dialog-body"><div className="messages-alert-summary"><strong>{unread} new submissions</strong><button type="button" className="messages-alert-refresh" aria-label="Refresh submissions" onClick={() => { if (onRefresh) onRefresh(); else setRefresh(value => value + 1); }} disabled={loading}><Icon name="refresh" size={18} /></button></div>
         <p role={error ? 'alert' : undefined}>{error || (loading ? 'Loading submissions…' : 'Received submissions, newest first. Select one to review.')}</p>
         <div className="notification-column-labels" aria-hidden="true"><span>Submission</span><span>From</span><span>Section</span><span>Time</span></div>
-        <div className="messages-alert-actions notification-columns">{!error && [...items].sort((a, b) => submissionTime(b.createdAt) - submissionTime(a.createdAt)).map(item => <button type="button" key={item.id} onClick={() => openItem(item)}><span className="notification-message">{item.title}</span><span className="notification-from"><strong>{`${item.student.firstName || ''} ${item.student.lastName || ''}`.trim() || item.student.idNumber}</strong>{!seen.includes(item.id) && <i className="messages-alert-dot" aria-label="New submission" />}</span><span className="notification-section">{section?.name}</span><time className="notification-time">{new Date(submissionTime(item.createdAt)).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></button>)}</div>
+        <div className="messages-alert-actions notification-columns">{!error && [...items].sort((a, b) => submissionTime(b.createdAt) - submissionTime(a.createdAt)).map(item => <button type="button" key={item.id} onClick={() => openItem(item)}><span className="notification-message">{item.title}</span><span className="notification-from"><strong>{personName(item.student) || item.student.idNumber}</strong>{!seen.includes(item.id) && <i className="messages-alert-dot" aria-label="New submission" />}</span><span className="notification-section">{section?.name}</span><time className="notification-time">{new Date(submissionTime(item.createdAt)).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</time></button>)}</div>
         {!loading && !error && !items.length && <p>No received submissions in this section.</p>}
       </div>
     </dialog>

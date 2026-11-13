@@ -83,7 +83,6 @@ export default function CoordinatorOverview({ section, students, requirementsCou
       <header className="cdash-card-head">
         <div><h2 id="overview-attention-title">Needs attention</h2>
           <p role="status">{pendingTotal} pending · {summary.incomplete ? 'last refresh attempt' : 'updated'} <time dateTime={summary.checkedAt.toISOString()}>{summary.checkedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time></p></div>
-        <button type="button" className="cdash-refresh" onClick={() => load()}><Icon name="refresh" size={16} /> Refresh</button>
       </header>
       {summary.incomplete && <PortalError message="Some counts could not load." onRetry={() => load()} />}
       {!summary.incomplete && tasks.every(([, , , count]) => count === 0) && <p className="cdash-caught-up"><Icon name="check" size={16} /> You’re caught up for this section.</p>}
@@ -130,6 +129,7 @@ function SectionCharts({ students, section, children }) {
     ['Requirements approved', milestones[0][1], 'clipboard', 'indigo', pct(milestones[0][1])],
     ['Placements assigned', milestones[1][1], 'building', 'teal', pct(milestones[1][1])],
     ['Hours target met', counts[3], 'clock', 'green', pct(counts[3])],
+    ['Companies', new Set(students.map(student => student.companyId || student.company).filter(Boolean)).size, 'building', 'blue', null],
   ];
   return <div className="cdash-body">
     <dl className="cdash-metrics" aria-label="Section totals">
@@ -137,7 +137,7 @@ function SectionCharts({ students, section, children }) {
         <dt><span className="cdash-metric-icon" data-tone={tone}><Icon name={icon} size={20} /></span>{label}</dt>
         <dd className="cdash-metric-value">{count}{percent != null && total > 0 && <span> of {total}</span>}</dd>
         {percent != null && <dd className="cdash-metric-bar" aria-hidden="true"><span style={{ width: percent + '%' }} data-tone={tone} /></dd>}
-        <dd className="cdash-metric-note">{percent == null ? 'On your section roster' : total ? percent + '% of the section' : 'No students yet'}</dd>
+        <dd className="cdash-metric-note">{percent == null ? (label === 'Companies' ? 'Hosting students from this section' : 'On your section roster') : total ? percent + '% of the section' : 'No students yet'}</dd>
       </div>)}
     </dl>
     <div className="cdash-columns">

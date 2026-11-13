@@ -6,14 +6,6 @@ import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
 import './CompanyDirectoryTab.css';
 
-const PLACEMENT_DEFAULT_FIELDS = [
-  ['supervisorName', 'Supervisor name', 'text'],
-  ['supervisorEmail', 'Supervisor email', 'email'],
-  ['internshipRole', 'Internship role or department', 'text'],
-  ['workArrangement', 'Work arrangement', 'select'],
-  ['startDate', 'Start date', 'date'],
-  ['endDate', 'End date', 'date'],
-];
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
 export default function CompanyDirectoryTab({ readOnly = true }) {
@@ -41,14 +33,24 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const [website, setWebsite] = useState('');
-  const [profilePreview, setProfilePreview] = useState(null);
-  const [previewBusy, setPreviewBusy] = useState(false);
-  const previewWebsite = async () => {
-    setPreviewBusy(true); setError(''); setProfilePreview(null);
-    try { const result = await adminRequest('/coordinator/company-profile-preview', { method: 'POST', body: JSON.stringify({ url: website }) }); setProfilePreview(result.preview); }
-    catch (failure) { setError(failure.message); }
-    finally { setPreviewBusy(false); }
+  const [suggestions, setSuggestions] = useState({ query: '', items: [], busy: false, error: '' });
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  useEffect(() => {
+    const query = form.name.trim();
+    if (!formOpen || editingId || !suggestOpen || query.length < 3) { setSuggestions(current => ({ ...current, items: [], busy: false, error: '' })); return undefined; }
+    let active = true;
+    setSuggestions(current => ({ ...current, busy: true, error: '' }));
+    const timer = setTimeout(() => {
+      adminRequest('/coordinator/company-search?q=' + encodeURIComponent(query))
+        .then(result => { if (active) setSuggestions({ query, items: result.results || [], busy: false, error: '' }); })
+        .catch(failure => { if (active) setSuggestions({ query, items: [], busy: false, error: failure.message }); });
+    }, 450);
+    return () => { active = false; clearTimeout(timer); };
+  }, [form.name, formOpen, editingId, suggestOpen]);
+  const useSuggestion = item => {
+    setForm(previous => ({ ...previous, name: item.name, address: item.address || previous.address, industry: previous.industry || item.industry,
+      latitude: Number.isFinite(item.latitude) ? String(item.latitude) : previous.latitude, longitude: Number.isFinite(item.longitude) ? String(item.longitude) : previous.longitude }));
+    setSuggestOpen(false);
   };
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
@@ -71,7 +73,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
     } finally { if (version === loadVersion.current) setLoading(false); }
   }, [readOnly, searchTerm, availability, cursor]);
 
-  usePortalAutoRefresh(load, { enabled: !loading && !saving && !previewBusy, scope: String(readOnly), protectInputs: true });
+  usePortalAutoRefresh(load, { enabled: !loading && !saving && !formOpen, scope: String(readOnly), protectInputs: true });
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,7 +82,7 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
   const editCompany = company => {
     setFormOpen(true);
     setEditingId(company.id);
-    setForm({ placementDefaults: company.placementDefaults || {}, name: company.name || '', address: company.address || '', industry: company.industry || '',
+    setForm({ placementDefaults: { ...(company.placementDefaults || {}), supervisorEmail: company.placementDefaults?.supervisorEmail || company.email || '' }, name: company.name || '', address: company.address || '', industry: company.industry || '',
       email: company.email || '', phone: company.phone || '', capacity: String(company.capacity ?? 1), active: company.active,
       geofenceEnabled: company.geofence?.enabled === true, latitude: String(company.geofence?.latitude ?? ''), longitude: String(company.geofence?.longitude ?? ''), radiusMeters: String(company.geofence?.radiusMeters ?? 150) });
     setNotice('');
@@ -129,31 +131,31 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer directory-edit-drawer" closeOnBackdrop label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
       <form className="company-directory-form" onSubmit={onSubmit} ><header><h2>{editingId ? "Edit company" : "Add company"}</h2></header><div className="directory-form-body">
         {error && <div role="alert" style={styles.error}>{error}</div>}
-        <section className="directory-form-section"><h3>Company details</h3>
-        <label style={styles.label}>Company name<input required maxLength={160} value={form.name} onChange={event => setForm(previous => ({ ...previous, name: event.target.value }))} style={styles.input} /></label>
+        <section className="directory-form-section"><h3>Company</h3>
+        <div className="company-name-field" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setSuggestOpen(false); }}>
+          <label style={styles.label}>Company name<input required maxLength={160} autoComplete="off" value={form.name}
+            placeholder={editingId ? '' : 'Start typing to search'} aria-autocomplete="list" aria-expanded={suggestOpen && suggestions.items.length > 0}
+            onFocus={() => setSuggestOpen(true)} onChange={event => { setSuggestOpen(true); setForm(previous => ({ ...previous, name: event.target.value })); }} style={styles.input} /></label>
+          {!editingId && suggestOpen && form.name.trim().length >= 3 && <div className="company-suggestions" role="listbox" aria-label="Company suggestions">
+            {suggestions.busy && <small role="status">Searching…</small>}
+            {!suggestions.busy && suggestions.error && <small role="alert">{suggestions.error}</small>}
+            {!suggestions.busy && !suggestions.error && !suggestions.items.length && <small>No matches. Keep typing or enter details manually.</small>}
+            {!suggestions.busy && suggestions.items.map((item, index) => <button type="button" role="option" aria-selected="false" key={index} onClick={() => useSuggestion(item)}>
+              <strong>{item.name}</strong><span>{item.address}</span></button>)}
+            <p className="company-suggestions-note">Suggestions from OpenStreetMap. Check them before saving.</p>
+          </div>}
+        </div>
         <label style={styles.label}>Address<input maxLength={300} value={form.address} onChange={event => setForm(previous => ({ ...previous, address: event.target.value }))} style={styles.input} /></label>
         <label style={styles.label}>Industry<input maxLength={120} value={form.industry} onChange={event => setForm(previous => ({ ...previous, industry: event.target.value }))} style={styles.input} /></label>
-        </section><section className="directory-form-section"><h3>Contact details</h3><div className="directory-field-pair">
-          <label style={styles.label}>Contact email<input type="email" maxLength={254} value={form.email} onChange={event => setForm(previous => ({ ...previous, email: event.target.value }))} style={styles.input} /></label>
+        </section><section className="directory-form-section"><h3>Supervisor</h3><p style={styles.help}>Used for every student placed here. Edit it here only.</p><div className="directory-field-pair">
+          <label style={styles.label}>Supervisor name<input maxLength={160} value={form.placementDefaults.supervisorName || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, supervisorName: value } })); }} style={styles.input} /></label>
+          <label style={styles.label}>Supervisor email<input type="email" maxLength={254} value={form.placementDefaults.supervisorEmail || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, email: value, placementDefaults: { ...previous.placementDefaults, supervisorEmail: value } })); }} style={styles.input} /></label>
           <label style={styles.label}>Phone<input maxLength={60} value={form.phone} onChange={event => setForm(previous => ({ ...previous, phone: event.target.value }))} style={styles.input} /></label>
         </div>
-        </section><section className="directory-form-section"><h3>Internship settings</h3>
-        <details className="directory-defaults">
-          <summary>Placement defaults</summary><div className="directory-field-pair">
-          {PLACEMENT_DEFAULT_FIELDS.map(([key, label, type]) => {
-            const props = {
-              value: form.placementDefaults[key] || '',
-              onChange: event => {
-                const value = event.target.value;
-                setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, [key]: value } }));
-              },
-              style: styles.input,
-            };
-            return <label key={key} style={styles.label}>{label}{type === 'select'
-              ? <select {...props}><option value="">Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option></select>
-              : <input {...props} type={type} />}</label>;
-          })}
-        </div></details>
+        </section><section className="directory-form-section"><h3>Internship</h3><div className="directory-field-pair">
+          <label style={styles.label}>Role or department<input maxLength={160} value={form.placementDefaults.internshipRole || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, internshipRole: value } })); }} style={styles.input} /></label>
+          <label style={styles.label}>Work arrangement<select value={form.placementDefaults.workArrangement || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, workArrangement: value } })); }} style={styles.input}><option value="">Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option></select></label>
+        </div>
         <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
         {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
         <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
@@ -202,16 +204,6 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
         </nav></footer>}
       </section>
     </div>
-    {!readOnly && <details className="company-import-card"><summary>Look up company details from a website</summary><section aria-label="Import company suggestions">
-      <p>Preview suggested details, then check them before adding them to the form. Nothing is saved automatically.</p>
-      <div className="company-import-controls"><label>Company website<input type="url" placeholder="https://company.example" value={website} disabled={previewBusy} onChange={event => { setWebsite(event.target.value); setProfilePreview(null); }} /></label>
-        <button type="button" disabled={previewBusy || !website.trim()} onClick={previewWebsite}>{previewBusy ? 'Reading website…' : 'Preview details'}</button></div>
-      {profilePreview && <div className="company-import-preview"><strong>{profilePreview.name || 'Company name not found'}</strong><p>{profilePreview.description || 'Description not found.'}</p>
-        <dl><dt>Email</dt><dd>{profilePreview.email || 'Not found'}</dd><dt>Phone</dt><dd>{profilePreview.phone || 'Not found'}</dd></dl>
-        <a href={profilePreview.sourceUrl} target="_blank" rel="noopener noreferrer">View source website</a><p>{profilePreview.warning}</p>
-        <button type="button" disabled={saving} onClick={() => { setForm(current => ({ ...current, name: profilePreview.name || current.name, email: profilePreview.email || current.email, phone: profilePreview.phone || current.phone })); setNotice('Suggestions added to the form. Review every field before saving.'); setProfilePreview(null); setFormOpen(true); }}>Use suggestions in form</button>
-      </div>}
-    </section></details>}
     <AlertDialog open={confirmDeactivate} tone="warning" title="Deactivate this company?"
       description="Students will no longer be able to submit new proposals for this company. Existing official placements and history will remain unchanged."
       confirmLabel="Deactivate company" busy={saving}

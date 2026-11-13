@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { readMatchingPortalPage, readPortalPage } from '../portalRecordPages';
 import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -51,6 +52,21 @@ const STATUS_COLOR = {
   rejected: COLORS.rose100,
 };
 
+// Coordinator-facing labels: every requirement is Complete, Pending or Deficient.
+const SIMPLE_STATUS = {
+  approved: { label: 'Complete', tone: 'complete' },
+  submitted: { label: 'Pending', tone: 'pending' },
+  rejected: { label: 'Deficient', tone: 'deficient' },
+  not_submitted: { label: 'Not submitted', tone: 'none' },
+};
+const AI_TONE_TEXT = { green: 'Green', yellow: 'Yellow', red: 'Red' };
+function aiTone(review) {
+  if (!review || ['queued', 'checking'].includes(review.status)) return null;
+  if (['consent_required', 'ai_unavailable', 'policy_missing', 'unsupported_file', 'assignment_changed'].includes(review.reason)) return null;
+  if (review.tier === 'red') return 'red';
+  if (review.status === 'checks_passed' && review.tier !== 'yellow') return 'green';
+  return 'yellow';
+}
 const STATUS_TEXT = {
   not_submitted: 'Not Submitted',
   submitted: 'Awaiting review',
@@ -61,7 +77,7 @@ const STATUS_TEXT = {
 const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
-const REVIEW_FILTERS = [['all', 'All students'], ['review', 'Awaiting review'], ['revision', 'Changes requested'], ['complete', 'Complete']];
+const REVIEW_FILTERS = [['all', 'All students'], ['review', 'Pending'], ['revision', 'Deficient'], ['complete', 'Complete']];
 
 export default function CoordinatorDashboard() {
   const [sections, setSections] = useState([]);
@@ -255,6 +271,8 @@ export default function CoordinatorDashboard() {
     } catch { setAiReviews({}); }
     return () => stop();
   }, [requirementsActive, selectedSection?.id]);
+  const [docFilter, setDocFilter] = useState('all');
+  useEffect(() => { setDocFilter('all'); }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
@@ -417,6 +435,7 @@ export default function CoordinatorDashboard() {
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
+          <button type="button" className="sidebar-home-link" onClick={() => setActiveTab('overview')} aria-label="Go to dashboard">
           <div className="sidebar-logo-box" style={s.logoWrap}>
             <PathwayLogo style={s.logoImg} />
           </div>
@@ -424,6 +443,7 @@ export default function CoordinatorDashboard() {
             <div className="sidebar-brand-title" style={s.appName}>PATHWAY</div>
             <div className="sidebar-brand-subtitle" style={s.appSub}>Coordinator Portal</div>
           </div>
+          </button>
         </div>
 
         {coordDept && (
@@ -511,11 +531,8 @@ export default function CoordinatorDashboard() {
               </label>
             )}
           </div>
-          {['sections', 'classlist'].includes(activeTab) && <button type="button" className="portal-secondary"
-            onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
-            {activeTab === 'sections' ? 'Class List & Accounts' : 'Back to sections'}
-          </button>}
-          {['requirements', 'sections'].includes(activeTab) && (
+          {activeTab === 'classlist' && <button type="button" className="portal-secondary" onClick={() => setActiveTab('sections')}>Back to sections</button>}
+          {activeTab === 'requirements' && (
             <button
               type="button"
               className="section-export-button"
@@ -626,10 +643,10 @@ export default function CoordinatorDashboard() {
                       <div className="student-card-identity">
                         <span className="student-card-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
                         <div className="student-card-name">
-                          <strong>{student.firstName} {student.lastName}</strong>
+                          <strong>{personName(student)}</strong>
                           <span>ID {student.idNumber || 'not provided'}</span>
-                          <span className="coordinator-queue-status" data-status={needsReview(student) ? 'review' : isComplete(student) ? 'complete' : 'neutral'}>
-                            {needsReview(student) ? 'Needs review' : isComplete(student) ? 'Complete' : 'In progress'}
+                          <span className="coordinator-queue-status" data-status={isComplete(student) ? 'complete' : needsChanges(student) ? 'deficient' : 'pending'}>
+                            {isComplete(student) ? 'Complete' : needsChanges(student) ? 'Deficient' : 'Pending'}
                           </span>
                         </div>
                         {selectedStudent?.id === student.id && (
@@ -659,7 +676,7 @@ export default function CoordinatorDashboard() {
                 {/* Column 3: Requirements */}
                 <div className="requirements-detail" style={s.col3}>
                   <div style={{ ...s.colHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Review student documents'}
+                    <div>{selectedStudent ? personName(selectedStudent) : 'Review student documents'}
                     <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
                     </div>
                     <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
@@ -687,116 +704,73 @@ export default function CoordinatorDashboard() {
                   ) : (
                     <div style={s.requirementsScroll}>
                       {sectionRequirements.length === 0 && <PortalEmpty title="No requirements yet" description="Add the documents students must submit for this section." action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />}
-                      {REQUIREMENT_CATEGORIES.map(cat => {
-                        const catReqs = sectionRequirements.filter(r => requirementCategory(r.category) === cat);
-                        if (catReqs.length === 0) return null;
-                        return (
-                          <div key={cat} style={s.reqGroup}>
-                            
-                            <div style={s.reqGroupLabel} className="requirements-category">{cat} Requirements</div>
-                            <div style={s.reqCardsList}>
-                              {catReqs.map(({ id, label, deadline }) => {
-                                const req = selectedStudent.requirements?.[id];
-                                const status = req?.status || 'not_submitted';
-                                const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
-                                return (
-                                  <div className="requirements-document" key={id} style={s.reqRow}>
-                                    <div style={s.reqLeft} className="requirements-document-main">
-                                      <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
-                                      <div>
-                                        <div style={s.reqLabel} className="requirements-document-title">{label}</div>
-                                        {(status === 'submitted' || req?.autoApproved) && <RequirementCheckResult review={aiReviewFor(selectedStudent.id, id, req?.autoReview)} compact />}
-                                        {status === 'approved' && req?.autoApproved && (
-                                          <button type="button" className="autocheck-chip" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, id)}>
-                                            Auto-approved · Undo
-                                          </button>
-                                        )}
-                                        {deadline && (
-                                          <div style={{ fontSize: 11, color: isOverdue ? COLORS.rose700 : '#000000', fontWeight: isOverdue ? 800 : 600, marginTop: 2 }}>
-                                            <><Icon name="calendar" size={12} /> Deadline: {new Date(deadline).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</>
-                                            {isOverdue ? ' (OVERDUE)' : ''}
-                                          </div>
-                                        )}
-                                        {req?.submittedAt && (
-                                          <div style={{ fontSize: 11, color: '#000000', marginTop: 3 }}>
-                                            Submitted: {new Date(req.submittedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                          </div>
-                                        )}
-                                        {req?.reviewedAt && (
-                                          <div style={{ fontSize: 11, color: '#000000' }}>
-                                            {status === 'approved' ? 'Approved' : 'Rejected'}: {new Date(req.reviewedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                          </div>
-                                        )}
-                                        {status === 'rejected' && req?.rejectionReason && (
-                                          <div style={s.rejectionAlert}>
-                                            <strong style={{ color: '#000000' }}>Reason:</strong> <span style={{ color: '#000000' }}>{req.rejectionReason}</span>
-                                          </div>
-                                        )}
-                                        {req?.cloudinaryPublicId && req?.cloudinaryVersion ? (
-                                          <div className="requirement-file-actions"><button type="button" className="requirement-file-action"
-                                            onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(id)}/download`, fileName: req.fileName, sectionId: selectedSection.id, requirementId: id, studentId: selectedStudent.id })}>
-                                            <Icon name="expand" size={16} /> View
-                                          </button><button
-                                            type="button"
-                                            disabled={downloadingRequirement === `${selectedStudent.id}:${id}`}
-                                            onClick={() => handleDownloadRequirement(selectedStudent.id, id, req.fileName)}
-                                            title={req.fileName || 'Signed endorsement letter'}
-                                            aria-label={`Download private copy: ${req.fileName || 'signed endorsement letter'}`}
-                                            className="requirement-file-action"
-                                          >
-                                            <Icon name="download" size={16} /> {downloadingRequirement === `${selectedStudent.id}:${id}` ? 'Downloading…' : 'Download'}
-                                          </button></div>
-                                        ) : req?.fileUrl && (
-                                          <span style={s.fileLink}>Please upload this document again to enable secure download.</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div style={s.reqRight} className="requirements-document-actions">
-                                      <span style={{
-                                        ...s.statusBadge,
-                                        backgroundColor: STATUS_COLOR[status],
-                                        color: '#000000',
-                                        border: `1px solid ${COLORS.slate300}`,
-                                      }} className="requirements-document-status" data-status={status}>
-                                        {Object.hasOwn(STATUS_TEXT, status) ? STATUS_TEXT[status] : 'Status unavailable'}
-                                      </span>
-                                      {status === 'submitted' && (
-                                        <div style={s.actionBtns}>
-                                          <button
-                                            style={s.approveBtn}
-                                            disabled={saving}
-                                            onClick={() => handleRequirement(selectedStudent.id, id, 'approved')}
-                                          >
-                                            <Icon name="check" size={14} />
-                                            Approve
-                                          </button>
-                                          <button
-                                            style={s.rejectBtn}
-                                            disabled={saving}
-                                            onClick={() => {
-                                              setRejectionModal({ studentId: selectedStudent.id, reqId: id });
-                                              setRejectionReason('');
-                                            }}
-                                          >
-                                            <Icon name="x" size={14} />
-                                            Request changes
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                      {sectionRequirements.length > 0 && (() => {
+                        const ordered = REQUIREMENT_CATEGORIES.flatMap(cat => sectionRequirements.filter(r => requirementCategory(r.category) === cat));
+                        const rows = ordered.map(requirement => {
+                          const req = selectedStudent.requirements?.[requirement.id];
+                          const status = req?.status || 'not_submitted';
+                          const review = (status === 'submitted' || req?.autoApproved || status === 'approved' || status === 'rejected') ? aiReviewFor(selectedStudent.id, requirement.id, req?.autoReview) : null;
+                          return { ...requirement, req, status, review, tone: aiTone(review) };
+                        });
+                        const counts = { green: 0, yellow: 0, red: 0 };
+                        rows.forEach(row => { if (counts[row.tone] != null) counts[row.tone] += 1; });
+                        const shown = docFilter === 'all' ? rows : rows.filter(row => row.tone === docFilter);
+                        const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                        return <>
+                          <div className="req-table-filters" role="group" aria-label="Filter by AI check">
+                            {[['all', `All (${rows.length})`], ['green', `Green (${counts.green})`], ['yellow', `Yellow (${counts.yellow})`], ['red', `Red (${counts.red})`]].map(([value, label]) =>
+                              <button key={value} type="button" data-tone={value} aria-pressed={docFilter === value} onClick={() => setDocFilter(value)}>
+                                {value !== 'all' && <i aria-hidden="true" />}{label}</button>)}
                           </div>
-                        );
-                      })}
+                          <div className="req-table-wrap">
+                            <table className="req-table">
+                              <thead><tr><th>#</th><th>Requirement</th><th>AI check</th><th>AI findings &amp; notes</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
+                              <tbody>
+                                {shown.length === 0 && <tr><td colSpan={6} className="req-table-empty">No documents in this view.</td></tr>}
+                                {shown.map(row => {
+                                  const index = rows.indexOf(row) + 1;
+                                  const isOverdue = row.deadline && new Date(row.deadline) < new Date() && row.status !== 'approved';
+                                  const finding = row.status === 'rejected' && row.req?.rejectionReason ? row.req.rejectionReason : (row.review?.findings || [])[0];
+                                  const pct = Number.isFinite(row.review?.confidence) ? Math.round(row.review.confidence * 100) : null;
+                                  const simple = SIMPLE_STATUS[row.status];
+                                  const canOpen = row.req?.cloudinaryPublicId && row.req?.cloudinaryVersion;
+                                  return <tr key={row.id} data-status={row.status}>
+                                    <td className="req-index">{index}</td>
+                                    <td className="req-name">
+                                      <strong>{row.label}</strong>
+                                      <small>{row.req?.submittedAt ? `Submitted ${fmt(row.req.submittedAt)}` : 'Not submitted'}
+                                        {row.deadline && <span data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (overdue)' : ''}</span>}</small>
+                                    </td>
+                                    <td>{row.tone ? <span className="req-ai-pill" data-tone={row.tone}><i aria-hidden="true" />{AI_TONE_TEXT[row.tone]}{pct != null && ` · ${pct}%`}</span>
+                                      : <span className="req-ai-none">{row.status === 'not_submitted' ? '—' : row.review && ['queued', 'checking'].includes(row.review.status) ? 'Checking…' : 'Manual review'}</span>}</td>
+                                    <td className="req-findings">{finding ? <span data-tone={row.status === 'rejected' ? 'red' : row.tone}>{finding}</span> : <span className="req-ai-none">—</span>}
+                                      {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</td>
+                                    <td><span className="req-status-pill" data-status={simple.tone}>{simple.label}</span></td>
+                                    <td className="req-actions">
+                                      {canOpen && <button type="button" className="req-icon-btn" title="View document" aria-label={`View ${row.label}`}
+                                        onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(row.id)}/download`, fileName: row.req.fileName, sectionId: selectedSection.id, requirementId: row.id, studentId: selectedStudent.id })}><Icon name="expand" size={15} /></button>}
+                                      {canOpen && <button type="button" className="req-icon-btn" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`}
+                                        onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={15} /></button>}
+                                      {row.status === 'submitted' && <>
+                                        <button type="button" className="req-approve" disabled={saving} onClick={() => handleRequirement(selectedStudent.id, row.id, 'approved')}><Icon name="check" size={14} /> Approve</button>
+                                        <button type="button" className="req-reject" disabled={saving} onClick={() => { setRejectionModal({ studentId: selectedStudent.id, reqId: row.id }); setRejectionReason(''); }}>Deficient</button>
+                                      </>}
+                                      {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="autocheck-chip" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
+                                      {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
+                                    </td>
+                                  </tr>;
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>;
+                      })()}
 
                       <AlertDialog
                         open={Boolean(rejectionModal)}
-                        title="Request changes to this document?"
+                        title="Mark this document as deficient?"
                         description="Specify the correction the student needs before resubmitting this requirement."
-                        confirmLabel="Request changes"
+                        confirmLabel="Mark as deficient"
                         busy={saving}
                         confirmDisabled={!rejectionReason.trim()}
                         onCancel={() => setRejectionModal(null)}
@@ -820,7 +794,11 @@ export default function CoordinatorDashboard() {
                 </div>
               </div>
             )}
-            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
+            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />}
+              sectionActions={<>
+                <button type="button" className="portal-secondary section-action-btn" onClick={() => setRosterOpen(true)}><Icon name="users" size={16} /> Class list & accounts</button>
+                <button type="button" className="portal-secondary section-action-btn" onClick={exportSection} disabled={!selectedSection || exporting} aria-busy={exporting}><Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Download records (Excel)'}</button>
+              </>} />}
             {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Class List & Accounts" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
               <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />

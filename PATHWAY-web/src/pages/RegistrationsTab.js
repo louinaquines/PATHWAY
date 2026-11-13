@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import CoordinatorSearch from '../components/CoordinatorSearch';
@@ -5,7 +6,7 @@ import { PortalFormDialog } from '../components/PortalStates';
 import './CoordinatorRecords.css';
 
 const tabs = { pending: 'Awaiting approval', approved: 'Approved', rejected: 'Rejected or inactive' };
-const nameOf = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+const nameOf = student => personName(student);
 
 const usernameOf = student => student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—');
 

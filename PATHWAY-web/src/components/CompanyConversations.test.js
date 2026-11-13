@@ -81,7 +81,7 @@ test('links only the fixed test reply and loads the returned conversation', asyn
 test('disconnected inbox is explicit and never offers sending', async () => {
   adminRequest.mockResolvedValue({ connected: false, conversations: [] });
   render(<CompanyConversations sectionId="section" />);
-  expect(await screen.findByText(/Inbox not connected/)).toBeInTheDocument();
+  expect(await screen.findByText(/Not set up yet/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Refresh replies' })).toBeDisabled();
   expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument();
 });

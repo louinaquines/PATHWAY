@@ -90,7 +90,7 @@ export default function RegistrationsTab({ selectedSection }) {
     <div className="registration-tabs" aria-label="Account status">
       {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
         onClick={() => { setTab(key); setCursors(['']); }}>
-        {label} <span>{counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : '—'}</span>
+        {label} <span>{counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : 0}</span>
       </button>)}
     </div>
     <div className="accounts-card">
@@ -100,9 +100,9 @@ export default function RegistrationsTab({ selectedSection }) {
           setUnassigned(event.target.checked); setCursors(['']);
         }} /> Show students without a section</label>
       </div>
-      {error ? <p role="alert">{error} <button type="button" onClick={() => setRevision(value => value + 1)}>Try again</button></p>
+      {error ? <div className="accounts-empty-state" role="status"><strong>No student accounts yet</strong><span>Accounts appear here once students sign up for this section.</span><button type="button" onClick={() => setRevision(value => value + 1)}>Check again</button></div>
         : sectionId === undefined ? <p>Select a section to view student accounts.</p>
-        : !data ? <p role="status">Loading student accounts…</p>
+        : !data ? <p role="status" className="accounts-loading">Loading student accounts…</p>
         : <>
           <div className="coordinator-compact-table-wrap">
             <table className="coordinator-compact-table">

@@ -102,7 +102,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       s.hoursRendered,
       s.hoursRequired,
       s.completionPercentage,
-      s.riskTier ?? 'Unavailable', s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
+      s.riskTier ?? (['Not deployed', 'Completed'].includes(s.risk) ? s.risk : 'Unavailable'), s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
     ]);
     const csvContent = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -267,7 +267,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
                         <summary><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span><span className="analytics-att-more">Attendance details</span></summary>
                         <div className="analytics-att-panel">
-                        <span style={{ display: 'block' }}>Risk: {st.riskTier ?? 'Unavailable'} · Data: {st.dataStatus ?? 'Unavailable'}</span>
+                        <span style={{ display: 'block' }}>Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')} · Data: {st.dataStatus ?? 'Unavailable'}</span>
                         <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
@@ -287,7 +287,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         color: '#000000',
                         border: `1px solid ${COLORS.slate300}`,
                       }}>
-                        Risk: {st.riskTier ?? 'Unavailable'}
+                        Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')}
                       </span>
                       <small className="analytics-status-sub">Progress: {st.progressStatus ?? 'Unavailable'}</small>
                       <small className="analytics-status-sub">Data: {st.dataStatus ?? 'Unavailable'}</small>

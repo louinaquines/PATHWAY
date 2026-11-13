@@ -42,7 +42,16 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
           if (student.department !== section.department) return null;
           const required = student.hoursRequired ?? section.hoursRequired;
           const { inputs, evidence } = await loadAttendanceInputs(doc.ref, student, section, today);
+          // Judge attendance only for deployed students, and only from their own start date.
+          const deployed = student.placementStatus === 'approved' && student.preDeploymentStatus === 'approved' && student.clearanceStatus !== 'cleared';
+          if (deployed && inputs.schedule && /^\d{4}-\d{2}-\d{2}$/.test(student.startDate || '') && student.startDate > inputs.schedule.startDate) {
+            inputs.schedule = { ...inputs.schedule, startDate: student.startDate };
+          }
           const metrics = attendanceAnalytics(inputs);
+          if (!deployed || metrics.progressStatus === 'Completed') {
+            Object.assign(metrics, { riskTier: null, attendanceRate: deployed ? metrics.attendanceRate : null, onTimeRate: deployed ? metrics.onTimeRate : null,
+              risk: metrics.progressStatus === 'Completed' ? 'Completed' : 'Not deployed', riskEligible: false });
+          } else metrics.riskEligible = true;
           sources.push({ id: doc.id, student });
           return { id: doc.id, name: [student.lastName, student.firstName].filter(Boolean).join(', '), idNumber: student.idNumber || '',
             section: section.name, department: section.department, companyName: student.companyName || student.company || '',
@@ -54,7 +63,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
       }
       for (let index = 0; index < sources.length; index += 10) await Promise.all(sources.slice(index, index + 10).map(({ id, student }) => assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, id, student, section)));
       await assertAttendanceFresh(db, req.staff.uid, req.params.sectionId, null, null, section);
-      const scoped = students.filter(Boolean), hoursAvailable = scoped.every(s => s.hoursRendered !== null), riskAvailable = scoped.every(s => s.riskTier !== null);
+      const scoped = students.filter(Boolean), hoursAvailable = scoped.every(s => s.hoursRendered !== null), riskAvailable = scoped.filter(s => s.riskEligible).every(s => s.riskTier !== null);
       const total = hoursAvailable ? scoped.reduce((sum, s) => sum + s.hoursRendered, 0) : null;
       res.set('Cache-Control', 'private, no-store');
       return res.json({ students: scoped, schedule: section.attendanceSchedule || null, today,

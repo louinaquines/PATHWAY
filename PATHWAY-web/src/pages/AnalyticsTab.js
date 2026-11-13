@@ -195,13 +195,23 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
 
       {/* Metrics Summary Grid */}
       {data && (
-        <div className="analytics-metrics" style={s.metricsGrid}>
-          <MetricCard label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
-          <MetricCard label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
-          <MetricCard label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
-          <MetricCard label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
+        <div className="analytics-metrics analytics-overview">
+          <section className="analytics-group" aria-label="Students">
+            <h3 className="analytics-group-title">Students</h3>
+            <div className="analytics-group-grid">
+              <MetricCard tone="blue" icon="users" label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
+              <MetricCard tone="green" icon="active" label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
+              <MetricCard tone="indigo" icon="done" label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
+              <MetricCard tone="amber" icon="risk" label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
+            </div>
+          </section>
+          <section className="analytics-group" aria-label="Hours">
+            <h3 className="analytics-group-title">Hours</h3>
+            <div className="analytics-group-grid">
+              <MetricCard tone="teal" icon="clock" label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
+              <MetricCard tone="slate" icon="avg" label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
+            </div>
+          </section>
         </div>
       )}
 
@@ -299,11 +309,22 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   );
 }
 
-function MetricCard({ label, value }) {
+const METRIC_ICONS = {
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c-.4-2-1.4-3.5-2.9-4.5" /></>,
+  active: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+  done: <><path d="m22 10-10-5-10 5 10 5 10-5z" /><path d="M6 12v5c3 2 9 2 12 0v-5" /></>,
+  risk: <><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></>,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  avg: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+};
+
+function MetricCard({ label, value, icon, tone }) {
+  const unavailable = value === 'Unavailable';
   return (
-    <div className="analytics-metric-card" style={s.metricCard}>
-      <div style={s.metricLabel}>{label}</div>
-      <div className={value === 'Unavailable' ? 'analytics-metric-unavailable' : undefined} style={s.metricValue}>{value === 'Unavailable' ? '—' : value}</div>
+    <div className="analytics-metric-card" data-tone={tone}>
+      <span className="analytics-metric-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{METRIC_ICONS[icon]}</svg></span>
+      <div className={'analytics-metric-value' + (unavailable ? ' analytics-metric-unavailable' : '')}>{unavailable ? '—' : value}</div>
+      <div className="analytics-metric-label">{label}</div>
     </div>
   );
 }

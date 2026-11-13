@@ -258,7 +258,7 @@
 .admin-notification-list li:last-child .admin-notification-row { border-bottom: 0; }
 .admin-notification-row:hover { background: rgba(7,95,201,.05); }
 .admin-notification-row:focus-visible { outline: 2px solid #075fc9; outline-offset: -2px; }
-.admin-notification-row[data-unread='true'] { box-shadow: inset 3px 0 0 #075fc9; }
+.admin-notification-row[data-unread='true'] { background: rgba(239,246,255,.7); }
 .admin-notification-row .admin-stat-icon { width: 42px; height: 42px; border-radius: 12px; }
 .admin-notification-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .admin-notification-text strong { color: #0f172a; font-size: 15px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

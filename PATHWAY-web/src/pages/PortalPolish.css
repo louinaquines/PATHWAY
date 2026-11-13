@@ -249,3 +249,24 @@
 .req-skel-table { display: flex; flex-direction: column; border: 1px solid hsl(214 32% 91%); border-radius: 12px; overflow: hidden; }
 .req-skel-tr { display: grid; grid-template-columns: 24px 1.6fr 1fr 1.4fr 90px; gap: 16px; align-items: center; padding: 16px; border-bottom: 1px solid hsl(214 32% 94%); }
 @media (max-width: 1000px) { .req-skel { grid-template-columns: 1fr; padding: 16px; } }
+
+/* Minimal bulk toolbar + quiet pagination */
+.coordinator-page .ai-bulk-bar { display: flex !important; flex-direction: row !important; flex-wrap: wrap; align-items: center !important; justify-content: space-between; gap: 8px 12px !important; margin: 0 14px !important; padding: 8px 4px 10px !important; background: none !important; border: 0 !important; border-bottom: 1px solid hsl(214 32% 91%) !important; border-radius: 0 !important; box-shadow: none !important; }
+.coordinator-page .ai-bulk-counts { display: flex; gap: 12px; }
+.coordinator-page .ai-bulk-counts span { display: inline-flex; align-items: center; gap: 6px; padding: 0 !important; background: none !important; border: 0 !important; font-size: 12.5px !important; font-weight: 600; color: hsl(215 25% 27%) !important; cursor: default; }
+.coordinator-page .ai-bulk-counts span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.coordinator-page .ai-bulk-counts span[data-tier="green"]::before { background: hsl(152 60% 38%); }
+.coordinator-page .ai-bulk-counts span[data-tier="yellow"]::before { background: hsl(38 92% 50%); }
+.coordinator-page .ai-bulk-counts span[data-tier="red"]::before { background: hsl(0 72% 51%); }
+.coordinator-page .ai-bulk-actions { display: flex !important; gap: 4px !important; margin-left: auto; }
+.coordinator-page .ai-bulk-actions button { height: auto !important; min-height: 0 !important; width: auto !important; padding: 4px 6px !important; background: none !important; border: 0 !important; box-shadow: none !important; font-size: 12.5px !important; font-weight: 600 !important; border-radius: 6px !important; }
+.coordinator-page .ai-bulk-actions .ai-bulk-approve { color: hsl(152 60% 32%) !important; }
+.coordinator-page .ai-bulk-actions .ai-bulk-reject { color: hsl(0 65% 48%) !important; }
+.coordinator-page .ai-bulk-actions button:hover:not(:disabled) { background: hsl(214 32% 95%) !important; }
+.coordinator-page .ai-bulk-actions .ai-bulk-approve + .ai-bulk-reject::before { content: "·"; margin-right: 8px; color: hsl(215 16% 70%); }
+.coordinator-page .ai-bulk-confirm { width: 100%; }
+.coordinator-page .requirements-students .portal-record-pagination { display: flex !important; align-items: center; justify-content: flex-end !important; gap: 2px !important; padding: 8px 14px !important; background: none !important; border: 0 !important; border-top: 1px solid hsl(214 32% 93%) !important; box-shadow: none !important; border-radius: 0 !important; }
+.coordinator-page .requirements-students .portal-record-pagination span { order: -1; margin-right: auto; font-size: 12px !important; color: hsl(215 16% 47%) !important; }
+.coordinator-page .requirements-students .portal-record-pagination button { width: 28px !important; height: 28px !important; min-height: 28px !important; background: none !important; border: 0 !important; box-shadow: none !important; color: hsl(215 25% 35%) !important; border-radius: 6px !important; }
+.coordinator-page .requirements-students .portal-record-pagination button:hover:not(:disabled) { background: hsl(214 32% 94%) !important; }
+.coordinator-page .requirements-students .portal-record-pagination button:disabled { opacity: .35; }

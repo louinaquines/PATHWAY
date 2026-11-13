@@ -615,17 +615,17 @@ export default function CoordinatorDashboard() {
                     const greens = tierItems(visibleReviewStudents, 'green'), reds = tierItems(visibleReviewStudents, 'red'), yellows = tierItems(visibleReviewStudents, 'yellow');
                     if (!greens.length && !reds.length && !yellows.length) return null;
                     return <div className="ai-bulk-bar" aria-label="AI check results">
-                      <div className="ai-bulk-counts"><span data-tier="green">{greens.length} green</span><span data-tier="yellow">{yellows.length} yellow</span><span data-tier="red">{reds.length} red</span></div>
+                      <div className="ai-bulk-counts"><span data-tier="green" title="Green: passed the AI check">{greens.length}</span><span data-tier="yellow" title="Yellow: review these one by one">{yellows.length}</span><span data-tier="red" title="Red: failed the AI check">{reds.length}</span></div>
                       {bulkConfirm ? <div className="ai-bulk-confirm" role="group" aria-label="Confirm bulk action">
                         <p>{bulkConfirm.status === 'approved' ? `Approve ${bulkConfirm.items.length} green document${bulkConfirm.items.length === 1 ? '' : 's'}?` : `Reject ${bulkConfirm.items.length} red document${bulkConfirm.items.length === 1 ? '' : 's'}?`}</p>
                         {bulkConfirm.status === 'rejected' && <textarea aria-label="Reason sent to students" rows={3} value={bulkReason} onChange={e => setBulkReason(e.target.value)} />}
                         <div><button type="button" className="ai-bulk-cancel" disabled={bulkBusy} onClick={() => setBulkConfirm(null)}>Cancel</button>
                           <button type="button" className={bulkConfirm.status === 'approved' ? 'ai-bulk-approve' : 'ai-bulk-reject'} disabled={bulkBusy || (bulkConfirm.status === 'rejected' && !bulkReason.trim())} onClick={runBulk}>{bulkBusy ? 'Working…' : 'Confirm'}</button></div>
                       </div> : <div className="ai-bulk-actions">
-                        <button type="button" className="ai-bulk-approve" disabled={!greens.length || saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve all green</button>
-                        <button type="button" className="ai-bulk-reject" disabled={!reds.length || saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Reject all red</button>
+                        {greens.length > 0 && <button type="button" className="ai-bulk-approve" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve {greens.length} green</button>}
+                        {reds.length > 0 && <button type="button" className="ai-bulk-reject" disabled={saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Reject {reds.length} red</button>}
                       </div>}
-                      {yellows.length > 0 && !bulkConfirm && <p className="ai-bulk-note">Review yellow documents one by one.</p>}
+                      
                     </div>;
                   })()}
                   {reviewFilter !== 'all' && <div className="requirements-filter-chip">
@@ -683,10 +683,10 @@ export default function CoordinatorDashboard() {
                     );
                   })}
                   </div>
-                  {(currentReview?.page || reviewCursors.length > 1) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
+                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
                     <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
                       onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={16} /></button>
-                    <span aria-live="polite">Page {reviewCursors.length}{reviewTotal?.scope === reviewScope
+                    <span aria-live="polite">{reviewCursors.length}{reviewTotal?.scope === reviewScope
                       ? ` of ${Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages)}`
                       : currentReview?.page?.hasMore ? ` of at least ${reviewCursors.length + 1}` : ''}</span>
                     <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}

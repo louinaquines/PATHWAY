@@ -30,3 +30,13 @@
 .supervisor-verification [role="status"] { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #ecfdf5; color: #047857; font-size: 13px; }
 .supervisor-verification small { display: block; margin-top: 14px; font-size: 12px; color: #94a3b8; }
 @media (max-width: 400px) { .otp-box { width: 40px; height: 50px; font-size: 21px; } .otp-boxes { gap: 6px; } }
+
+/* Responsive fit (mobile/tablet/desktop) */
+.supervisor-verification { box-sizing: border-box; width: 100%; max-width: 460px; margin: 20px auto; padding: clamp(18px, 5vw, 28px) !important; }
+.supervisor-verification * { box-sizing: border-box; }
+.supervisor-verification .verification-secondary, .supervisor-verification .verification-primary { width: 100%; min-width: 0; max-width: 360px; }
+.supervisor-verification form { width: 100%; }
+.otp-field { width: 100%; max-width: 360px; }
+.otp-boxes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(5px, 1.6vw, 10px); width: 100%; }
+.otp-box { width: auto; height: auto; aspect-ratio: 5 / 6; min-height: 0; font-size: clamp(18px, 5.5vw, 26px); border-radius: clamp(8px, 2vw, 12px); }
+@media (max-width: 400px) { .otp-box { width: auto; height: auto; } }

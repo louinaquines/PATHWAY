@@ -387,7 +387,7 @@ export default function CoordinatorDashboard() {
     ];
     const base = query(collection(db, 'users'), ...constraints, ...(exactId
       ? [where('idNumber', '==', reviewSearch)]
-      : [orderBy('lastName'), orderBy('firstName')]));
+      : [orderBy('firstName'), orderBy('lastName')]));
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
     if (!requiresMatching && !reviewCursor) {
       getCountFromServer(base).then(snapshot => {
@@ -400,7 +400,7 @@ export default function CoordinatorDashboard() {
         && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
       : readPortalPage(base, reviewCursor, 25);
-    request.then(page => {
+    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (!active) return;
       setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
       if (!page.hasMore) setReviewTotal({ scope: reviewScope, pages: reviewCursors.length });

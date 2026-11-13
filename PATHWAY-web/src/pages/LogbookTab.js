@@ -220,7 +220,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     const exactId = /^\d{5,24}$/.test(rosterSearch);
     const base = exactId
       ? query(students, ...scope, where('idNumber', '==', rosterSearch))
-      : query(students, ...scope, orderBy('lastName'), orderBy('firstName'));
+      : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
     const pendingIds = new Set(pendingStudentIds);
     const requiresMatching = pendingOnly || (rosterSearch && !exactId);
     if (!requiresMatching && !rosterCursor) {
@@ -234,7 +234,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         && matchesCoordinatorSearch(rosterSearch, studentDisplayName(student), student.idNumber, selectedSection.name)
       ))
       : readPortalPage(base, rosterCursor, RECORD_PAGE_SIZE);
-    request.then(page => {
+    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, page });
     }).catch(() => {
       console.warn('Logbook roster query failed');

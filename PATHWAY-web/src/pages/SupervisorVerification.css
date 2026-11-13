@@ -40,3 +40,9 @@
 .otp-boxes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(5px, 1.6vw, 10px); width: 100%; }
 .otp-box { width: auto; height: auto; aspect-ratio: 5 / 6; min-height: 0; font-size: clamp(18px, 5.5vw, 26px); border-radius: clamp(8px, 2vw, 12px); }
 @media (max-width: 400px) { .otp-box { width: auto; height: auto; } }
+
+/* OTP microinteractions */
+@keyframes otp-pop { 0% { transform: scale(.92); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.otp-box.is-filled { animation: otp-pop .16s cubic-bezier(.2,.7,.2,1); }
+.otp-field:has(.otp-box:nth-child(6).is-filled) .otp-box { border-color: hsl(152 60% 45%); background: hsl(152 76% 97%); }
+@media (prefers-reduced-motion: reduce) { .otp-box { animation: none !important; } }

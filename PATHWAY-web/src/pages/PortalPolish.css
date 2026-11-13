@@ -1,0 +1,56 @@
+/* PATHWAY-web/src/pages/PortalPolish.css
+   Final design pass for admin + coordinator portals.
+   One colour system (HSL), one radius scale, one type scale, subtle motion. Loaded last. */
+:is(.admin-page, .coordinator-page) {
+  --pw-blue-600: hsl(217 83% 45%);
+  --pw-blue-700: hsl(220 80% 38%);
+  --pw-ink-900:  hsl(222 47% 11%);
+  --pw-surface:  hsl(0 0% 100% / .9);
+  --pw-ease: cubic-bezier(.2,.7,.2,1);
+  font-feature-settings: "kern" 1, "liga" 1;
+  text-rendering: optimizeLegibility;
+}
+/* Background: campus photo reads clearly; left side stays light for content */
+:is(.admin-page, .coordinator-page) main {
+  background:
+    linear-gradient(100deg, hsl(210 40% 98% / .9) 0%, hsl(210 40% 98% / .72) 38%, hsl(214 60% 96% / .32) 70%, hsl(214 70% 92% / .12) 100%),
+    url("../assets/uc-campus.jpg") center 70% / cover no-repeat,
+    hsl(210 40% 98%) !important;
+  background-attachment: fixed !important;
+}
+:is(.admin-page, .coordinator-page) main :is(
+  .admin-records-card, .admin-stat-card, .admin-settings-card,
+  .cdash-metrics > *, .cdash-columns > *, .requirements-workspace > section, .logbook-roster,
+  .evaluation-invitation, .evaluation-records-card, .clearance-records, .clearance-filter,
+  .placement-summary > div, .placement-queue-table, .placement-companies, .company-directory-records,
+  .sections-panel, .section-overview, .section-assignment, .section-student-table, .accounts-card,
+  .analytics-group, .analytics-records, .messages-students, .messages-conversation, .inbox-panel, .req-header-card, .req-cat-block
+) {
+  background: var(--pw-surface) !important;
+  border: 1px solid hsl(0 0% 100% / .8) !important;
+  box-shadow: 0 1px 2px hsl(222 47% 11% / .04), 0 10px 30px -12px hsl(222 47% 11% / .14) !important;
+}
+/* Typography */
+:is(.admin-page, .coordinator-page) main :is(h1, h2) { color: var(--pw-ink-900); letter-spacing: -0.015em; line-height: 1.2; }
+:is(.admin-page, .coordinator-page) main :is(h3, h4) { color: var(--pw-ink-900); letter-spacing: -0.01em; line-height: 1.3; }
+:is(.admin-page, .coordinator-page) main p { line-height: 1.55; }
+:is(.admin-page, .coordinator-page) main :is(section, header) > p { max-width: 68ch; }
+/* Controls: calm primary buttons, no glow */
+:is(.admin-page, .coordinator-page) main :is(button, input, select, textarea) { transition: background-color .16s var(--pw-ease), border-color .16s var(--pw-ease), color .16s var(--pw-ease), box-shadow .16s var(--pw-ease), transform .12s var(--pw-ease); }
+:is(.admin-page, .coordinator-page) main button:not(:disabled):active { transform: scale(.98); }
+:is(.admin-page, .coordinator-page) main :is(.admin-primary-action, .coordinator-add-company, .req-add-btn, .inbox-primary, .evaluation-form-actions button, .placement-page-header .portal-primary, .sections-panel > div:first-child button):not(:disabled) {
+  background: var(--pw-blue-600) !important; box-shadow: 0 1px 2px hsl(217 83% 30% / .25) !important;
+}
+:is(.admin-page, .coordinator-page) main :is(.admin-primary-action, .coordinator-add-company, .req-add-btn, .inbox-primary, .evaluation-form-actions button, .placement-page-header .portal-primary, .sections-panel > div:first-child button):hover:not(:disabled) {
+  background: var(--pw-blue-700) !important; box-shadow: 0 4px 12px -4px hsl(217 83% 30% / .45) !important; transform: none !important;
+}
+/* Focus always visible */
+:is(.admin-page, .coordinator-page) :is(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--pw-blue-600) !important; outline-offset: 2px; }
+/* Microinteractions */
+:is(.admin-page, .coordinator-page) main :is(.section-list-card, .clearance-filter, .req-row) { transition: transform .18s var(--pw-ease), box-shadow .18s var(--pw-ease); }
+:is(.admin-page, .coordinator-page) main :is(.section-list-card, .clearance-filter, .req-row):hover { transform: translateY(-1px); }
+@keyframes pw-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+:is(.admin-page, .coordinator-page) main > div:not(header) { animation: pw-enter .22s var(--pw-ease) both; }
+:is(.admin-page, .coordinator-page) main button:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { :is(.admin-page, .coordinator-page) * { animation: none !important; transition: none !important; } }
+@media (max-width: 900px) { :is(.admin-page, .coordinator-page) main { background-attachment: scroll !important; } }

@@ -6,10 +6,10 @@ const read = (key, fallback) => { try { const value = localStorage.getItem(key);
 const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ } };
 
 export function useSidebarPrefs(portal) {
-  const [modern, setModern] = useState(() => read(`pathway.sidebar.${portal}.modern`, true));
+  // The dark sidebar is turned off: everyone gets the classic white sidebar.
+  const [modern, setModern] = useState(false);
   const [collapsed, setCollapsed] = useState(() => read(`pathway.sidebar.${portal}.collapsed`, false));
   const [folded, setFolded] = useState(() => read(`pathway.sidebar.${portal}.folded`, []));
-  useEffect(() => write(`pathway.sidebar.${portal}.modern`, modern), [portal, modern]);
   useEffect(() => write(`pathway.sidebar.${portal}.collapsed`, collapsed), [portal, collapsed]);
   useEffect(() => write(`pathway.sidebar.${portal}.folded`, folded), [portal, folded]);
   return {
@@ -48,7 +48,11 @@ export function GroupTitle({ prefs, title }) {
   </button>;
 }
 
-export function SidebarTools({ prefs }) {
+export function SidebarTools() {
+  return null;
+}
+
+export function SidebarToolsUnused({ prefs }) {
   return <div className="sidebar-tools">
     {prefs.modern && <button type="button" className="sidebar-tool" onClick={() => prefs.setCollapsed(value => !value)}
       aria-label={prefs.collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={prefs.collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>

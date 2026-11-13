@@ -300,3 +300,10 @@
 .coordinator-page .ai-bulk-actions { width: auto !important; flex: 0 0 auto !important; flex-wrap: nowrap !important; margin-left: auto !important; }
 .coordinator-page .ai-bulk-actions button { white-space: nowrap; padding: 2px 6px !important; line-height: 1.4 !important; }
 .coordinator-page .ai-bulk-bar:has(.ai-bulk-confirm) { flex-wrap: wrap !important; }
+
+/* Bulk toolbar: counts left, actions right, one 28px row */
+.coordinator-page .ai-bulk-bar { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; justify-content: space-between !important; min-height: 0 !important; padding: 6px 4px 8px !important; }
+.coordinator-page .ai-bulk-counts { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 10px !important; flex: 0 0 auto !important; width: auto !important; grid-template-columns: none !important; }
+.coordinator-page .ai-bulk-counts span { white-space: nowrap; line-height: 1 !important; }
+.coordinator-page .ai-bulk-actions { align-items: center !important; }
+.coordinator-page .ai-bulk-actions button { line-height: 1 !important; padding: 5px 6px !important; }

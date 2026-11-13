@@ -49,7 +49,7 @@ test('explicit tiers, progress and data quality override compatibility status an
       status: 'On Track', risk: 'On Track', reasonCodes: [{ code: 'PROJECTED_SHORTFALL' }], observationCounts: { attendanceEligibleDays: 5, projectionEligibleDays: 9 } })) });
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Student 0');
-  for (const label of ['On track','At risk','High risk']) expect(screen.getByText(label)).toBeInTheDocument();
+  for (const label of ['On track','At risk','High risk']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();

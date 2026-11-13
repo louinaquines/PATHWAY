@@ -8,6 +8,10 @@ const pendingListeners = new Set();
 export function subscribeBackendPending(listener) { pendingListeners.add(listener); listener(pendingRequests); return () => pendingListeners.delete(listener); }
 function setPending(delta) { pendingRequests = Math.max(0, pendingRequests + delta); pendingListeners.forEach(listener => listener(pendingRequests)); }
 async function trackedFetch(url, init) { setPending(1); try { return await fetch(url, init); } finally { setPending(-1); } }
+// Screens with their own loading UI register here so the global notice does not show twice.
+let pageLoaders = 0;
+export function registerPageLoader() { pageLoaders += 1; pendingListeners.forEach(listener => listener(pendingRequests)); return () => { pageLoaders = Math.max(0, pageLoaders - 1); pendingListeners.forEach(listener => listener(pendingRequests)); }; }
+export function hasPageLoader() { return pageLoaders > 0; }
 export function warmUpBackend() { trackedFetch(`${API}/healthz`, { method: 'GET' }).catch(() => {}); }
 
 async function authenticatedFetch(path, options = {}) {

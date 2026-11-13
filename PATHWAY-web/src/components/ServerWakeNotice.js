@@ -6,13 +6,14 @@ import './ServerWakeNotice.css';
 // Shows a small notice when any backend request is slow (Render free tier sleeps and needs ~1 min to wake).
 export default function ServerWakeNotice() {
   const [pending, setPending] = useState(0);
+  const [, rerender] = useState(0);
   const [slow, setSlow] = useState(false);
   const [verySlow, setVerySlow] = useState(false);
 
   useEffect(() => {
     // Tests may mock adminApi without these helpers.
     if (typeof adminApi.warmUpBackend === 'function') adminApi.warmUpBackend();
-    return typeof adminApi.subscribeBackendPending === 'function' ? adminApi.subscribeBackendPending(setPending) : undefined;
+    return typeof adminApi.subscribeBackendPending === 'function' ? adminApi.subscribeBackendPending(count => { setPending(count); rerender(value => value + 1); }) : undefined;
   }, []);
   useEffect(() => {
     if (!pending) { setSlow(false); setVerySlow(false); return undefined; }
@@ -21,7 +22,8 @@ export default function ServerWakeNotice() {
     return () => { clearTimeout(a); clearTimeout(b); };
   }, [pending]);
 
-  if (!slow) return null;
+  const pageOwnsLoading = typeof adminApi.hasPageLoader === 'function' && adminApi.hasPageLoader();
+  if (!slow || pageOwnsLoading) return null;
   return (
     <div className="server-wake-notice" role="status" aria-live="polite">
       <span className="server-wake-spinner" aria-hidden="true" />

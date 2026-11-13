@@ -1,4 +1,5 @@
 import PlacementPicker from '../components/PlacementPicker';
+import * as adminApi from '../adminApi';
 import CoordinatorRecordPicker from '../components/CoordinatorRecordPicker';
 import { compareStudents } from '../coordinatorStudentSort';
 import { PortalFormDialog } from '../components/PortalStates';
@@ -59,6 +60,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [remoteStudents, setRemoteStudents] = useState([]);
   const [summary, setSummary] = useState(null);
   const [slowLoad, setSlowLoad] = useState(false);
+  // This screen shows its own loading banner, so hide the global server notice here.
+  useEffect(() => (typeof adminApi.registerPageLoader === 'function' ? adminApi.registerPageLoader() : undefined), []);
   useEffect(() => {
     if (!loading) { setSlowLoad(false); return undefined; }
     const timer = setTimeout(() => setSlowLoad(true), 4000);

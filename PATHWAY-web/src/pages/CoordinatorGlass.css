@@ -702,3 +702,16 @@
 .ai-bulk-confirm textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #dbe3ee; border-radius: 9px; font: inherit; font-size: 13px; resize: vertical; }
 .ai-bulk-note { margin: 0; font-size: 12px; color: #64748b; }
 .autocheck-hint { margin: 4px 0 8px; font-size: 12.5px; color: #64748b; }
+
+/* Placements loading states */
+@keyframes pw-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+@keyframes pw-spin { to { transform: rotate(360deg); } }
+.placement-skeleton-number, .placement-skeleton-rows span { display: block; border-radius: 8px; background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%); background-size: 400px 100%; animation: pw-shimmer 1.2s linear infinite; }
+.coordinator-page .placement-summary > div .placement-skeleton-number { width: 48px; height: 26px; }
+.placement-loading-banner { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 16px; border: 1px solid #bfdbfe; border-radius: 12px; background: rgba(239,246,255,.92); color: #1e3a8a; font-size: 13px; }
+.placement-loading-banner strong { display: block; font-size: 14px; }
+.placement-loading-banner span:not(.placement-spinner) { display: block; margin-top: 2px; color: #475569; }
+.placement-spinner { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2.5px solid #bfdbfe; border-top-color: #2563eb; animation: pw-spin .8s linear infinite; }
+.placement-skeleton-rows > div { display: grid; grid-template-columns: 1fr 2fr 2fr 1.5fr; gap: 20px; padding: 18px 20px; border-bottom: 1px solid rgba(226,232,240,.8); }
+.placement-skeleton-rows span { height: 14px; }
+@media (prefers-reduced-motion: reduce) { .placement-skeleton-number, .placement-skeleton-rows span, .placement-spinner { animation: none; } }

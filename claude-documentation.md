@@ -134,3 +134,4 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - 5:08 PM — Evaluation verification card responsive: OTP boxes are a 6-column fluid grid (fit any width, max 360px), buttons full width, padding scales. Emails still old = backend not redeployed.
 - 5:12 PM — Fix: evaluation delete failed (500) because audit action "evaluation.deleted" was not in the allowed AUDIT_ACTIONS list; added. Added " · " separator between company and supervisor on records.
 - 5:15 PM — Emails: replaced the remote logo image (blocked by Gmail in spam / image-off mode, showed broken icon) with a built-in blue "P" badge so it always renders.
+- 5:20 PM — Emails: real PATHWAY logo embedded as an inline (CID) attachment (PATHWAY-backend/pathway-email-logo.png, 22 KB, added to Dockerfile) in both the invitation and verification-code emails, so it shows without loading remote images.

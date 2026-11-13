@@ -61,6 +61,7 @@ function installEvaluationMail({ app, db, requireStaff, coordinatorOwnsStudent, 
           from: mailer.from, to: evaluation.supervisorEmail,
           messageId: `<evaluation-${ref.id}@pathway.invalid>`, subject: 'PATHWAY supervisor evaluation request',
           html: evaluationEmailHtml(evaluation, message, `${webUrl.origin}/evaluate?token=${token}`),
+          attachments: require('./evaluationEmailTemplate').logoAttachments(),
           text: `Dear ${evaluation.supervisorName},\n\nPlease complete the internship evaluation for ${evaluation.studentName} at ${evaluation.companyName}.\n\n${message.trim() ? `${message.trim()}\n\n` : ''}Secure evaluation link:\n${webUrl.origin}/evaluate?token=${token}\n\nThis link expires on ${evaluation.expiresAt} and can be submitted once. Please do not forward it.\n\nPATHWAY OJT coordinator`,
         });
         accepted = Array.isArray(result.accepted) && result.accepted.some(address => address.toLowerCase() === evaluation.supervisorEmail.toLowerCase());

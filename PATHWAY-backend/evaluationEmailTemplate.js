@@ -1,7 +1,7 @@
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 function logoUrl() { try { return new URL('/pathway-logo1.png', process.env.EVALUATION_WEB_URL).href; } catch { return ''; } }
 function brandHeader() {
-  return `<tr><td style="padding:22px 28px;border-bottom:1px solid #e4eaf3;background:#ffffff;border-radius:16px 16px 0 0"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="padding-right:12px;vertical-align:middle"><div style="width:40px;height:40px;border-radius:10px;background:#075fc9;color:#ffffff;font-size:22px;font-weight:bold;line-height:40px;text-align:center;font-family:Arial,Helvetica,sans-serif">P</div></td><td style="vertical-align:middle"><span style="font-size:20px;font-weight:bold;letter-spacing:2px;color:#075fc9">PATHWAY</span><div style="margin-top:2px;font-size:12px;color:#697991">OJT Management System · Supervisor Portal</div></td></tr></table></td></tr>`;
+  return `<tr><td style="padding:22px 28px;border-bottom:1px solid #e4eaf3;background:#ffffff;border-radius:16px 16px 0 0"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="padding-right:12px;vertical-align:middle"><img src="cid:pathway-logo" width="40" height="40" alt="" style="display:block;border:0;width:40px;height:40px;border-radius:10px"></td><td style="vertical-align:middle"><span style="font-size:20px;font-weight:bold;letter-spacing:2px;color:#075fc9">PATHWAY</span><div style="margin-top:2px;font-size:12px;color:#697991">OJT Management System · Supervisor Portal</div></td></tr></table></td></tr>`;
 }
 function verificationCodeHtml(code) {
   const digits = String(code).split('').map(d => `<td style="width:44px;height:52px;background:#f0f6ff;border:1px solid #bfdbfe;border-radius:10px;text-align:center;font-size:26px;font-weight:bold;color:#0f172a;font-family:'Courier New',monospace">${escape(d)}</td>`).join('<td style="width:8px"></td>');
@@ -42,4 +42,8 @@ ${message.trim() ? `<div style="margin:18px 0;padding:14px 16px;border-left:3px 
 <tr><td style="padding:18px 28px;background:#f7f9fc;border-top:1px solid #e4eaf3;font-size:12px;color:#697991;border-radius:0 0 16px 16px">PATHWAY OJT Coordination Office<br>Helping students and industry partners stay connected.</td></tr>
 </table></td></tr></table></body></html>`;
 }
-module.exports = { evaluationEmailHtml, verificationCodeHtml };
+let logoBuffer = null;
+try { logoBuffer = require('fs').readFileSync(require('path').join(__dirname, 'pathway-email-logo.png')); } catch { logoBuffer = null; }
+// Inline (CID) logo: shows without loading remote images.
+function logoAttachments() { return logoBuffer ? [{ filename: 'pathway-logo.png', content: logoBuffer, cid: 'pathway-logo', contentType: 'image/png' }] : []; }
+module.exports = { evaluationEmailHtml, verificationCodeHtml, logoAttachments };

@@ -42,7 +42,7 @@ function installEvaluationOtp({ app, db, allowRate, mailerFactory }) {
           try {
             const result = await mailer.transport.sendMail({ from: mailer.from, to: recipient, subject: `${code} is your PATHWAY verification code`,
               text: `Your verification code is ${code}. It expires in 10 minutes. Do not share this code.`,
-              html: require('./evaluationEmailTemplate').verificationCodeHtml(code) });
+              html: require('./evaluationEmailTemplate').verificationCodeHtml(code), attachments: require('./evaluationEmailTemplate').logoAttachments() });
             if (!result.accepted?.some(address => address.toLowerCase() === recipient.toLowerCase())) throw new Error('MAIL_UNCONFIRMED');
           } catch (error) {
             await db.runTransaction(async tx => {

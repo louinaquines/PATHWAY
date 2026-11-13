@@ -207,3 +207,7 @@
 .coordinator-page tr[data-risk="High"] td:first-child { box-shadow: inset 3px 0 0 hsl(0 72% 51%); }
 .coordinator-page tr[data-risk="Medium"] td { background: hsl(45 100% 96%) !important; }
 .coordinator-page tr[data-risk="Medium"] td:first-child { box-shadow: inset 3px 0 0 hsl(38 92% 50%); }
+
+/* Sidebar nav: scrollable, scrollbar hidden */
+.coordinator-page .sidebar-nav-scroll, .admin-page .sidebar-nav-scroll { overflow-y: auto !important; scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.coordinator-page .sidebar-nav-scroll::-webkit-scrollbar, .admin-page .sidebar-nav-scroll::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }

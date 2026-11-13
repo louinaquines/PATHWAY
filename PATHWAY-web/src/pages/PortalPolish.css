@@ -307,3 +307,10 @@
 .coordinator-page .ai-bulk-counts span { white-space: nowrap; line-height: 1 !important; }
 .coordinator-page .ai-bulk-actions { align-items: center !important; }
 .coordinator-page .ai-bulk-actions button { line-height: 1 !important; padding: 5px 6px !important; }
+
+/* Attendance & Journals skeletons */
+.logbook-skel { display: flex; flex-direction: column; }
+.logbook-skel-row { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr 1.2fr; gap: 16px; align-items: center; padding: 18px 24px; border-bottom: 1px solid hsl(214 32% 93%); }
+.logbook-skel-person { display: flex; align-items: center; gap: 10px; }
+.logbook-skel-att { border: 1px solid hsl(214 32% 91%); border-radius: 12px; overflow: hidden; }
+.logbook-skel-att .logbook-skel-row { grid-template-columns: 1.2fr 1fr 1fr .6fr; padding: 16px 20px; }

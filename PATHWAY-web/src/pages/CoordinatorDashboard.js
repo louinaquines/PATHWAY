@@ -386,7 +386,7 @@ export default function CoordinatorDashboard() {
     ];
     const base = query(collection(db, 'users'), ...constraints, ...(exactId
       ? [where('idNumber', '==', reviewSearch)]
-      : [orderBy('firstName'), orderBy('lastName')]));
+      : [orderBy('lastName'), orderBy('firstName')]));
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
     if (!requiresMatching && !reviewCursor) {
       getCountFromServer(base).then(snapshot => {

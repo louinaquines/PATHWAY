@@ -206,7 +206,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     const exactId = /^\d{5,24}$/.test(rosterSearch);
     const base = exactId
       ? query(students, ...scope, where('idNumber', '==', rosterSearch))
-      : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
+      : query(students, ...scope, orderBy('lastName'), orderBy('firstName'));
     const pendingIds = new Set(pendingStudentIds);
     const requiresMatching = pendingOnly || (rosterSearch && !exactId);
     if (!requiresMatching && !rosterCursor) {
@@ -380,7 +380,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         {!selectedSection ? (sections.length === 0
           ? <PortalEmpty icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." action={{ label: 'Go to Sections & Students', onClick: () => window.location.assign('/coordinator/sections') }} />
           : <PortalEmpty icon="section" title="Choose a section" description="Pick a section above to see students' attendance and journals." />) : <>
-          {loading && <p role="status">Loading students…</p>}
+          {loading && <div className="logbook-skel" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4, 5, 6].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="logbook-skel-person"><span className="cdash-skel" style={{ width: 32, height: 32, borderRadius: 99 }} /><span className="cdash-skel" style={{ width: 140, height: 13, borderRadius: 6 }} /></span><span className="cdash-skel" style={{ width: 150, height: 28, borderRadius: 99 }} /><span className="cdash-skel" style={{ width: 150, height: 28, borderRadius: 99 }} /></div>)}</div>}
           {currentRoster?.error && <div className="logbook-empty-state" role="status">
             <span className="logbook-empty-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
@@ -398,8 +398,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 return <tr key={student.id}>
                   <td>{student.idNumber || '—'}</td>
                   <th scope="row"><span className="logbook-person"><span className="logbook-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>{name}</span></th>
-                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} data-empty={!summary?.attendance.dated} data-tone={summary?.attendance.tone} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
-                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} data-empty={!summary?.journals.dated} data-tone={summary?.journals.tone} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} data-empty={!summary?.attendance.dated} data-tone={summary?.attendance.tone} onClick={() => openRecords(student, 'attendance')}>{summary ? <span>{summary.attendance.text}</span> : <span className="cdash-skel" style={{ width: 90, height: 11, borderRadius: 6 }} />}<Icon name="chevronRight" size={14} /></button></td>
+                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} data-empty={!summary?.journals.dated} data-tone={summary?.journals.tone} onClick={() => openRecords(student, 'journals')}>{summary ? <span>{summary.journals.text}</span> : <span className="cdash-skel" style={{ width: 90, height: 11, borderRadius: 6 }} />}<Icon name="chevronRight" size={14} /></button></td>
                 </tr>;
               })}</tbody>
             </table>
@@ -462,7 +462,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
             <p className="logbook-time-note">Times shown in Philippine time.</p>
             {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
-            {attendanceLoading && <p role="status">Loading attendance…</p>}
+            {attendanceLoading && <div className="logbook-skel logbook-skel-att" role="status" aria-label="Loading attendance">{[0, 1, 2, 3, 4, 5, 6, 7].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 84, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 40, height: 12, borderRadius: 6 }} /></div>)}</div>}
             {attendanceError && <p role="alert">{attendanceError} <button type="button" className="portal-secondary" onClick={() => setAttendanceRetry(value => value + 1)}>Retry</button></p>}
             {!attendanceLoading && !attendanceError && attendance.length === 0 && attendanceCursors.length === 1 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>{attendanceDate ? 'No attendance records for this date.' : 'No attendance records yet.'}</p></div>}
             {!attendanceLoading && !attendanceError && (attendance.length > 0 || attendanceCursors.length > 1) && <div className="attendance-table-wrap">{(attendanceCursors.length > 1 || nextAttendanceCursor) && <nav className="portal-record-pagination" aria-label="Attendance records pagination">

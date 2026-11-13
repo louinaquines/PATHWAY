@@ -87,7 +87,9 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    const tier=reason?'yellow':nameCheck?.result==='mismatch'||failed('document_type')||failed('reference_match')||unfilled?'red':status==='checks_passed'&&(!nameCheck||nameCheck.result==='match')?'green':'yellow';
    // Never auto-approve: the AI only flags Green/Yellow/Red; the coordinator decides.
    const autoApprove=false;
-   tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove}});
+   // Findings are coordinator-only: the student profile gets just the status; full results go to requirementReviews.
+   tx.update(c.ref,{[`requirements.${job.requirementId}.autoReview`]:{status,reviewedAt:now,advisoryOnly:!autoApprove}});
+   tx.set(db.collection('requirementReviews').doc(`${job.studentId}__${job.requirementId}`),{studentId:job.studentId,requirementId:job.requirementId,sectionId:c.student.sectionId||'',status,tier,nameCheck,reason:reason||(status==='needs_review'?'incomplete':null),checks:result.checks,findings:result.findings,reviewedAt:now,advisoryOnly:!autoApprove});
    if(autoApprove)tx.update(c.ref,{[`requirements.${job.requirementId}.status`]:'approved',[`requirements.${job.requirementId}.reviewedBy`]:'system',[`requirements.${job.requirementId}.reviewedAt`]:now,[`requirements.${job.requirementId}.autoApproved`]:true,[`requirements.${job.requirementId}.rejectionReason`]:null});
    tx.update(jobRef,{state:'done',completedAt:now});
    notices(tx,jobRef.id,job.studentId,c.section.coordinatorId,status);
@@ -97,7 +99,8 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
  async function assignmentException(tx,jobRef,job){
   const ref=db.collection('users').doc(job.studentId),student=(await tx.get(ref)).data(),r=student?.requirements?.[job.requirementId];
   if(r?.status==='submitted'&&fingerprint(r)===job.fingerprint){
-   tx.update(ref,{[`requirements.${job.requirementId}.autoReview`]:{status:'needs_review',reason:'assignment_changed',checks:[],findings:[reasons.assignment_changed],advisoryOnly:true}});
+   tx.update(ref,{[`requirements.${job.requirementId}.autoReview`]:{status:'needs_review',advisoryOnly:true}});
+   tx.set(db.collection('requirementReviews').doc(`${job.studentId}__${job.requirementId}`),{studentId:job.studentId,requirementId:job.requirementId,sectionId:student?.sectionId||'',status:'needs_review',reason:'assignment_changed',checks:[],findings:[reasons.assignment_changed],advisoryOnly:true});
    notices(tx,jobRef.id,job.studentId,null,'needs_review');
   }
   tx.update(jobRef,{state:'cancelled'});

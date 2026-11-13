@@ -20,7 +20,7 @@ import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
 import SubmissionNotifications, { receivedRequirements } from '../components/SubmissionNotifications';
-import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
@@ -243,10 +243,23 @@ export default function CoordinatorDashboard() {
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
   const [bulkConfirm, setBulkConfirm] = useState(null);
+  // Coordinator-only AI results, live for the selected section.
+  const [aiReviews, setAiReviews] = useState({});
+  useEffect(() => {
+    if (!requirementsActive || !selectedSection?.id) { setAiReviews({}); return undefined; }
+    let stop = () => {};
+    try {
+      stop = onSnapshot(query(collection(db, 'requirementReviews'), where('sectionId', '==', selectedSection.id)),
+        snapshot => setAiReviews(Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]))),
+        () => setAiReviews({}));
+    } catch { setAiReviews({}); }
+    return () => stop();
+  }, [requirementsActive, selectedSection?.id]);
+  const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
   const tierItems = (list, tier) => (list || []).flatMap(st => Object.entries(st.requirements || {})
-    .filter(([, r]) => r?.status === 'submitted' && r?.autoReview?.tier === tier).map(([reqId]) => ({ studentId: st.id, reqId })));
+    .filter(([reqId, r]) => r?.status === 'submitted' && aiReviewFor(st.id, reqId, r?.autoReview)?.tier === tier).map(([reqId]) => ({ studentId: st.id, reqId })));
   const runBulk = async () => {
     if (!bulkConfirm) return;
     const { items, status } = bulkConfirm;
@@ -689,7 +702,7 @@ export default function CoordinatorDashboard() {
                                       <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
                                       <div>
                                         <div style={s.reqLabel} className="requirements-document-title">{label}</div>
-                                        {(status === 'submitted' || req?.autoApproved) && <RequirementCheckResult review={req?.autoReview} compact />}
+                                        {(status === 'submitted' || req?.autoApproved) && <RequirementCheckResult review={aiReviewFor(selectedStudent.id, id, req?.autoReview)} compact />}
                                         {status === 'approved' && req?.autoApproved && (
                                           <button type="button" className="autocheck-chip" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, id)}>
                                             Auto-approved · Undo

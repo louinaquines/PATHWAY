@@ -10,9 +10,9 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('./EvaluationBuilderDialog', () => () => null);
 const section = { id: 'section', name: 'Section A' };
 const roster = [
-  { id: 'amy', firstName: 'Amy', companyId: 'host', company: 'Host Company', placementStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
-  { id: 'ben', firstName: 'Ben', companyId: 'host', company: 'Host Company', placementStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
-  { id: 'other', firstName: 'Other', companyId: 'elsewhere', company: 'Elsewhere', placementStatus: 'approved' },
+  { id: 'amy', firstName: 'Amy', companyId: 'host', company: 'Host Company', placementStatus: 'approved', preDeploymentStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
+  { id: 'ben', firstName: 'Ben', companyId: 'host', company: 'Host Company', placementStatus: 'approved', preDeploymentStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
+  { id: 'other', firstName: 'Other', companyId: 'elsewhere', company: 'Elsewhere', placementStatus: 'approved', preDeploymentStatus: 'approved' },
   { id: 'waiting', firstName: 'Waiting', company: 'Host Company', placementStatus: 'pending_review' },
 ];
 const snapshot = records => ({ docs: records.map(record => ({ id: record.id, data: () => record })) });

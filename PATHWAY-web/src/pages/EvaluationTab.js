@@ -77,7 +77,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   usePortalAutoRefresh(loadEvaluations, { enabled: !loading && !busy && !refreshing, scope: selectedSection?.id || '' });
 
   const companyFor = student => student.companyId ? 'id:' + student.companyId : 'name:' + (student.company || student.companyName || '').trim();
-  const placedStudents = students.filter(student => student.placementStatus === 'approved' && (student.company || student.companyName || '').trim());
+  const placedStudents = students.filter(student => student.placementStatus === 'approved' && student.preDeploymentStatus === 'approved' && (student.company || student.companyName || '').trim());
   const companies = [...new Map(placedStudents.map(student => [companyFor(student), student.company || student.companyName])).entries()]
     .sort((a, b) => a[1].localeCompare(b[1]));
   const companyStudents = placedStudents.filter(student => companyFor(student) === companyKey)

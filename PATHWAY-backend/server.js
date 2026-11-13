@@ -2778,6 +2778,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     const formDefinition = requestedForm === undefined ? null : require('./evaluationForm').validateForm(requestedForm);
     const studentSnap = await adminDb.collection('users').doc(studentId).get();
     if (!studentSnap.exists || studentSnap.data().role !== 'student') return res.status(404).json({ error: 'Student not found' });
+    if (studentSnap.data().preDeploymentStatus !== 'approved') return res.status(409).json({ error: 'This student has not been approved for internship tracking yet.' });
     const student = studentSnap.data();
     if (req.staff.role === 'coordinator' && !(await coordinatorOwnsStudent(req.staff.uid, student))) {
       return res.status(403).json({ error: 'You can only create evaluations for students in your assigned sections.' });

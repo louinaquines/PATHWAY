@@ -276,7 +276,8 @@ export default function CoordinatorDashboard() {
     return () => stop();
   }, [requirementsActive, selectedSection?.id]);
   const [docFilter, setDocFilter] = useState('all');
-  useEffect(() => { setDocFilter('all'); }, [selectedStudent?.id]);
+  const [phaseFilter, setPhaseFilter] = useState('all');
+  useEffect(() => { setDocFilter('all'); setPhaseFilter('all'); }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
@@ -570,7 +571,7 @@ export default function CoordinatorDashboard() {
         {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
-          activeTab === 'overview' ? <OverviewSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
+          activeTab === 'overview' ? <OverviewSkeleton /> : activeTab === 'requirements' ? <RequirementsSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
             <CoordinatorProfileTab
@@ -641,7 +642,7 @@ export default function CoordinatorDashboard() {
                   {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
                     <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
                   )}
-                  {selectedSection && !currentReview && <p role="status">Loading students…</p>}
+                  {selectedSection && !currentReview && <div className="req-skel-list" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student"><span className="cdash-skel" style={{ width: 40, height: 40, borderRadius: '50%' }} /><div><span className="cdash-skel" style={{ width: '70%', height: 13 }} /><span className="cdash-skel" style={{ width: '45%', height: 10 }} /><span className="cdash-skel" style={{ width: 70, height: 18, borderRadius: 99 }} /></div></div>)}</div>}
                   {currentReview?.error && <div className="requirements-empty-state" role="status">
                     <span className="requirements-empty-icon" aria-hidden="true">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
@@ -734,13 +735,20 @@ export default function CoordinatorDashboard() {
                         });
                         const counts = { green: 0, yellow: 0, red: 0 };
                         rows.forEach(row => { if (counts[row.tone] != null) counts[row.tone] += 1; });
-                        const shown = docFilter === 'all' ? rows : rows.filter(row => row.tone === docFilter);
+                        const shown = rows.filter(row => (docFilter === 'all' || row.tone === docFilter) && (phaseFilter === 'all' || requirementCategory(row.category) === phaseFilter));
                         const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
                         return <>
                           <div className="req-table-filters" role="group" aria-label="Filter by AI check">
                             {[['all', `All (${rows.length})`], ['green', `Green (${counts.green})`], ['yellow', `Yellow (${counts.yellow})`], ['red', `Red (${counts.red})`]].map(([value, label]) =>
                               <button key={value} type="button" data-tone={value} aria-pressed={docFilter === value} onClick={() => setDocFilter(value)}>
                                 {value !== 'all' && <i aria-hidden="true" />}{label}</button>)}
+                            <label className="req-phase-filter">
+                              <span className="sr-only">Requirement stage</span>
+                              <select value={phaseFilter} onChange={event => setPhaseFilter(event.target.value)} aria-label="Filter by requirement stage">
+                                <option value="all">All stages</option>
+                                {REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => requirementCategory(row.category) === 'Other')).map(cat => <option key={cat} value={cat}>{cat} ({rows.filter(row => requirementCategory(row.category) === cat).length})</option>)}
+                              </select>
+                            </label>
                           </div>
                           <div className="req-table-wrap">
                             <table className="req-table">
@@ -1639,3 +1647,20 @@ const s = {
     fontWeight: 800,
   },
 };
+
+// Loading state shaped like the Requirements page: student list on the left, review table on the right.
+function RequirementsSkeleton() {
+  const bar = (width, height = 12, extra = {}) => <span className="cdash-skel" style={{ width, height, ...extra }} />;
+  return <div className="req-skel" aria-busy="true" aria-label="Loading requirements">
+    <div className="req-skel-left">
+      {bar(90, 16)}{bar('100%', 40, { borderRadius: 10 })}{bar('100%', 40, { borderRadius: 10 })}
+      {bar('100%', 64, { borderRadius: 12 })}
+      <div className="req-skel-list">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student">{bar(40, 40, { borderRadius: '50%' })}<div>{bar('70%', 13)}{bar('45%', 10)}{bar(70, 18, { borderRadius: 99 })}</div></div>)}</div>
+    </div>
+    <div className="req-skel-right">
+      {bar(160, 18)}{bar(280, 12)}{bar('100%', 6, { borderRadius: 99 })}
+      <div className="req-skel-row">{[60, 80, 86, 70, 120].map((w, key) => <span key={key} className="cdash-skel" style={{ width: w, height: 30, borderRadius: 99 }} />)}</div>
+      <div className="req-skel-table">{[0, 1, 2, 3, 4, 5].map(key => <div key={key} className="req-skel-tr">{bar(14, 12)}{bar('80%', 14)}{bar('60%', 12)}{bar('70%', 12)}{bar(78, 22, { borderRadius: 99 })}</div>)}</div>
+    </div>
+  </div>;
+}

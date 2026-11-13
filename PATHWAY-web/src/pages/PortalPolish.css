@@ -226,3 +226,24 @@
 .coordinator-page .sectionPickerLabel::after { content: ""; position: absolute; right: 13px; top: 50%; width: 16px; height: 16px; margin-top: -8px; pointer-events: none;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat center; }
 .coordinator-page .sectionPickerLabel select.sectionPicker { padding-right: 40px !important; }
+
+/* Requirements: compact bulk bar, pagination, stage filter, skeleton */
+.coordinator-page .ai-bulk-bar { margin: 0 14px 10px !important; padding: 10px !important; gap: 8px !important; border-radius: 10px !important; }
+.coordinator-page .ai-bulk-counts span { padding: 2px 8px !important; font-size: 11.5px !important; }
+.coordinator-page .ai-bulk-bar button { height: 32px !important; font-size: 12.5px !important; border-radius: 8px !important; }
+.coordinator-page .ai-bulk-note { margin: 0 !important; font-size: 11.5px !important; color: hsl(215 16% 47%) !important; }
+.coordinator-page .requirements-students .portal-record-pagination { padding: 6px 12px !important; gap: 6px !important; font-size: 12.5px !important; }
+.coordinator-page .requirements-students .portal-record-pagination button { width: 30px !important; height: 30px !important; min-height: 30px !important; padding: 0 !important; border-radius: 8px !important; }
+.coordinator-page .requirements-detail .req-table-filters { margin: -8px 0 12px !important; align-items: center; }
+.req-phase-filter { margin-left: auto; }
+.coordinator-page .req-phase-filter select { min-height: 32px !important; height: 32px; padding: 0 34px 0 12px !important; font-size: 12.5px !important; font-weight: 600; border-radius: 99px !important; background-position: right 10px center !important; }
+@media (max-width: 700px) { .req-phase-filter { margin-left: 0; } }
+.req-skel { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 24px; padding: 28px 32px; }
+.req-skel-left, .req-skel-right { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 18px; background: rgba(255,255,255,.92); border: 1px solid hsl(214 32% 91%); }
+.req-skel-list { display: flex; flex-direction: column; gap: 4px; padding: 6px 4px; }
+.req-skel-student { display: flex; gap: 12px; align-items: center; padding: 10px 8px; }
+.req-skel-student > div { flex: 1; display: flex; flex-direction: column; gap: 7px; }
+.req-skel-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.req-skel-table { display: flex; flex-direction: column; border: 1px solid hsl(214 32% 91%); border-radius: 12px; overflow: hidden; }
+.req-skel-tr { display: grid; grid-template-columns: 24px 1.6fr 1fr 1.4fr 90px; gap: 16px; align-items: center; padding: 16px; border-bottom: 1px solid hsl(214 32% 94%); }
+@media (max-width: 1000px) { .req-skel { grid-template-columns: 1fr; padding: 16px; } }

@@ -133,14 +133,22 @@ export default function SupervisorEvaluationPage() {
         )}
 
         {verificationRequired && <section className="supervisor-verification" aria-label="Verify supervisor email">
+          <div className="verification-brand"><PathwayLogo size={40} decorative /><span>PATHWAY</span></div>
           <h2>Verify your email</h2>
           <p>Request a code at the supervisor email assigned to this evaluation. The form stays private until verification.</p>
           <button className="verification-secondary" type="button" disabled={verificationBusy} onClick={() => verifyEmail('request-code')}>Send verification code</button>
           {verificationStatus && <p role="status">{verificationStatus}</p>}
           <form onSubmit={event => { event.preventDefault(); verifyEmail('verify-code'); }}>
             <label htmlFor="supervisor-otp">Six-digit code</label>
-            <input id="supervisor-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
-              onChange={event => setCode(event.target.value.replace(/\D/g, ''))} disabled={verificationBusy} />
+            <div className="otp-field">
+              <div className="otp-boxes" aria-hidden="true">
+                {[0, 1, 2, 3, 4, 5].map(index => <span key={index} className={'otp-box' + (code[index] ? ' is-filled' : '') + (index === Math.min(code.length, 5) ? ' is-active' : '')}>{code[index] || ''}</span>)}
+              </div>
+              <input id="supervisor-otp" className="otp-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onPaste={event => { event.preventDefault(); setCode((event.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6)); }}
+                disabled={verificationBusy} autoFocus />
+            </div>
             <button className="verification-primary" type="submit" disabled={verificationBusy || code.length !== 6}>{verificationBusy ? 'Verifying…' : 'Verify and open evaluation'}</button>
           </form>
           <small>Wait at least one minute before requesting another code. Five attempts are allowed per code.</small>

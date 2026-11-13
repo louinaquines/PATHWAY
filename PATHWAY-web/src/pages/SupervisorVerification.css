@@ -10,3 +10,23 @@
 .supervisor-verification button:disabled { opacity:.55; cursor:default; }
 .supervisor-verification :is(input,button):focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
 .supervisor-verification small { color:#64748b; line-height:1.6; }
+
+/* Six-box verification code */
+.supervisor-verification { max-width: 460px; margin: 24px auto; padding: 28px !important; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.08); text-align: center; }
+.verification-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; font-weight: 800; letter-spacing: 2px; color: #075fc9; }
+.supervisor-verification h2 { margin: 0 0 6px; font-size: 22px; color: #0f172a; }
+.supervisor-verification > p { margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #64748b; }
+.supervisor-verification form { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 18px; }
+.supervisor-verification form > label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.otp-field { position: relative; width: max-content; }
+.otp-boxes { display: flex; gap: 8px; }
+.otp-box { width: 46px; height: 56px; display: grid; place-items: center; border: 1.5px solid #dbe3ee; border-radius: 12px; background: #f8fafc; font-size: 24px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s, background .15s; }
+.otp-box.is-filled { background: #fff; border-color: #93c5fd; }
+.otp-input:focus ~ .otp-boxes .otp-box.is-active, .otp-field:focus-within .otp-box.is-active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.18); background: #fff; }
+.otp-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; font-size: 16px; cursor: text; }
+.supervisor-verification .verification-primary { min-width: 260px; height: 46px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#2563eb,#1d4ed8); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+.supervisor-verification .verification-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+.supervisor-verification .verification-secondary { height: 42px; padding: 0 18px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-weight: 600; cursor: pointer; }
+.supervisor-verification [role="status"] { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #ecfdf5; color: #047857; font-size: 13px; }
+.supervisor-verification small { display: block; margin-top: 14px; font-size: 12px; color: #94a3b8; }
+@media (max-width: 400px) { .otp-box { width: 40px; height: 50px; font-size: 21px; } .otp-boxes { gap: 6px; } }

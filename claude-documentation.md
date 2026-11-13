@@ -146,3 +146,17 @@ Everything Claude did with the team in this session, in order. Latest state is a
 - 8:35 PM — DTR (Form 48) dialog refined: sticky header, numbered steps (1 Load, 2 Check), clean grid with sticky header and filled-cell tint, amber confirm box, results as cards with status chips, readable differences ("Arrival 6 h 31 min earlier on Form 48"). Internship Progress table: attendance shown as "N% attendance" + "Attendance details" pill; details open as a floating panel instead of stretching the row; status column = risk badge + small progress/data lines.
 - 8:40 PM — Student home (approved state, ApprovedStudentHome.js in main folder): OJT Summary card shows the waving PATHWAY guide instead of the profile photo/initials; profile photo upload stays on the Profile screen only.
 - 8:45 PM — Student app top bar (approved, StudentDashboard.js main folder): left = Profile icon (opens profile), center = PATHWAY logo only, right = notifications bell; bottom nav "Profile" tab replaced by "Settings" (opens settings). Backup in tmp/student-ui-backup.
+
+## Leader revision pass (Nov 14, 2026)
+- Names shown as "LastName, FirstName" (web `src/personName.js`, backend analytics/placements/inbox/evaluations).
+- Sidebar: logo opens Dashboard; scroll fade + visible scrollbar; all dropdowns share one style with a chevron.
+- Dashboard: Refresh removed (auto-refresh stays); new "Companies" card.
+- Requirements: per-student table (#, requirement, AI check Green/Yellow/Red + %, AI findings, status, actions). Statuses: Complete / Pending / Deficient. Backend now stores `confidence` in `requirementReviews`.
+- Companies: form sections Company / Supervisor / Internship; supervisor email doubles as contact email; dates removed from company defaults. Name field suggests companies from OpenStreetMap (`GET /coordinator/company-search`), fills address, industry and coordinates.
+- Placements: assign many students at once; supervisor/role/arrangement read-only from the company; only dates editable.
+- Clearance: cards ordered Total → Requirements pending → Ready → Cleared; hours card and Refresh removed.
+- Sections: name ↔ year/letter stay in sync ("BSIT - 4C"); Class list and Download buttons moved into the section card; roster rows have visible Reset password / Remove buttons.
+- Attendance & Journals: shows "Present today / Last: date" and "Daily · Submitted today" or "Weekly · Submitted/Missing this week".
+- Accounts: kept (approval gate), card fills the page.
+- Company email: clearer copy; inbox still needs Gmail read access configured on Render.
+- 24 web tests still expect the old name order / labels and need updating.

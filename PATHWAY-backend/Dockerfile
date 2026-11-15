@@ -16,7 +16,7 @@ COPY attendanceAiReview.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js coordinatorInbox.js ./
 COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js nameMatch.js ./
 COPY companyMailInbox.js companyEmailRouter.js demoSeed.js ./
-COPY pathway-email-logo.png ./
+COPY pathway-email-logo.png email-guide-writing.gif email-guide-thinking.gif email-guide-thumbsup.gif email-guide-pointing.gif email-guide-waving.gif ./
 COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./
 COPY localCompanyInbox.js ./
 COPY companyTestLink.js ./

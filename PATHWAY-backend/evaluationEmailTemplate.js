@@ -14,6 +14,12 @@ function readAsset(name) { try { return fs.readFileSync(path.join(__dirname, nam
 const logoBuffer = readAsset('pathway-email-logo.png');
 const guideBuffers = Object.fromEntries(GUIDES.map(pose => [pose, readAsset(`email-guide-${pose}.gif`)]));
 
+// Prefer hosted images (portal /email/...) so Gmail doesn't list them as attachments.
+// Falls back to inline CID attachments when no public web URL is configured.
+function hostedBase() { try { return new URL('/email/', process.env.EVALUATION_WEB_URL).href; } catch { return ''; } }
+const logoSrc = () => hostedBase() ? hostedBase() + 'pathway-logo.png' : 'cid:pathway-logo';
+const guideSrc = pose => hostedBase() ? hostedBase() + `email-guide-${pose}.gif` : 'cid:pathway-guide';
+
 function rowsHtml(rows) {
   if (!rows?.length) return '';
   const body = rows.map((row, index) => {
@@ -37,8 +43,8 @@ function codeHtml(code) {
 }
 
 function pathwayEmail({ preheader = '', chip, title, greeting, paragraphs = [], rows, code, note, button, after = [], fallbackUrl, footerReason, guide = 'writing' }) {
-  const guideImg = guideBuffers[guide] ? `<img class="pw-guide" src="cid:pathway-guide" width="120" height="120" alt="" style="display:block;border:0;width:120px;height:120px;border-radius:60px">` : '';
-  const logoImg = logoBuffer ? `<img class="pw-logo" src="cid:pathway-logo" width="44" height="44" alt="PATHWAY" style="display:block;border:0;width:44px;height:44px;border-radius:12px;background:#ffffff">` : '';
+  const guideImg = guideBuffers[guide] ? `<img class="pw-guide" src="${guideSrc(guide)}" width="120" height="120" alt="" style="display:block;border:0;width:120px;height:120px;border-radius:60px">` : '';
+  const logoImg = logoBuffer ? `<img class="pw-logo" src="${logoSrc()}" width="44" height="44" alt="PATHWAY" style="display:block;border:0;width:44px;height:44px;border-radius:12px;background:#ffffff">` : '';
   const paras = paragraphs.filter(Boolean).map(p => `<p class="pw-p" style="margin:0 0 12px;font-size:15px;line-height:1.65;color:${C.body}">${p}</p>`).join('');
   const btn = button ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="pw-btn" style="margin:22px 0 12px"><tr><td align="center" style="background:${C.blue};border-radius:14px"><a href="${escape(button.url)}" style="display:block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;font-family:${FONT}">${escape(button.label)} &rarr;</a></td></tr></table>` : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title><style>@media only screen and (max-width:620px){.pw-outer{padding:12px 6px!important}.pw-head{padding:18px 18px 0!important;border-radius:20px 20px 0 0!important}.pw-card{padding:22px 20px 20px!important;border-radius:0 0 20px 20px!important}.pw-guide-cell{width:92px!important}.pw-guide{width:84px!important;height:84px!important;border-radius:42px!important}.pw-logo{width:38px!important;height:38px!important}.pw-brand{font-size:19px!important}.pw-sub{font-size:12px!important}.pw-title{font-size:22px!important}.pw-p{font-size:14px!important}.pw-code td{padding:0 2px!important}.pw-code td div{height:50px!important;line-height:50px!important;font-size:24px!important}.pw-btn a{padding:14px 16px!important;font-size:15px!important}}</style></head>
@@ -89,6 +95,7 @@ function evaluationEmailHtml(evaluation, message, link) {
 // Inline (CID) images: logo + animated guide for the given pose.
 function logoAttachments(guide = 'writing') {
   const list = [];
+  if (hostedBase()) return list;
   if (logoBuffer) list.push({ filename: 'pathway-logo.png', content: logoBuffer, cid: 'pathway-logo', contentType: 'image/png' });
   if (guideBuffers[guide]) list.push({ filename: `pathway-guide-${guide}.gif`, content: guideBuffers[guide], cid: 'pathway-guide', contentType: 'image/gif' });
   return list;

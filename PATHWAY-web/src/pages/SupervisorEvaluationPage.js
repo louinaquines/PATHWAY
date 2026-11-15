@@ -115,7 +115,7 @@ export default function SupervisorEvaluationPage() {
 
   return (
     <main style={s.page}>
-      <div style={s.card}>
+      <div style={s.card} className={verificationRequired && !info ? 'supervisor-shell-verify' : undefined}>
         {!(verificationRequired && !info) && <div style={s.header}>
           <div style={s.logoWrap}>
             <PathwayLogo style={s.logoImg} />

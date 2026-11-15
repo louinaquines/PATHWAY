@@ -71,3 +71,13 @@
 .verification-body .otp-box { background: #fff; }
 .verification-body small { text-align: center; }
 @media (prefers-reduced-motion: reduce) { .verification-guide { animation: none; } }
+/* Keep everything inside the card on narrow phones */
+.supervisor-verification { grid-template-columns: minmax(0, 1fr); margin: 0 auto !important; }
+.verification-body, .verification-body form, .verification-hero-brand { min-width: 0; }
+.verification-hero-brand > span:last-child { min-width: 0; }
+.verification-hero-brand small { white-space: normal; }
+.verification-body > p, .verification-body small { overflow-wrap: anywhere; }
+.verification-body .otp-field, .verification-body .otp-boxes { width: 100%; max-width: 100%; }
+/* When only the verification step shows, drop the outer white card so it doesn't double up */
+.supervisor-shell-verify { padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; max-width: 460px !important; margin: 0 auto; }
+@media (max-width: 420px) { .verification-guide { width: 82px; height: 82px; } .verification-hero { padding: 18px 16px 0; min-height: 104px; } }

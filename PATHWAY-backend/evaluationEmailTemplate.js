@@ -66,13 +66,16 @@ function verificationCodeHtml(code) {
     footerReason: 'You got this email because someone opened your PATHWAY evaluation link.' });
 }
 
+// "Cruz, Jose" -> "Jose Cruz" for sentences.
+const displayName = name => { const [last, first] = String(name || '').split(','); return first ? `${first.trim()} ${last.trim()}` : String(name || 'Your intern'); };
+
 function evaluationEmailHtml(evaluation, message, link) {
   const expires = new Date(evaluation.expiresAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
   const title = evaluation.formDefinition?.title || 'Supervisor evaluation request';
   const coordinatorNote = String(message || '').trim();
   return pathwayEmail({ preheader: `Please rate ${evaluation.studentName}'s OJT performance`, chip: 'Supervisor evaluation', title, guide: 'writing',
     greeting: `Hi ${evaluation.supervisorName || 'there'},`,
-    paragraphs: [`${escape(evaluation.studentName)} is asking for your OJT evaluation for <strong>${escape(title)}</strong>. It takes about 5 minutes, and your feedback goes straight to their coordinator.`,
+    paragraphs: [`${escape(displayName(evaluation.studentName))} is asking for your OJT evaluation for <strong>${escape(title)}</strong>. It takes about 5 minutes, and your feedback goes straight to their coordinator.`,
       coordinatorNote ? `<span style="display:block;padding:12px 14px;border-left:3px solid ${C.blue};background:#F0F6FF;border-radius:8px;color:${C.ink}"><strong>Message from coordinator</strong><br>${escape(coordinatorNote).replace(/\r?\n/g, '<br>')}</span>` : ''],
     rows: [{ label: 'Student', value: evaluation.studentName }, { label: 'Company', value: evaluation.companyName }, { label: 'Link expires', value: `${expires} (Philippine time)`, chip: true }],
     button: { label: 'Open Evaluation', url: link },

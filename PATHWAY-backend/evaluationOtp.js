@@ -32,8 +32,8 @@ function installEvaluationOtp({ app, db, allowRate, mailerFactory }) {
           const recipient = await db.runTransaction(async tx => {
             const data = (await tx.get(ref)).data(); active(data);
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.supervisorEmail || '')) throw failure();
-            if ((data.otpSendCount || 0) >= 5 || Date.now() - (Date.parse(data.otpRequestedAt) || 0) < 60000)
-              throw Object.assign(new Error('Please wait before requesting another code. Maximum five codes per link.'), { status: 429 });
+            if ((data.otpSendCount || 0) >= 3 || Date.now() - (Date.parse(data.otpRequestedAt) || 0) < 60000)
+              throw Object.assign(new Error('Please wait before requesting another code. Maximum three codes per link.'), { status: 429 });
             tx.update(ref, { otpHash: hash(`${salt}:${code}`), otpSalt: salt, otpAttempts: 0,
               otpExpiresAt: new Date(Date.now() + 600000).toISOString(), otpRequestedAt: new Date().toISOString(),
               otpSendCount: (data.otpSendCount || 0) + 1, verifiedSessionHash: null, verifiedSessionExpiresAt: null });

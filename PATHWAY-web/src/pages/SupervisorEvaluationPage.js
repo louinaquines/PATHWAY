@@ -156,7 +156,7 @@ export default function SupervisorEvaluationPage() {
             </div>
             <button className="verification-primary" type="submit" disabled={verificationBusy || code.length !== 6}>{verificationBusy ? 'Verifying…' : 'Verify and open evaluation'}</button>
           </form>
-          <small>Wait at least one minute before requesting another code. Five attempts are allowed per code.</small>
+          <small>You can request up to 3 codes, one minute apart. Each code allows five tries.</small>
           </div>
         </section>}
         {info && (

@@ -28,9 +28,12 @@ function rowsHtml(rows) {
 
 function codeHtml(code) {
   if (!code) return '';
-  const digits = String(code).split('').map(d => `<td style="width:46px;height:56px;background:#ffffff;border:1.5px solid ${C.blue};border-radius:12px;text-align:center;font-size:28px;font-weight:800;color:${C.blueDark};font-family:${FONT}">${escape(d)}</td>`).join('<td style="width:8px"></td>');
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.soft};border-radius:16px;margin:22px 0 12px"><tr><td align="center" style="padding:22px 12px"><table class="pw-code" role="presentation" cellspacing="0" cellpadding="0"><tr>${digits}</tr></table>
-<div style="margin-top:14px;font-size:12px;color:${C.muted}">Or copy: <span style="font-family:'Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:3px;color:${C.ink}">${escape(code)}</span></div></td></tr></table>`;
+  const digits = String(code).split('').map(d => `<td width="15%" style="width:15%;padding:0 3px"><div style="height:58px;line-height:58px;background:#ffffff;border:1.5px solid ${C.blue};border-radius:12px;text-align:center;font-size:28px;font-weight:800;color:${C.blueDark};font-family:${FONT}">${escape(d)}</div></td>`).join('');
+  // One unbroken, selectable token so a long-press/double-click copies the whole code.
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.soft};border-radius:16px;margin:22px 0 12px"><tr><td align="center" style="padding:20px 14px">
+<table class="pw-code" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:380px"><tr>${digits}</tr></table>
+<div style="margin-top:16px;font-size:12px;color:${C.muted}">Tap and hold to copy</div>
+<div style="display:inline-block;margin-top:6px;padding:10px 18px;border-radius:12px;background:#ffffff;border:1px dashed #9DB4D8;font-family:${FONT};font-size:24px;font-weight:800;letter-spacing:2px;color:${C.ink};user-select:all;-webkit-user-select:all">${escape(code)}</div></td></tr></table>`;
 }
 
 function pathwayEmail({ preheader = '', chip, title, greeting, paragraphs = [], rows, code, note, button, after = [], fallbackUrl, footerReason, guide = 'writing' }) {
@@ -38,7 +41,7 @@ function pathwayEmail({ preheader = '', chip, title, greeting, paragraphs = [], 
   const logoImg = logoBuffer ? `<img class="pw-logo" src="cid:pathway-logo" width="44" height="44" alt="PATHWAY" style="display:block;border:0;width:44px;height:44px;border-radius:12px;background:#ffffff">` : '';
   const paras = paragraphs.filter(Boolean).map(p => `<p class="pw-p" style="margin:0 0 12px;font-size:15px;line-height:1.65;color:${C.body}">${p}</p>`).join('');
   const btn = button ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="pw-btn" style="margin:22px 0 12px"><tr><td align="center" style="background:${C.blue};border-radius:14px"><a href="${escape(button.url)}" style="display:block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;font-family:${FONT}">${escape(button.label)} &rarr;</a></td></tr></table>` : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title><style>@media only screen and (max-width:620px){.pw-outer{padding:12px 6px!important}.pw-head{padding:18px 18px 0!important;border-radius:20px 20px 0 0!important}.pw-card{padding:22px 20px 20px!important;border-radius:0 0 20px 20px!important}.pw-guide-cell{width:92px!important}.pw-guide{width:84px!important;height:84px!important;border-radius:42px!important}.pw-logo{width:38px!important;height:38px!important}.pw-brand{font-size:19px!important}.pw-sub{font-size:12px!important}.pw-title{font-size:22px!important}.pw-p{font-size:14px!important}.pw-code td{width:38px!important;height:48px!important;font-size:22px!important}.pw-btn a{padding:14px 16px!important;font-size:15px!important}}</style></head>
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title><style>@media only screen and (max-width:620px){.pw-outer{padding:12px 6px!important}.pw-head{padding:18px 18px 0!important;border-radius:20px 20px 0 0!important}.pw-card{padding:22px 20px 20px!important;border-radius:0 0 20px 20px!important}.pw-guide-cell{width:92px!important}.pw-guide{width:84px!important;height:84px!important;border-radius:42px!important}.pw-logo{width:38px!important;height:38px!important}.pw-brand{font-size:19px!important}.pw-sub{font-size:12px!important}.pw-title{font-size:22px!important}.pw-p{font-size:14px!important}.pw-code td{padding:0 2px!important}.pw-code td div{height:50px!important;line-height:50px!important;font-size:24px!important}.pw-btn a{padding:14px 16px!important;font-size:15px!important}}</style></head>
 <body style="margin:0;padding:0;background:${C.page};font-family:${FONT};color:${C.ink}">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(preheader)}</div>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.page}"><tr><td class="pw-outer" align="center" style="padding:24px 12px">
@@ -60,7 +63,7 @@ ${fallbackUrl ? `<div style="border-top:1px solid ${C.line};margin-top:16px;padd
 }
 
 function verificationCodeHtml(code) {
-  return pathwayEmail({ preheader: `${code} is your PATHWAY verification code`, chip: 'Verify it’s you', title: 'Your verification code', guide: 'thinking',
+  return pathwayEmail({ preheader: `Your PATHWAY verification code: ${code}`, chip: 'Verify it’s you', title: 'Your verification code', guide: 'thinking',
     paragraphs: ['Enter this code on the evaluation page to open the form.'], code, note: '⏳ Expires in 10 minutes',
     after: ['This code works for this evaluation only. Never share it with anyone.', 'Didn’t ask for this? You can ignore this email — nothing will change.'],
     footerReason: 'You got this email because someone opened your PATHWAY evaluation link.' });

@@ -116,7 +116,7 @@ export default function SupervisorEvaluationPage() {
   return (
     <main style={s.page}>
       <div style={s.card}>
-        <div style={s.header}>
+        {!(verificationRequired && !info) && <div style={s.header}>
           <div style={s.logoWrap}>
             <PathwayLogo style={s.logoImg} />
           </div>
@@ -124,7 +124,7 @@ export default function SupervisorEvaluationPage() {
             <h1 style={s.title}>{info?.formDefinition?.title || 'PATHWAY Supervisor Evaluation'}</h1>
             <p style={s.sub}>OJT Industry Partner Performance Review</p>
           </div>
-        </div>
+        </div>}
 
         {message && (
           <div role="alert" style={message.includes('Loading') ? s.infoBox : s.errorBox}>
@@ -133,9 +133,14 @@ export default function SupervisorEvaluationPage() {
         )}
 
         {verificationRequired && <section className="supervisor-verification" aria-label="Verify supervisor email">
-          <div className="verification-brand"><PathwayLogo size={40} decorative /><span>PATHWAY</span></div>
+          <div className="verification-hero">
+            <div className="verification-hero-brand"><span className="verification-hero-logo"><PathwayLogo size={34} decorative /></span><span><strong>PATHWAY</strong><small>OJT Management System</small></span></div>
+            <img className="verification-guide" src="/guide-thinking.png" alt="" />
+          </div>
+          <div className="verification-body">
+          <span className="verification-chip">Verify it’s you</span>
           <h2>Verify your email</h2>
-          <p>Request a code at the supervisor email assigned to this evaluation. The form stays private until verification.</p>
+          <p>We’ll send a 6-digit code to the supervisor email for this evaluation. The form stays private until you enter it.</p>
           <button className="verification-secondary" type="button" disabled={verificationBusy} onClick={() => verifyEmail('request-code')}>Send verification code</button>
           {verificationStatus && <p role="status">{verificationStatus}</p>}
           <form onSubmit={event => { event.preventDefault(); verifyEmail('verify-code'); }}>
@@ -152,6 +157,7 @@ export default function SupervisorEvaluationPage() {
             <button className="verification-primary" type="submit" disabled={verificationBusy || code.length !== 6}>{verificationBusy ? 'Verifying…' : 'Verify and open evaluation'}</button>
           </form>
           <small>Wait at least one minute before requesting another code. Five attempts are allowed per code.</small>
+          </div>
         </section>}
         {info && (
           <>

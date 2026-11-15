@@ -29,27 +29,27 @@ function rowsHtml(rows) {
 function codeHtml(code) {
   if (!code) return '';
   const digits = String(code).split('').map(d => `<td style="width:46px;height:56px;background:#ffffff;border:1.5px solid ${C.blue};border-radius:12px;text-align:center;font-size:28px;font-weight:800;color:${C.blueDark};font-family:${FONT}">${escape(d)}</td>`).join('<td style="width:8px"></td>');
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.soft};border-radius:16px;margin:22px 0 12px"><tr><td align="center" style="padding:22px 12px"><table role="presentation" cellspacing="0" cellpadding="0"><tr>${digits}</tr></table>
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.soft};border-radius:16px;margin:22px 0 12px"><tr><td align="center" style="padding:22px 12px"><table class="pw-code" role="presentation" cellspacing="0" cellpadding="0"><tr>${digits}</tr></table>
 <div style="margin-top:14px;font-size:12px;color:${C.muted}">Or copy: <span style="font-family:'Courier New',monospace;font-size:16px;font-weight:700;letter-spacing:3px;color:${C.ink}">${escape(code)}</span></div></td></tr></table>`;
 }
 
 function pathwayEmail({ preheader = '', chip, title, greeting, paragraphs = [], rows, code, note, button, after = [], fallbackUrl, footerReason, guide = 'writing' }) {
-  const guideImg = guideBuffers[guide] ? `<img src="cid:pathway-guide" width="120" height="120" alt="" style="display:block;border:0;width:120px;height:120px;border-radius:60px">` : '';
-  const logoImg = logoBuffer ? `<img src="cid:pathway-logo" width="44" height="44" alt="PATHWAY" style="display:block;border:0;width:44px;height:44px;border-radius:12px;background:#ffffff">` : '';
-  const paras = paragraphs.filter(Boolean).map(p => `<p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:${C.body}">${p}</p>`).join('');
-  const btn = button ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:22px 0 12px"><tr><td align="center" style="background:${C.blue};border-radius:14px"><a href="${escape(button.url)}" style="display:block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;font-family:${FONT}">${escape(button.label)} &rarr;</a></td></tr></table>` : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title></head>
+  const guideImg = guideBuffers[guide] ? `<img class="pw-guide" src="cid:pathway-guide" width="120" height="120" alt="" style="display:block;border:0;width:120px;height:120px;border-radius:60px">` : '';
+  const logoImg = logoBuffer ? `<img class="pw-logo" src="cid:pathway-logo" width="44" height="44" alt="PATHWAY" style="display:block;border:0;width:44px;height:44px;border-radius:12px;background:#ffffff">` : '';
+  const paras = paragraphs.filter(Boolean).map(p => `<p class="pw-p" style="margin:0 0 12px;font-size:15px;line-height:1.65;color:${C.body}">${p}</p>`).join('');
+  const btn = button ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" class="pw-btn" style="margin:22px 0 12px"><tr><td align="center" style="background:${C.blue};border-radius:14px"><a href="${escape(button.url)}" style="display:block;padding:16px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;font-family:${FONT}">${escape(button.label)} &rarr;</a></td></tr></table>` : '';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><title>${escape(title)}</title><style>@media only screen and (max-width:620px){.pw-outer{padding:12px 6px!important}.pw-head{padding:18px 18px 0!important;border-radius:20px 20px 0 0!important}.pw-card{padding:22px 20px 20px!important;border-radius:0 0 20px 20px!important}.pw-guide-cell{width:92px!important}.pw-guide{width:84px!important;height:84px!important;border-radius:42px!important}.pw-logo{width:38px!important;height:38px!important}.pw-brand{font-size:19px!important}.pw-sub{font-size:12px!important}.pw-title{font-size:22px!important}.pw-p{font-size:14px!important}.pw-code td{width:38px!important;height:48px!important;font-size:22px!important}.pw-btn a{padding:14px 16px!important;font-size:15px!important}}</style></head>
 <body style="margin:0;padding:0;background:${C.page};font-family:${FONT};color:${C.ink}">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(preheader)}</div>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.page}"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${C.page}"><tr><td class="pw-outer" align="center" style="padding:24px 12px">
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px">
-<tr><td style="background:${C.blue};background-image:linear-gradient(135deg,${C.blueDark},#1A73E8);border-radius:24px 24px 0 0;padding:24px 28px 0">
+<tr><td class="pw-head" style="background:${C.blue};background-image:linear-gradient(135deg,${C.blueDark},#1A73E8);border-radius:24px 24px 0 0;padding:24px 28px 0">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-<td style="vertical-align:top"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="padding-right:12px">${logoImg}</td><td><div style="font-size:22px;font-weight:800;letter-spacing:1px;color:#ffffff">PATHWAY</div><div style="font-size:13px;color:#DCE8FF">OJT Management System</div></td></tr></table></td>
-<td align="right" style="vertical-align:bottom;width:130px">${guideImg}</td></tr></table></td></tr>
-<tr><td style="background:#ffffff;border-radius:0 0 24px 24px;padding:28px 32px 26px;box-shadow:0 12px 32px rgba(13,51,128,.10)">
+<td style="vertical-align:top"><table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="padding-right:12px">${logoImg}</td><td><div class="pw-brand" style="font-size:22px;font-weight:800;letter-spacing:1px;color:#ffffff">PATHWAY</div><div class="pw-sub" style="white-space:nowrap;font-size:13px;color:#DCE8FF">OJT Management System</div></td></tr></table></td>
+<td class="pw-guide-cell" align="right" style="vertical-align:bottom;width:130px">${guideImg}</td></tr></table></td></tr>
+<tr><td class="pw-card" style="background:#ffffff;border-radius:0 0 24px 24px;padding:28px 32px 26px;box-shadow:0 12px 32px rgba(13,51,128,.10)">
 ${chip ? `<span style="display:inline-block;padding:6px 12px;border-radius:99px;background:${C.chipBg};color:${C.blueDark};font-size:12px;font-weight:700">${escape(chip)}</span>` : ''}
-<h1 style="margin:14px 0 12px;font-size:26px;line-height:1.25;font-weight:800;color:${C.ink}">${escape(greeting || title)}</h1>
+<h1 class="pw-title" style="margin:14px 0 12px;font-size:26px;line-height:1.25;font-weight:800;color:${C.ink}">${escape(greeting || title)}</h1>
 ${paras}${rowsHtml(rows)}${codeHtml(code)}
 ${note ? `<span style="display:inline-block;margin:6px 0 4px;padding:6px 12px;border-radius:99px;background:${C.yellowBg};color:${C.yellowInk};font-size:13px;font-weight:700">${escape(note)}</span>` : ''}
 ${btn}${after.filter(Boolean).map(p => `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:${C.muted}">${p}</p>`).join('')}

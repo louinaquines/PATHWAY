@@ -220,3 +220,5 @@
 .rq-table > .rq-empty { grid-column: 1 / -1; }
 .rq-actions { justify-self: start !important; justify-content: flex-start !important; }
 .rq-row-head span:last-child { justify-self: start !important; text-align: left !important; }
+/* v13: Action column keeps a steady width on every stage tab */
+.rq-table { grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr) minmax(240px, max-content) !important; }

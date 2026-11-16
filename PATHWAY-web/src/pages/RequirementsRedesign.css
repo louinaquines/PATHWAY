@@ -172,3 +172,13 @@
 .coordinator-page .rq .rq-search-row .coordinator-search input:focus,
 .coordinator-page .rq .rq-search-row .coordinator-search input:focus-visible { border: 0 !important; border-color: transparent !important; outline: 0 !important; box-shadow: none !important; background: transparent !important; border-radius: 0 !important; }
 .coordinator-page .rq .rq-search-row .coordinator-search button:focus-visible { box-shadow: none !important; outline: 2px solid #0b5fd3 !important; outline-offset: 1px; }
+/* v7: section picker face + matching fonts */
+.rq-top-actions { font-family: inherit; }
+.rq-top-actions .section-export-button, .rq-section-face { font-family: inherit !important; font-size: 13.5px !important; font-weight: 600 !important; letter-spacing: 0 !important; color: #15213a !important; }
+.rq-section-pick { position: relative; display: inline-flex; }
+.rq-section-face { display: inline-flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px 0 14px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; white-space: nowrap; transition: border-color .15s, box-shadow .15s; }
+.rq-section-face svg { color: #7b8494; flex-shrink: 0; }
+.rq-section-pick:hover .rq-section-face { border-color: #d9d5cc; }
+.rq-section-pick:focus-within .rq-section-face { border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.coordinator-page .rq-top-actions .rq-section-pick select { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; opacity: 0 !important; cursor: pointer; padding: 0 !important; border: 0 !important; box-shadow: none !important; font-size: 14px !important; }
+.rq-section-pick > svg { display: none; }

@@ -554,10 +554,11 @@ export default function CoordinatorDashboard() {
               <span aria-live="polite">{exporting ? 'Exporting…' : 'Download records'}</span>
             </button>
             <label className="rq-section-pick"><span className="sr-only">Section</span>
+              <span className="rq-section-face" aria-hidden="true">{selectedSection?.name || 'Choose section'}<Icon name="chevronDown" size={14} /></span>
               <select aria-label="Current section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
                 {sections.length === 0 && <option value="">No sections</option>}
                 {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-              </select><Icon name="chevronDown" size={14} />
+              </select>
             </label>
             </div>
           )}

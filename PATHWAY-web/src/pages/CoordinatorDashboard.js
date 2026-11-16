@@ -680,9 +680,15 @@ export default function CoordinatorDashboard() {
                           Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
                       </div>
                       <div className="rq-progress" role="progressbar" aria-label="Documents approved" aria-valuemin={0} aria-valuemax={selectedProgress?.total || 0} aria-valuenow={selectedProgress?.approved || 0}><i style={{ width: `${selectedProgress?.total ? Math.round(100 * (selectedProgress.approved || 0) / selectedProgress.total) : 0}%` }} /></div>
-                      <div className="rq-stages" role="tablist" aria-label="OJT stage">
-                        {stages.map(cat => <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)}>
-                          <strong>{STAGE_LABEL[cat] || cat}</strong></button>)}
+                      <div className="rq-stages" role="tablist" aria-label="OJT stage" style={{ '--count': stages.length, '--index': Math.max(0, stages.indexOf(activeStage)) }}>
+                        <span className="rq-stages-thumb" aria-hidden="true" />
+                        {stages.map(cat => {
+                          const list = rows.filter(row => row.stage === cat);
+                          const tone = list.some(row => row.status === 'rejected') ? 'red' : list.some(row => row.status === 'submitted') ? 'blue' : list.length && list.every(row => row.status === 'approved') ? 'green' : 'mute';
+                          const hint = tone === 'red' ? 'needs fixing' : tone === 'blue' ? 'has documents to check' : tone === 'green' ? 'all approved' : 'waiting for the student';
+                          return <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)} title={`${STAGE_LABEL[cat] || cat}: ${hint}`}>
+                            <i data-tone={tone} aria-hidden="true" /><strong>{STAGE_LABEL[cat] || cat}</strong><span className="sr-only">, {hint}</span></button>;
+                        })}
                       </div>
                       <div className="rq-table" role="table" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents`}>
                         

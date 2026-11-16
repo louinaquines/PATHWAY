@@ -182,3 +182,15 @@
 .rq-section-pick:focus-within .rq-section-face { border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
 .coordinator-page .rq-top-actions .rq-section-pick select { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; opacity: 0 !important; cursor: pointer; padding: 0 !important; border: 0 !important; box-shadow: none !important; font-size: 14px !important; }
 .rq-section-pick > svg { display: none; }
+/* v8: custom section menu, lighter weight */
+.rq-top-actions .section-export-button, .coordinator-page .rq-top-actions .rq-section-face { font-weight: 500 !important; font-size: 13.5px !important; }
+.coordinator-page .rq-top-actions .rq-section-face { height: 38px !important; min-height: 38px !important; padding: 0 12px 0 14px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; box-shadow: none !important; cursor: pointer; }
+.coordinator-page .rq-top-actions .rq-section-face:focus-visible, .coordinator-page .rq-top-actions .rq-section-face[aria-expanded="true"] { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.rq-section-pick .rq-section-face svg { position: static !important; display: block !important; color: #7b8494; transition: transform .15s; }
+.rq-section-face[aria-expanded="true"] svg { transform: rotate(180deg); }
+.rq-section-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 60; min-width: 180px; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #e8e5de; border-radius: 10px; box-shadow: 0 8px 24px rgba(21,33,58,.12); animation: rqMenu .12s ease-out; }
+.rq-section-menu button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 34px !important; min-height: 34px !important; padding: 0 10px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; color: #15213a !important; font-family: inherit; font-size: 13.5px !important; font-weight: 500 !important; text-align: left; cursor: pointer; box-shadow: none !important; }
+.rq-section-menu button:hover, .rq-section-menu button:focus-visible { background: #f4f2ec !important; outline: none; }
+.rq-section-menu button[aria-selected="true"] { color: #0b5fd3 !important; font-weight: 600 !important; }
+@keyframes rqMenu { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rq-section-menu { animation: none; } }

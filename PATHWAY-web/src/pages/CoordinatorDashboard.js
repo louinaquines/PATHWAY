@@ -264,6 +264,7 @@ export default function CoordinatorDashboard() {
     return () => stop();
   }, [requirementsActive, selectedSection?.id]);
   const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   useEffect(() => { setPhaseFilter('Pre-OJT'); }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -553,13 +554,20 @@ export default function CoordinatorDashboard() {
               {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
               <span aria-live="polite">{exporting ? 'Exporting…' : 'Download records'}</span>
             </button>
-            <label className="rq-section-pick"><span className="sr-only">Section</span>
-              <span className="rq-section-face" aria-hidden="true">{selectedSection?.name || 'Choose section'}<Icon name="chevronDown" size={14} /></span>
-              <select aria-label="Current section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                {sections.length === 0 && <option value="">No sections</option>}
-                {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-              </select>
-            </label>
+            <div className="rq-section-pick" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setSectionMenuOpen(false); }}>
+              <button type="button" className="rq-section-face" aria-haspopup="listbox" aria-expanded={sectionMenuOpen} aria-label="Current section" disabled={!sections.length}
+                onClick={() => setSectionMenuOpen(open => !open)} onKeyDown={e => { if (e.key === 'Escape') setSectionMenuOpen(false); }}>
+                {selectedSection?.name || 'Choose section'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              {sectionMenuOpen && <ul className="rq-section-menu" role="listbox" aria-label="Sections">
+                {sections.map(section => <li key={section.id}><button type="button" role="option" aria-selected={section.id === selectedSection?.id}
+                  onClick={() => { setSectionMenuOpen(false); if (section.id !== selectedSection?.id) fetchStudents(section); }}>
+                  <span>{section.name}</span>
+                  {section.id === selectedSection?.id && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>}
+                </button></li>)}
+              </ul>}
+            </div>
             </div>
           )}
         </header>

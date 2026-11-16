@@ -168,3 +168,7 @@
 .rq-search-row .coordinator-search input::-webkit-search-cancel-button { display: none; }
 .rq-search-row .coordinator-search button { position: static !important; flex: 0 0 24px; width: 24px !important; height: 24px !important; min-height: 24px !important; padding: 0 !important; display: grid; place-items: center; border: 0 !important; border-radius: 6px !important; background: transparent !important; color: #7b8494 !important; box-shadow: none !important; }
 .rq-search-row .coordinator-search button:hover { background: #efece5 !important; color: #15213a !important; }
+.coordinator-page .rq .rq-search-row .coordinator-search input,
+.coordinator-page .rq .rq-search-row .coordinator-search input:focus,
+.coordinator-page .rq .rq-search-row .coordinator-search input:focus-visible { border: 0 !important; border-color: transparent !important; outline: 0 !important; box-shadow: none !important; background: transparent !important; border-radius: 0 !important; }
+.coordinator-page .rq .rq-search-row .coordinator-search button:focus-visible { box-shadow: none !important; outline: 2px solid #0b5fd3 !important; outline-offset: 1px; }

@@ -13,12 +13,17 @@ const dayLabel = entry => { if (entry.frequency === 'weekly' || !entry.periodSta
 
 /* Bell + dropdown listing journals waiting to be read, grouped by student.
    Badge uses counts the page already has; the list loads only when opened. */
-export default function JournalsInbox({ section, pendingCounts = {}, onOpen }) {
+export default function JournalsInbox({ section, coordinatorId, pendingCounts = {}, onOpen }) {
   const [open, setOpen] = useState(false);
   const [groups, setGroups] = useState(null);
   const [error, setError] = useState('');
   const root = useRef(null);
-  const total = Object.values(pendingCounts).reduce((sum, n) => sum + (n || 0), 0);
+  const storageKey = `pathway.journalbell.${coordinatorId}.${section?.id}`;
+  const [seen, setSeen] = useState({});
+  useEffect(() => { try { setSeen(JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch (_) { setSeen({}); } }, [storageKey]);
+  const waiting = Object.values(pendingCounts).reduce((sum, n) => sum + (n || 0), 0);
+  const total = Object.entries(pendingCounts).reduce((sum, [id, n]) => sum + Math.max(0, (n || 0) - (seen[id] || 0)), 0);
+  const markAllRead = () => { const next = { ...pendingCounts }; setSeen(next); try { localStorage.setItem(storageKey, JSON.stringify(next)); } catch (_) { /* this session only */ } };
   const countsKey = Object.entries(pendingCounts).filter(([, n]) => n > 0).map(([id, n]) => id + ':' + n).sort().join(',');
 
   useEffect(() => { setGroups(null); }, [section?.id, countsKey]);
@@ -61,8 +66,11 @@ export default function JournalsInbox({ section, pendingCounts = {}, onOpen }) {
     </button>
     {open && <div className="rqi-pop" role="dialog" aria-label="Journals to read">
       <header className="rqi-head">
-        <div><strong>Journals to read</strong><span>{section?.name}{total ? ` · ${total} waiting` : ''}</span></div>
-        <button type="button" className="rqi-link" onClick={() => setGroups(null)}>Refresh</button>
+        <div><strong>Journals to read</strong><span>{section?.name}{waiting ? ` · ${waiting} waiting` : ''}{total ? ` · ${total} new` : ''}</span></div>
+        <span className="rqi-head-actions">
+          {total > 0 && <button type="button" className="rqi-link" onClick={markAllRead}>Mark all as read</button>}
+          <button type="button" className="rqi-link rqi-quiet" onClick={() => setGroups(null)}>Refresh</button>
+        </span>
       </header>
       <div className="rqi-list">
         {error && <p className="rqi-empty">{error}</p>}

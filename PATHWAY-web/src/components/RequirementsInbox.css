@@ -31,3 +31,5 @@
 @keyframes rqiIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .rqi-pop { animation: none; } }
 @media (max-width: 720px) { .rqi-pop { position: fixed; left: 12px; right: 12px; top: 72px; width: auto; } }
+.rqi-head-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.coordinator-page .rqi .rqi-link.rqi-quiet { color: #7b8494 !important; font-weight: 500 !important; }

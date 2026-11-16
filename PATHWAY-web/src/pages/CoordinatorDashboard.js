@@ -679,7 +679,7 @@ export default function CoordinatorDashboard() {
                         {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
                           Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
                       </div>
-                      <div className="rq-progress" role="progressbar" aria-label="Documents approved" aria-valuemin={0} aria-valuemax={selectedProgress?.total || 0} aria-valuenow={selectedProgress?.approved || 0}><i style={{ width: `${selectedProgress?.total ? Math.round(100 * (selectedProgress.approved || 0) / selectedProgress.total) : 0}%` }} /></div>
+                      <div className="rq-progress" role="progressbar" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents approved`} aria-valuemin={0} aria-valuemax={shown.length} aria-valuenow={shown.filter(row => row.status === 'approved').length}><i style={{ width: `${shown.length ? Math.round(100 * shown.filter(row => row.status === 'approved').length / shown.length) : 0}%` }} /></div>
                       <div className="rq-stages" role="tablist" aria-label="OJT stage">
                         {stages.map(cat => <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)}>
                           <strong>{STAGE_LABEL[cat] || cat}</strong></button>)}

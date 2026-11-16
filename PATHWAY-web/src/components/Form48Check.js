@@ -69,8 +69,17 @@ export default function Form48Check({ student }) {
       const sheet = /\.(xls|xlsx)$/i.test(file.name);
       const ocr = sheet ? null : createDtrOcrJob(file, { copyCount: scanCopies, onProgress: message => { if (rev === revision.current) setProgress(message); } });
       job.current = ocr;
-      const data = sheet ? await readDtrSpreadsheet(file) : await ocr.promise;
+      let data = sheet ? await readDtrSpreadsheet(file) : await ocr.promise;
       if (rev !== revision.current) return;
+      const found = d => (d?.copies || []).some(rows => rows.some(row => FIELDS.some(f => row[f])));
+      if (!sheet && !found(data) && scanCopies === 1) {
+        setProgress('Trying again as two copies side by side…');
+        const retry = createDtrOcrJob(file, { copyCount: 2, onProgress: message => { if (rev === revision.current) setProgress(message); } });
+        job.current = retry;
+        const second = await retry.promise;
+        if (rev !== revision.current) return;
+        if (found(second)) { data = second; setScanCopies(2); }
+      }
       setCopies(data.copies); setCopyIndex(0); setMonth(data.month); setReviewed(false); setInfo({ fileName: file.name, ...data });
       setSourceVersion(version); setPreview(sheet ? null : { url: URL.createObjectURL(file), pdf: /\.pdf$/i.test(file.name) });
       setStep('check');

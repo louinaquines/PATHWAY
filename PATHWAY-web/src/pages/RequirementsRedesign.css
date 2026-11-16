@@ -212,3 +212,5 @@
 .rq-row { grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) max-content; }
 .rq-actions { justify-content: flex-end; flex-wrap: nowrap; justify-self: end; }
 .rq-row-head span:last-child { justify-self: end; text-align: right; }
+/* v11: same column widths on every row */
+.rq-row { grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr) 230px; }

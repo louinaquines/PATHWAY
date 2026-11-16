@@ -494,8 +494,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
           <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => openRecords(student, 'journals')} />
         </div>
         <div className="rq-pills" role="group" aria-label="Filter students">
-          <button type="button" aria-pressed={pendingOnly} onClick={() => { setPendingOnly(true); setRecordView('journals'); }}>Journals to read{toReadIds.length ? ` ${toReadIds.length}` : ''}</button>
           <button type="button" aria-pressed={!pendingOnly} onClick={() => setPendingOnly(false)}>All{studentCount != null ? ` ${studentCount}` : ''}</button>
+          <button type="button" aria-pressed={pendingOnly} onClick={() => { setPendingOnly(true); setRecordView('journals'); }}>Journals to read{toReadIds.length ? ` ${toReadIds.length}` : ''}</button>
         </div>
         <div className="rq-students">
           {!selectedSection && (sections.length === 0
@@ -601,9 +601,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             {entriesError && <p role="alert" className="lb-alert">{entriesError} <button type="button" className="rq-link" onClick={() => fetchEntries(selectedStudent)}>Try again</button></p>}
             {!entriesLoading && !entriesError && <>
               <div className="lb-journal-top">
-                <p className="lb-summary">{entries.length
-                  ? <>Wrote {entries.length} journal{entries.length === 1 ? '' : 's'} this month.{pendingCount > 0 && <> {pendingCount} {pendingCount === 1 ? 'is' : 'are'} waiting for you.</>}</>
-                  : `No journals in ${monthLabel(recordMonth)}.`}</p>
+                {!entries.length && <p className="lb-summary">No journals in {monthLabel(recordMonth)}.</p>}
                 {entries.length > 0 && <div className="lb-mini-pills" role="group" aria-label="Journal status">
                   <button type="button" aria-pressed={!journalStatus} onClick={() => { setJournalStatus(''); setEntryIndex(-1); }}>All</button>
                   <button type="button" aria-pressed={journalStatus === 'pending'} onClick={() => { setJournalStatus('pending'); setEntryIndex(-1); }}>To read{pendingCount ? ` ${pendingCount}` : ''}</button>

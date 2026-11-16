@@ -458,7 +458,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const fallbackDay = monthDays.includes(today) ? today : (attendance.map(r => r.date || r.id).sort().at(-1) || monthDays.filter(iso => iso <= today).at(-1) || monthDays[0]);
   const activeDay = monthDays.includes(pickedDay) ? pickedDay : fallbackDay;
   const dayPos = monthDays.indexOf(activeDay);
-  const stepDay = delta => {
+  const stepDay = delta => { // eslint-disable-line no-unused-vars
     const next = monthDays[dayPos + delta];
     if (next) { setPickedDay(next); return; }
     if (delta < 0) setRecordMonth(month => shiftMonth(month, -1));
@@ -554,6 +554,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               <p className="lb-summary">{attendanceStats.days
                 ? <>Came {attendanceStats.days} day{attendanceStats.days === 1 ? '' : 's'} this month and worked {attendanceStats.hours.toFixed(1)} hours.{attendanceStats.missing > 0 && <> {attendanceStats.missing} day{attendanceStats.missing === 1 ? ' has' : 's have'} no time-out.</>}</>
                 : `No attendance in ${monthLabel(recordMonth)}.`}</p>
+              <div className="lb-cal-month" role="group" aria-label="Calendar month">
+                <button type="button" className="rq-icon" aria-label="Previous month" disabled={saving} onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={15} /></button>
+                <strong aria-live="polite">{monthLabel(recordMonth)}</strong>
+                <button type="button" className="rq-icon" aria-label="Next month" disabled={saving || recordMonth >= manilaMonth()} onClick={() => setRecordMonth(month => shiftMonth(month, 1))}><Icon name="chevronRight" size={15} /></button>
+              </div>
               <div className="lb-cal-wrap">
                 <div className="lb-cal" role="grid" aria-label={`${monthLabel(recordMonth)} attendance`}>
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => <span key={day} className="lb-cal-head" role="columnheader">{day}</span>)}
@@ -572,9 +577,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               </div>
               {activeDay && <div className="lb-dayview">
                 <div className="lb-daynav">
-                  <button type="button" className="rq-icon" aria-label="Previous day" onClick={() => stepDay(-1)}><Icon name="chevronLeft" size={15} /></button>
                   <strong aria-live="polite">{formatDay(activeDay)}{activeDay === today ? ' · today' : ''}</strong>
-                  <button type="button" className="rq-icon" aria-label="Next day" disabled={activeDay >= today && recordMonth >= manilaMonth()} onClick={() => stepDay(1)}><Icon name="chevronRight" size={15} /></button>
                   {attendance.length > 0 && <button type="button" className="rq-link lb-more" onClick={() => setShowAllDays(value => !value)}>{showAllDays ? 'Hide the month' : 'See the whole month'}</button>}
                 </div>
                 <div className="lb-table" role="table" aria-label="Attendance">

@@ -95,3 +95,9 @@
 .lb-daynav .lb-more { margin: 0 0 0 auto; }
 .lb-tr[data-active] { background: #f3f7fe; margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 8px; }
 .lb-dayview .lb-table .lb-tr:only-of-type, .lb-dayview .lb-th + .lb-tr:last-child { background: transparent; margin: 0; padding-left: 0; padding-right: 0; }
+/* v4: month arrows above the calendar */
+.lb-cal-month { display: flex; align-items: center; gap: 8px; width: 220px; justify-content: space-between; margin-bottom: -6px; }
+.lb-cal-month strong { font-size: 14px; font-weight: 600; color: #15213a; }
+.coordinator-page .lb-cal-month .rq-icon { width: 30px !important; height: 30px !important; border: 1px solid #e8e5de !important; background: #fff !important; }
+.coordinator-page .lb-cal-month .rq-icon:disabled { opacity: .35; }
+.lb-daynav strong { min-width: 0; text-align: left; }

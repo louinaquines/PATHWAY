@@ -138,14 +138,16 @@ export default function Form48Check({ student }) {
   </div>;
 
   if (step === 'check') {
-    const rows = copies[copyIndex].filter(row => showEmpty ? row.day <= daysIn : (FIELDS.some(f => row[f]) || row.reviewFields?.length));
+    const anyRead = copies[copyIndex].some(row => FIELDS.some(f => row[f]) || row.reviewFields?.length);
+    const rows = copies[copyIndex].filter(row => (showEmpty || !anyRead) ? row.day <= daysIn : (FIELDS.some(f => row[f]) || row.reviewFields?.length));
     const flagged = copies[copyIndex].filter(row => row.reviewFields?.length).length;
     return <div className="f48 f48-check">{fileField}
       <div className="f48-bar">
         <p><strong>Check the times</strong> · {info?.fileName}{flagged ? <> · <b className="lb-chip" data-tone="amber">{flagged} day{flagged === 1 ? '' : 's'} to check</b></> : ''}</p>
         <label className="f48-month">Month <input type="month" value={month} onChange={event => { setMonth(event.target.value); setReviewed(false); }} /></label>
       </div>
-      {info?.warnings?.map((warning, i) => <p key={i} className="f48-warn">{warning}</p>)}
+      {info?.warnings?.length > 0 && <div className="f48-warn" role="note"><Icon name="alert" size={15} /><span>{info.warnings.length === 1 ? info.warnings[0].replace(/^Copy \d+: /, '') : <>The scanner had trouble with this file. Check each time against the scan{info.warnings.some(w => /could not be mapped/i.test(w)) ? ' and type in any that are missing' : ''}.</>}</span></div>}
+      {!anyReadAll(copies) && <p className="f48-muted">No times could be read from the scan. Type them in using the page on the left.</p>}
       <div className="f48-split">
         {preview && <div className="f48-scan">{preview.pdf ? <PdfPreview url={preview.url} /> : <img src={preview.url} alt="The scanned Form 48" />}</div>}
         <div className="f48-times">
@@ -156,9 +158,8 @@ export default function Form48Check({ student }) {
               <span className="f48-dayno">{row.day}</span>
               {FIELDS.map((f, i) => <input key={f} aria-label={`Day ${row.day} ${HEADS[i]}`} value={row[f] || ''} maxLength={80} data-flag={row.reviewFields?.includes(f) || undefined} onChange={event => change(row.day, f, event.target.value)} />)}
             </div>)}
-            {!rows.length && <p className="f48-muted">No times were read. Show all days to type them in.</p>}
           </div>
-          <button type="button" className="rq-link" onClick={() => setShowEmpty(v => !v)}>{showEmpty ? 'Hide empty days' : 'Show all days'}</button>
+          {anyRead && <button type="button" className="rq-link" onClick={() => setShowEmpty(v => !v)}>{showEmpty ? 'Hide empty days' : 'Show all days'}</button>}
         </div>
       </div>
       {error && <p className="f48-error" role="alert">{error}</p>}
@@ -217,6 +218,8 @@ export default function Form48Check({ student }) {
     </div>
   </div>;
 }
+
+function anyReadAll(copies) { return copies.some(rows => rows.some(row => FIELDS.some(f => row[f]))); }
 
 function PastChecks({ history, onOpen }) {
   return <details className="lb-details f48-past"><summary>Past checks ({history.length})</summary>

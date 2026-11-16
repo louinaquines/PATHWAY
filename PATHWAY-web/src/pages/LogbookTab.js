@@ -492,7 +492,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       <div className="rq-list">
         <div className="rq-search-row">
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
-          <JournalsInbox section={selectedSection} coordinatorId={coordinatorId} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); }} />
+          <JournalsInbox section={selectedSection} coordinatorId={coordinatorId} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); }}
+            onChanged={() => { setDecisionRevision(value => value + 1); if (selectedStudent && recordView === 'journals') fetchEntries(selectedStudent); }} />
         </div>
         <div className="rq-pills" role="group" aria-label="Filter students">
           <button type="button" aria-pressed={!pendingOnly} onClick={() => setPendingOnly(false)}>All{studentCount != null ? ` ${studentCount}` : ''}</button>

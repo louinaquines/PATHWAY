@@ -33,3 +33,10 @@
 @media (max-width: 720px) { .rqi-pop { position: fixed; left: 12px; right: 12px; top: 72px; width: auto; } }
 .rqi-head-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .coordinator-page .rqi .rqi-link.rqi-quiet { color: #7b8494 !important; font-weight: 500 !important; }
+.rqi-confirm { margin: 0 14px 10px; padding: 12px 14px; border-radius: 10px; background: #f7f5f0; border: 1px solid #e8e5de; }
+.rqi-confirm p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: #465066; }
+.rqi-confirm strong { display: block; font-size: 13.5px; color: #15213a; margin-bottom: 2px; }
+.rqi-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.rqi-progress { position: relative; height: 26px; border-radius: 8px; background: #edeae3; overflow: hidden; }
+.rqi-progress i { position: absolute; inset: 0 auto 0 0; background: #cfe6d8; transition: width .2s; }
+.rqi-progress span { position: relative; display: grid; place-items: center; height: 100%; font-size: 12px; font-weight: 600; color: #1f7a4d; }

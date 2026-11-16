@@ -362,7 +362,7 @@ export default function CoordinatorDashboard() {
   const reviewCursors = reviewPaging?.scope === reviewScope ? reviewPaging.cursors : [null];
   const reviewCursor = reviewCursors.at(-1);
   const currentReview = reviewResult?.scope === reviewScope && reviewResult.cursor === reviewCursor ? reviewResult : null;
-  const visibleReviewStudents = (currentReview?.page?.records || []).slice(0, 8);
+  const visibleReviewStudents = (currentReview?.page?.records || []).slice(0, 10);
   const reviewReady = requirementsActive && selectedSection && loadedSectionId === selectedSection.id + ':requirements';
 
   useEffect(() => {
@@ -385,15 +385,15 @@ export default function CoordinatorDashboard() {
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
     if (!requiresMatching) {
       getCountFromServer(base).then(snapshot => {
-        if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 8)) });
+        if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 10)) });
       }).catch(() => {});
     }
     const request = requiresMatching
-      ? readMatchingPortalPage(base, reviewCursor, 8, student => (
+      ? readMatchingPortalPage(base, reviewCursor, 10, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
         && (reviewFilter === 'all' || (reviewFilter === 'new' ? newStudentIdsRef.current.has(student.id) : reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
-      : readPortalPage(base, reviewCursor, 8);
+      : readPortalPage(base, reviewCursor, 10);
     const latestUpload = st => Math.max(0, ...Object.values(st.requirements || {}).map(r => submissionTime(r?.submittedAt)));
     request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => reviewFilter === 'new' ? latestUpload(b) - latestUpload(a) : String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (!active) return;
@@ -642,7 +642,7 @@ export default function CoordinatorDashboard() {
                     })}
                   </div>
                   {visibleReviewStudents.length > 0 && (() => {
-                    const first = (reviewCursors.length - 1) * 8 + 1, last = first + visibleReviewStudents.length - 1;
+                    const first = (reviewCursors.length - 1) * 10 + 1, last = first + visibleReviewStudents.length - 1;
                     const total = reviewTotal?.scope === reviewScope && reviewTotal.count != null ? reviewTotal.count : null;
                     const pages = reviewTotal?.scope === reviewScope ? Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages) : reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore));
                     return <nav className="rq-pages" aria-label="Student pages">

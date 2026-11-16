@@ -592,24 +592,9 @@ export default function CoordinatorDashboard() {
                     <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
                   </div>
                   <div className="rq-pills" role="group" aria-label="Filter students">
-                    {[['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete'], ['all', 'All']].map(([value, label]) =>
+                    {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
                       <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
                   </div>
-                  {(() => {
-                    const greens = tierItems(visibleReviewStudents, 'green'), reds = tierItems(visibleReviewStudents, 'red');
-                    if (!greens.length && !reds.length) return null;
-                    return <div className="rq-bulk" aria-label="AI check results">
-                      {bulkConfirm ? <div className="rq-bulk-confirm" role="group" aria-label="Confirm bulk action">
-                        <p>{bulkConfirm.status === 'approved' ? `Approve ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'} that look${bulkConfirm.items.length === 1 ? 's' : ''} good?` : `Send back ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'} that look${bulkConfirm.items.length === 1 ? 's' : ''} wrong?`}</p>
-                        {bulkConfirm.status === 'rejected' && <textarea aria-label="Reason sent to students" rows={3} value={bulkReason} onChange={e => setBulkReason(e.target.value)} />}
-                        <div><button type="button" className="rq-btn" disabled={bulkBusy} onClick={() => setBulkConfirm(null)}>Cancel</button>
-                          <button type="button" className={bulkConfirm.status === 'approved' ? 'rq-btn rq-primary' : 'rq-btn rq-danger'} disabled={bulkBusy || (bulkConfirm.status === 'rejected' && !bulkReason.trim())} onClick={runBulk}>{bulkBusy ? 'Working…' : 'Confirm'}</button></div>
-                      </div> : <>
-                        {greens.length > 0 && <button type="button" className="rq-link rq-green" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve {greens.length} that look good</button>}
-                        {reds.length > 0 && <button type="button" className="rq-link rq-red" disabled={saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Send back {reds.length} that look wrong</button>}
-                      </>}
-                    </div>;
-                  })()}
                   <div className="rq-students">
                     {!selectedSection && (sections.length === 0
                       ? <PortalEmpty compact icon="section" title="No sections yet" description="Create a section to see students here." />
@@ -721,6 +706,15 @@ export default function CoordinatorDashboard() {
                       </div>
                     </>;
                   })()}
+                  <AlertDialog
+                    open={Boolean(bulkConfirm)}
+                    title={bulkConfirm ? `Approve ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'}?` : ''}
+                    description="These passed the AI check. You can still undo each one later."
+                    confirmLabel="Approve"
+                    busy={bulkBusy}
+                    onCancel={() => setBulkConfirm(null)}
+                    onConfirm={runBulk}
+                  />
                   <AlertDialog
                     open={Boolean(rejectionModal)}
                     title="Ask the student to fix this?"

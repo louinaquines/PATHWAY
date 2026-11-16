@@ -611,7 +611,7 @@ export default function CoordinatorDashboard() {
                       onOpen={(student, stage) => { pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
                   </div>
                   <div className="rq-pills" role="group" aria-label="Filter students">
-                    {[['all', 'All'], ['new', newStudentIds.size ? `New ${newStudentIds.size}` : 'New'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
+                    {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
                       <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
                   </div>
                   <div className="rq-students">

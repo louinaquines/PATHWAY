@@ -241,3 +241,5 @@
 .rq-pills { flex-wrap: wrap !important; gap: 6px; }
 .rq-pills button { padding: 6px 11px !important; font-size: 12px !important; }
 .rq-search-row .rqi { flex: 0 0 40px; }
+/* v17: four pills on one line */
+.rq-pills { flex-wrap: nowrap !important; }

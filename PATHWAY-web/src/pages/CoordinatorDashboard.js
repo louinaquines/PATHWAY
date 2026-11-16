@@ -354,7 +354,7 @@ export default function CoordinatorDashboard() {
   const reviewCursors = reviewPaging?.scope === reviewScope ? reviewPaging.cursors : [null];
   const reviewCursor = reviewCursors.at(-1);
   const currentReview = reviewResult?.scope === reviewScope && reviewResult.cursor === reviewCursor ? reviewResult : null;
-  const visibleReviewStudents = currentReview?.page?.records || [];
+  const visibleReviewStudents = (currentReview?.page?.records || []).slice(0, 8);
   const reviewReady = requirementsActive && selectedSection && loadedSectionId === selectedSection.id + ':requirements';
 
   useEffect(() => {
@@ -375,7 +375,7 @@ export default function CoordinatorDashboard() {
       ? [where('idNumber', '==', reviewSearch)]
       : [orderBy('firstName'), orderBy('lastName')]));
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
-    if (!requiresMatching && !reviewCursor) {
+    if (!requiresMatching) {
       getCountFromServer(base).then(snapshot => {
         if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 8)) });
       }).catch(() => {});

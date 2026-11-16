@@ -139,15 +139,23 @@
 .rq-btn { height: 36px !important; min-height: 36px !important; font-size: 13.5px !important; }
 .rq-link { font-size: 13.5px !important; }
 .rq-detail .portal-empty, .rq-detail [class*="empty"] { font-size: 15px; }
-/* v4: student cards + compact pagination */
-.rq-students { gap: 6px; padding: 2px; }
-.rq-student { padding: 10px 12px !important; background: #fff !important; border: 1px solid #ebe8e1 !important; border-radius: 10px !important; transition: border-color .15s, box-shadow .15s, background-color .15s; }
-.rq-student:hover { border-color: #d9d5cc !important; box-shadow: 0 1px 3px rgba(21,33,58,.06) !important; background: #fff !important; }
-.rq-student[aria-pressed="true"] { background: #f3f7fe !important; border-color: #0b5fd3 !important; box-shadow: inset 3px 0 0 #0b5fd3 !important; }
-.rq-avatar { background: #f1efe9; color: #465066; }
-.rq-student[aria-pressed="true"] .rq-avatar { background: #0b5fd3; color: #fff; }
-.rq-student-name { gap: 1px; }
-.rq-student-tag { padding: 3px 9px; border-radius: 99px; background: var(--tone-bg); color: var(--tone); font-weight: 600; }
-.rq-pages { gap: 4px; flex-wrap: nowrap; }
-.rq-pages span { white-space: nowrap; }
-.rq-pages button { flex: 0 0 30px; }
+/* v5: clean student rows (no boxes), quiet pagination */
+.rq-students { gap: 2px; padding: 0; overflow-y: auto; }
+.rq-student { position: relative; padding: 10px 12px !important; background: transparent !important; border: 0 !important; border-radius: 10px !important; box-shadow: none !important; transition: background-color .15s; }
+.rq-student:hover { background: #efece5 !important; }
+.rq-student[aria-pressed="true"] { background: #fff !important; box-shadow: 0 1px 2px rgba(21,33,58,.06), 0 0 0 1px #e8e5de !important; }
+.rq-student[aria-pressed="true"]::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: #0b5fd3; }
+.rq-avatar { width: 36px; height: 36px; background: #e9e6df; color: #465066; font-weight: 700; }
+.rq-student[aria-pressed="true"] .rq-avatar { background: #eaf1fd; color: #0b5fd3; }
+.rq-student-name { gap: 2px; }
+.rq-student-name strong { font-size: 14px !important; font-weight: 600 !important; }
+.rq-student-name small { font-size: 12px !important; color: #8a92a0; }
+.rq-student-tag { display: inline-flex; align-items: center; gap: 6px; padding: 0; background: none; font-size: 12px !important; font-weight: 600; color: var(--tone); }
+.rq-student-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rq-student-tag[data-tone="mute"] { color: #9aa1ad; font-weight: 500; }
+.rq-pages { gap: 2px; padding-top: 10px; flex-wrap: nowrap; }
+.rq-pages span { flex: 1; white-space: nowrap; font-size: 12.5px; color: #7b8494; }
+.rq-pages button { flex: 0 0 30px; width: 30px !important; height: 30px !important; min-height: 30px !important; border: 0 !important; background: transparent !important; border-radius: 8px !important; color: #465066 !important; font-size: 13px !important; }
+.rq-pages button:hover:not(:disabled) { background: #efece5 !important; }
+.rq-pages button[aria-current="page"] { background: #15213a !important; color: #fff !important; }
+.rq-pages button:disabled:not([aria-current]) { opacity: .35; }

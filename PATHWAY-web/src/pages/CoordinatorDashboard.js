@@ -45,6 +45,7 @@ import './CoordinatorProfile.css';
 import './CoordinatorGlass.css';
 import './PortalPolish.css';
 import '../sidebarV2.css';
+import './RequirementsRedesign.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -55,14 +56,7 @@ const STATUS_COLOR = {
   rejected: COLORS.rose100,
 };
 
-// Coordinator-facing labels: every requirement is Complete, Pending or Deficient.
-const SIMPLE_STATUS = {
-  approved: { label: 'Complete', tone: 'complete' },
-  submitted: { label: 'Pending', tone: 'pending' },
-  rejected: { label: 'Deficient', tone: 'deficient' },
-  not_submitted: { label: 'Not submitted', tone: 'none' },
-};
-const AI_TONE_TEXT = { green: 'Green', yellow: 'Yellow', red: 'Red' };
+const STAGE_LABEL = { 'Pre-OJT': 'Before OJT', Ongoing: 'During OJT', 'Post-OJT': 'After OJT', Other: 'Other' };
 function aiTone(review) {
   if (!review || ['queued', 'checking'].includes(review.status)) return null;
   if (['consent_required', 'ai_unavailable', 'policy_missing', 'unsupported_file', 'assignment_changed'].includes(review.reason)) return null;
@@ -70,17 +64,10 @@ function aiTone(review) {
   if (review.status === 'checks_passed' && review.tier !== 'yellow') return 'green';
   return 'yellow';
 }
-const STATUS_TEXT = {
-  not_submitted: 'Not Submitted',
-  submitted: 'Awaiting review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
 
 const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
 
-const REVIEW_FILTERS = [['all', 'All students'], ['review', 'Pending'], ['revision', 'Deficient'], ['complete', 'Complete']];
 
 export default function CoordinatorDashboard() {
   const [sections, setSections] = useState([]);
@@ -276,9 +263,8 @@ export default function CoordinatorDashboard() {
     } catch { setAiReviews({}); }
     return () => stop();
   }, [requirementsActive, selectedSection?.id]);
-  const [docFilter, setDocFilter] = useState('all');
-  const [phaseFilter, setPhaseFilter] = useState('all');
-  useEffect(() => { setDocFilter('all'); setPhaseFilter('all'); }, [selectedStudent?.id]);
+  const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
+  useEffect(() => { setPhaseFilter('Pre-OJT'); }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
@@ -391,15 +377,15 @@ export default function CoordinatorDashboard() {
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
     if (!requiresMatching && !reviewCursor) {
       getCountFromServer(base).then(snapshot => {
-        if (active) setReviewTotal({ scope: reviewScope, pages: Math.max(1, Math.ceil(snapshot.data().count / 25)) });
+        if (active) setReviewTotal({ scope: reviewScope, pages: Math.max(1, Math.ceil(snapshot.data().count / 10)) });
       }).catch(() => {});
     }
     const request = requiresMatching
-      ? readMatchingPortalPage(base, reviewCursor, 25, student => (
+      ? readMatchingPortalPage(base, reviewCursor, 10, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
         && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
-      : readPortalPage(base, reviewCursor, 25);
+      : readPortalPage(base, reviewCursor, 10);
     request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (!active) return;
       setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
@@ -555,6 +541,7 @@ export default function CoordinatorDashboard() {
           </div>
           {activeTab === 'classlist' && <button type="button" className="portal-secondary" onClick={() => setActiveTab('sections')}>Back to sections</button>}
           {activeTab === 'requirements' && (
+            <div className="rq-top-actions">
             <button
               type="button"
               className="section-export-button"
@@ -564,8 +551,15 @@ export default function CoordinatorDashboard() {
               title={selectedSection ? `Download ${selectedSection.name} records as an Excel file` : 'Select a section to export'}
             >
               {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
-              <span aria-live="polite">{exporting ? 'Exporting…' : 'Download section records (Excel)'}</span>
+              <span aria-live="polite">{exporting ? 'Exporting…' : 'Download records'}</span>
             </button>
+            <label className="rq-section-pick"><span className="sr-only">Section</span>
+              <select aria-label="Current section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
+                {sections.length === 0 && <option value="">No sections</option>}
+                {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+              </select><Icon name="chevronDown" size={14} />
+            </label>
+            </div>
           )}
         </header>
 
@@ -591,235 +585,150 @@ export default function CoordinatorDashboard() {
                     state: { sectionId: selectedSection.id, view, ...(view === 'journals' ? { pendingStudentIds } : {}) },
                   })} />)}
             {activeTab === 'requirements' && (
-              <div className="requirements-workspace" style={s.threeCol}>
-                {/* Column 2: Students */}
-                <div className="requirements-students" style={s.col2}>
-                  <div style={s.colHeader}>
-                    Students
-                    <select aria-label="Current section" className="requirements-queue-section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                      {sections.length === 0 && <option value="">No sections assigned to you</option>}
-                      {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-                    </select>
+              <div className="rq">
+                <div className="rq-list">
+                  <div className="rq-search-row">
+                    <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
+                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
                   </div>
-                  <div className="requirements-search-row" style={s.columnSearch}>
-                    <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" />
-                    <div className="requirements-filter-icon" data-active={reviewFilter !== 'all'}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M3 5h18l-7 8v5l-4 2v-7z" />
-                      </svg>
-                      <select aria-label="Filter students by requirement status" title="Filter by status" value={reviewFilter} onChange={event => setReviewFilter(event.target.value)}>
-                        {REVIEW_FILTERS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
-                    </div>
+                  <div className="rq-pills" role="group" aria-label="Filter students">
+                    {[['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete'], ['all', 'All']].map(([value, label]) =>
+                      <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
                   </div>
                   {(() => {
-                    const greens = tierItems(visibleReviewStudents, 'green'), reds = tierItems(visibleReviewStudents, 'red'), yellows = tierItems(visibleReviewStudents, 'yellow');
-                    if (!greens.length && !reds.length && !yellows.length) return null;
-                    return <div className="ai-bulk-bar" aria-label="AI check results">
-                      <div className="ai-bulk-counts"><span data-tier="green" title="Green: passed the AI check">{greens.length}</span><span data-tier="yellow" title="Yellow: review these one by one">{yellows.length}</span><span data-tier="red" title="Red: failed the AI check">{reds.length}</span></div>
-                      {bulkConfirm ? <div className="ai-bulk-confirm" role="group" aria-label="Confirm bulk action">
-                        <p>{bulkConfirm.status === 'approved' ? `Approve ${bulkConfirm.items.length} green document${bulkConfirm.items.length === 1 ? '' : 's'}?` : `Reject ${bulkConfirm.items.length} red document${bulkConfirm.items.length === 1 ? '' : 's'}?`}</p>
+                    const greens = tierItems(visibleReviewStudents, 'green'), reds = tierItems(visibleReviewStudents, 'red');
+                    if (!greens.length && !reds.length) return null;
+                    return <div className="rq-bulk" aria-label="AI check results">
+                      {bulkConfirm ? <div className="rq-bulk-confirm" role="group" aria-label="Confirm bulk action">
+                        <p>{bulkConfirm.status === 'approved' ? `Approve ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'} that look${bulkConfirm.items.length === 1 ? 's' : ''} good?` : `Send back ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'} that look${bulkConfirm.items.length === 1 ? 's' : ''} wrong?`}</p>
                         {bulkConfirm.status === 'rejected' && <textarea aria-label="Reason sent to students" rows={3} value={bulkReason} onChange={e => setBulkReason(e.target.value)} />}
-                        <div><button type="button" className="ai-bulk-cancel" disabled={bulkBusy} onClick={() => setBulkConfirm(null)}>Cancel</button>
-                          <button type="button" className={bulkConfirm.status === 'approved' ? 'ai-bulk-approve' : 'ai-bulk-reject'} disabled={bulkBusy || (bulkConfirm.status === 'rejected' && !bulkReason.trim())} onClick={runBulk}>{bulkBusy ? 'Working…' : 'Confirm'}</button></div>
-                      </div> : <div className="ai-bulk-actions">
-                        {greens.length > 0 && <button type="button" className="ai-bulk-approve" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve {greens.length} green</button>}
-                        {reds.length > 0 && <button type="button" className="ai-bulk-reject" disabled={saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Reject {reds.length} red</button>}
-                      </div>}
-                      
+                        <div><button type="button" className="rq-btn" disabled={bulkBusy} onClick={() => setBulkConfirm(null)}>Cancel</button>
+                          <button type="button" className={bulkConfirm.status === 'approved' ? 'rq-btn rq-primary' : 'rq-btn rq-danger'} disabled={bulkBusy || (bulkConfirm.status === 'rejected' && !bulkReason.trim())} onClick={runBulk}>{bulkBusy ? 'Working…' : 'Confirm'}</button></div>
+                      </div> : <>
+                        {greens.length > 0 && <button type="button" className="rq-link rq-green" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>Approve {greens.length} that look good</button>}
+                        {reds.length > 0 && <button type="button" className="rq-link rq-red" disabled={saving} onClick={() => setBulkConfirm({ status: 'rejected', items: reds })}>Send back {reds.length} that look wrong</button>}
+                      </>}
                     </div>;
                   })()}
-                  {reviewFilter !== 'all' && <div className="requirements-filter-chip">
-                    <button type="button" onClick={() => setReviewFilter('all')} aria-label="Clear status filter">
-                      {REVIEW_FILTERS.find(([value]) => value === reviewFilter)?.[1]} <Icon name="x" size={13} />
-                    </button>
-                  </div>}
-                  <div className="requirements-student-list">
-                  {!selectedSection && (
-                    sections.length === 0
+                  <div className="rq-students">
+                    {!selectedSection && (sections.length === 0
                       ? <PortalEmpty compact icon="section" title="No sections yet" description="Create a section to see students here." />
-                      : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section in the menu above." />
-                  )}
-                  {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
-                    <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
-                  )}
-                  {selectedSection && !currentReview && <div className="req-skel-list" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student"><span className="cdash-skel" style={{ width: 40, height: 40, borderRadius: '50%' }} /><div><span className="cdash-skel" style={{ width: '70%', height: 13 }} /><span className="cdash-skel" style={{ width: '45%', height: 10 }} /><span className="cdash-skel" style={{ width: 70, height: 18, borderRadius: 99 }} /></div></div>)}</div>}
-                  {currentReview?.error && <div className="requirements-empty-state" role="status">
-                    <span className="requirements-empty-icon" aria-hidden="true">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
-                    </span>
-                    <strong>No students yet</strong>
-                    <span>Students will appear here once they join {selectedSection?.name || 'this section'}.</span>
-                    <button type="button" className="requirements-empty-refresh" onClick={() => setReviewRetry(value => value + 1)}>Check again</button>
-                  </div>}
-                  {visibleReviewStudents.map(student => {
-                    const progress = requirementProgress(student.requirements, sectionRequirements);
-                    return (
-                    <button
-                      type="button"
-                      className="requirements-student-card"
-                      aria-pressed={selectedStudent?.id === student.id}
-                      key={student.id}
-                      onClick={() => setSelectedStudent(student)}
-                    >
-                      <div className="student-card-identity">
-                        <span className="student-card-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
-                        <div className="student-card-name">
-                          <strong>{personName(student)}</strong>
-                          <span>ID {student.idNumber || 'not provided'}</span>
-                          <span className="coordinator-queue-status" data-status={isComplete(student) ? 'complete' : needsChanges(student) ? 'deficient' : 'pending'}>
-                            {isComplete(student) ? 'Complete' : needsChanges(student) ? 'Deficient' : 'Pending'}
-                          </span>
-                        </div>
-                        {selectedStudent?.id === student.id && (
-                          <strong className={`student-card-percentage${progress.percentage === 100 ? ' is-complete' : ''}`}>{progress.percentage}%</strong>
-                        )}
-                      </div>
-                      {selectedStudent?.id === student.id && (
-                      <div className="student-card-progress">
-                        <div className="student-card-progress-caption">{progress.total ? `${progress.approved} of ${progress.total} requirements approved` : 'No requirements added for this section'}</div>
-                      </div>
-                      )}
-                    </button>
-                    );
-                  })}
+                      : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section at the top right." />)}
+                    {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
+                      <div className="rq-empty">{currentReview?.page?.hasMore ? 'No matches on this page. Choose Next to continue.' : 'No students match this view.'}</div>
+                    )}
+                    {selectedSection && !currentReview && <div className="req-skel-list" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student"><span className="cdash-skel" style={{ width: 32, height: 32, borderRadius: '50%' }} /><div><span className="cdash-skel" style={{ width: '70%', height: 13 }} /><span className="cdash-skel" style={{ width: '45%', height: 10 }} /></div></div>)}</div>}
+                    {currentReview?.error && <div className="rq-empty" role="status">
+                      <strong>No students yet</strong>
+                      <span>Students will appear here once they join {selectedSection?.name || 'this section'}.</span>
+                      <button type="button" className="rq-link" onClick={() => setReviewRetry(value => value + 1)}>Check again</button>
+                    </div>}
+                    {visibleReviewStudents.map(student => {
+                      const reqs = sectionRequirements.map(r => student.requirements?.[r.id]?.status);
+                      const toCheck = reqs.filter(v => v === 'submitted').length, toFix = reqs.filter(v => v === 'rejected').length;
+                      const tag = toFix ? [`${toFix} need${toFix === 1 ? 's' : ''} fixing`, 'red'] : toCheck ? [`${toCheck} to check`, 'blue'] : isComplete(student) ? ['All approved', 'green'] : ['Nothing new', 'mute'];
+                      return <button type="button" className="rq-student" aria-pressed={selectedStudent?.id === student.id} key={student.id} onClick={() => setSelectedStudent(student)}>
+                        <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+                        <span className="rq-student-name"><strong>{personName(student)}</strong><small>{selectedSection?.name}</small></span>
+                        <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
+                      </button>;
+                    })}
                   </div>
-                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
-                    <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={16} /></button>
-                    <span aria-live="polite">{reviewCursors.length}{reviewTotal?.scope === reviewScope
-                      ? ` of ${Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages)}`
-                      : currentReview?.page?.hasMore ? ` of at least ${reviewCursors.length + 1}` : ''}</span>
-                    <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={16} /></button>
+                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="rq-pages" aria-label="Student pages">
+                    <span aria-live="polite">Page {reviewCursors.length}{reviewTotal?.scope === reviewScope ? ` of ${Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages)}` : ''}</span>
+                    <button type="button" disabled={reviewCursors.length === 1 || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={15} /></button>
+                    <button type="button" disabled={!currentReview?.page?.hasMore || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={15} /></button>
                   </nav>}
                 </div>
 
-                {/* Column 3: Requirements */}
-                <div className="requirements-detail" style={s.col3}>
-                  <div style={{ ...s.colHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div>{selectedStudent ? personName(selectedStudent) : 'Review student documents'}
-                    <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
-                    </div>
-                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
-                  </div>
-                  {selectedProgress?.total > 0 && <div className="coordinator-review-progress">
-                    <progress aria-label="Requirements approved" value={selectedProgress.approved} max={selectedProgress.total} />
-                    <span>{selectedProgress.approved} of {selectedProgress.total} approved</span>
-                  </div>}
-                  {!selectedStudent ? (
-                    <div style={s.requirementsScroll}>
-                      {sections.length === 0 ? (
-                        <PortalEmpty icon="section" title="Start by creating a section"
-                          description="Student documents appear here once a section has students and requirements."
-                          steps={['Create a section', 'Add requirements and deadlines', 'Students upload — you review here']}
-                          action={{ label: 'Go to Sections & Students', onClick: () => setActiveTab('sections') }} />
-                      ) : sectionRequirements.length === 0 ? (
-                        <PortalEmpty title="No requirements yet"
-                          description="Add the documents students must submit for this section."
-                          action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />
-                      ) : (
-                        <PortalEmpty icon="user" title="Select a student"
-                          description="Choose a student on the left to review their documents and approvals." />
-                      )}
-                    </div>
-                  ) : (
-                    <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <PortalEmpty title="No requirements yet" description="Add the documents students must submit for this section." action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />}
-                      {sectionRequirements.length > 0 && (() => {
-                        const ordered = REQUIREMENT_CATEGORIES.flatMap(cat => sectionRequirements.filter(r => requirementCategory(r.category) === cat));
-                        const rows = ordered.map(requirement => {
-                          const req = selectedStudent.requirements?.[requirement.id];
-                          const status = req?.status || 'not_submitted';
-                          const review = (status === 'submitted' || req?.autoApproved || status === 'approved' || status === 'rejected') ? aiReviewFor(selectedStudent.id, requirement.id, req?.autoReview) : null;
-                          return { ...requirement, req, status, review, tone: aiTone(review) };
-                        });
-                        const counts = { green: 0, yellow: 0, red: 0 };
-                        rows.forEach(row => { if (counts[row.tone] != null) counts[row.tone] += 1; });
-                        const shown = rows.filter(row => (docFilter === 'all' || row.tone === docFilter) && (phaseFilter === 'all' || requirementCategory(row.category) === phaseFilter));
-                        const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return <>
-                          <div className="req-table-filters" role="group" aria-label="Filter by AI check">
-                            {[['all', `All (${rows.length})`], ['green', `Green (${counts.green})`], ['yellow', `Yellow (${counts.yellow})`], ['red', `Red (${counts.red})`]].map(([value, label]) =>
-                              <button key={value} type="button" data-tone={value} aria-pressed={docFilter === value} onClick={() => setDocFilter(value)}>
-                                {value !== 'all' && <i aria-hidden="true" />}{label}</button>)}
-                            <label className="req-phase-filter">
-                              <span className="req-phase-face" aria-hidden="true">{phaseFilter === 'all' ? 'All stages' : phaseFilter}<Icon name="chevronDown" size={13} /></span>
-                              <select value={phaseFilter} onChange={event => setPhaseFilter(event.target.value)} aria-label="Filter by requirement stage">
-                                <option value="all">All stages</option>
-                                {REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => requirementCategory(row.category) === 'Other')).map(cat => <option key={cat} value={cat}>{cat} ({rows.filter(row => requirementCategory(row.category) === cat).length})</option>)}
-                              </select>
-                            </label>
-                          </div>
-                          <div className="req-table-wrap">
-                            <table className="req-table">
-                              <thead><tr><th>#</th><th>Requirement</th><th>AI check</th><th>AI findings &amp; notes</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr></thead>
-                              <tbody>
-                                {shown.length === 0 && <tr><td colSpan={6} className="req-table-empty">No documents in this view.</td></tr>}
-                                {shown.map(row => {
-                                  const index = rows.indexOf(row) + 1;
-                                  const isOverdue = row.deadline && new Date(row.deadline) < new Date() && row.status !== 'approved';
-                                  const finding = row.status === 'rejected' && row.req?.rejectionReason ? row.req.rejectionReason : (row.review?.findings || [])[0];
-                                  const pct = Number.isFinite(row.review?.confidence) ? Math.round(row.review.confidence * 100) : null;
-                                  const simple = SIMPLE_STATUS[row.status];
-                                  const canOpen = row.req?.cloudinaryPublicId && row.req?.cloudinaryVersion;
-                                  return <tr key={row.id} data-status={row.status}>
-                                    <td className="req-index">{index}</td>
-                                    <td className="req-name">
-                                      <strong>{row.label}</strong>
-                                      <small>{row.req?.submittedAt ? `Submitted ${fmt(row.req.submittedAt)}` : 'Not submitted'}
-                                        {row.deadline && <span data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (overdue)' : ''}</span>}</small>
-                                    </td>
-                                    <td>{row.tone ? <span className="req-ai-pill" data-tone={row.tone}><i aria-hidden="true" />{AI_TONE_TEXT[row.tone]}{pct != null && ` · ${pct}%`}</span>
-                                      : <span className="req-ai-none">{row.status === 'not_submitted' ? '—' : row.review && ['queued', 'checking'].includes(row.review.status) ? 'Checking…' : 'Manual review'}</span>}</td>
-                                    <td className="req-findings">{finding ? <span data-tone={row.status === 'rejected' ? 'red' : row.tone}>{finding}</span> : <span className="req-ai-none">—</span>}
-                                      {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</td>
-                                    <td><span className="req-status-pill" data-status={simple.tone}>{simple.label}</span></td>
-                                    <td className="req-actions">
-                                      {canOpen && <button type="button" className="req-icon-btn" title="View document" aria-label={`View ${row.label}`}
-                                        onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(row.id)}/download`, fileName: row.req.fileName, sectionId: selectedSection.id, requirementId: row.id, studentId: selectedStudent.id })}><Icon name="expand" size={15} /></button>}
-                                      {canOpen && <button type="button" className="req-icon-btn" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`}
-                                        onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={15} /></button>}
-                                      {row.status === 'submitted' && <>
-                                        <button type="button" className="req-approve" disabled={saving} onClick={() => handleRequirement(selectedStudent.id, row.id, 'approved')}><Icon name="check" size={14} /> Approve</button>
-                                        <button type="button" className="req-reject" disabled={saving} onClick={() => { setRejectionModal({ studentId: selectedStudent.id, reqId: row.id }); setRejectionReason(''); }}>Deficient</button>
-                                      </>}
-                                      {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="autocheck-chip" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
-                                      {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
-                                    </td>
-                                  </tr>;
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>;
-                      })()}
-
-                      <AlertDialog
-                        open={Boolean(rejectionModal)}
-                        title="Mark this document as deficient?"
-                        description="Specify the correction the student needs before resubmitting this requirement."
-                        confirmLabel="Mark as deficient"
-                        busy={saving}
-                        confirmDisabled={!rejectionReason.trim()}
-                        onCancel={() => setRejectionModal(null)}
-                        onConfirm={async () => {
-                          const saved = await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
-                          if (saved) setRejectionModal(null);
-                        }}
-                      >
-                        <textarea
-                          autoFocus
-                          aria-label="Rejection reason"
-                          style={{ width: '100%', minHeight: 96, marginTop: 16, padding: 12, resize: 'vertical', border: `1px solid ${COLORS.slate300}`, borderRadius: 10, font: 'inherit', boxSizing: 'border-box' }}
-                          placeholder="e.g. Document is missing an official signature or notarization seal..."
-                          value={rejectionReason}
-                          onChange={e => setRejectionReason(e.target.value)}
-                          rows={4}
-                        />
-                      </AlertDialog>
-                    </div>
-                  )}
+                <div className="rq-detail">
+                  {!selectedStudent || sectionRequirements.length === 0 ? (
+                    sections.length === 0 ? (
+                      <PortalEmpty icon="section" title="Start by creating a section" description="Student documents appear here once a section has students and requirements."
+                        steps={['Create a section', 'Add requirements and deadlines', 'Students upload — you review here']} action={{ label: 'Go to Sections', onClick: () => setActiveTab('sections') }} />
+                    ) : sectionRequirements.length === 0 ? (
+                      <PortalEmpty title="No requirements yet" description="Add the documents students must submit for this section." action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />
+                    ) : (
+                      <PortalEmpty icon="user" title="Select a student" description="Choose a student on the left to see their documents." />
+                    )
+                  ) : (() => {
+                    const ordered = REQUIREMENT_CATEGORIES.flatMap(cat => sectionRequirements.filter(r => requirementCategory(r.category) === cat));
+                    const rows = ordered.map(requirement => {
+                      const req = selectedStudent.requirements?.[requirement.id];
+                      const status = req?.status || 'not_submitted';
+                      const review = (status === 'submitted' || req?.autoApproved || status === 'approved' || status === 'rejected') ? aiReviewFor(selectedStudent.id, requirement.id, req?.autoReview) : null;
+                      return { ...requirement, req, status, review, tone: aiTone(review), stage: requirementCategory(requirement.category) };
+                    });
+                    const stages = REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => row.stage === 'Other'));
+                    const activeStage = stages.includes(phaseFilter) ? phaseFilter : stages[0];
+                    const stageSummary = cat => {
+                      const list = rows.filter(row => row.stage === cat);
+                      const ok = list.filter(row => row.status === 'approved').length, check = list.filter(row => row.status === 'submitted').length, fix = list.filter(row => row.status === 'rejected').length, none = list.filter(row => row.status === 'not_submitted').length;
+                      if (!list.length) return 'none';
+                      if (ok === list.length) return `${ok} of ${list.length} approved`;
+                      return [check && `${check} to check`, fix && `${fix} to fix`, none && `${none} not sent yet`, !check && !fix && !none && `${ok} of ${list.length} approved`].filter(Boolean).join(' · ');
+                    };
+                    const shown = rows.filter(row => row.stage === activeStage);
+                    const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+                    const greens = tierItems([selectedStudent], 'green');
+                    return <>
+                      <div className="rq-head">
+                        <div><h2>{personName(selectedStudent)}</h2>
+                          <p>{selectedProgress?.approved || 0} of {selectedProgress?.total || 0} documents approved · ID {selectedStudent.idNumber || 'not provided'}</p></div>
+                        {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
+                          Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
+                      </div>
+                      <progress className="rq-progress" aria-label="Documents approved" value={selectedProgress?.approved || 0} max={selectedProgress?.total || 1} />
+                      <div className="rq-stages" role="tablist" aria-label="OJT stage">
+                        {stages.map(cat => <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)}>
+                          <strong>{STAGE_LABEL[cat] || cat}</strong><span>{stageSummary(cat)}</span></button>)}
+                      </div>
+                      <div className="rq-table" role="table" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents`}>
+                        <div className="rq-row rq-row-head" role="row"><span role="columnheader">Document</span><span role="columnheader">Status</span><span role="columnheader">Action</span></div>
+                        {shown.length === 0 && <div className="rq-empty">No documents in this stage.</div>}
+                        {shown.map(row => {
+                          const isOverdue = row.deadline && new Date(row.deadline) < new Date() && row.status !== 'approved';
+                          const finding = row.status === 'rejected' && row.req?.rejectionReason ? row.req.rejectionReason : (row.review?.findings || [])[0];
+                          const pct = Number.isFinite(row.review?.confidence) ? Math.round(row.review.confidence * 100) : null;
+                          const canOpen = row.req?.cloudinaryPublicId && row.req?.cloudinaryVersion;
+                          const pill = row.status === 'approved' ? ['Approved', 'green'] : row.status === 'rejected' ? ['Sent back', 'red'] : row.status === 'submitted' ? (row.tone === 'green' ? ['Looks good', 'green'] : row.tone === 'red' ? ['Looks wrong', 'red'] : row.tone === 'yellow' ? ['Check closely', 'amber'] : ['To check', 'blue']) : ['Waiting', 'mute'];
+                          const note = finding || (row.status === 'approved' ? (row.req?.autoApproved ? 'Approved by the AI check.' : row.req?.reviewedAt ? `Checked by you on ${fmt(row.req.reviewedAt)}.` : 'Approved.') : row.status === 'not_submitted' ? 'The student has not uploaded this yet.' : row.review && ['queued', 'checking'].includes(row.review.status) ? 'The AI is still checking this.' : '');
+                          return <div className="rq-row" role="row" key={row.id} data-status={row.status}>
+                            <span className="rq-doc" role="cell"><strong>{row.label}</strong>
+                              <small>{row.req?.submittedAt ? `Sent ${fmt(row.req.submittedAt)}` : 'Not sent yet'}{row.deadline && <em data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (late)' : ''}</em>}</small></span>
+                            <span className="rq-status" role="cell"><b data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' && ` · ${pct}% sure`}</b>
+                              {note && <small>{note}</small>}
+                              {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</span>
+                            <span className="rq-actions" role="cell">
+                              {row.status === 'submitted' && <>
+                                <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => handleRequirement(selectedStudent.id, row.id, 'approved')}>Approve</button>
+                                <button type="button" className="rq-btn" disabled={saving} onClick={() => { setRejectionModal({ studentId: selectedStudent.id, reqId: row.id }); setRejectionReason(''); }}>Ask to fix</button>
+                              </>}
+                              {canOpen && <button type="button" className="rq-link" onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(row.id)}/download`, fileName: row.req.fileName, sectionId: selectedSection.id, requirementId: row.id, studentId: selectedStudent.id })}>View <Icon name="eye" size={14} /></button>}
+                              {canOpen && <button type="button" className="rq-icon" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`} onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={14} /></button>}
+                              {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="rq-link" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
+                              {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
+                            </span>
+                          </div>;
+                        })}
+                      </div>
+                    </>;
+                  })()}
+                  <AlertDialog
+                    open={Boolean(rejectionModal)}
+                    title="Ask the student to fix this?"
+                    description="Tell the student what to change before they upload it again."
+                    confirmLabel="Send back"
+                    busy={saving}
+                    confirmDisabled={!rejectionReason.trim()}
+                    onCancel={() => setRejectionModal(null)}
+                    onConfirm={async () => {
+                      const saved = await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
+                      if (saved) setRejectionModal(null);
+                    }}
+                  >
+                    <textarea autoFocus aria-label="What to fix" className="rq-reason" placeholder="e.g. The form is missing the parent's signature." value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} rows={4} />
+                  </AlertDialog>
                 </div>
               </div>
             )}

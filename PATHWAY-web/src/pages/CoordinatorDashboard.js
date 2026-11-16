@@ -21,7 +21,8 @@ import CoordinatorOverview, { OverviewSkeleton } from './CoordinatorOverview';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
-import SubmissionNotifications, { receivedRequirements } from '../components/SubmissionNotifications';
+import SubmissionNotifications, { receivedRequirements, submissionTime } from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
+import RequirementsInbox from '../components/RequirementsInbox';
 import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
@@ -265,7 +266,11 @@ export default function CoordinatorDashboard() {
   }, [requirementsActive, selectedSection?.id]);
   const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
-  useEffect(() => { setPhaseFilter('Pre-OJT'); }, [selectedStudent?.id]);
+  const pendingStageRef = useRef(null);
+  const [newStudentIds, setNewStudentIds] = useState(() => new Set());
+  const newStudentIdsRef = useRef(newStudentIds);
+  newStudentIdsRef.current = newStudentIds;
+  useEffect(() => { setPhaseFilter(pendingStageRef.current || 'Pre-OJT'); pendingStageRef.current = null; }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
@@ -384,10 +389,11 @@ export default function CoordinatorDashboard() {
     const request = requiresMatching
       ? readMatchingPortalPage(base, reviewCursor, 8, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
-        && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
+        && (reviewFilter === 'all' || (reviewFilter === 'new' ? newStudentIdsRef.current.has(student.id) : reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
       : readPortalPage(base, reviewCursor, 8);
-    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
+    const latestUpload = st => Math.max(0, ...Object.values(st.requirements || {}).map(r => submissionTime(r?.submittedAt)));
+    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => reviewFilter === 'new' ? latestUpload(b) - latestUpload(a) : String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (!active) return;
       setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
       if (!page.hasMore) setReviewTotal(prev => ({ ...(prev?.scope === reviewScope ? prev : {}), scope: reviewScope, pages: reviewCursors.length }));
@@ -598,10 +604,14 @@ export default function CoordinatorDashboard() {
                 <div className="rq-list">
                   <div className="rq-search-row">
                     <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
-                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
+                    <RequirementsInbox coordinatorId={coordinatorId} section={selectedSection} requirements={sectionRequirements}
+                      toneFor={(studentId, reqId, item) => aiTone(aiReviewFor(studentId, reqId, item?.autoReview))}
+                      stageFor={reqId => requirementCategory(sectionRequirements.find(r => r.id === reqId)?.category)}
+                      onNewChange={setNewStudentIds}
+                      onOpen={(student, stage) => { pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
                   </div>
                   <div className="rq-pills" role="group" aria-label="Filter students">
-                    {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
+                    {[['all', 'All'], ['new', newStudentIds.size ? `New ${newStudentIds.size}` : 'New'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
                       <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
                   </div>
                   <div className="rq-students">

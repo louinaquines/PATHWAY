@@ -1,0 +1,73 @@
+/* Attendance & Journals — same layout as Requirements (.rq), plus calendar and journal views */
+.lb-month { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 4px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; }
+.lb-month span { min-width: 118px; text-align: center; font-size: 13.5px; font-weight: 500; color: #15213a; }
+.coordinator-page .lb-month button { width: 28px !important; height: 28px !important; min-height: 28px !important; padding: 0 !important; display: grid; place-items: center; border: 0 !important; border-radius: 6px !important; background: transparent !important; color: #465066 !important; box-shadow: none !important; cursor: pointer; }
+.coordinator-page .lb-month button:hover:not(:disabled) { background: #f4f2ec !important; }
+.coordinator-page .lb-month button:disabled { opacity: .35; }
+.lb .rq-stages button i[data-tone="mute"] { background: #c9c4ba; }
+.lb-detail { gap: 16px; }
+.lb-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; margin-right: -12px; padding-right: 12px; }
+.lb-summary { margin: 0; font-size: 14px; color: #15213a; }
+.lb-alert { margin: 0; font-size: 13px; color: #b3261e; }
+/* calendar */
+.lb-cal-wrap { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; }
+.lb-cal { display: grid; grid-template-columns: repeat(5, 54px); gap: 6px; }
+.lb-cal-head { text-align: center; font-size: 11.5px; color: #7b8494; padding-bottom: 2px; }
+.lb-cal-day, .lb-cal-blank { height: 40px; border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+.lb-cal-day { background: #f7f5f0; color: #b9b3a8; border: 1px solid transparent; }
+.lb-cal-day[data-state="ontime"] { background: #e6f4ec; color: #1f7a4d; }
+.lb-cal-day[data-state="late"] { background: #fbf1d9; color: #9a6200; }
+.lb-cal-day[data-state="missing"] { background: #fff; color: #b3261e; border-color: #b3261e; }
+.lb-cal-day[data-state="absent"] { background: #fbe9e7; color: #b3261e; }
+.lb-cal-day[data-state="today"] { background: #eaf1fd; color: #0b5fd3; }
+.lb-legend { margin: 22px 0 0; display: grid; gap: 8px; }
+.lb-legend div { display: grid; grid-template-columns: 140px auto; align-items: center; }
+.lb-legend dt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #465066; }
+.lb-legend dd { margin: 0; font-size: 13px; font-weight: 600; color: #15213a; }
+.lb-legend i { width: 12px; height: 12px; border-radius: 3px; }
+.lb-legend i[data-state="ontime"] { background: #e6f4ec; }
+.lb-legend i[data-state="late"] { background: #fbf1d9; }
+.lb-legend i[data-state="missing"] { border: 1.5px solid #b3261e; }
+.lb-legend i[data-state="absent"] { background: #fbe9e7; }
+.lb-legend i[data-state="today"] { background: #eaf1fd; }
+/* attendance table */
+.lb-table { display: flex; flex-direction: column; }
+.lb-tr { display: grid; grid-template-columns: 1.6fr 1fr 1fr .6fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid #e8e5de; font-size: 13.5px; color: #15213a; }
+.lb-th { padding: 0 0 8px; font-size: 12px; color: #7b8494; }
+.lb-day { font-weight: 600; }
+.lb-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 8px; border-radius: 99px; background: var(--tone-bg); color: var(--tone); font-size: 12px; font-weight: 600; width: fit-content; }
+.lb-chip::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.lb-more { margin-top: 12px; align-self: flex-start; }
+/* journals */
+.lb-journal-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lb-mini-pills { display: flex; gap: 4px; padding: 3px; border-radius: 9px; background: #f1efe9; }
+.coordinator-page .lb-mini-pills button { height: 28px !important; min-height: 28px !important; padding: 0 12px !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; box-shadow: none !important; color: #7b8494 !important; font-family: inherit; font-size: 12.5px !important; font-weight: 600 !important; cursor: pointer; }
+.coordinator-page .lb-mini-pills button[aria-pressed="true"] { background: #fff !important; color: #15213a !important; box-shadow: 0 1px 2px rgba(21,33,58,.08) !important; }
+.lb-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.coordinator-page .lb-days button { height: 54px !important; min-height: 54px !important; display: grid; place-content: center; gap: 2px; padding: 0 !important; border: 1.5px solid transparent !important; border-radius: 10px !important; background: #f7f5f0 !important; box-shadow: none !important; cursor: pointer; font-family: inherit; text-align: center; }
+.lb-days small { font-size: 11px; color: #7b8494; }
+.lb-days strong { font-size: 16px; font-weight: 700; color: #465066; }
+.coordinator-page .lb-days button[data-status="approved"] { background: #e6f4ec !important; } .lb-days button[data-status="approved"] strong { color: #1f7a4d; }
+.coordinator-page .lb-days button[data-status="pending"] { background: #fbf1d9 !important; } .lb-days button[data-status="pending"] strong { color: #9a6200; }
+.coordinator-page .lb-days button[data-status="rejected"] { background: #fbe9e7 !important; } .lb-days button[data-status="rejected"] strong { color: #b3261e; }
+.coordinator-page .lb-days button[aria-selected="true"] { background: #fff !important; border-color: #0b5fd3 !important; } .lb-days button[aria-selected="true"] strong { color: #0b5fd3; }
+.lb-legend-inline { display: flex; gap: 16px; font-size: 12px; color: #465066; padding-bottom: 12px; border-bottom: 1px solid #e8e5de; }
+.lb-legend-inline span { display: inline-flex; align-items: center; gap: 6px; }
+.lb-legend-inline i { width: 10px; height: 10px; border-radius: 3px; }
+.lb-legend-inline i[data-status="approved"] { background: #e6f4ec; } .lb-legend-inline i[data-status="pending"] { background: #fbf1d9; } .lb-legend-inline i[data-status="rejected"] { background: #fbe9e7; }
+.lb-entry { display: flex; flex-direction: column; gap: 14px; }
+.lb-entry header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.lb-entry h3 { margin: 0; font-size: 16px; font-weight: 700; color: #15213a; }
+.lb-entry-meta { font-size: 12.5px; color: #7b8494; }
+.lb-entry-nav { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #7b8494; }
+.coordinator-page .lb-entry-nav .rq-icon { width: 32px !important; height: 32px !important; border: 1px solid #e8e5de !important; background: #fff !important; }
+.lb-entry section h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 500; color: #7b8494; }
+.lb-entry section p { margin: 0; font-size: 14px; line-height: 1.6; color: #2b3546; white-space: pre-wrap; }
+.lb-feedback { padding: 12px 14px; border-radius: 10px; background: #fbe9e7; } .lb-feedback h4 { color: #b3261e !important; }
+.lb-details { font-size: 13px; color: #465066; } .lb-details summary { cursor: pointer; color: #0b5fd3; font-weight: 600; }
+.lb-note { padding: 10px 14px; border-radius: 10px; background: #fbf1d9; font-size: 13px; color: #9a6200; }
+.lb-actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid #e8e5de; }
+.lb-note-input { flex: 1; min-width: 0; height: 38px; padding: 0 14px; border: 1px solid #e8e5de; border-radius: 8px; background: #faf9f6; font-family: inherit; font-size: 13.5px; color: #15213a; }
+.coordinator-page .lb .lb-note-input:focus { outline: none; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; background: #fff; }
+.lb .rq-student-name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1100px) { .lb-cal { grid-template-columns: repeat(5, 1fr); } .lb-tr { grid-template-columns: 1.4fr 1fr 1fr .6fr; } }

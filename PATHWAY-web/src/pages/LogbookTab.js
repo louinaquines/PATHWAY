@@ -6,7 +6,9 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
 import DtrReviewDialog from '../components/DtrReviewDialog';
-import { collection, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore';
+import { collection, count, getAggregateFromServer, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, sum, where } from 'firebase/firestore';
+import { createPortal } from 'react-dom';
+import SectionPicker from '../components/SectionPicker';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -18,6 +20,7 @@ import SubmissionNotifications from '../components/SubmissionNotifications';
 import JournalKeywordSettings from '../components/JournalKeywordSettings';
 import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
+import './LogbookRedesign.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
 const studentDisplayName = student => personName(student);
@@ -99,7 +102,7 @@ function journalLabel(result) {
     : { text: 'Weekly · Missing this week', dated: true, tone: 'warn' };
 }
 
-const RECORD_PAGE_SIZE = 25;
+const RECORD_PAGE_SIZE = 8;
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [rosterPage, setRosterPage] = useState(null);
@@ -205,6 +208,34 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     ? 'Page ' + pageNumber + ' of ' + Math.max(pageTotal, pageNumber + Number(hasMoreStudents))
     : 'Page ' + pageNumber + (hasMoreStudents ? ' of at least ' + (pageNumber + 1) : currentRoster?.page ? ' of ' + pageNumber : '');
   const loading = !!selectedSection && !currentRoster;
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('lb-top-actions')); }, []);
+  const [entryIndex, setEntryIndex] = useState(0);
+  const [showAllDays, setShowAllDays] = useState(false);
+  useEffect(() => { setEntryIndex(-1); setShowAllDays(false); }, [selectedStudent?.id, recordMonth]);
+  // Unread journals for every student in the section (one count per student).
+  const [pendingMap, setPendingMap] = useState({ scope: '', map: {} });
+  useEffect(() => {
+    const sectionId = selectedSection?.id;
+    if (!sectionId) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', sectionId)));
+        const ids = snap.docs.map(item => item.id); const map = {};
+        for (let i = 0; i < ids.length && active; i += 6) {
+          await Promise.all(ids.slice(i, i + 6).map(async id => {
+            try { map[id] = (await getCountFromServer(query(collection(db, 'users', id, 'logbook'), where('status', '==', 'pending')))).data().count; } catch (_) { map[id] = 0; }
+          }));
+        }
+        if (active) setPendingMap({ scope: sectionId, map });
+      } catch (_) { if (active) setPendingMap({ scope: sectionId, map: {} }); }
+    })();
+    return () => { active = false; };
+  }, [selectedSection?.id, decisionRevision]);
+  const pendingCounts = pendingMap.scope === selectedSection?.id ? pendingMap.map : {};
+  const toReadIds = Array.isArray(pendingStudentIds) ? pendingStudentIds : Object.keys(pendingCounts).filter(id => pendingCounts[id] > 0);
+  const toReadKey = [...toReadIds].sort().join(',');
 
   useEffect(() => {
     const timer = setTimeout(() => setRosterSearch(searchQuery.trim()), 300);
@@ -221,7 +252,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     const base = exactId
       ? query(students, ...scope, where('idNumber', '==', rosterSearch))
       : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
-    const pendingIds = new Set(pendingStudentIds);
+    const pendingIds = new Set(toReadIds);
     const requiresMatching = pendingOnly || (rosterSearch && !exactId);
     if (!requiresMatching && !rosterCursor) {
       getCountFromServer(base).then(snapshot => {
@@ -241,7 +272,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, error: 'Could not load students.' });
     });
     return () => { active = false; };
-  }, [selectedSection?.id, selectedSection?.name, rosterScopeKey, rosterCursor, rosterSearch, pendingOnly, pendingStudentIds]);
+  }, [selectedSection?.id, selectedSection?.name, rosterScopeKey, rosterCursor, rosterSearch, pendingOnly, toReadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setSelectedStudent(null);
@@ -371,211 +402,254 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
 
 
+  // Days and hours this month for the students on this page (two cheap aggregate reads each).
+  const [monthStats, setMonthStats] = useState({});
+  useEffect(() => {
+    const ids = JSON.parse(visibleStudentIds);
+    if (!ids.length) return undefined;
+    let active = true;
+    (async () => {
+      const next = {};
+      for (let i = 0; i < ids.length && active; i += 4) {
+        await Promise.all(ids.slice(i, i + 4).map(async id => {
+          try {
+            const agg = await getAggregateFromServer(query(collection(db, 'users', id, 'attendance'), where('date', '>=', recordMonth + '-01'), where('date', '<=', recordMonth + '-31')), { days: count(), hours: sum('hoursToday') });
+            next[id] = { days: agg.data().days || 0, hours: Number(agg.data().hours || 0) };
+          } catch (_) { next[id] = null; }
+        }));
+      }
+      if (active) setMonthStats(prev => ({ ...prev, ...Object.fromEntries(Object.entries(next).map(([id, v]) => [id + ':' + recordMonth, v])) }));
+    })();
+    return () => { active = false; };
+  }, [visibleStudentIds, recordMonth]);
+  useEffect(() => {
+    if (!selectedStudent && visibleStudents.length && !loading) setSelectedStudent(visibleStudents[0]);
+  }, [visibleStudentIds, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const LATE_AFTER = '08:15';
+  const punchHHMM = value => { const d = value?.toDate ? value.toDate() : value ? new Date(value) : null; return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) : ''; };
+  const shortPunch = value => { const d = value?.toDate ? value.toDate() : value ? new Date(value) : null; return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' }) : '—'; };
+  const byDate = Object.fromEntries(attendance.map(record => [record.date || record.id, record]));
+  const dayState = iso => {
+    const record = byDate[iso];
+    if (!record) return iso < today ? 'absent' : iso === today ? 'today' : 'future';
+    if (!record.timeOut) return iso === today ? 'today' : 'missing';
+    return punchHHMM(record.timeIn) > LATE_AFTER ? 'late' : 'ontime';
+  };
+  const [cy, cm] = recordMonth.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
+  const firstWeekday = (new Date(Date.UTC(cy, cm - 1, 1)).getUTCDay() + 6) % 7; // Mon = 0
+  const firstRecord = attendance.map(r => r.date || r.id).sort()[0] || '';
+  const calendarCells = [];
+  for (let i = 0; i < firstWeekday && i < 5; i++) calendarCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const wd = (firstWeekday + d - 1) % 7;
+    if (wd > 4) continue;
+    const iso = `${recordMonth}-${String(d).padStart(2, '0')}`;
+    let state = dayState(iso);
+    if (state === 'absent' && (!firstRecord || iso < firstRecord)) state = 'none';
+    calendarCells.push({ d, iso, state });
+  }
+  const legend = { ontime: 0, late: 0, missing: 0, absent: 0 };
+  calendarCells.forEach(cell => { if (cell && legend[cell.state] != null) legend[cell.state] += 1; });
+  const atWorkNow = byDate[today] && !byDate[today].timeOut;
+  const sortedEntries = [...visibleEntries].sort((a, b) => String(a.periodStart || '').localeCompare(String(b.periodStart || '')));
+  const defaultEntry = Math.max(0, sortedEntries.findIndex(entry => entry.status === 'pending'));
+  const activeEntryIndex = entryIndex >= 0 && entryIndex < sortedEntries.length ? entryIndex : defaultEntry;
+  const activeEntry = sortedEntries[activeEntryIndex];
+  const entryDay = entry => { const d = new Date(`${entry.periodStart}T00:00:00Z`); return Number.isNaN(d.getTime()) ? { w: '', n: entry.periodStart || '—' } : { w: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }), n: d.getUTCDate() }; };
+  const studentPending = selectedStudent ? (pendingCounts[selectedStudent.id] ?? pendingCount) : 0;
+  const rows = showAllDays ? attendance : attendance.slice(0, 4);
+  const goNextPending = () => { const next = sortedEntries.findIndex((entry, i) => i > activeEntryIndex && entry.status === 'pending'); if (next >= 0) setEntryIndex(next); };
+  const pageFirst = (pageNumber - 1) * RECORD_PAGE_SIZE + 1;
+  const pageCount = studentCount != null ? Math.max(1, Math.ceil(studentCount / RECORD_PAGE_SIZE)) : pageNumber + Number(hasMoreStudents);
+
+  const topControls = <>
+    <div className="lb-month" role="group" aria-label="Month">
+      <button type="button" aria-label="Previous month" disabled={saving} onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={15} /></button>
+      <span aria-live="polite">{monthLabel(recordMonth)}</span>
+      <button type="button" aria-label="Next month" disabled={saving || recordMonth >= manilaMonth()} onClick={() => setRecordMonth(month => shiftMonth(month, 1))}><Icon name="chevronRight" size={15} /></button>
+    </div>
+    <SectionPicker sections={sections} selected={sharedSection} onChange={section => onSectionChange?.(section)} />
+  </>;
+
   return (
-    <div className="logbook-workspace logbook-table-page">
-      <section className="logbook-roster" aria-label="Student roster">
-        <div className="logbook-roster-toolbar">
-          <label className="logbook-section-field"><span>Section</span>
-            <select aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''}
-              onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-              {!sections.length && <option value="">No sections assigned to you</option>}
-              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-            </select>
-          </label>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search name or ID" />
-          <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection}
-            onOpen={student => openRecords(student, 'journals')} />
+    <div className="rq lb">
+      {topHost && createPortal(topControls, topHost)}
+      <div className="rq-list">
+        <div className="rq-search-row">
+          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
+          <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => openRecords(student, 'journals')} />
         </div>
-        {pendingOnly && <div className="logbook-pending-filter"><span>Journals awaiting review</span>
-          <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
-        </div>}
-        {!selectedSection ? (sections.length === 0
-          ? <PortalEmpty icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." action={{ label: 'Go to Sections & Students', onClick: () => window.location.assign('/coordinator/sections') }} />
-          : <PortalEmpty icon="section" title="Choose a section" description="Pick a section above to see students' attendance and journals." />) : <>
-          {loading && <div className="logbook-skel" role="status" aria-label="Loading students"><LogbookRows /></div>}
-          {currentRoster?.error && <div className="logbook-empty-state" role="status">
-            <span className="logbook-empty-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M17 8v6M14 11h6" /></svg>
-            </span>
-            <strong>No students yet</strong>
-            <span>Attendance and journals will appear here once students join {selectedSection.name || 'this section'}.</span>
-            <button type="button" className="logbook-empty-refresh" onClick={() => setRosterRetry(value => value + 1)}>Check again</button>
-          </div>}
-          {!currentRoster?.error && <div className="logbook-roster-scroll">
-            <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
-              <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
-              <tbody>{visibleStudents.map(student => {
-                const name = studentDisplayName(student) || 'Student';
-                const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
-                return <tr key={student.id}>
-                  <td>{student.idNumber || '—'}</td>
-                  <th scope="row"><span className="logbook-person"><span className="logbook-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>{name}</span></th>
-                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} data-empty={!summary?.attendance.dated} data-tone={summary?.attendance.tone} onClick={() => openRecords(student, 'attendance')}>{summary ? <span>{summary.attendance.text}</span> : <span className="cdash-skel" style={{ width: 90, height: 11, borderRadius: 6 }} />}<Icon name="chevronRight" size={14} /></button></td>
-                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} data-empty={!summary?.journals.dated} data-tone={summary?.journals.tone} onClick={() => openRecords(student, 'journals')}>{summary ? <span>{summary.journals.text}</span> : <span className="cdash-skel" style={{ width: 90, height: 11, borderRadius: 6 }} />}<Icon name="chevronRight" size={14} /></button></td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>}
-          {!loading && !currentRoster?.error && !visibleStudents.length && <p className="logbook-table-empty">{currentRoster?.page?.hasMore ? 'No matches in this window. Choose Next to continue searching.' : 'No students match this view.'}</p>}
-          {(currentRoster?.page || pageNumber > 1) && <footer className="logbook-roster-footer">
-            <span aria-live="polite">{studentCount != null && visibleStudents.length
-              ? ((pageNumber - 1) * RECORD_PAGE_SIZE + 1) + '–' + ((pageNumber - 1) * RECORD_PAGE_SIZE + visibleStudents.length) + ' of ' + studentCount + ' students'
-              : visibleStudents.length + (visibleStudents.length === 1 ? ' student on this page' : ' students on this page')}</span>
-            <nav aria-label="Students pagination">
-              <button type="button" className="portal-secondary" aria-label="Previous page" disabled={pageNumber === 1}
-                onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })}><Icon name="chevronLeft" size={16} /></button>
-              <span aria-live="polite">{pageLabel}</span>
-              <button type="button" className="portal-secondary" aria-label="Next page" disabled={!hasMoreStudents}
-                onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}><Icon name="chevronRight" size={16} /></button>
-            </nav>
-          </footer>}
-        </>}
-      </section>
-      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${personName(selectedStudent) || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
-        <header className="logbook-drawer-heading">
-          <div className="logbook-drawer-title-row">
+        <div className="rq-pills" role="group" aria-label="Filter students">
+          <button type="button" aria-pressed={pendingOnly} onClick={() => { setPendingOnly(true); setRecordView('journals'); }}>Journals to read{toReadIds.length ? ` ${toReadIds.length}` : ''}</button>
+          <button type="button" aria-pressed={!pendingOnly} onClick={() => setPendingOnly(false)}>All{studentCount != null ? ` ${studentCount}` : ''}</button>
+        </div>
+        <div className="rq-students">
+          {!selectedSection && (sections.length === 0
+            ? <PortalEmpty compact icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." />
+            : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section at the top right." />)}
+          {selectedSection && loading && <div className="logbook-skel" role="status" aria-label="Loading students"><LogbookRows /></div>}
+          {currentRoster?.error && <div className="rq-empty" role="status"><strong>No students yet</strong>
+            <span>Attendance and journals will appear here once students join {selectedSection?.name || 'this section'}.</span>
+            <button type="button" className="rq-link" onClick={() => setRosterRetry(value => value + 1)}>Check again</button></div>}
+          {!loading && !currentRoster?.error && selectedSection && !visibleStudents.length && <div className="rq-empty">{currentRoster?.page?.hasMore ? 'No matches on this page. Choose Next to continue.' : pendingOnly ? 'No journals waiting. You’re all caught up.' : 'No students match this view.'}</div>}
+          {visibleStudents.map(student => {
+            const name = studentDisplayName(student) || 'Student';
+            const stats = monthStats[student.id + ':' + recordMonth];
+            const toRead = pendingCounts[student.id] || 0;
+            const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
+            const sub = stats ? `${stats.days} day${stats.days === 1 ? '' : 's'} · ${Math.round(stats.hours * 10) / 10} hours` : selectedSection?.name;
+            const tag = toRead ? [`${toRead} to read`, 'blue'] : summary?.attendance?.tone === 'good' ? ['At work today', 'green'] : stats && stats.days === 0 ? ['No attendance', 'mute'] : ['Up to date', 'mute'];
+            return <button type="button" className="rq-student" key={student.id} aria-pressed={selectedStudent?.id === student.id} onClick={() => openRecords(student, recordView)}>
+              <span className="rq-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+              <span className="rq-student-name"><strong>{name}</strong><small>{sub}</small></span>
+              <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
+            </button>;
+          })}
+        </div>
+        {visibleStudents.length > 0 && <nav className="rq-pages" aria-label="Student pages">
+          <span aria-live="polite">{pageFirst}–{pageFirst + visibleStudents.length - 1}{studentCount != null ? ` of ${studentCount}` : ''}</span>
+          <button type="button" disabled={pageNumber === 1} onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={14} /></button>
+          {[pageNumber - 1, pageNumber, pageNumber + 1].filter(n => n >= 1 && n <= pageCount).map(n => <button key={n} type="button" aria-current={n === pageNumber ? 'page' : undefined} disabled={n === pageNumber}
+            onClick={() => n < pageNumber ? setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) }) : setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}>{n}</button>)}
+          <button type="button" disabled={!hasMoreStudents} onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={14} /></button>
+        </nav>}
+      </div>
+
+      <div className="rq-detail lb-detail">
+        {!selectedStudent ? <PortalEmpty icon="user" title="Select a student" description="Choose a student on the left to see their attendance and journals." /> : <>
+          <div className="rq-head">
             <div><h2>{personName(selectedStudent) || 'Student'}</h2>
-              <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
-            <button type="button" className="portal-secondary logbook-drawer-close" aria-label="Close records" title="Close records" disabled={saving} onClick={closeRecords}><Icon name="x" size={19} /></button>
+              <p>{[selectedStudent.companyName || selectedStudent.company ? `Training at ${selectedStudent.companyName || selectedStudent.company}` : 'No company yet',
+                selectedStudent.hoursRequired ? `${Math.round(Number(selectedStudent.hoursRendered || 0))} of ${selectedStudent.hoursRequired} hours` : null].filter(Boolean).join(' · ')}</p></div>
+            <button type="button" className="rq-btn" disabled={exporting} aria-busy={exporting} onClick={exportStudentRecords}><Icon name="download" size={14} /> {exporting ? 'Exporting…' : 'Export this month'}</button>
           </div>
-          <div className="logbook-drawer-toolbar">
-            <div className="logbook-drawer-tabs" role="group" aria-label="Student record type">
-              <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
-              <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
-              <button type="button" aria-pressed={false} onClick={() => setDtrStudent(selectedStudent)}>Form 48 check</button>
-            </div>
-            <div className="logbook-month" role="group" aria-label="Month">
-              <button type="button" aria-label="Previous month" disabled={saving} onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={16} /></button>
-              <span aria-live="polite">{monthLabel(recordMonth)}</span>
-              <button type="button" aria-label="Next month" disabled={saving || recordMonth >= manilaMonth()} onClick={() => setRecordMonth(month => shiftMonth(month, 1))}><Icon name="chevronRight" size={16} /></button>
-            </div>
+          <div className="rq-stages" role="tablist" aria-label="Record type" style={{ '--count': 3, '--index': recordView === 'journals' ? 1 : 0 }}>
+            <span className="rq-stages-thumb" aria-hidden="true" />
+            <button type="button" role="tab" aria-selected={recordView === 'attendance'} onClick={() => setRecordView('attendance')}><i data-tone={attendanceStats.missing ? 'red' : 'mute'} aria-hidden="true" /><strong>Attendance</strong></button>
+            <button type="button" role="tab" aria-selected={recordView === 'journals'} onClick={() => setRecordView('journals')}><i data-tone={studentPending ? 'blue' : 'mute'} aria-hidden="true" /><strong>Journals{studentPending ? ` · ${studentPending} to read` : ''}</strong></button>
+            <button type="button" role="tab" aria-selected={false} onClick={() => setDtrStudent(selectedStudent)}><i data-tone="mute" aria-hidden="true" /><strong>Form 48 check</strong></button>
           </div>
-        </header>
-        <div className="logbook-detail-content" style={t.entriesScroll}>
+          {exportError && <p role="alert" className="lb-alert">{exportError}</p>}
           {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
-          <div className="logbook-summary-bar">
-            <p className="logbook-summary">{recordView === 'attendance'
-              ? (attendanceLoading ? 'Loading…' : `${attendanceStats.days} ${attendanceStats.days === 1 ? 'day' : 'days'} · ${attendanceStats.hours.toFixed(1)} hrs` + (attendanceStats.missing ? ` · ` : ''))
-              : (entriesLoading ? 'Loading…' : `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} · ${pendingCount} to review`)}
-              {recordView === 'attendance' && !attendanceLoading && attendanceStats.missing > 0 && <strong className="logbook-warn">{attendanceStats.missing} missing time-out{attendanceStats.missing > 1 ? 's' : ''}</strong>}</p>
-            <div className="logbook-summary-actions">
-              {recordView === 'journals' && <div className="logbook-chips" role="group" aria-label="Journal status">
-                <button type="button" aria-pressed={!journalStatus} onClick={() => setJournalStatus('')}>All</button>
-                <button type="button" aria-pressed={journalStatus === 'pending'} onClick={() => setJournalStatus('pending')}>To review{pendingCount ? ` (${pendingCount})` : ''}</button>
-              </div>}
-              <button type="button" className="logbook-link-btn" aria-label={`Export ${monthLabel(recordMonth)} records (Excel)`} disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
-                <Icon name="download" size={15} /> {exporting ? 'Exporting…' : 'Export'}
-              </button>
-            </div>
-          </div>
-          {exportError && <p role="alert">{exportError}</p>}
-          {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
-            {attendanceLoading && <div className="logbook-skel logbook-skel-att" role="status" aria-label="Loading attendance">{[0, 1, 2, 3, 4, 5, 6, 7].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 84, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 40, height: 12, borderRadius: 6 }} /></div>)}</div>}
-            {attendanceError && <p role="alert">{attendanceError} <button type="button" className="portal-secondary" onClick={() => setAttendanceRetry(value => value + 1)}>Retry</button></p>}
-            {!attendanceLoading && !attendanceError && attendance.length === 0 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>No attendance in {monthLabel(recordMonth)}.</p></div>}
-            {!attendanceLoading && !attendanceError && attendance.length > 0 && <div className="attendance-table-wrap"><table><thead><tr><th>Date</th><th title="Philippine time">Time in</th><th title="Philippine time">Time out</th><th>Hours</th></tr></thead><tbody>{attendance.map(record => {
-              const missing = !record.timeOut && (record.date || '') < manilaToday();
-              return <tr key={record.id} data-missing={missing || undefined}><td>{formatDay(record.date || record.id)}</td><td>{formatPunch(record.timeIn)}</td><td>{missing ? <span className="logbook-tag">Missing</span> : record.timeOut ? formatPunch(record.timeOut) : <span className="logbook-muted">In progress</span>}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(1) : '—'}</td></tr>;
-            })}</tbody></table></div>}
-          </section>}
-          {selectedStudent && recordView === 'journals' && analysis && <details className="logbook-checks"><summary>Journal check settings</summary><JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
-            try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }
-            catch (failure) { setAnalysisError(failure.message); }
-          }} /></details>}
-          {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
 
-          {recordView === 'journals' && entriesLoading && <JournalEntriesSkeleton />}
-          {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
-          {recordView === 'journals' && !entriesLoading && !entriesError && visibleEntries.length === 0 && (
-            <div className="logbook-record-empty">
-              <Icon name="book" size={18} />
-              <p>{journalStatus ? 'Nothing to review this month.' : `No journals in ${monthLabel(recordMonth)}.`}</p>
-            </div>
-          )}
-
-          <div style={t.entriesList} hidden={recordView !== 'journals' || entriesLoading || !!entriesError}>
-            {(journalCursors.length > 1 || nextJournalCursor) && <nav className="portal-record-pagination" aria-label="Journal entries pagination">
-              <button type="button" className="portal-secondary" disabled={saving || journalCursors.length === 1} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => cursors.slice(0, -1)); }}>Previous</button>
-              <span>Page {journalCursors.length}</span>
-              <button type="button" className="portal-secondary" disabled={saving || !nextJournalCursor} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => [...cursors, nextJournalCursor]); }}>Next</button>
-            </nav>}
-            {visibleEntries.map(entry => (
-            <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
-              <div style={t.entryTop}>
-                <div>
-                  <div style={t.entryWeek}>{entry.frequency === 'daily' ? `Daily journal · ${entry.periodStart}` : entry.frequency === 'weekly' ? 'Weekly journal' : `Week ${entry.weekNum}`}</div>
-                  <div style={t.entrySub}>
-                    <span><Icon name="calendar" size={14} /> {entry.frequency === 'daily' ? entry.periodStart : entry.weekRange || 'Weekly period'}</span><span><strong>{entry.hours} hrs rendered</strong></span>
-                  </div>
+          <div className="lb-body">
+          {recordView === 'attendance' && <>
+            {attendanceLoading && <div className="logbook-skel logbook-skel-att" role="status" aria-label="Loading attendance">{[0, 1, 2, 3, 4].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 84, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /></div>)}</div>}
+            {attendanceError && <p role="alert" className="lb-alert">{attendanceError} <button type="button" className="rq-link" onClick={() => setAttendanceRetry(value => value + 1)}>Try again</button></p>}
+            {!attendanceLoading && !attendanceError && <>
+              <p className="lb-summary">{attendanceStats.days
+                ? <>Came {attendanceStats.days} day{attendanceStats.days === 1 ? '' : 's'} this month and worked {attendanceStats.hours.toFixed(1)} hours.{attendanceStats.missing > 0 && <> {attendanceStats.missing} day{attendanceStats.missing === 1 ? ' has' : 's have'} no time-out.</>}</>
+                : `No attendance in ${monthLabel(recordMonth)}.`}</p>
+              <div className="lb-cal-wrap">
+                <div className="lb-cal" role="grid" aria-label={`${monthLabel(recordMonth)} attendance`}>
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => <span key={day} className="lb-cal-head" role="columnheader">{day}</span>)}
+                  {calendarCells.map((cell, i) => cell
+                    ? <span key={cell.iso} role="gridcell" className="lb-cal-day" data-state={cell.state} title={{ ontime: 'Came on time', late: 'Came late', missing: 'No time-out', absent: 'Absent', today: 'Today', none: 'Before training', future: '' }[cell.state]}>{cell.d}</span>
+                    : <span key={'e' + i} className="lb-cal-blank" />)}
                 </div>
-                <span style={{
-                  ...t.badge,
-                  backgroundColor: STATUS_BG[entry.status] || COLORS.slate100,
-                  color: '#000000',
-                  border: `1px solid ${STATUS_BORDER[entry.status] || COLORS.slate300}`,
-                }}>
-                  {Object.hasOwn(STATUS_TEXT, entry.status) ? STATUS_TEXT[entry.status] : 'Status unavailable'}
-                </span>
+                <dl className="lb-legend">
+                  <div><dt><i data-state="ontime" />Came on time</dt><dd>{legend.ontime} day{legend.ontime === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="late" />Came late</dt><dd>{legend.late} day{legend.late === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="missing" />No time-out</dt><dd>{legend.missing} day{legend.missing === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="absent" />Absent</dt><dd>{legend.absent} day{legend.absent === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="today" />Today</dt><dd>{atWorkNow ? 'At work now' : byDate[today] ? 'Done' : recordMonth === manilaMonth() ? 'Not in yet' : '—'}</dd></div>
+                </dl>
               </div>
+              {attendance.length > 0 && <div className="lb-table" role="table" aria-label="Attendance by day">
+                <div className="lb-tr lb-th" role="row"><span role="columnheader">Day</span><span role="columnheader">Time in</span><span role="columnheader">Time out</span><span role="columnheader">Hours</span></div>
+                {rows.map(record => {
+                  const iso = record.date || record.id; const missing = !record.timeOut && iso < today; const now = !record.timeOut && iso === today;
+                  return <div className="lb-tr" role="row" key={record.id}>
+                    <span role="cell" className="lb-day">{formatDay(iso)}{iso === today ? ' · today' : ''}</span>
+                    <span role="cell">{shortPunch(record.timeIn)}</span>
+                    <span role="cell">{missing ? <b className="lb-chip" data-tone="red">No time-out</b> : now ? 'At work now' : shortPunch(record.timeOut)}</span>
+                    <span role="cell">{record.timeOut ? Number(record.hoursToday || 0).toFixed(1) : '—'}</span>
+                  </div>;
+                })}
+                {attendance.length > 4 && <button type="button" className="rq-link lb-more" onClick={() => setShowAllDays(value => !value)}>{showAllDays ? 'Show fewer days' : `Show ${attendance.length - 4} more days`}</button>}
+              </div>}
+            </>}
+          </>}
 
-              <div style={t.entryLabel}>{entry.frequency === 'daily' ? 'Daily report' : 'Weekly report'}</div>
-              <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
-              <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} hours={entry.hours} weekRange={entry.weekRange} />
-              {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
-              {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Automatic journal checks</summary>
-                {item.findings.map(finding => <p key={finding}>{finding}</p>)}
-                {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
-                {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
-                {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
-                <p>{item.limitation}</p>{analysis.truncated && <p>Checks cover the latest 100 entries only.</p>}
-              </details>)}
-
-              {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Changes requested</strong><span>{entry.reviewReason}</span></p>}
-
-              {entry.status === 'pending' && (
-                <div style={t.actionRow}>
-                  <button
-                    style={t.approveBtn}
-                    disabled={saving}
-                    onClick={() => handleAction(entry.id, 'approved')}
-                  >
-                    Approve Entry
-                  </button>
-                  <button
-                    style={t.rejectBtn}
-                    disabled={saving}
-                    onClick={() => setRejectConfirm(entry)}
-                  >
-                    Reject Entry
-                  </button>
+          {recordView === 'journals' && <>
+            {entriesLoading && <JournalEntriesSkeleton />}
+            {entriesError && <p role="alert" className="lb-alert">{entriesError} <button type="button" className="rq-link" onClick={() => fetchEntries(selectedStudent)}>Try again</button></p>}
+            {!entriesLoading && !entriesError && <>
+              <div className="lb-journal-top">
+                <p className="lb-summary">{entries.length
+                  ? <>Wrote {entries.length} journal{entries.length === 1 ? '' : 's'} this month.{pendingCount > 0 && <> {pendingCount} {pendingCount === 1 ? 'is' : 'are'} waiting for you.</>}</>
+                  : `No journals in ${monthLabel(recordMonth)}.`}</p>
+                {entries.length > 0 && <div className="lb-mini-pills" role="group" aria-label="Journal status">
+                  <button type="button" aria-pressed={!journalStatus} onClick={() => { setJournalStatus(''); setEntryIndex(-1); }}>All</button>
+                  <button type="button" aria-pressed={journalStatus === 'pending'} onClick={() => { setJournalStatus('pending'); setEntryIndex(-1); }}>To read{pendingCount ? ` ${pendingCount}` : ''}</button>
+                </div>}
+              </div>
+              {sortedEntries.length > 0 && <>
+                <div className="lb-days" role="tablist" aria-label="Journal days">
+                  {sortedEntries.map((entry, i) => { const day = entryDay(entry); return <button key={entry.id} type="button" role="tab" aria-selected={i === activeEntryIndex} data-status={entry.status} onClick={() => setEntryIndex(i)}>
+                    <small>{day.w}</small><strong>{day.n}</strong></button>; })}
                 </div>
-              )}
-            </div>
-            ))}
+                <div className="lb-legend-inline"><span><i data-status="approved" />Read</span><span><i data-status="pending" />Waiting for you</span><span><i data-status="rejected" />Sent back</span></div>
+              </>}
+              {analysis && <details className="lb-details"><summary>Journal check settings</summary><JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
+                try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); } catch (failure) { setAnalysisError(failure.message); }
+              }} /></details>}
+              {analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="lb-note"><strong>Weeks without a journal</strong> No entry between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}.{analysis.truncated && ' Only the latest 100 entries were checked.'}</aside>}
+              {activeEntry && <article className="lb-entry">
+                <header>
+                  <h3>{formatDay(activeEntry.periodStart || '') || 'Journal'}</h3>
+                  <span className="lb-entry-meta">{activeEntry.hours ? `${activeEntry.hours} hrs` : ''}{activeEntry.frequency === 'weekly' && activeEntry.weekRange ? ` · ${activeEntry.weekRange}` : ''}</span>
+                  <b className="lb-chip" data-tone={activeEntry.status === 'approved' ? 'green' : activeEntry.status === 'rejected' ? 'red' : 'amber'}>{activeEntry.status === 'approved' ? 'Read' : activeEntry.status === 'rejected' ? 'Sent back' : 'Waiting for you'}</b>
+                  <span className="lb-entry-nav">Journal {activeEntryIndex + 1} of {sortedEntries.length}
+                    <button type="button" className="rq-icon" aria-label="Previous journal" disabled={activeEntryIndex === 0} onClick={() => setEntryIndex(activeEntryIndex - 1)}><Icon name="chevronLeft" size={14} /></button>
+                    <button type="button" className="rq-icon" aria-label="Next journal" disabled={activeEntryIndex >= sortedEntries.length - 1} onClick={() => setEntryIndex(activeEntryIndex + 1)}><Icon name="chevronRight" size={14} /></button>
+                  </span>
+                </header>
+                <section><h4>{activeEntry.frequency === 'weekly' ? 'What I did this week' : 'What I did today'}</h4><p>{activeEntry.refined || activeEntry.rawNotes || 'No journal text.'}</p></section>
+                {activeEntry.status === 'rejected' && activeEntry.reviewReason && <section className="lb-feedback"><h4>What you asked them to fix</h4><p>{activeEntry.reviewReason}</p></section>}
+                <JournalAiAnalysis key={`${selectedStudent.id}:${activeEntry.id}`} studentId={selectedStudent.id} entryId={activeEntry.id} sourceText={activeEntry.rawNotes || activeEntry.refined} hours={activeEntry.hours} weekRange={activeEntry.weekRange} />
+                {analysisError && <p className="lb-alert">Review checks unavailable: {analysisError}</p>}
+                {analysis?.journals?.filter(item => item.id === activeEntry.id).map(item => <details key={item.id} className="lb-details"><summary>Automatic journal checks</summary>
+                  {item.findings.map(finding => <p key={finding}>{finding}</p>)}
+                  {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
+                  {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
+                  {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
+                  <p>{item.limitation}</p>
+                </details>)}
+              </article>}
+            </>}
+          </>}
           </div>
-        </div>
-        <div ref={confirmHost} />
-        <AlertDialog
+          {recordView === 'journals' && activeEntry?.status === 'pending' && <div className="lb-actions">
+            <input className="lb-note-input" aria-label={`Note for ${selectedStudent.firstName || 'the student'}`} placeholder={`Add a note for ${selectedStudent.firstName || 'the student'} (needed to ask for a redo)`} value={rejectReason} maxLength={1000} onChange={event => setRejectReason(event.target.value)} />
+            <button type="button" className="rq-btn" disabled={saving} onClick={() => setRejectConfirm(activeEntry)}><Icon name="refresh" size={14} /> Ask to redo</button>
+            <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={async () => { if (await handleAction(activeEntry.id, 'approved')) goNextPending(); }}><Icon name="check" size={14} /> Mark as read</button>
+          </div>}
+        </>}
+      </div>
+      <div ref={confirmHost} />
+      <AlertDialog
         portalTarget={confirmHost.current || undefined}
         open={Boolean(rejectConfirm)}
-        title="Reject this logbook entry?"
-        description="The student will see your reason and must edit the entry before resubmitting."
-        confirmLabel="Reject entry"
+        title="Ask the student to redo this journal?"
+        description="They will see your note and must edit the journal before sending it again."
+        confirmLabel="Send back"
         busy={saving}
         confirmDisabled={!rejectReason.trim()}
-        onCancel={() => { setRejectConfirm(null); setRejectReason(''); }}
+        onCancel={() => setRejectConfirm(null)}
         onConfirm={async () => {
           const saved = await handleAction(rejectConfirm.id, 'rejected', rejectReason.trim());
           if (saved) { setRejectConfirm(null); setRejectReason(''); }
         }}
-        >
-          <label className="logbook-reject-reason">
-            <span>Reason for the student</span>
-            <textarea rows={4} maxLength={1000} value={rejectReason} onChange={event => setRejectReason(event.target.value)}
-              placeholder="e.g. Add the calendar dates for each day and your supervisor's name." autoFocus />
-          </label>
-        </AlertDialog>
-      </PortalFormDialog>}
+      >
+        <label className="logbook-reject-reason">
+          <span>Note for the student</span>
+          <textarea rows={4} maxLength={1000} value={rejectReason} onChange={event => setRejectReason(event.target.value)}
+            placeholder="e.g. Add what you did each day and your supervisor's name." autoFocus />
+        </label>
+      </AlertDialog>
     </div>
   );
 }

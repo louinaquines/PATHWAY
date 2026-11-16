@@ -215,6 +215,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [entryIndex, setEntryIndex] = useState(0);
   const [showAllDays, setShowAllDays] = useState(false);
   const [pickedDay, setPickedDay] = useState('');
+  const [mobileDetail, setMobileDetail] = useState(false);
   useEffect(() => { setEntryIndex(-1); setShowAllDays(false); setPickedDay(''); }, [selectedStudent?.id, recordMonth]);
   // Unread journals for every student in the section (one count per student).
   const [pendingMap, setPendingMap] = useState({ scope: '', map: {} });
@@ -490,12 +491,12 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   </>;
 
   return (
-    <div className="rq lb">
+    <div className="rq lb" data-view={mobileDetail && selectedStudent ? 'detail' : 'list'}>
       {topHost && createPortal(topControls, topHost)}
       <div className="rq-list">
         <div className="rq-search-row">
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
-          <JournalsInbox section={selectedSection} coordinatorId={coordinatorId} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); }}
+          <JournalsInbox section={selectedSection} coordinatorId={coordinatorId} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); setMobileDetail(true); }}
             onChanged={() => { setDecisionRevision(value => value + 1); if (selectedStudent && recordView === 'journals') fetchEntries(selectedStudent); }} />
         </div>
         <div className="rq-pills" role="group" aria-label="Filter students">
@@ -518,7 +519,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
             const sub = stats ? `${stats.days} day${stats.days === 1 ? '' : 's'} · ${Math.round(stats.hours * 10) / 10} hours` : selectedSection?.name;
             const tag = toRead ? [`${toRead} to read`, 'blue'] : summary?.attendance?.tone === 'good' ? ['At work today', 'green'] : stats && stats.days === 0 ? ['No attendance', 'mute'] : ['Up to date', 'mute'];
-            return <button type="button" className="rq-student" key={student.id} aria-pressed={selectedStudent?.id === student.id} onClick={() => openRecords(student, recordView)}>
+            return <button type="button" className="rq-student" key={student.id} aria-pressed={selectedStudent?.id === student.id} onClick={() => { openRecords(student, recordView); setMobileDetail(true); }}>
               <span className="rq-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>
               <span className="rq-student-name"><strong>{name}</strong><small>{sub}</small></span>
               <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
@@ -536,6 +537,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
       <div className="rq-detail lb-detail">
         {!selectedStudent ? <PortalEmpty icon="user" title="Select a student" description="Choose a student on the left to see their attendance and journals." /> : <>
+          <button type="button" className="rq-back" onClick={() => setMobileDetail(false)}><Icon name="chevronLeft" size={15} /> Students</button>
           <div className="rq-head">
             <div><h2>{personName(selectedStudent) || 'Student'}</h2>
               <p>{[selectedStudent.companyName || selectedStudent.company ? `Training at ${selectedStudent.companyName || selectedStudent.company}` : 'No company yet',

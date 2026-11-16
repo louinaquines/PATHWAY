@@ -47,6 +47,7 @@ import './CoordinatorGlass.css';
 import './PortalPolish.css';
 import '../sidebarV2.css';
 import './RequirementsRedesign.css';
+import './Responsive.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -266,6 +267,7 @@ export default function CoordinatorDashboard() {
   }, [requirementsActive, selectedSection?.id]);
   const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
+  const [rqDetailView, setRqDetailView] = useState(false);
   const pendingStageRef = useRef(null);
   const [newStudentIds, setNewStudentIds] = useState(() => new Set());
   const newStudentIdsRef = useRef(newStudentIds);
@@ -601,7 +603,7 @@ export default function CoordinatorDashboard() {
                     state: { sectionId: selectedSection.id, view, ...(view === 'journals' ? { pendingStudentIds } : {}) },
                   })} />)}
             {activeTab === 'requirements' && (
-              <div className="rq">
+              <div className="rq" data-view={rqDetailView && selectedStudent ? 'detail' : 'list'}>
                 <div className="rq-list">
                   <div className="rq-search-row">
                     <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
@@ -609,7 +611,7 @@ export default function CoordinatorDashboard() {
                       toneFor={(studentId, reqId, item) => aiTone(aiReviewFor(studentId, reqId, item?.autoReview))}
                       stageFor={reqId => requirementCategory(sectionRequirements.find(r => r.id === reqId)?.category)}
                       onNewChange={setNewStudentIds}
-                      onOpen={(student, stage) => { pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
+                      onOpen={(student, stage) => { setRqDetailView(true); pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
                   </div>
                   <div className="rq-pills" role="group" aria-label="Filter students">
                     {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
@@ -632,7 +634,7 @@ export default function CoordinatorDashboard() {
                       const reqs = sectionRequirements.map(r => student.requirements?.[r.id]?.status);
                       const toCheck = reqs.filter(v => v === 'submitted').length, toFix = reqs.filter(v => v === 'rejected').length;
                       const tag = toFix ? [`${toFix} need${toFix === 1 ? 's' : ''} fixing`, 'red'] : toCheck ? [`${toCheck} to check`, 'blue'] : isComplete(student) ? ['All approved', 'green'] : ['Nothing new', 'mute'];
-                      return <button type="button" className="rq-student" aria-pressed={selectedStudent?.id === student.id} key={student.id} onClick={() => setSelectedStudent(student)}>
+                      return <button type="button" className="rq-student" aria-pressed={selectedStudent?.id === student.id} key={student.id} onClick={() => { setSelectedStudent(student); setRqDetailView(true); }}>
                         <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
                         <span className="rq-student-name"><strong>{personName(student)}</strong><small>{selectedSection?.name}</small></span>
                         <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
@@ -684,6 +686,7 @@ export default function CoordinatorDashboard() {
                     const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
                     const greens = tierItems([selectedStudent], 'green');
                     return <>
+                      <button type="button" className="rq-back" onClick={() => setRqDetailView(false)}><Icon name="chevronLeft" size={15} /> Students</button>
                       <div className="rq-head">
                         <div><h2>{personName(selectedStudent)}</h2>
                           <p>{selectedProgress?.approved || 0} of {selectedProgress?.total || 0} documents approved · ID {selectedStudent.idNumber || 'not provided'}</p></div>

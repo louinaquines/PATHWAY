@@ -249,3 +249,12 @@
 .coordinator-page .rq .rq-actions .rq-link:hover { background: #f4f2ec !important; text-decoration: none !important; }
 .coordinator-page .rq .rq-actions .rq-icon { width: 34px !important; height: 34px !important; min-height: 34px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; color: #465066 !important; }
 .coordinator-page .rq .rq-actions .rq-icon:hover:not(:disabled) { background: #f4f2ec !important; color: #15213a !important; }
+/* thin, quiet scrollbars for Requirements and Attendance & Journals */
+.rq :is(.rq-students, .rq-detail, .rq-table, .lb-body, .f48-times, .f48-scan, .lb-days) { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.rq :is(.rq-students, .rq-detail, .rq-table, .lb-body, .f48-times, .f48-scan, .lb-days):hover { scrollbar-color: #d6d1c7 transparent; }
+.rq ::-webkit-scrollbar { width: 6px; height: 6px; }
+.rq ::-webkit-scrollbar-track { background: transparent; }
+.rq ::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; }
+.rq :hover::-webkit-scrollbar-thumb { background: #d6d1c7; }
+.rq ::-webkit-scrollbar-thumb:hover { background: #bdb7ab; }
+.rq ::-webkit-scrollbar-corner { background: transparent; }

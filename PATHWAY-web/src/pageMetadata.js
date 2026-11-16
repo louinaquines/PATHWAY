@@ -1,6 +1,6 @@
 export const COORDINATOR_PAGE_TITLES = {
   overview: 'Dashboard',
-  requirements: 'Student Requirements',
+  requirements: 'Requirements',
   logbook: 'Attendance & Journals',
   evaluations: 'Supervisor Evaluations',
   clearance: 'Student Clearance',

@@ -40,6 +40,7 @@ export default function Form48Check({ student }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [appDays, setAppDays] = useState({});
+  const [focus, setFocus] = useState(false);
   const job = useRef(null); const revision = useRef(0); const saveId = useRef(null); const fileInput = useRef(null);
   const base = `/coordinator/students/${encodeURIComponent(student.id)}/dtr`;
 
@@ -141,16 +142,7 @@ export default function Form48Check({ student }) {
     const anyRead = copies[copyIndex].some(row => FIELDS.some(f => row[f]) || row.reviewFields?.length);
     const rows = copies[copyIndex].filter(row => (showEmpty || !anyRead) ? row.day <= daysIn : (FIELDS.some(f => row[f]) || row.reviewFields?.length));
     const flagged = copies[copyIndex].filter(row => row.reviewFields?.length).length;
-    return <div className="f48 f48-check">{fileField}
-      <div className="f48-bar">
-        <p><strong>Check the times</strong> · {info?.fileName}{flagged ? <> · <b className="lb-chip" data-tone="amber">{flagged} day{flagged === 1 ? '' : 's'} to check</b></> : ''}</p>
-        <label className="f48-month">Month <input type="month" value={month} onChange={event => { setMonth(event.target.value); setReviewed(false); }} /></label>
-      </div>
-      {info?.warnings?.length > 0 && <div className="f48-warn" role="note"><Icon name="alert" size={15} /><span>{info.warnings.length === 1 ? info.warnings[0].replace(/^Copy \d+: /, '') : <>The scanner had trouble with this file. Check each time against the scan{info.warnings.some(w => /could not be mapped/i.test(w)) ? ' and type in any that are missing' : ''}.</>}</span></div>}
-      {!anyReadAll(copies) && <p className="f48-muted">No times could be read from the scan. Type them in using the page on the left.</p>}
-      <div className="f48-split">
-        {preview && <div className="f48-scan">{preview.pdf ? <PdfPreview url={preview.url} /> : <img src={preview.url} alt="The scanned Form 48" />}</div>}
-        <div className="f48-times">
+    const grid = <>
           {copies.length > 1 && <div className="lb-mini-pills">{copies.map((_, i) => <button key={i} type="button" aria-pressed={copyIndex === i} onClick={() => setCopyIndex(i)}>Copy {i + 1}</button>)}</div>}
           <div className="f48-grid" role="table">
             <div className="f48-gr f48-gh" role="row"><span>Day</span>{HEADS.map(h => <span key={h}>{h}</span>)}</div>
@@ -160,8 +152,25 @@ export default function Form48Check({ student }) {
             </div>)}
           </div>
           {anyRead && <button type="button" className="rq-link" onClick={() => setShowEmpty(v => !v)}>{showEmpty ? 'Hide empty days' : 'Show all days'}</button>}
-        </div>
+    </>;
+    return <div className="f48 f48-check">{fileField}
+      <div className="f48-bar">
+        <p><strong>Check the times</strong> · {info?.fileName}{flagged ? <> · <b className="lb-chip" data-tone="amber">{flagged} day{flagged === 1 ? '' : 's'} to check</b></> : ''}</p>
+        <label className="f48-month">Month <input type="month" value={month} onChange={event => { setMonth(event.target.value); setReviewed(false); }} /></label>
       </div>
+      {info?.warnings?.length > 0 && <div className="f48-warn" role="note"><Icon name="alert" size={15} /><span>{info.warnings.length === 1 ? info.warnings[0].replace(/^Copy \d+: /, '') : <>The scanner had trouble with this file. Check each time against the scan{info.warnings.some(w => /could not be mapped/i.test(w)) ? ' and type in any that are missing' : ''}.</>}</span></div>}
+      {!anyReadAll(copies) && <p className="f48-muted">No times could be read from the scan. Type them in using the page on the left.</p>}
+      <div className="f48-split">
+        {preview && <div className="f48-scan">
+          <button type="button" className="f48-max" aria-label="Open full screen" title="Open full screen" onClick={() => setFocus(true)}><Icon name="expand" size={15} /></button>
+          {preview.pdf ? <PdfPreview url={preview.url} hideSinglePage /> : <img src={preview.url} alt="The scanned Form 48" />}</div>}
+        <div className="f48-times">{grid}</div>
+      </div>
+      {focus && preview && <FocusMode preview={preview} fileName={info?.fileName} onClose={() => setFocus(false)}
+        footer={<>
+          <label className="f48-confirm"><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /> I checked the month and the times</label>
+          <button type="button" className="rq-btn rq-primary" disabled={busy || !month || !reviewed} onClick={async () => { await compare(); setFocus(false); }}>{busy ? 'Comparing…' : 'Compare with the app'}</button>
+        </>}>{grid}</FocusMode>}
       {error && <p className="f48-error" role="alert">{error}</p>}
       <div className="lb-actions">
         <label className="f48-confirm"><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} /> I checked the month and the times</label>
@@ -217,6 +226,54 @@ export default function Form48Check({ student }) {
           <button type="button" className="rq-btn rq-primary" disabled={busy || !sourceVersion || !reviewed} title={!sourceVersion ? 'Only the submitted Form 48 can be saved' : ''} onClick={save}><Icon name="check" size={14} /> {busy ? 'Saving…' : 'Save review'}</button></>}
     </div>
   </div>;
+}
+
+function FocusMode({ preview, fileName, onClose, footer, children }) {
+  const dialog = useRef(null); const stage = useRef(null);
+  const [zoom, setZoom] = useState(1);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [panel, setPanel] = useState(true);
+  useEffect(() => { dialog.current?.showModal?.(); }, []);
+  useEffect(() => {
+    const keys = event => {
+      if (event.target.closest?.('input, textarea')) return;
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); setZoom(z => Math.min(4, +(z + 0.25).toFixed(2))); }
+      if (event.key === '-') { event.preventDefault(); setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2))); }
+      if (event.key === '0') setZoom(1);
+      if (event.key === 'ArrowRight') setPage(p => Math.min(pages, p + 1));
+      if (event.key === 'ArrowLeft') setPage(p => Math.max(1, p - 1));
+    };
+    window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys);
+  }, [pages]);
+  const wheel = event => { if (!event.ctrlKey) return; event.preventDefault(); setZoom(z => Math.min(4, Math.max(0.5, +(z + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(2)))); };
+  return <dialog ref={dialog} className="f48-focus" aria-label="Form 48 full screen" onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose}>
+    <header className="f48-focus-bar">
+      <strong title={fileName}>{fileName || 'Form 48'}</strong>
+      <div className="f48-tools" role="toolbar" aria-label="View controls">
+        <button type="button" aria-label="Zoom out" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}>−</button>
+        <span aria-live="polite">{Math.round(zoom * 100)}%</span>
+        <button type="button" aria-label="Zoom in" onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}>+</button>
+        <button type="button" className="f48-tool-text" onClick={() => setZoom(1)}>Fit width</button>
+        {pages > 1 && <><span className="f48-sep" /><button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => setPage(p => p - 1)}><Icon name="chevronLeft" size={14} /></button>
+          <span>{page} / {pages}</span>
+          <button type="button" aria-label="Next page" disabled={page === pages} onClick={() => setPage(p => p + 1)}><Icon name="chevronRight" size={14} /></button></>}
+        <span className="f48-sep" />
+        <a href={preview.url} download={fileName || 'form48'} aria-label="Download" title="Download"><Icon name="download" size={15} /></a>
+        <button type="button" className="f48-tool-text f48-times-toggle" aria-pressed={panel} onClick={() => setPanel(v => !v)}>Times</button>
+        <button type="button" aria-label="Close full screen" onClick={onClose}><Icon name="x" size={16} /></button>
+      </div>
+    </header>
+    <div className="f48-focus-body" data-panel={panel || undefined}>
+      <div className="f48-stage" ref={stage} onWheel={wheel} style={{ '--z': zoom }}>
+        {preview.pdf ? <PdfPreview url={preview.url} scale={2 * zoom} page={page} onPages={setPages} /> : <img src={preview.url} alt="The scanned Form 48" />}
+      </div>
+      {panel && <aside className="f48-side" aria-label="Times">
+        <div className="f48-side-scroll">{children}</div>
+        <div className="f48-side-foot">{footer}</div>
+      </aside>}
+    </div>
+  </dialog>;
 }
 
 function anyReadAll(copies) { return copies.some(rows => rows.some(row => FIELDS.some(f => row[f]))); }

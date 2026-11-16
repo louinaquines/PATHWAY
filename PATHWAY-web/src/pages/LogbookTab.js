@@ -441,7 +441,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const firstWeekday = (new Date(Date.UTC(cy, cm - 1, 1)).getUTCDay() + 6) % 7; // Mon = 0
   const firstRecord = attendance.map(r => r.date || r.id).sort()[0] || '';
   const calendarCells = [];
-  for (let i = 0; i < firstWeekday && i < 5; i++) calendarCells.push(null);
+  if (firstWeekday <= 4) for (let i = 0; i < firstWeekday; i++) calendarCells.push(null);
   for (let d = 1; d <= daysInMonth; d++) {
     const wd = (firstWeekday + d - 1) % 7;
     if (wd > 4) continue;

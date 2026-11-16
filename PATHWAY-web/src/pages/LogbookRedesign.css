@@ -71,3 +71,14 @@
 .coordinator-page .lb .lb-note-input:focus { outline: none; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; background: #fff; }
 .lb .rq-student-name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1100px) { .lb-cal { grid-template-columns: repeat(5, 1fr); } .lb-tr { grid-template-columns: 1.4fr 1fr 1fr .6fr; } }
+/* v2: compact calendar like Figma */
+.lb-cal-wrap { gap: 32px; align-items: flex-start; }
+.lb-cal { grid-template-columns: repeat(5, 40px); gap: 5px; }
+.lb-cal-head { font-size: 11px; padding-bottom: 0; line-height: 18px; }
+.lb-cal-day, .lb-cal-blank { height: 32px; border-radius: 7px; font-size: 12.5px; }
+.lb-legend { margin: 22px 0 0; gap: 6px; }
+.lb-legend div { grid-template-columns: 130px auto; }
+.lb-legend dt, .lb-legend dd { font-size: 12.5px; }
+.lb-summary { font-size: 13.5px; }
+.lb-tr { padding: 11px 0; font-size: 13px; }
+@media (max-width: 1100px) { .lb-cal { grid-template-columns: repeat(5, 40px); } }

@@ -194,3 +194,17 @@
 .rq-section-menu button[aria-selected="true"] { color: #0b5fd3 !important; font-weight: 600 !important; }
 @keyframes rqMenu { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .rq-section-menu { animation: none; } }
+/* v9: real progress bar, stage tab hover, scroll only the document list */
+.rq-progress { display: block; width: 100%; height: 6px; border-radius: 99px; background: #edeae3; overflow: hidden; flex-shrink: 0; }
+.rq-progress i { display: block; height: 100%; min-width: 0; border-radius: 99px; background: #1f7a4d; transition: width .3s ease; }
+.rq-stages { flex-shrink: 0; }
+.rq-stages button { position: relative; padding: 8px 2px 12px !important; border-bottom: 0 !important; }
+.rq-stages button::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2.5px; border-radius: 2px; background: transparent; transition: background-color .15s; }
+.rq-stages button:hover strong { text-decoration: none !important; color: #15213a; }
+.rq-stages button:hover::after { background: #d9d5cc; }
+.rq-stages button[aria-selected="true"]::after, .rq-stages button[aria-selected="true"]:hover::after { background: #0b5fd3; }
+.rq-stages strong { font-size: 13px; }
+.rq-detail { overflow: hidden !important; }
+.rq-head { flex-shrink: 0; }
+.rq-table { flex: 1; min-height: 0; overflow-y: auto; margin-right: -12px; padding-right: 12px; }
+.rq-row-head { position: sticky; top: 0; z-index: 2; background: #fff; }

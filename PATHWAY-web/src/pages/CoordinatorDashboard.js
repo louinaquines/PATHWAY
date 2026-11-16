@@ -662,7 +662,7 @@ export default function CoordinatorDashboard() {
                     });
                     const stages = REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => row.stage === 'Other'));
                     const activeStage = stages.includes(phaseFilter) ? phaseFilter : stages[0];
-                    const stageSummary = cat => {
+                    const stageSummary = cat => { // eslint-disable-line no-unused-vars
                       const list = rows.filter(row => row.stage === cat);
                       const ok = list.filter(row => row.status === 'approved').length, check = list.filter(row => row.status === 'submitted').length, fix = list.filter(row => row.status === 'rejected').length, none = list.filter(row => row.status === 'not_submitted').length;
                       if (!list.length) return 'none';
@@ -679,10 +679,10 @@ export default function CoordinatorDashboard() {
                         {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
                           Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
                       </div>
-                      <progress className="rq-progress" aria-label="Documents approved" value={selectedProgress?.approved || 0} max={selectedProgress?.total || 1} />
+                      <div className="rq-progress" role="progressbar" aria-label="Documents approved" aria-valuemin={0} aria-valuemax={selectedProgress?.total || 0} aria-valuenow={selectedProgress?.approved || 0}><i style={{ width: `${selectedProgress?.total ? Math.round(100 * (selectedProgress.approved || 0) / selectedProgress.total) : 0}%` }} /></div>
                       <div className="rq-stages" role="tablist" aria-label="OJT stage">
                         {stages.map(cat => <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)}>
-                          <strong>{STAGE_LABEL[cat] || cat}</strong><span>{stageSummary(cat)}</span></button>)}
+                          <strong>{STAGE_LABEL[cat] || cat}</strong></button>)}
                       </div>
                       <div className="rq-table" role="table" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents`}>
                         <div className="rq-row rq-row-head" role="row"><span role="columnheader">Document</span><span role="columnheader">Status</span><span role="columnheader">Action</span></div>

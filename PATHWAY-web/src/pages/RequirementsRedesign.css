@@ -208,3 +208,7 @@
 .rq-head { flex-shrink: 0; }
 .rq-table { flex: 1; min-height: 0; overflow-y: auto; margin-right: -12px; padding-right: 12px; }
 .rq-row-head { position: sticky; top: 0; z-index: 2; background: #fff; }
+/* v10: Action column hugs the right edge */
+.rq-row { grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.4fr) max-content; }
+.rq-actions { justify-content: flex-end; flex-wrap: nowrap; justify-self: end; }
+.rq-row-head span:last-child { justify-self: end; text-align: right; }

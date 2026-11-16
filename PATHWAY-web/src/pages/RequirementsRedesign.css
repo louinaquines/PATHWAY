@@ -222,3 +222,6 @@
 .rq-row-head span:last-child { justify-self: start !important; text-align: left !important; }
 /* v13: Action column keeps a steady width on every stage tab */
 .rq-table { grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr) minmax(240px, max-content) !important; }
+/* v14: no column header row */
+.rq-table { margin-top: -6px; }
+.rq-row:first-child { padding-top: 10px; }

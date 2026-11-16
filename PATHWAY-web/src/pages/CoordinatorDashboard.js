@@ -685,7 +685,7 @@ export default function CoordinatorDashboard() {
                           <strong>{STAGE_LABEL[cat] || cat}</strong></button>)}
                       </div>
                       <div className="rq-table" role="table" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents`}>
-                        <div className="rq-row rq-row-head" role="row"><span role="columnheader">Document</span><span role="columnheader">Status</span><span role="columnheader">Action</span></div>
+                        
                         {shown.length === 0 && <div className="rq-empty">No documents in this stage.</div>}
                         {shown.map(row => {
                           const isOverdue = row.deadline && new Date(row.deadline) < new Date() && row.status !== 'approved';

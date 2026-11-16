@@ -82,3 +82,16 @@
 .lb-summary { font-size: 13.5px; }
 .lb-tr { padding: 11px 0; font-size: 13px; }
 @media (max-width: 1100px) { .lb-cal { grid-template-columns: repeat(5, 40px); } }
+/* v3: clickable days + day viewer */
+.coordinator-page .lb-cal button.lb-cal-day { width: 40px; padding: 0 !important; min-height: 0 !important; font-family: inherit; box-shadow: none !important; cursor: pointer; transition: transform .1s, box-shadow .15s; }
+.coordinator-page .lb-cal button.lb-cal-day:hover:not(:disabled) { box-shadow: 0 0 0 2px #d9d5cc !important; }
+.coordinator-page .lb-cal button.lb-cal-day:active:not(:disabled) { transform: scale(.96); }
+.coordinator-page .lb-cal button.lb-cal-day[aria-selected="true"] { box-shadow: 0 0 0 2px #0b5fd3 !important; }
+.coordinator-page .lb-cal button.lb-cal-day:disabled { cursor: default; }
+.lb-dayview { display: flex; flex-direction: column; gap: 10px; }
+.lb-daynav { display: flex; align-items: center; gap: 8px; }
+.lb-daynav strong { min-width: 150px; text-align: center; font-size: 14px; font-weight: 600; color: #15213a; }
+.coordinator-page .lb-daynav .rq-icon { width: 32px !important; height: 32px !important; border: 1px solid #e8e5de !important; background: #fff !important; }
+.lb-daynav .lb-more { margin: 0 0 0 auto; }
+.lb-tr[data-active] { background: #f3f7fe; margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 8px; }
+.lb-dayview .lb-table .lb-tr:only-of-type, .lb-dayview .lb-th + .lb-tr:last-child { background: transparent; margin: 0; padding-left: 0; padding-right: 0; }

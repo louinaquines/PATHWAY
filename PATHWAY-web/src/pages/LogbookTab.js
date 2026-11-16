@@ -212,7 +212,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   useEffect(() => { setTopHost(document.getElementById('lb-top-actions')); }, []);
   const [entryIndex, setEntryIndex] = useState(0);
   const [showAllDays, setShowAllDays] = useState(false);
-  useEffect(() => { setEntryIndex(-1); setShowAllDays(false); }, [selectedStudent?.id, recordMonth]);
+  const [pickedDay, setPickedDay] = useState('');
+  useEffect(() => { setEntryIndex(-1); setShowAllDays(false); setPickedDay(''); }, [selectedStudent?.id, recordMonth]);
   // Unread journals for every student in the section (one count per student).
   const [pendingMap, setPendingMap] = useState({ scope: '', map: {} });
   useEffect(() => {
@@ -453,6 +454,17 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const legend = { ontime: 0, late: 0, missing: 0, absent: 0 };
   calendarCells.forEach(cell => { if (cell && legend[cell.state] != null) legend[cell.state] += 1; });
   const atWorkNow = byDate[today] && !byDate[today].timeOut;
+  const monthDays = calendarCells.filter(Boolean).map(cell => cell.iso);
+  const fallbackDay = monthDays.includes(today) ? today : (attendance.map(r => r.date || r.id).sort().at(-1) || monthDays.filter(iso => iso <= today).at(-1) || monthDays[0]);
+  const activeDay = monthDays.includes(pickedDay) ? pickedDay : fallbackDay;
+  const dayPos = monthDays.indexOf(activeDay);
+  const stepDay = delta => {
+    const next = monthDays[dayPos + delta];
+    if (next) { setPickedDay(next); return; }
+    if (delta < 0) setRecordMonth(month => shiftMonth(month, -1));
+    else if (recordMonth < manilaMonth()) setRecordMonth(month => shiftMonth(month, 1));
+  };
+  const dayRecord = activeDay ? byDate[activeDay] : null;
   const sortedEntries = [...visibleEntries].sort((a, b) => String(a.periodStart || '').localeCompare(String(b.periodStart || '')));
   const defaultEntry = Math.max(0, sortedEntries.findIndex(entry => entry.status === 'pending'));
   const activeEntryIndex = entryIndex >= 0 && entryIndex < sortedEntries.length ? entryIndex : defaultEntry;
@@ -546,7 +558,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 <div className="lb-cal" role="grid" aria-label={`${monthLabel(recordMonth)} attendance`}>
                   {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => <span key={day} className="lb-cal-head" role="columnheader">{day}</span>)}
                   {calendarCells.map((cell, i) => cell
-                    ? <span key={cell.iso} role="gridcell" className="lb-cal-day" data-state={cell.state} title={{ ontime: 'Came on time', late: 'Came late', missing: 'No time-out', absent: 'Absent', today: 'Today', none: 'Before training', future: '' }[cell.state]}>{cell.d}</span>
+                    ? <button type="button" key={cell.iso} role="gridcell" className="lb-cal-day" data-state={cell.state} aria-selected={cell.iso === activeDay} disabled={cell.state === 'future'} onClick={() => setPickedDay(cell.iso)}
+                        title={{ ontime: 'Came on time', late: 'Came late', missing: 'No time-out', absent: 'Absent', today: 'Today', none: 'Before training', future: '' }[cell.state]}>{cell.d}</button>
                     : <span key={'e' + i} className="lb-cal-blank" />)}
                 </div>
                 <dl className="lb-legend">
@@ -557,18 +570,25 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                   <div><dt><i data-state="today" />Today</dt><dd>{atWorkNow ? 'At work now' : byDate[today] ? 'Done' : recordMonth === manilaMonth() ? 'Not in yet' : '—'}</dd></div>
                 </dl>
               </div>
-              {attendance.length > 0 && <div className="lb-table" role="table" aria-label="Attendance by day">
-                <div className="lb-tr lb-th" role="row"><span role="columnheader">Day</span><span role="columnheader">Time in</span><span role="columnheader">Time out</span><span role="columnheader">Hours</span></div>
-                {rows.map(record => {
-                  const iso = record.date || record.id; const missing = !record.timeOut && iso < today; const now = !record.timeOut && iso === today;
-                  return <div className="lb-tr" role="row" key={record.id}>
-                    <span role="cell" className="lb-day">{formatDay(iso)}{iso === today ? ' · today' : ''}</span>
-                    <span role="cell">{shortPunch(record.timeIn)}</span>
-                    <span role="cell">{missing ? <b className="lb-chip" data-tone="red">No time-out</b> : now ? 'At work now' : shortPunch(record.timeOut)}</span>
-                    <span role="cell">{record.timeOut ? Number(record.hoursToday || 0).toFixed(1) : '—'}</span>
-                  </div>;
-                })}
-                {attendance.length > 4 && <button type="button" className="rq-link lb-more" onClick={() => setShowAllDays(value => !value)}>{showAllDays ? 'Show fewer days' : `Show ${attendance.length - 4} more days`}</button>}
+              {activeDay && <div className="lb-dayview">
+                <div className="lb-daynav">
+                  <button type="button" className="rq-icon" aria-label="Previous day" onClick={() => stepDay(-1)}><Icon name="chevronLeft" size={15} /></button>
+                  <strong aria-live="polite">{formatDay(activeDay)}{activeDay === today ? ' · today' : ''}</strong>
+                  <button type="button" className="rq-icon" aria-label="Next day" disabled={activeDay >= today && recordMonth >= manilaMonth()} onClick={() => stepDay(1)}><Icon name="chevronRight" size={15} /></button>
+                  {attendance.length > 0 && <button type="button" className="rq-link lb-more" onClick={() => setShowAllDays(value => !value)}>{showAllDays ? 'Hide the month' : 'See the whole month'}</button>}
+                </div>
+                <div className="lb-table" role="table" aria-label="Attendance">
+                  <div className="lb-tr lb-th" role="row"><span role="columnheader">Day</span><span role="columnheader">Time in</span><span role="columnheader">Time out</span><span role="columnheader">Hours</span></div>
+                  {(showAllDays ? attendance : [dayRecord || { id: activeDay, date: activeDay, empty: true }]).map(record => {
+                    const iso = record.date || record.id; const missing = !record.empty && !record.timeOut && iso < today; const now = !record.empty && !record.timeOut && iso === today;
+                    return <div className="lb-tr" role="row" key={record.id} data-active={iso === activeDay || undefined}>
+                      <span role="cell" className="lb-day">{formatDay(iso)}{iso === today ? ' · today' : ''}</span>
+                      <span role="cell">{record.empty ? '—' : shortPunch(record.timeIn)}</span>
+                      <span role="cell">{record.empty ? <b className="lb-chip" data-tone={iso < today && dayState(iso) === 'absent' ? 'red' : 'mute'}>{iso > today ? 'Not yet' : iso === today ? 'Not in yet' : 'No record'}</b> : missing ? <b className="lb-chip" data-tone="red">No time-out</b> : now ? 'At work now' : shortPunch(record.timeOut)}</span>
+                      <span role="cell">{!record.empty && record.timeOut ? Number(record.hoursToday || 0).toFixed(1) : '—'}</span>
+                    </div>;
+                  })}
+                </div>
               </div>}
             </>}
           </>}

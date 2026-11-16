@@ -5,7 +5,8 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
-import DtrReviewDialog from '../components/DtrReviewDialog';
+import DtrReviewDialog from '../components/DtrReviewDialog'; // eslint-disable-line no-unused-vars
+import Form48Check from '../components/Form48Check';
 import { collection, count, getAggregateFromServer, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, sum, where } from 'firebase/firestore';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
@@ -537,18 +538,18 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <div><h2>{personName(selectedStudent) || 'Student'}</h2>
               <p>{[selectedStudent.companyName || selectedStudent.company ? `Training at ${selectedStudent.companyName || selectedStudent.company}` : 'No company yet',
                 selectedStudent.hoursRequired ? `${Math.round(Number(selectedStudent.hoursRendered || 0))} of ${selectedStudent.hoursRequired} hours` : null].filter(Boolean).join(' · ')}</p></div>
-            <button type="button" className="rq-btn" disabled={exporting} aria-busy={exporting} onClick={exportStudentRecords}><Icon name="download" size={14} /> {exporting ? 'Exporting…' : 'Export this month'}</button>
+            {recordView !== 'form48' && <button type="button" className="rq-btn" disabled={exporting} aria-busy={exporting} onClick={exportStudentRecords}><Icon name="download" size={14} /> {exporting ? 'Exporting…' : 'Export this month'}</button>}
           </div>
-          <div className="rq-stages" role="tablist" aria-label="Record type" style={{ '--count': 3, '--index': recordView === 'journals' ? 1 : 0 }}>
+          <div className="rq-stages" role="tablist" aria-label="Record type" style={{ '--count': 3, '--index': recordView === 'journals' ? 1 : recordView === 'form48' ? 2 : 0 }}>
             <span className="rq-stages-thumb" aria-hidden="true" />
             <button type="button" role="tab" aria-selected={recordView === 'attendance'} onClick={() => setRecordView('attendance')}><i data-tone={attendanceStats.missing ? 'red' : 'mute'} aria-hidden="true" /><strong>Attendance</strong></button>
             <button type="button" role="tab" aria-selected={recordView === 'journals'} onClick={() => setRecordView('journals')}><i data-tone={studentPending ? 'blue' : 'mute'} aria-hidden="true" /><strong>Journals{studentPending ? ` · ${studentPending} to read` : ''}</strong></button>
-            <button type="button" role="tab" aria-selected={false} onClick={() => setDtrStudent(selectedStudent)}><i data-tone="mute" aria-hidden="true" /><strong>Form 48 check</strong></button>
+            <button type="button" role="tab" aria-selected={recordView === 'form48'} onClick={() => setRecordView('form48')}><i data-tone="mute" aria-hidden="true" /><strong>Form 48 check</strong></button>
           </div>
           {exportError && <p role="alert" className="lb-alert">{exportError}</p>}
-          {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
 
           <div className="lb-body">
+          {recordView === 'form48' && <Form48Check key={selectedStudent.id} student={selectedStudent} />}
           {recordView === 'attendance' && <>
             {attendanceLoading && <div className="logbook-skel logbook-skel-att" role="status" aria-label="Loading attendance">{[0, 1, 2, 3, 4].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 84, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /></div>)}</div>}
             {attendanceError && <p role="alert" className="lb-alert">{attendanceError} <button type="button" className="rq-link" onClick={() => setAttendanceRetry(value => value + 1)}>Try again</button></p>}

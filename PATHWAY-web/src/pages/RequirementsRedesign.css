@@ -214,3 +214,9 @@
 .rq-row-head span:last-child { justify-self: end; text-align: right; }
 /* v11: same column widths on every row */
 .rq-row { grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr) 230px; }
+/* v12: one shared grid — Action column fits its widest content; label starts where the buttons start */
+.rq-table { display: grid !important; grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr) max-content; align-content: start; column-gap: 24px; }
+.rq-row { grid-column: 1 / -1; grid-template-columns: subgrid !important; column-gap: 24px; }
+.rq-table > .rq-empty { grid-column: 1 / -1; }
+.rq-actions { justify-self: start !important; justify-content: flex-start !important; }
+.rq-row-head span:last-child { justify-self: start !important; text-align: left !important; }

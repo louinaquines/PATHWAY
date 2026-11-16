@@ -24,6 +24,7 @@ import MessagesTab from './MessagesTab';
 import SubmissionNotifications, { receivedRequirements, submissionTime } from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
 import RequirementsInbox from '../components/RequirementsInbox';
 import Pager from '../components/Pager';
+import RequirementViewer from '../components/RequirementViewer';
 import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
@@ -269,6 +270,8 @@ export default function CoordinatorDashboard() {
   const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   const [rqDetailView, setRqDetailView] = useState(false);
+  const [viewerId, setViewerId] = useState(null);
+  useEffect(() => { setViewerId(null); }, [selectedStudent?.id]);
   const pendingStageRef = useRef(null);
   const [newStudentIds, setNewStudentIds] = useState(() => new Set());
   const newStudentIdsRef = useRef(newStudentIds);
@@ -733,7 +736,7 @@ export default function CoordinatorDashboard() {
                                 <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => handleRequirement(selectedStudent.id, row.id, 'approved')}>Approve</button>
                                 <button type="button" className="rq-btn" disabled={saving} onClick={() => { setRejectionModal({ studentId: selectedStudent.id, reqId: row.id }); setRejectionReason(''); }}>Ask to fix</button>
                               </>}
-                              {canOpen && <button type="button" className="rq-link" onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(row.id)}/download`, fileName: row.req.fileName, sectionId: selectedSection.id, requirementId: row.id, studentId: selectedStudent.id })}>View <Icon name="eye" size={14} /></button>}
+                              {canOpen && <button type="button" className="rq-link" onClick={() => setViewerId(row.id)}>View <Icon name="eye" size={14} /></button>}
                               {canOpen && <button type="button" className="rq-icon" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`} onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={14} /></button>}
                               {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="rq-link" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
                               {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
@@ -741,6 +744,13 @@ export default function CoordinatorDashboard() {
                           </div>;
                         })}
                       </div>
+                      {viewerId && <RequirementViewer student={selectedStudent} studentName={personName(selectedStudent)} sectionId={selectedSection?.id}
+                        rows={rows.filter(r => r.req?.cloudinaryPublicId && r.req?.cloudinaryVersion)} startId={viewerId} saving={saving}
+                        stageLabel={cat => STAGE_LABEL[cat] || cat}
+                        onApprove={reqId => handleRequirement(selectedStudent.id, reqId, 'approved')}
+                        onFix={(reqId, why) => handleRequirement(selectedStudent.id, reqId, 'rejected', why)}
+                        onUndo={reqId => handleUndoAutoApproval(selectedStudent.id, reqId)}
+                        onClose={() => setViewerId(null)} />}
                     </>;
                   })()}
                   <AlertDialog

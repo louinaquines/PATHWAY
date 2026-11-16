@@ -16,7 +16,8 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { JournalEntriesSkeleton, LogbookRows } from '../components/PageSkeletons';
 import AlertDialog from '../components/AlertDialog';
-import SubmissionNotifications from '../components/SubmissionNotifications';
+import SubmissionNotifications from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
+import JournalsInbox from '../components/JournalsInbox';
 import JournalKeywordSettings from '../components/JournalKeywordSettings';
 import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
@@ -491,7 +492,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       <div className="rq-list">
         <div className="rq-search-row">
           <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
-          <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection} onOpen={student => openRecords(student, 'journals')} />
+          <JournalsInbox section={selectedSection} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); }} />
         </div>
         <div className="rq-pills" role="group" aria-label="Filter students">
           <button type="button" aria-pressed={!pendingOnly} onClick={() => setPendingOnly(false)}>All{studentCount != null ? ` ${studentCount}` : ''}</button>

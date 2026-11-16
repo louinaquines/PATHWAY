@@ -87,7 +87,7 @@ export default function Form48Check({ student }) {
     finally { if (rev === revision.current) { setProgress(''); job.current = null; } }
   };
   const useSubmitted = async () => {
-    setError(''); setStep('reading'); setProgress('Getting the Form 48…');
+    setError(''); setStep('reading'); setProgress('Getting the time record…');
     const rev = ++revision.current;
     try {
       const source = await adminRequest(`${base}/source`);
@@ -125,18 +125,18 @@ export default function Form48Check({ student }) {
 
   const fileField = <input ref={fileInput} type="file" hidden accept=".xls,.xlsx,.pdf,.png,.jpg,.jpeg" onChange={event => { const f = event.target.files?.[0]; event.target.value = ''; importDocument(f); }} />;
 
-  if (history === null) return <div className="f48"><p className="f48-muted">Loading Form 48…</p></div>;
+  if (history === null) return <div className="f48"><p className="f48-muted">Loading…</p></div>;
 
   if (step === 'start') return <div className="f48 f48-start">{fileField}
     <img src="/guide-thinking.png" alt="" aria-hidden="true" />
-    <h3>Check {firstName}’s Form 48</h3>
+    <h3>Check {firstName}’s time record</h3>
     <p>Compare the paper time record with the app. Nothing in the app changes.</p>
     <span className="f48-layout-label">Copies on the page</span>
     <div className="f48-layout" role="group" aria-label="Copies on the page">
       <button type="button" aria-pressed={scanCopies === 1} onClick={() => setScanCopies(1)}>1 copy</button>
       <button type="button" aria-pressed={scanCopies === 2} onClick={() => setScanCopies(2)}>2 copies</button>
     </div>
-    <button type="button" className="rq-btn rq-primary f48-big" onClick={useSubmitted}><Icon name="file" size={15} /> Use submitted Form 48</button>
+    <button type="button" className="rq-btn rq-primary f48-big" onClick={useSubmitted}><Icon name="file" size={15} /> Use submitted time record</button>
     <button type="button" className="rq-link" onClick={() => fileInput.current?.click()}>Upload another file</button>
     {error && <p className="f48-error" role="alert">{error}</p>}
     <small>You’ll check the times before comparing.</small>
@@ -144,7 +144,7 @@ export default function Form48Check({ student }) {
   </div>;
 
   if (step === 'reading') return <div className="f48 f48-start">
-    <div className="f48-reading"><span className="f48-spinner" aria-hidden="true" /><strong>Reading the Form 48…</strong><span role="status">{progress}</span></div>
+    <div className="f48-reading"><span className="f48-spinner" aria-hidden="true" /><strong>Reading the time record…</strong><span role="status">{progress}</span></div>
     {job.current && <button type="button" className="rq-link" onClick={() => { job.current?.cancel(); revision.current++; setStep('start'); }}>Cancel</button>}
   </div>;
 
@@ -173,7 +173,7 @@ export default function Form48Check({ student }) {
       <div className="f48-split">
         {preview && <div className="f48-scan">
           <button type="button" className="f48-max" aria-label="Open full screen" title="Open full screen" onClick={() => setFocus(true)}><Icon name="expand" size={15} /></button>
-          {preview.pdf ? <PdfPreview url={preview.url} hideSinglePage /> : <img src={preview.url} alt="The scanned Form 48" />}</div>}
+          {preview.pdf ? <PdfPreview url={preview.url} hideSinglePage /> : <img src={preview.url} alt="The scanned time record" />}</div>}
         <div className="f48-times">{grid}</div>
       </div>
       {focus && preview && <FocusMode preview={preview} fileName={info?.fileName} onClose={() => setFocus(false)}
@@ -207,7 +207,7 @@ export default function Form48Check({ student }) {
   };
   return <div className="f48 f48-result">{fileField}
     <div className="f48-bar">
-      <p>Form 48 for {monthName(month)}{savedFrom ? ` · saved ${new Date(savedFrom.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}` : info?.fileName ? ` · ${info.fileName}` : ''}. {differ ? <><strong>{differ} day{differ === 1 ? ' is' : 's are'} different</strong> from the app.</> : 'Every day matches the app.'}</p>
+      <p>Time record for {monthName(month)}{savedFrom ? ` · saved ${new Date(savedFrom.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}` : info?.fileName ? ` · ${info.fileName}` : ''}. {differ ? <><strong>{differ} day{differ === 1 ? ' is' : 's are'} different</strong> from the app.</> : 'Every day matches the app.'}</p>
       <button type="button" className="rq-btn" onClick={openPaper}><Icon name="file" size={14} /> Open the paper copy</button>
     </div>
     <div className="lb-table f48-res" role="table">
@@ -220,10 +220,10 @@ export default function Form48Check({ student }) {
           <span className={tag[1] !== 'green' ? 'f48-off' : ''}>{inApp}{r.row?.endpointDifferences && r.row.status === 'discrepancy' && <small> ({r.row.endpointDifferences.arrival ? `in ${mins(r.row.endpointDifferences.arrival)} off` : ''}{r.row.endpointDifferences.arrival && r.row.endpointDifferences.departure ? ', ' : ''}{r.row.endpointDifferences.departure ? `out ${mins(r.row.endpointDifferences.departure)} off` : ''})</small>}</span>
           <span className="f48-tag">{tag[1] === 'green' ? <em className="f48-ok">Matches</em> : <b className="lb-chip" data-tone="amber">{tag[0]}</b>}</span>
         </div>; })}
-      {!rows.length && <p className="f48-muted">No times on this Form 48.</p>}
+      {!rows.length && <p className="f48-muted">No times on this time record.</p>}
       {rows.length > 0 && <div className="lb-tr f48-total" role="row"><span>Total</span><span>{(paperMinutes / 60).toFixed(0)} hours</span><span>{appHours.toFixed(0)} hours counted</span><span /></div>}
     </div>
-    {!savedFrom && info?.extractedText && <details className="lb-details"><summary>AI help reading this Form 48</summary>
+    {!savedFrom && info?.extractedText && <details className="lb-details"><summary>AI help reading this time record</summary>
       <DocumentAiAssistance studentId={student.id} requirementId="dtr" text={info.extractedText} sourceVersion={sourceVersion} form={formBody()} /></details>}
     <p className="f48-muted f48-limit">{result?.limitation}</p>
     {history?.length > 1 && <PastChecks history={history} onOpen={item => { setResult(item.comparison); setSavedFrom(item); setMonth(item.period); }} />}
@@ -233,7 +233,7 @@ export default function Form48Check({ student }) {
         <button type="button" className="rq-btn rq-primary" onClick={() => { setStep('start'); setResult(null); setSavedFrom(null); }}><Icon name="refresh" size={14} /> Check again</button></>
         : <><input className="lb-note-input" placeholder="Add a note (optional)" value={notes} maxLength={2000} onChange={event => { setNotes(event.target.value); saveId.current = crypto.randomUUID(); }} />
           <button type="button" className="rq-btn" onClick={() => setStep('check')}>Edit times</button>
-          <button type="button" className="rq-btn rq-primary" disabled={busy || !sourceVersion || !reviewed} title={!sourceVersion ? 'Only the submitted Form 48 can be saved' : ''} onClick={save}><Icon name="check" size={14} /> {busy ? 'Saving…' : 'Save review'}</button></>}
+          <button type="button" className="rq-btn rq-primary" disabled={busy || !sourceVersion || !reviewed} title={!sourceVersion ? 'Only the submitted time record can be saved' : ''} onClick={save}><Icon name="check" size={14} /> {busy ? 'Saving…' : 'Save review'}</button></>}
     </div>
   </div>;
 }
@@ -257,9 +257,9 @@ function FocusMode({ preview, fileName, onClose, footer, children }) {
     window.addEventListener('keydown', keys); return () => window.removeEventListener('keydown', keys);
   }, [pages]);
   const wheel = event => { if (!event.ctrlKey) return; event.preventDefault(); setZoom(z => Math.min(4, Math.max(0.5, +(z + (event.deltaY < 0 ? 0.1 : -0.1)).toFixed(2)))); };
-  return <dialog ref={dialog} className="f48-focus" aria-label="Form 48 full screen" onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose}>
+  return <dialog ref={dialog} className="f48-focus" aria-label="Time record full screen" onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose}>
     <header className="f48-focus-bar">
-      <strong title={fileName}>{fileName || 'Form 48'}</strong>
+      <strong title={fileName}>{fileName || 'Time record'}</strong>
       <div className="f48-tools" role="toolbar" aria-label="View controls">
         <button type="button" aria-label="Zoom out" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}>−</button>
         <span aria-live="polite">{Math.round(zoom * 100)}%</span>
@@ -276,7 +276,7 @@ function FocusMode({ preview, fileName, onClose, footer, children }) {
     </header>
     <div className="f48-focus-body" data-panel={panel || undefined}>
       <div className="f48-stage" ref={stage} onWheel={wheel} style={{ '--z': zoom }}>
-        {preview.pdf ? <PdfPreview url={preview.url} scale={2 * zoom} page={page} onPages={setPages} /> : <img src={preview.url} alt="The scanned Form 48" />}
+        {preview.pdf ? <PdfPreview url={preview.url} scale={2 * zoom} page={page} onPages={setPages} /> : <img src={preview.url} alt="The scanned time record" />}
       </div>
       {panel && <aside className="f48-side" aria-label="Times">
         <div className="f48-side-scroll">{children}</div>

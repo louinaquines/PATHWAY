@@ -544,7 +544,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             <span className="rq-stages-thumb" aria-hidden="true" />
             <button type="button" role="tab" aria-selected={recordView === 'attendance'} onClick={() => setRecordView('attendance')}><i data-tone={attendanceStats.missing ? 'red' : 'mute'} aria-hidden="true" /><strong>Attendance</strong></button>
             <button type="button" role="tab" aria-selected={recordView === 'journals'} onClick={() => setRecordView('journals')}><i data-tone={studentPending ? 'blue' : 'mute'} aria-hidden="true" /><strong>Journals{studentPending ? ` · ${studentPending} to read` : ''}</strong></button>
-            <button type="button" role="tab" aria-selected={recordView === 'form48'} onClick={() => setRecordView('form48')}><i data-tone="mute" aria-hidden="true" /><strong>Form 48 check</strong></button>
+            <button type="button" role="tab" aria-selected={recordView === 'form48'} onClick={() => setRecordView('form48')}><i data-tone="mute" aria-hidden="true" /><strong>Time record</strong></button>
           </div>
           {exportError && <p role="alert" className="lb-alert">{exportError}</p>}
 

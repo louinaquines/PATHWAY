@@ -243,3 +243,9 @@
 .rq-search-row .rqi { flex: 0 0 40px; }
 /* v17: four pills on one line */
 .rq-pills { flex-wrap: nowrap !important; }
+/* v18: actions sit flush right, View + download as one tidy group */
+.rq-actions { justify-self: end !important; justify-content: flex-end !important; gap: 6px !important; }
+.coordinator-page .rq .rq-actions .rq-link { height: 34px; padding: 0 10px !important; border-radius: 8px !important; }
+.coordinator-page .rq .rq-actions .rq-link:hover { background: #f4f2ec !important; text-decoration: none !important; }
+.coordinator-page .rq .rq-actions .rq-icon { width: 34px !important; height: 34px !important; min-height: 34px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; color: #465066 !important; }
+.coordinator-page .rq .rq-actions .rq-icon:hover:not(:disabled) { background: #f4f2ec !important; color: #15213a !important; }

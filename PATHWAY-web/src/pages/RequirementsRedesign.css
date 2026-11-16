@@ -159,3 +159,4 @@
 .rq-pages button:hover:not(:disabled) { background: #efece5 !important; }
 .rq-pages button[aria-current="page"] { background: #15213a !important; color: #fff !important; }
 .rq-pages button:disabled:not([aria-current]) { opacity: .35; }
+.rq-student[aria-pressed="true"]::before { content: none !important; display: none !important; }

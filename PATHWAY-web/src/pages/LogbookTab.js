@@ -341,8 +341,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
   const [rejectReason, setRejectReason] = useState('');
+  const [actionError, setActionError] = useState('');
+  useEffect(() => { setActionError(''); }, [selectedStudent?.id, entryIndex]);
   const handleAction = async (entryId, status, reason = '') => {
-    setSaving(true);
+    setSaving(true); setActionError('');
     try {
       await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/logbook/${encodeURIComponent(entryId)}/decision`, {
         method: 'POST',
@@ -356,7 +358,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       return true;
     } catch (e) {
       console.error(e);
-      window.alert(e.message || 'Could not process this logbook review.');
+      setActionError(/failed to fetch|network/i.test(e.message || '') ? 'Couldn’t reach the server. Check your connection and try again.' : (e.message || 'Could not save this review.'));
       return false;
     } finally {
       setSaving(false);
@@ -631,8 +633,8 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
               {analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="lb-note"><strong>Weeks without a journal</strong> No entry between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}.{analysis.truncated && ' Only the latest 100 entries were checked.'}</aside>}
               {activeEntry && <article className="lb-entry">
                 <header>
-                  <h3>{formatDay(activeEntry.periodStart || '') || 'Journal'}</h3>
-                  <span className="lb-entry-meta">{activeEntry.hours ? `${activeEntry.hours} hrs` : ''}{activeEntry.frequency === 'weekly' && activeEntry.weekRange ? ` · ${activeEntry.weekRange}` : ''}</span>
+                  <h3>{activeEntry.frequency === 'weekly' && activeEntry.weekRange ? `Week of ${activeEntry.weekRange}` : formatDay(activeEntry.periodStart || '') || 'Journal'}</h3>
+                  <span className="lb-entry-meta">{activeEntry.hours ? `${activeEntry.hours} hrs` : ''}</span>
                   <b className="lb-chip" data-tone={activeEntry.status === 'approved' ? 'green' : activeEntry.status === 'rejected' ? 'red' : 'amber'}>{activeEntry.status === 'approved' ? 'Read' : activeEntry.status === 'rejected' ? 'Sent back' : 'Waiting for you'}</b>
                   <span className="lb-entry-nav">Journal {activeEntryIndex + 1} of {sortedEntries.length}
                     <button type="button" className="rq-icon" aria-label="Previous journal" disabled={activeEntryIndex === 0} onClick={() => setEntryIndex(activeEntryIndex - 1)}><Icon name="chevronLeft" size={14} /></button>
@@ -654,6 +656,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </>}
           </>}
           </div>
+          {recordView === 'journals' && actionError && <p className="lb-action-error" role="alert"><Icon name="alert" size={14} /> {actionError}</p>}
           {recordView === 'journals' && activeEntry?.status === 'pending' && <div className="lb-actions">
             <input className="lb-note-input" aria-label={`Note for ${selectedStudent.firstName || 'the student'}`} placeholder={`Add a note for ${selectedStudent.firstName || 'the student'} (needed to ask for a redo)`} value={rejectReason} maxLength={1000} onChange={event => setRejectReason(event.target.value)} />
             <button type="button" className="rq-btn" disabled={saving} onClick={() => setRejectConfirm(activeEntry)}><Icon name="refresh" size={14} /> Ask to redo</button>

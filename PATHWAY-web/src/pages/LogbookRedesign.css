@@ -109,3 +109,4 @@
 .lb-empty div { display: flex; gap: 8px; margin-top: 10px; }
 @keyframes lbBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 @media (prefers-reduced-motion: reduce) { .lb-empty img { animation: none; } }
+.lb-action-error { flex-shrink: 0; display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; border-radius: 8px; background: #fbe9e7; color: #b3261e; font-size: 13px; }

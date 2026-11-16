@@ -88,7 +88,7 @@
 .rq-icon:hover:not(:disabled) { background: #f7f5f0; color: #15213a; }
 .rq-reason { width: 100%; min-height: 96px; margin-top: 16px; padding: 12px; border: 1px solid #e8e5de; border-radius: 10px; font: inherit; box-sizing: border-box; resize: vertical; }
 .rq button:focus-visible, .rq-top-actions :focus-visible { outline: 2px solid #0b5fd3; outline-offset: 2px; }
-@media (max-width: 1100px) { .rq { flex-direction: column; } .rq-list { width: auto; max-height: 360px; border-right: 0; border-bottom: 1px solid #e8e5de; } .rq-row { grid-template-columns: 1fr; gap: 8px; } .rq-row-head { display: none; } .rq-stages { overflow-x: auto; } }
+
 @media (prefers-reduced-motion: reduce) { .rq * { transition: none !important; } }
 
 /* Tighten everything to Figma sizes and beat older portal styles */

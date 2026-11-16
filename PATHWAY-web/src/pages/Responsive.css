@@ -6,12 +6,13 @@
   .coordinator-page main:has(.rq) > header.requirements-topbar { padding: 24px 24px 16px !important; }
   .rq { margin: 0 24px 24px; }
   .rq-list { width: 300px; }
+  .rq-student { flex-shrink: 0; }
   .rq-detail { padding: 22px 24px; }
   .lb-cal-wrap { gap: 20px; }
 }
 
-/* Tablet portrait + phones: one pane at a time */
-@media (max-width: 900px) {
+/* Narrow content (tablets, small laptops with the sidebar open) + phones: one pane at a time */
+@media (max-width: 1100px) {
   .coordinator-page main:has(.rq) { overflow-y: auto !important; }
   .coordinator-page main:has(.rq) > header.requirements-topbar { flex-wrap: wrap; gap: 12px; padding: 18px 16px 12px !important; }
   .coordinator-page main:has(.rq) > header h1 { font-size: 24px !important; }
@@ -74,3 +75,7 @@
   .f48-focus-bar strong { font-size: 12.5px; }
   .rq-section-menu { right: 0; }
 }
+
+/* never squash student rows */
+.rq-student { flex-shrink: 0; }
+.rq-students > * { flex-shrink: 0; }

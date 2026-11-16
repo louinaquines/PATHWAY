@@ -377,19 +377,19 @@ export default function CoordinatorDashboard() {
     const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
     if (!requiresMatching && !reviewCursor) {
       getCountFromServer(base).then(snapshot => {
-        if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 10)) });
+        if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 8)) });
       }).catch(() => {});
     }
     const request = requiresMatching
-      ? readMatchingPortalPage(base, reviewCursor, 10, student => (
+      ? readMatchingPortalPage(base, reviewCursor, 8, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
         && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
-      : readPortalPage(base, reviewCursor, 10);
+      : readPortalPage(base, reviewCursor, 8);
     request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (!active) return;
       setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
-      if (!page.hasMore) setReviewTotal({ scope: reviewScope, pages: reviewCursors.length });
+      if (!page.hasMore) setReviewTotal(prev => ({ ...(prev?.scope === reviewScope ? prev : {}), scope: reviewScope, pages: reviewCursors.length }));
     }).catch(err => {
       console.warn('Requirement students query failed:', err);
       if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, error: 'Could not load requirement students.' });
@@ -620,14 +620,14 @@ export default function CoordinatorDashboard() {
                     })}
                   </div>
                   {visibleReviewStudents.length > 0 && (() => {
-                    const first = (reviewCursors.length - 1) * 10 + 1, last = first + visibleReviewStudents.length - 1;
+                    const first = (reviewCursors.length - 1) * 8 + 1, last = first + visibleReviewStudents.length - 1;
                     const total = reviewTotal?.scope === reviewScope && reviewTotal.count != null ? reviewTotal.count : null;
                     const pages = reviewTotal?.scope === reviewScope ? Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages) : reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore));
                     return <nav className="rq-pages" aria-label="Student pages">
                       <span aria-live="polite">{first}–{last}{total != null ? ` of ${total}` : ''}</span>
                       <button type="button" disabled={reviewCursors.length === 1 || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={14} /></button>
-                      {Array.from({ length: pages }, (_, i) => <button key={i} type="button" aria-current={i + 1 === reviewCursors.length ? 'page' : undefined} disabled={i + 1 !== reviewCursors.length - 1 && i + 1 !== reviewCursors.length + 1 && i + 1 !== reviewCursors.length || saving}
-                        onClick={() => { if (i + 1 === reviewCursors.length - 1) setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) }); else if (i + 1 === reviewCursors.length + 1) setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] }); }}>{i + 1}</button>)}
+                      {[reviewCursors.length - 1, reviewCursors.length, reviewCursors.length + 1].filter(n => n >= 1 && n <= pages).map(n => <button key={n} type="button" aria-current={n === reviewCursors.length ? 'page' : undefined} disabled={saving || n === reviewCursors.length}
+                        onClick={() => { if (n < reviewCursors.length) setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) }); else setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] }); }}>{n}</button>)}
                       <button type="button" disabled={!currentReview?.page?.hasMore || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={14} /></button>
                     </nav>;
                   })()}

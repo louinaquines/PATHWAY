@@ -139,3 +139,15 @@
 .rq-btn { height: 36px !important; min-height: 36px !important; font-size: 13.5px !important; }
 .rq-link { font-size: 13.5px !important; }
 .rq-detail .portal-empty, .rq-detail [class*="empty"] { font-size: 15px; }
+/* v4: student cards + compact pagination */
+.rq-students { gap: 6px; padding: 2px; }
+.rq-student { padding: 10px 12px !important; background: #fff !important; border: 1px solid #ebe8e1 !important; border-radius: 10px !important; transition: border-color .15s, box-shadow .15s, background-color .15s; }
+.rq-student:hover { border-color: #d9d5cc !important; box-shadow: 0 1px 3px rgba(21,33,58,.06) !important; background: #fff !important; }
+.rq-student[aria-pressed="true"] { background: #f3f7fe !important; border-color: #0b5fd3 !important; box-shadow: inset 3px 0 0 #0b5fd3 !important; }
+.rq-avatar { background: #f1efe9; color: #465066; }
+.rq-student[aria-pressed="true"] .rq-avatar { background: #0b5fd3; color: #fff; }
+.rq-student-name { gap: 1px; }
+.rq-student-tag { padding: 3px 9px; border-radius: 99px; background: var(--tone-bg); color: var(--tone); font-weight: 600; }
+.rq-pages { gap: 4px; flex-wrap: nowrap; }
+.rq-pages span { white-space: nowrap; }
+.rq-pages button { flex: 0 0 30px; }

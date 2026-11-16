@@ -90,3 +90,4 @@
 .f48-side-foot .f48-confirm { margin: 0; }
 @media (max-width: 1100px) { .f48-focus-body[data-panel] { grid-template-columns: 1fr; } .f48-side { position: absolute; right: 0; top: 53px; bottom: 0; width: min(420px, 92vw); box-shadow: -8px 0 24px rgba(21,33,58,.15); } .f48-focus { position: fixed; } }
 @media (prefers-reduced-motion: reduce) { .f48-focus[open] { animation: none; } }
+.f48-layout-label { margin-top: 6px; font-size: 12px; color: #7b8494; } .f48-layout { margin-top: 0; }

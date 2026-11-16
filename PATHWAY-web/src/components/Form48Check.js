@@ -73,7 +73,7 @@ export default function Form48Check({ student }) {
       if (rev !== revision.current) return;
       const found = d => (d?.copies || []).some(rows => rows.some(row => FIELDS.some(f => row[f])));
       if (!sheet && !found(data) && scanCopies === 1) {
-        setProgress('Trying again as two copies side by side…');
+        setProgress('Trying again as 2 copies…');
         const retry = createDtrOcrJob(file, { copyCount: 2, onProgress: message => { if (rev === revision.current) setProgress(message); } });
         job.current = retry;
         const second = await retry.promise;
@@ -87,7 +87,7 @@ export default function Form48Check({ student }) {
     finally { if (rev === revision.current) { setProgress(''); job.current = null; } }
   };
   const useSubmitted = async () => {
-    setError(''); setStep('reading'); setProgress('Getting the submitted Form 48…');
+    setError(''); setStep('reading'); setProgress('Getting the Form 48…');
     const rev = ++revision.current;
     try {
       const source = await adminRequest(`${base}/source`);
@@ -129,16 +129,17 @@ export default function Form48Check({ student }) {
 
   if (step === 'start') return <div className="f48 f48-start">{fileField}
     <img src="/guide-thinking.png" alt="" aria-hidden="true" />
-    <h3>Check {firstName}’s Form 48 against the app</h3>
-    <p>We read the paper Daily Time Record and compare each day with the app’s clock-ins. Attendance is never changed.</p>
-    <div className="f48-layout" role="group" aria-label="How the paper was scanned">
-      <button type="button" aria-pressed={scanCopies === 1} onClick={() => setScanCopies(1)}>One copy per page</button>
-      <button type="button" aria-pressed={scanCopies === 2} onClick={() => setScanCopies(2)}>Two copies side by side</button>
+    <h3>Check {firstName}’s Form 48</h3>
+    <p>Compare the paper time record with the app. Nothing in the app changes.</p>
+    <span className="f48-layout-label">Copies on the page</span>
+    <div className="f48-layout" role="group" aria-label="Copies on the page">
+      <button type="button" aria-pressed={scanCopies === 1} onClick={() => setScanCopies(1)}>1 copy</button>
+      <button type="button" aria-pressed={scanCopies === 2} onClick={() => setScanCopies(2)}>2 copies</button>
     </div>
-    <button type="button" className="rq-btn rq-primary f48-big" onClick={useSubmitted}><Icon name="file" size={15} /> Use the submitted Form 48</button>
-    <button type="button" className="rq-link" onClick={() => fileInput.current?.click()}>Upload a different file</button>
+    <button type="button" className="rq-btn rq-primary f48-big" onClick={useSubmitted}><Icon name="file" size={15} /> Use submitted Form 48</button>
+    <button type="button" className="rq-link" onClick={() => fileInput.current?.click()}>Upload another file</button>
     {error && <p className="f48-error" role="alert">{error}</p>}
-    <small>Files are read on this computer. Handwriting can be misread, so you’ll check the times before comparing.</small>
+    <small>You’ll check the times before comparing.</small>
     {history.length > 0 && <PastChecks history={history} onOpen={item => { setResult(item.comparison); setSavedFrom(item); setMonth(item.period); setStep('result'); }} />}
   </div>;
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { getDocs } from 'firebase/firestore';
 import EvaluationTab from './EvaluationTab';
 
@@ -26,6 +26,7 @@ beforeEach(() => {
 });
 test('select all only prepares invitations for students assigned to the chosen company', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   expect(screen.getAllByRole('checkbox')).toHaveLength(2);
@@ -54,6 +55,7 @@ test('select all only prepares invitations for students assigned to the chosen c
 
 test('changing company clears the previous students and supervisor', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   const company = await screen.findByRole('combobox', { name: 'Company' });
   fireEvent.change(company, { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
@@ -75,6 +77,7 @@ test('a preparation failure retains the completed invitations so retry only prep
     return Promise.resolve({ ok: true, json: async () => ({ id, token: id + '-token' }) });
   });
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
@@ -94,6 +97,7 @@ test('evaluation-history failure does not hide the assigned-company roster', asy
     throw new Error('Unexpected request');
   });
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   const company = await screen.findByRole('combobox', { name: 'Company' });
   expect(screen.getByRole('option', { name: 'Host Company' })).toBeInTheDocument();
   fireEvent.change(company, { target: { value: 'id:host' } });
@@ -104,6 +108,7 @@ test('evaluation-history failure does not hide the assigned-company roster', asy
 
 test('student dropdown dismisses outside and with Escape while preserving selections', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   const trigger = screen.getByRole('button', { name: 'Students' });
   fireEvent.click(trigger);
@@ -121,6 +126,7 @@ test('selection summary shows names, overflow count and all-students state', asy
   const expanded = [roster[0], roster[1], ...['Cara','Dina'].map(name => ({ ...roster[0], id: name.toLowerCase(), firstName: name }))];
   getDocs.mockImplementation(path => Promise.resolve(snapshot(path === 'sections' ? [section] : expanded)));
   const { container } = render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   const boxes = screen.getAllByRole('checkbox');
@@ -135,11 +141,12 @@ test('selection summary shows names, overflow count and all-students state', asy
 
 test('clicking a student name toggles its checkbox without dismissing the dropdown', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   const trigger = screen.getByRole('button', { name: 'Students' });
   fireEvent.click(trigger);
   fireEvent.blur(trigger, { relatedTarget: null });
-  fireEvent.click(screen.getByText('Amy'));
+  fireEvent.click(within(screen.getByRole('dialog')).getByText('Amy'));
   expect(screen.getByRole('checkbox', { name: /Amy/ })).toBeChecked();
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
   fireEvent.click(screen.getByText('Amy', { selector: '.evaluation-student-options span' }));

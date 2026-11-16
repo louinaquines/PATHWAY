@@ -8,7 +8,7 @@ import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
-import PaginationButtonGroup from '../components/PaginationButtonGroup';
+import PaginationButtonGroup from '../components/PaginationButtonGroup'; // eslint-disable-line no-unused-vars
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { EvaluationSkeleton } from '../components/PageSkeletons';
 import './CoordinatorOperations.css';
@@ -16,6 +16,11 @@ import './EvaluationTab.css';
 import { defaultEvaluationForm } from './EvaluationFormBuilder';
 import EvaluationBuilderDialog from './EvaluationBuilderDialog';
 import AlertDialog from '../components/AlertDialog';
+import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
+import SectionPicker from '../components/SectionPicker';
+import Pager from '../components/Pager';
+import { createPortal } from 'react-dom';
+import './EvaluationRedesign.css';
 
 const EVALUATIONS_PER_PAGE = 5;
 
@@ -69,6 +74,11 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   const [refreshing, setRefreshing]   = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
+  const [evFilter, setEvFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('ev-top-actions')); }, []);
 
   const loadEvaluations = useCallback(async ({ isCurrent = () => true } = {}) => {
     const data = await adminRequest('/coordinator-evaluations');
@@ -204,37 +214,138 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     currentPage * EVALUATIONS_PER_PAGE,
   );
 
-  useEffect(() => {
-    setCurrentPage(page => Math.min(page, pageCount));
-  }, [pageCount]);
+  void pageCount; void visibleEvaluations;
 
   if (loading) {
     return <EvaluationSkeleton />;
   }
 
-  return (
-    <div style={styles.panel} className="evaluation-panel">
-      {/* Generator Card */}
-      <div className="evaluation-invitation" style={styles.card}>
-        <div className="evaluation-invitation-header" style={styles.cardHeader}>
-          <div style={styles.iconWrap}><Icon name="star" size={22} label="Supervisor evaluation" /></div>
-          <div>
-            <h2 style={styles.title}>Request an evaluation</h2>
-            <p style={styles.sub}>
-              Prepare a private invitation for the student’s supervisor.
-            </p>
-          </div>
-          <div className="evaluation-builder-launch"><button type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setBuilderOpen(true)} aria-label="Create evaluation">Edit evaluation questions</button><span>{formDefinition.title} · {formDefinition.questions.length} questions</span></div>
-        </div>
+  const placedIds = new Set(placedStudents.map(student => student.id));
+  const latestByStudent = new Map();
+  evaluations.filter(item => studentIds.has(item.studentId)).forEach(item => {
+    const prev = latestByStudent.get(item.studentId);
+    const rank = e => (e.submitted ? 2e15 : 0) + (Date.parse(e.submittedAt || e.expiresAt || 0) || 0);
+    if (!prev || rank(item) > rank(prev)) latestByStudent.set(item.studentId, item);
+  });
+  const now = Date.now();
+  const scoreOf = item => {
+    if (!item?.submitted) return null;
+    const values = item.formDefinition
+      ? item.formDefinition.questions.filter(q => q.type === 'rating').map(q => Number(item.answers?.[q.id])).filter(Number.isFinite)
+      : Object.values(item.ratings || {}).map(Number).filter(Number.isFinite);
+    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+  };
+  const ago = value => { const days = Math.floor((now - Date.parse(value)) / 86400000); return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`; };
+  const short = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+  const rows = students.filter(student => placedIds.has(student.id) || latestByStudent.has(student.id)).map(student => {
+    const item = latestByStudent.get(student.id);
+    const state = !item ? 'none' : item.submitted ? 'answered' : Date.parse(item.expiresAt) < now ? 'expired' : 'waiting';
+    return { student, item, state, score: scoreOf(item) };
+  }).filter(row => matchesCoordinatorSearch(searchQuery, personName(row.student), row.student.idNumber, row.item?.companyName || row.student.companyName || row.student.company))
+    .sort((a, b) => compareStudents(a.student, b.student));
+  const counts = { all: rows.length, waiting: rows.filter(r => r.state === 'waiting').length, answered: rows.filter(r => r.state === 'answered').length, expired: rows.filter(r => r.state === 'expired').length, none: rows.filter(r => r.state === 'none').length };
+  const shownRows = evFilter === 'all' ? rows : rows.filter(r => r.state === evFilter);
+  const evPages = Math.max(1, Math.ceil(shownRows.length / 10));
+  const evPage = Math.min(currentPage, evPages);
+  const pageRows = shownRows.slice((evPage - 1) * 10, evPage * 10);
+  // average per rating question across answered evaluations
+  const summary = new Map();
+  rows.filter(r => r.state === 'answered').forEach(({ item }) => {
+    if (item.formDefinition) item.formDefinition.questions.filter(q => q.type === 'rating').forEach(q => { const v = Number(item.answers?.[q.id]); if (Number.isFinite(v)) { const s = summary.get(q.label) || []; s.push(v); summary.set(q.label, s); } });
+    else Object.entries(item.ratings || {}).forEach(([k, v]) => { const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()); const s = summary.get(label) || []; s.push(Number(v)); summary.set(label, s); });
+  });
+  const answeredCount = counts.answered;
+  const openAsk = student => {
+    setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectionOpen(false);
+    if (student) {
+      const key = companyFor(student);
+      setCompanyKey(key); setSelectedStudentIds([student.id]);
+      setForm({ studentId: '', companyName: student.company || student.companyName || '', supervisorName: student.supervisorName || '', supervisorEmail: student.supervisorEmail || '' });
+    } else { setCompanyKey(''); setSelectedStudentIds([]); setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' }); }
+    setAskOpen(true);
+  };
+  const dots = score => <span className="ev-dots" aria-hidden="true">{[1, 2, 3, 4, 5].map(n => <i key={n} data-on={score >= n - 0.25 || undefined} />)}</span>;
+  const topControls = <>
+    <button type="button" className="rq-btn ev-top-btn" disabled={busy} onClick={() => setBuilderOpen(true)}>Edit the questions</button>
+    <button type="button" className="rq-btn rq-primary ev-top-btn" onClick={() => openAsk(null)}><Icon name="plus" size={14} /> Ask for an evaluation</button>
+    <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />
+  </>;
 
+  return (
+    <div className="ev">
+      {topHost ? createPortal(topControls, topHost) : <div className="rq-top-actions ev-inline-actions">{topControls}</div>}
+      <div className="ev-main">
+        <div className="ev-toolbar">
+          <div className="rq-pills ev-pills" role="group" aria-label="Filter evaluations">
+            {[['all', 'All', counts.all], ['waiting', 'Waiting for supervisor', counts.waiting], ['answered', 'Answered', counts.answered], ['expired', 'Link expired', counts.expired], ['none', 'Not asked yet', counts.none]].filter(([v, , n]) => v === 'all' || n > 0).map(([value, label, n]) =>
+              <button key={value} type="button" aria-pressed={evFilter === value} onClick={() => { setEvFilter(value); setCurrentPage(1); }}>{label} {n}</button>)}
+          </div>
+          <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search students" placeholder="Find a student" />
+        </div>
+        {status && !askOpen && <p className="ev-status" role="status">{status}</p>}
+        <div className="ev-list">
+          {!selectedSection && <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section at the top right." />}
+          {selectedSection && !rows.length && <div className="lb-empty">
+            <img src="/guide-thinking.png" alt="" aria-hidden="true" />
+            <h3>No students to evaluate yet</h3>
+            <p>Students show up here once they are placed in a company. Then you can ask their supervisor for an evaluation.</p>
+          </div>}
+          {selectedSection && rows.length > 0 && !shownRows.length && <p className="ev-none">No students in this view.</p>}
+          {pageRows.map(({ student, item, state, score }) => {
+            const open = expandedId === student.id;
+            const chip = state === 'answered' ? [`Answered ${short(item.submittedAt || item.expiresAt)}`, 'green']
+              : state === 'waiting' ? [`Waiting · ${item.emailAcceptedAt ? 'sent ' + ago(item.emailAcceptedAt) : 'not emailed'}`, 'amber']
+              : state === 'expired' ? [`Link expired ${short(item.expiresAt)}`, 'red'] : ['Not asked yet', 'mute'];
+            return <div key={student.id} className="ev-row" data-open={open || undefined}>
+              <button type="button" className="ev-row-main" aria-expanded={open} onClick={() => setExpandedId(open ? null : student.id)}>
+                <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+                <span className="ev-who"><strong>{personName(student)}</strong><small>{[item?.companyName || student.company || student.companyName, item?.supervisorName || student.supervisorName].filter(Boolean).join(' · ')}</small></span>
+                <span className="ev-state"><b className="lb-chip" data-tone={chip[1]}>{chip[0]}</b></span>
+                <span className="ev-score">{score != null ? <>{dots(score)}<strong>{score.toFixed(1)}</strong></> : <small>No score yet</small>}</span>
+              </button>
+              <span className="ev-action">
+                {state === 'answered' && <button type="button" className="rq-link" onClick={() => setExpandedId(open ? null : student.id)}>{open ? 'Hide answers' : 'See answers'}</button>}
+                {state === 'waiting' && <button type="button" className="rq-btn" onClick={() => openAsk(student)}>Ask again</button>}
+                {state === 'expired' && <button type="button" className="rq-btn" onClick={() => openAsk(student)}>Send again</button>}
+                {state === 'none' && <button type="button" className="rq-btn" disabled={!placedIds.has(student.id)} onClick={() => openAsk(student)}>Ask now</button>}
+              </span>
+              {open && item && <div className="ev-detail">
+                <dl className="rqv-facts">
+                  <div><dt>Supervisor</dt><dd>{item.supervisorName} · {item.supervisorEmail}</dd></div>
+                  <div><dt>Email</dt><dd>{({ sent: 'Sent. The email service accepted it.', sending: 'Sending…', authorization_failed: 'Not sent. Reconnect the email account, then ask again.', delivery_unknown: 'Unknown. Check the email service before asking again.', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || '—'}</dd></div>
+                  <div><dt>Link</dt><dd>{item.submitted ? 'Used' : `Works until ${short(item.expiresAt)}`}</dd></div>
+                </dl>
+                {item.submitted && item.formDefinition && <div className="ev-answers">{item.formDefinition.questions.map(q => <div key={q.id}><span>{q.label}</span><strong>{item.answers?.[q.id] !== undefined ? `${item.answers[q.id]}${q.type === 'rating' ? ' / 5' : ''}` : 'Not answered'}</strong></div>)}</div>}
+                {item.submitted && !item.formDefinition && <div className="ev-answers">{Object.entries(item.ratings || {}).map(([k, v]) => <div key={k}><span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())}</span><strong>{v} / 5</strong></div>)}
+                  {item.comments && <div className="ev-comment"><span>Comments</span><p>{item.comments}</p></div>}</div>}
+                <button type="button" className="rq-link ev-delete" onClick={() => setDeleteTarget(item)}>Delete this evaluation</button>
+              </div>}
+              {open && !item && <div className="ev-detail"><p className="f48-muted">No evaluation yet. Use Ask now to send the supervisor a link.</p></div>}
+            </div>;
+          })}
+        </div>
+        {shownRows.length > 10 && <div className="rq-pages ev-pages"><span>{(evPage - 1) * 10 + 1}–{Math.min(evPage * 10, shownRows.length)} of {shownRows.length}</span><Pager page={evPage} pages={evPages} onGo={setCurrentPage} label="Evaluation pages" /></div>}
+      </div>
+
+      <aside className="ev-side">
+        <h3>What supervisors say</h3>
+        <div className="ev-card">
+          {summary.size ? <>
+            <p className="f48-muted">Average of {answeredCount} answer{answeredCount === 1 ? '' : 's'}, out of 5</p>
+            {[...summary.entries()].slice(0, 6).map(([label, values]) => { const avg = values.reduce((a, b) => a + b, 0) / values.length; return <div key={label} className="ev-bar">
+              <div><span>{label}</span><strong>{avg.toFixed(1)}</strong></div>
+              <i><b style={{ width: `${(avg / 5) * 100}%` }} /></i></div>; })}
+          </> : <p className="f48-muted">Scores appear here after supervisors answer.</p>}
+        </div>
+        <div className="ev-how"><strong>How it works</strong><p>The supervisor gets an email with a link. They confirm with a 6-digit code, answer {formDefinition.questions.length} questions, and the score shows up here.</p></div>
+        <button type="button" className="rq-link ev-refresh" disabled={refreshing} onClick={refreshEvaluations}><Icon name="refresh" size={13} /> {refreshing ? 'Refreshing…' : 'Refresh'}</button>
+      </aside>
+
+      {askOpen && <PortalFormDialog className="ev-ask" label="Ask for an evaluation" closeOnBackdrop onCancel={() => { if (!busy) setAskOpen(false); }}>
+        <header className="ev-ask-head"><div><h2>Ask for an evaluation</h2><p>We’ll email the supervisor a private link. It works for 7 days.</p></div>
+          <button type="button" className="rq-icon" aria-label="Close" disabled={busy} onClick={() => setAskOpen(false)}><Icon name="x" size={16} /></button></header>
+        <div className="evaluation-panel ev-ask-body">
         <form onSubmit={createLink} style={styles.form}>
-          <label className="evaluation-section-control">Section
-            <select aria-label="Current section" disabled={busy || !sections.length} value={selectedSection?.id || ''}
-              onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-              {!sections.length && <option value="">No sections assigned to you</option>}
-              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-            </select>
-          </label>
           <div style={styles.formRow}>
             <div style={styles.field}>
               <label htmlFor="evaluation-company" style={styles.label}>Company</label>
@@ -349,101 +460,12 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
           </section>}
         </section>}
 
-      </div>
-
-      {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
-      {/* Evaluations Log Card */}
-      <AlertDialog open={Boolean(deleteTarget)} title="Delete this evaluation?"
-        description={deleteTarget ? `The record for ${deleteTarget.studentName || 'this student'} will be removed and its evaluation link will stop working. This cannot be undone.` : ''}
-        confirmLabel="Delete" busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={deleteEvaluation} />
-      <div className="evaluation-records-card" style={styles.card}>
-          <div className="evaluation-records-header" style={styles.recordsHeader}>
-          <div>
-            <h3 style={styles.title}>Evaluation records</h3>
-            <p style={styles.sub}>{evaluations.length} {evaluations.length === 1 ? 'evaluation' : 'evaluations'}</p>
-          </div>
-          <div className="evaluation-records-actions" style={styles.recordsActions}>
-            <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search evaluations" placeholder="Search evaluations…" />
-            <div className="evaluation-records-utilities" style={styles.recordsUtilityRow}>
-              <PaginationButtonGroup
-                align="right"
-                page={currentPage}
-                pageCount={pageCount}
-                onPageChange={setCurrentPage}
-              />
-              <button
-                type="button"
-                onClick={refreshEvaluations}
-                disabled={refreshing}
-                style={styles.refreshButton}
-              >
-                <Icon name="refresh" size={14} />
-                {refreshing ? 'Refreshing...' : 'Refresh evaluations'}
-              </button>
-            </div>
-          </div>
         </div>
-
-        {evaluations.length === 0 ? (
-          <div style={styles.empty}>
-            <div style={styles.emptyIcon}><Icon name="clipboard" size={28} label="Evaluation records" /></div>
-            <strong className="evaluation-empty-title">No evaluations yet</strong><p className="evaluation-empty-text">Evaluation links you create will show up here with their status.</p>
-          </div>
-        ) : (
-          <div style={styles.recordsGrid}>
-            {visibleEvaluations.map(item => {
-              const submitted = item.submitted || item.used;
-              return (
-                <div className="evaluation-record" key={item.id} style={styles.recordCard}>
-                  <div style={styles.recordTop}>
-                    <div>
-                      <h4 style={styles.recordStudent}>{item.studentName || item.studentId}</h4>
-                      <div style={styles.recordCompany}>
-                        <span><Icon name="building" size={14} /> {item.companyName}</span><br /><span>Supervisor: {item.supervisorName} ({item.supervisorEmail})</span>
-                      </div>
-                    </div>
-                    <span style={{
-                      ...styles.statusBadge,
-                      backgroundColor: submitted ? COLORS.emerald50 : COLORS.yellow100,
-                      color: '#000000',
-                      border: `1px solid ${submitted ? COLORS.emerald200 : COLORS.yellow300}`,
-                    }}>
-                      {submitted ? 'Submitted' : 'Awaiting Response'}
-                    </span>
-                    <button type="button" className="evaluation-delete" aria-label={`Delete evaluation for ${item.studentName || 'student'}`} title="Delete evaluation" onClick={() => setDeleteTarget(item)}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
-                    </button>
-                  </div>
-
-                  <div className="evaluation-delivery"><span>Email delivery</span><p>{({ sent: 'Email service accepted the message. Inbox delivery is unconfirmed.', sending: 'Sending — awaiting confirmation', authorization_failed: 'Email wasn’t sent. Reconnect the email account before retrying.', delivery_unknown: 'Email status unknown. Check the email service before resending.', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || 'Status unavailable'}</p></div>
-
-                  {item.formDefinition && <p className="evaluation-form-title">{item.formDefinition.title}</p>}
-                  {submitted && item.formDefinition && <div className="evaluation-custom-answers">{item.formDefinition.questions.map(question => <div key={question.id}><strong>{question.label}</strong><p>{item.answers?.[question.id] !== undefined ? `${item.answers[question.id]}${question.type === 'rating' ? '/5' : ''}` : 'Not answered (optional)'}</p></div>)}</div>}
-                  {submitted && !item.formDefinition && (
-                    <div style={styles.ratingsSection}>
-                      <div style={styles.ratingsRow}>
-                        <span style={styles.ratingLabel}>Criteria Scores:</span>
-                        <div style={styles.ratingPills}>
-                          {item.ratings && Object.entries(item.ratings).map(([k, v]) => (
-                            <span key={k} style={styles.ratingChip}>
-                              <span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, letter => letter.toUpperCase())}</span> <strong>{v}/5</strong>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      {item.comments && (
-                        <div style={styles.commentsWrap}>
-                          <strong>Supervisor feedback</strong><p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.comments}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      </PortalFormDialog>}
+      {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
+      <AlertDialog open={Boolean(deleteTarget)} title="Delete this evaluation?"
+        description={deleteTarget ? `The record for ${deleteTarget.studentName || 'this student'} will be removed and its link will stop working. This can’t be undone.` : ''}
+        confirmLabel="Delete" busy={deleting} onCancel={() => setDeleteTarget(null)} onConfirm={deleteEvaluation} />
     </div>
   );
 }

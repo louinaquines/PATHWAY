@@ -10,6 +10,7 @@ import Form48Check from '../components/Form48Check';
 import { collection, count, getAggregateFromServer, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, sum, where } from 'firebase/firestore';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
+import Pager from '../components/Pager';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
@@ -216,6 +217,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [showAllDays, setShowAllDays] = useState(false);
   const [pickedDay, setPickedDay] = useState('');
   const [mobileDetail, setMobileDetail] = useState(false);
+  const [rosterJump, setRosterJump] = useState(null);
   useEffect(() => { setEntryIndex(-1); setShowAllDays(false); setPickedDay(''); }, [selectedStudent?.id, recordMonth]);
   // Unread journals for every student in the section (one count per student).
   const [pendingMap, setPendingMap] = useState({ scope: '', map: {} });
@@ -408,6 +410,11 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
 
 
+  useEffect(() => {
+    if (!rosterJump || rosterJump.scope !== rosterScopeKey || !currentRoster?.page) return;
+    if (rosterCursors.length >= rosterJump.page || !currentRoster.page.hasMore) { setRosterJump(null); return; }
+    setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] });
+  }, [rosterJump, currentRoster]); // eslint-disable-line react-hooks/exhaustive-deps
   // Days and hours this month for the students on this page (two cheap aggregate reads each).
   const [monthStats, setMonthStats] = useState({});
   useEffect(() => {
@@ -479,6 +486,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const rows = showAllDays ? attendance : attendance.slice(0, 4);
   const goNextPending = () => { const next = sortedEntries.findIndex((entry, i) => i > activeEntryIndex && entry.status === 'pending'); if (next >= 0) setEntryIndex(next); };
   const pageFirst = (pageNumber - 1) * RECORD_PAGE_SIZE + 1;
+  const goRosterPage = n => {
+    if (n < pageNumber) { setRosterJump(null); setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, n) }); }
+    else if (n > pageNumber) setRosterJump({ scope: rosterScopeKey, page: n });
+  };
   const pageCount = studentCount != null ? Math.max(1, Math.ceil(studentCount / RECORD_PAGE_SIZE)) : pageNumber + Number(hasMoreStudents);
 
   const topControls = <>
@@ -526,13 +537,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             </button>;
           })}
         </div>
-        {visibleStudents.length > 0 && <nav className="rq-pages" aria-label="Student pages">
+        {visibleStudents.length > 0 && <div className="rq-pages">
           <span aria-live="polite">{pageFirst}–{pageFirst + visibleStudents.length - 1}{studentCount != null ? ` of ${studentCount}` : ''}</span>
-          <button type="button" disabled={pageNumber === 1} onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={14} /></button>
-          {[pageNumber - 1, pageNumber, pageNumber + 1].filter(n => n >= 1 && n <= pageCount).map(n => <button key={n} type="button" aria-current={n === pageNumber ? 'page' : undefined} disabled={n === pageNumber}
-            onClick={() => n < pageNumber ? setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) }) : setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}>{n}</button>)}
-          <button type="button" disabled={!hasMoreStudents} onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={14} /></button>
-        </nav>}
+          <Pager page={pageNumber} pages={pageCount} busy={Boolean(rosterJump)} onGo={goRosterPage} label="Student pages" />
+        </div>}
       </div>
 
       <div className="rq-detail lb-detail">

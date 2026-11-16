@@ -23,6 +23,7 @@ import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
 import SubmissionNotifications, { receivedRequirements, submissionTime } from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
 import RequirementsInbox from '../components/RequirementsInbox';
+import Pager from '../components/Pager';
 import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
@@ -363,6 +364,16 @@ export default function CoordinatorDashboard() {
   const reviewCursor = reviewCursors.at(-1);
   const currentReview = reviewResult?.scope === reviewScope && reviewResult.cursor === reviewCursor ? reviewResult : null;
   const visibleReviewStudents = (currentReview?.page?.records || []).slice(0, 10);
+  const [reviewJump, setReviewJump] = useState(null);
+  useEffect(() => {
+    if (!reviewJump || reviewJump.scope !== reviewScope || !currentReview?.page) return;
+    if (reviewCursors.length >= reviewJump.page || !currentReview.page.hasMore) { setReviewJump(null); return; }
+    setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] });
+  }, [reviewJump, currentReview]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goReviewPage = n => {
+    if (n < reviewCursors.length) { setReviewJump(null); setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, n) }); }
+    else if (n > reviewCursors.length) setReviewJump({ scope: reviewScope, page: n });
+  };
   const reviewReady = requirementsActive && selectedSection && loadedSectionId === selectedSection.id + ':requirements';
 
   useEffect(() => {
@@ -645,13 +656,10 @@ export default function CoordinatorDashboard() {
                     const first = (reviewCursors.length - 1) * 10 + 1, last = first + visibleReviewStudents.length - 1;
                     const total = reviewTotal?.scope === reviewScope && reviewTotal.count != null ? reviewTotal.count : null;
                     const pages = reviewTotal?.scope === reviewScope ? Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages) : reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore));
-                    return <nav className="rq-pages" aria-label="Student pages">
+                    return <div className="rq-pages">
                       <span aria-live="polite">{first}–{last}{total != null ? ` of ${total}` : ''}</span>
-                      <button type="button" disabled={reviewCursors.length === 1 || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })} aria-label="Previous page"><Icon name="chevronLeft" size={14} /></button>
-                      {[reviewCursors.length - 1, reviewCursors.length, reviewCursors.length + 1].filter(n => n >= 1 && n <= pages).map(n => <button key={n} type="button" aria-current={n === reviewCursors.length ? 'page' : undefined} disabled={saving || n === reviewCursors.length}
-                        onClick={() => { if (n < reviewCursors.length) setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) }); else setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] }); }}>{n}</button>)}
-                      <button type="button" disabled={!currentReview?.page?.hasMore || saving} onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })} aria-label="Next page"><Icon name="chevronRight" size={14} /></button>
-                    </nav>;
+                      <Pager page={reviewCursors.length} pages={pages} busy={Boolean(reviewJump) || saving} onGo={goReviewPage} label="Student pages" />
+                    </div>;
                   })()}
                 </div>
 

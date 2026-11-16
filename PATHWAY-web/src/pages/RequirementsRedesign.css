@@ -272,3 +272,14 @@
 .rq .rq-students { padding: 3px 10px 3px 3px !important; margin: -3px -12px -3px -3px; scrollbar-gutter: stable; }
 .rq .rq-students::-webkit-scrollbar { width: 6px !important; }
 .rq .rq-students::-webkit-scrollbar-track { margin: 4px 0; }
+/* numbered pager */
+.pager { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: #f1efe9; }
+.coordinator-page .pager button { min-width: 30px; height: 30px !important; min-height: 30px !important; padding: 0 6px !important; display: inline-grid; place-items: center; border: 0 !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; color: #15213a !important; font-family: inherit; font-size: 13px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; cursor: pointer; transition: background-color .12s; }
+.coordinator-page .pager button:hover:not(:disabled):not([aria-current]) { background: #e6e3db !important; }
+.coordinator-page .pager button[aria-current="page"] { background: #15213a !important; color: #fff !important; }
+.coordinator-page .pager button:disabled:not([aria-current]) { opacity: .35; cursor: default; }
+.coordinator-page .pager .pager-arrow { min-width: 28px; color: #465066 !important; }
+.pager-gap { min-width: 20px; text-align: center; font-size: 13px; color: #7b8494; }
+.pager[aria-busy] { opacity: .75; }
+.rq-pages { gap: 8px !important; }
+.rq-pages > span { flex: 1; }

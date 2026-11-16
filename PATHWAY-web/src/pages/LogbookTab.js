@@ -601,7 +601,15 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
             {entriesError && <p role="alert" className="lb-alert">{entriesError} <button type="button" className="rq-link" onClick={() => fetchEntries(selectedStudent)}>Try again</button></p>}
             {!entriesLoading && !entriesError && <>
               <div className="lb-journal-top">
-                {!entries.length && <p className="lb-summary">No journals in {monthLabel(recordMonth)}.</p>}
+                {!entries.length && <div className="lb-empty">
+                  <img src="/guide-thinking.png" alt="" aria-hidden="true" />
+                  <h3>No journals in {monthLabel(recordMonth)}</h3>
+                  <p>{personName(selectedStudent)?.split(',').reverse().join(' ').trim() || 'This student'} hasn’t sent a journal this month yet. New journals will show up here for you to read.</p>
+                  <div>
+                    <button type="button" className="rq-btn" onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={14} /> Check {monthLabel(shiftMonth(recordMonth, -1)).split(' ')[0]}</button>
+                    <button type="button" className="rq-btn" onClick={() => setRecordView('attendance')}>See attendance</button>
+                  </div>
+                </div>}
                 {entries.length > 0 && <div className="lb-mini-pills" role="group" aria-label="Journal status">
                   <button type="button" aria-pressed={!journalStatus} onClick={() => { setJournalStatus(''); setEntryIndex(-1); }}>All</button>
                   <button type="button" aria-pressed={journalStatus === 'pending'} onClick={() => { setJournalStatus('pending'); setEntryIndex(-1); }}>To read{pendingCount ? ` ${pendingCount}` : ''}</button>

@@ -101,3 +101,11 @@
 .coordinator-page .lb-cal-month .rq-icon { width: 30px !important; height: 30px !important; border: 1px solid #e8e5de !important; background: #fff !important; }
 .coordinator-page .lb-cal-month .rq-icon:disabled { opacity: .35; }
 .lb-daynav strong { min-width: 0; text-align: left; }
+/* empty journals */
+.lb-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 40px 24px; text-align: center; }
+.lb-empty img { width: 132px; height: auto; margin-bottom: 6px; animation: lbBob 3.2s ease-in-out infinite; }
+.lb-empty h3 { margin: 0; font-size: 17px; font-weight: 700; color: #15213a; }
+.lb-empty p { margin: 0; max-width: 360px; font-size: 13.5px; line-height: 1.55; color: #7b8494; }
+.lb-empty div { display: flex; gap: 8px; margin-top: 10px; }
+@keyframes lbBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .lb-empty img { animation: none; } }

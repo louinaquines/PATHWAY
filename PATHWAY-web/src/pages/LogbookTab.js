@@ -104,7 +104,7 @@ function journalLabel(result) {
     : { text: 'Weekly · Missing this week', dated: true, tone: 'warn' };
 }
 
-const RECORD_PAGE_SIZE = 8;
+const RECORD_PAGE_SIZE = 10;
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [rosterPage, setRosterPage] = useState(null);

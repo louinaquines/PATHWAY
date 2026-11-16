@@ -268,3 +268,7 @@
 .rq *::-webkit-scrollbar-thumb { background: transparent !important; border-radius: 99px !important; border: 2px solid transparent !important; background-clip: padding-box !important; }
 .rq *:hover::-webkit-scrollbar-thumb { background-color: #d6d1c7 !important; }
 .rq *::-webkit-scrollbar-thumb:hover { background-color: #b9b3a7 !important; }
+/* student list: scrollbar sits in the panel gutter, not on top of the rows */
+.rq .rq-students { padding: 3px 10px 3px 3px !important; margin: -3px -12px -3px -3px; scrollbar-gutter: stable; }
+.rq .rq-students::-webkit-scrollbar { width: 6px !important; }
+.rq .rq-students::-webkit-scrollbar-track { margin: 4px 0; }

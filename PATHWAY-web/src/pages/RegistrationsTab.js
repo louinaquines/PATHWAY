@@ -12,6 +12,7 @@ const tabs = { pending: 'Waiting', approved: 'Approved', rejected: 'Turned away'
 const initials = s => ((s.firstName || '')[0] || '') + ((s.lastName || '')[0] || '') || '?';
 const ago = v => { if (!v) return ''; const t = typeof v === 'number' ? v : v?._seconds ? v._seconds * 1000 : Date.parse(v); if (!t) return ''; const d = Math.floor((Date.now() - t) / 86400000); if (d < 1) { const h = Math.floor((Date.now() - t) / 3600000); return h < 1 ? 'signed up just now' : `signed up ${h} hour${h === 1 ? '' : 's'} ago`; } return d === 1 ? 'signed up yesterday' : `signed up ${d} days ago`; };
 const nameOf = student => personName(student);
+const total0 = d => d?.total || 0;
 
 const usernameOf = student => student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—');
 
@@ -31,6 +32,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
   const [revision, setRevision] = useState(0);
   const [reject, setReject] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [sub, setSub] = useState(0);
   const opener = useRef(null);
   const workspace = useRef(null);
   function closeDetails(updated = false) {
@@ -46,7 +48,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
   const scope = JSON.stringify([sectionId, tab, term, cursor, revision]);
 
   useEffect(() => {
-    const timer = setTimeout(() => { setTerm(search.trim()); setCursors(['']); }, 300);
+    const timer = setTimeout(() => { setTerm(search.trim()); setCursors(['']); setSub(0); }, 300);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -94,6 +96,15 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
 
   const data = result?.scope === scope ? result : null;
   const page = cursors.length;
+  const chunk = data ? data.rows : [];
+  const subPages = Math.max(1, Math.ceil(chunk.length / 10));
+  const curSub = Math.min(sub, subPages - 1);
+  const shown = chunk.slice(curSub * 10, curSub * 10 + 10);
+  const fullChunks = Math.floor(total0(data) / 25), rest = total0(data) % 25;
+  const allPages = Math.max(1, fullChunks * 3 + Math.ceil(rest / 10));
+  const pageNo = (page - 1) * 3 + curSub + 1;
+  const goNext = () => { if (curSub < subPages - 1) setSub(curSub + 1); else if (data?.nextCursor) { setSub(0); setCursors([...cursors, data.nextCursor]); } };
+  const goPrev = () => { if (curSub > 0) setSub(curSub - 1); else if (page > 1) { setSub(2); setCursors(cursors.slice(0, -1)); } };
   const countOf = key => counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : 0;
   const total = data?.total || 0;
   return <div ref={workspace} tabIndex={-1} className="rgx">
@@ -101,7 +112,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
     <div className="rgx-tools">
       <div className="rq-pills rgx-pills" role="group" aria-label="Account status">
         {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
-          onClick={() => { setTab(key); setCursors(['']); }}>{label} <b>{countOf(key)}</b></button>)}
+          onClick={() => { setTab(key); setCursors(['']); setSub(0); }}>{label} <b>{countOf(key)}</b></button>)}
       </div>
       <div className="rgx-right">
         <label className="rgx-check"><input type="checkbox" checked={unassigned} onChange={event => { setUnassigned(event.target.checked); setCursors(['']); }} /> No section yet</label>
@@ -116,7 +127,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
           <span>{term ? 'Try another name or student ID.' : tab === 'pending' ? 'New sign-ups for this section will show up here.' : 'Nothing in this list yet.'}</span>
           {!term && tab === 'pending' && countOf('approved') > 0 && <button type="button" className="rq-btn" onClick={() => { setTab('approved'); setCursors(['']); }}>View approved accounts</button>}</div>
       : <div className="rgx-list">
-        {data.rows.map(student => { const name = nameOf(student) || 'Name unavailable';
+        {shown.map(student => { const name = nameOf(student) || 'Name unavailable';
           return <div key={student.id} className="rgx-row">
             <span className="rgx-av" aria-hidden="true">{initials(student).toUpperCase()}</span>
             <button type="button" className="rgx-who" aria-label={(tab === 'pending' ? 'Review ' : 'Details for ') + (nameOf(student) || student.idNumber || 'student')}
@@ -131,14 +142,14 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>Approve</button>
             </div> : <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : 'red'}>{student.status === 'inactive' ? 'Inactive' : tabs[tab]}</b>}
           </div>; })}
-        <nav className="rgx-foot" aria-label="Student accounts pagination">
-          <span role="status">{total ? ((page - 1) * 25 + 1) + '–' + ((page - 1) * 25 + data.rows.length) + ' of ' + total : '0'}</span>
+        {total > 10 && <nav className="rgx-foot" aria-label="Student accounts pagination">
+          <span role="status">{(pageNo - 1) * 10 + 1}–{(pageNo - 1) * 10 + shown.length} of {total}</span>
           <div className="rgx-pager">
-            <button type="button" className="rq-btn" aria-label="Previous page" disabled={page === 1} onClick={() => setCursors(cursors.slice(0, -1))}>‹</button>
-            <span>Page {page} of {Math.max(1, Math.ceil(total / 25))}</span>
-            <button type="button" className="rq-btn" aria-label="Next page" disabled={!data.nextCursor} onClick={() => setCursors([...cursors, data.nextCursor])}>›</button>
+            <button type="button" className="rq-btn" aria-label="Previous page" disabled={pageNo === 1} onClick={goPrev}>‹</button>
+            <span>Page {pageNo} of {allPages}</span>
+            <button type="button" className="rq-btn" aria-label="Next page" disabled={curSub >= subPages - 1 && !data.nextCursor} onClick={goNext}>›</button>
           </div>
-        </nav>
+        </nav>}
       </div>}
     {selected && <PortalFormDialog className="rgx-dialog" closeOnBackdrop
       label="Student account details" onCancel={() => {

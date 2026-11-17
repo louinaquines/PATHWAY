@@ -85,9 +85,11 @@ export default function JournalsInbox({ section, coordinatorId, pendingCounts = 
       <header className="rqi-head">
         <div><strong>Journals to read</strong><span>{section?.name}{waiting ? ` · ${waiting} waiting` : ''}{total ? ` · ${total} new` : ''}</span></div>
         <span className="rqi-head-actions">
-          {total > 0 && <button type="button" className="rqi-link" onClick={markAllRead}>Mark all as read</button>}
+          <span className="rqi-head-row">
+            {total > 0 && <button type="button" className="rqi-link" onClick={markAllRead}>Mark all as read</button>}
+            <button type="button" className="rqi-link rqi-quiet" onClick={() => setGroups(null)}>Refresh</button>
+          </span>
           {allEntries.length > 0 && !confirmAll && <button type="button" className="rqi-link" onClick={() => setConfirmAll(true)}>Approve all</button>}
-          <button type="button" className="rqi-link rqi-quiet" onClick={() => setGroups(null)}>Refresh</button>
         </span>
       </header>
       {confirmAll && <div className="rqi-confirm" role="alertdialog" aria-label="Approve all journals">

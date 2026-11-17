@@ -40,3 +40,5 @@
 .rqi-progress { position: relative; height: 26px; border-radius: 8px; background: #edeae3; overflow: hidden; }
 .rqi-progress i { position: absolute; inset: 0 auto 0 0; background: #cfe6d8; transition: width .2s; }
 .rqi-progress span { position: relative; display: grid; place-items: center; height: 100%; font-size: 12px; font-weight: 600; color: #1f7a4d; }
+.jni .rqi-head-actions, .rqi-head-actions:has(.rqi-head-row) { flex-direction: column; align-items: flex-end; gap: 6px; }
+.rqi-head-row { display: flex; align-items: center; gap: 14px; }

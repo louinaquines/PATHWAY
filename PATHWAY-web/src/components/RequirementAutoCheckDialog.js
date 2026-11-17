@@ -1,6 +1,7 @@
 // PATHWAY-web/src/components/RequirementAutoCheckDialog.js
 // Coordinator settings for AI auto-check of one section requirement.
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { adminRequest } from '../adminApi';
 import './RequirementAutoCheckDialog.css';
 
@@ -56,7 +57,7 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
   const hasRef = !!file || (form?.referenceName && !removeReference);
   const kb = n => n ? `${Math.max(1, Math.round(n / 1024))} KB` : '';
   const fileIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>;
-  return (
+  return createPortal(
     <div className="autocheck-backdrop acx-backdrop" role="presentation" onClick={onClose}>
       <div className="autocheck-dialog acx" role="dialog" aria-modal="true" aria-labelledby="autocheck-title" onClick={e => e.stopPropagation()}>
         <header className="acx-head"><div><h2 id="autocheck-title">Reference file</h2><p>{requirement.label}</p></div>
@@ -101,5 +102,5 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
         </>}
       </div>
     </div>
-  );
+  , document.body);
 }

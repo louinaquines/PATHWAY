@@ -352,8 +352,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           </>; })()}
       </section>
       {/* Create Section Modal */}
-      {modal && (
-        <div style={t.overlay}>
+      {modal && createPortal(
+        <div style={t.overlay} className="sx-overlay">
           <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Create New Section</h2>
             <div style={t.field}>
@@ -402,11 +402,11 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Add Requirement Modal */}
-      {reqModal === 'add' && (
-        <div style={t.overlay} onClick={() => setReqModal(null)}>
+      {reqModal === 'add' && createPortal(
+        <div style={t.overlay} className="sx-overlay" onClick={() => setReqModal(null)}>
           <div className="arq" role="dialog" aria-modal="true" aria-label="Add a requirement" onClick={e => e.stopPropagation()}>
             <div className="arq-head"><div><h2>Add a requirement</h2><p>{selected?.name}</p></div>
               <button type="button" className="plt-x" aria-label="Close" onClick={() => setReqModal(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
@@ -428,7 +428,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <AlertDialog
         open={Boolean(deleteConfirm)}

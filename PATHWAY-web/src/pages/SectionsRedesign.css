@@ -152,3 +152,4 @@
 .coordinator-page .arq :is(input, select):is(:focus, :focus-visible) { outline: 0 !important; outline-offset: 0 !important; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
 .arq-field > span:first-child { display: block; }
 .arq-pair { align-items: end; }
+.sx-overlay { z-index: 1500 !important; display: flex; align-items: center; justify-content: center; background: rgba(21,33,58,.42) !important; backdrop-filter: blur(2px); }

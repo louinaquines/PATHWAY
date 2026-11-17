@@ -569,12 +569,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </button>}
     </article>)}
     </details>
-    <section hidden={reviewStage !== 'history'}>
-    <h3 style={{ marginTop: 30 }}>Approved placement history</h3>
+    <section className="pld-history" hidden={reviewStage !== 'history'}>
+    <h3>Placement history</h3>
     {!currentHistory && <p role="status">Loading placement history…</p>}
     {currentHistory?.error && <p role="alert">{currentHistory.error}</p>}
-    <p style={{ color: '#64748B', marginTop: -8 }}>Coordinator-approved assignment snapshots on this history page.</p>
-    {currentHistory?.items && historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placement history matches this view.</div>}
+    <p className="pld-history-sub">Every company you approved for this student.</p>
+    {currentHistory?.items && historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })).length === 0 && <div className="review-empty">No approved placements yet. Once you approve a company, it shows up here.</div>}
     <RecordPagination pagination={historyPage} label="Placement history" />
     {historyPage.items.map(item => {
       const beforeName = item.before?.companyName || 'No previous approved placement';

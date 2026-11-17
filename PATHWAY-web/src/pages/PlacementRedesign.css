@@ -232,3 +232,14 @@ dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { 
 .pl-detail .review-card > div:first-child > strong { flex: none; padding: 3px 10px; border-radius: 99px; background: #fbf1d9; color: #9a6200; font-size: 11.5px; font-weight: 600; }
 .pl-detail .review-card > div:first-child > div > div { font-size: 12.5px !important; color: #7b8494 !important; margin-top: 3px !important; }
 .pl-detail .pld-bar { bottom: 0; margin: 4px -16px -16px !important; border-radius: 0 0 12px 12px; }
+.pl-detail .pld-head { justify-content: stretch !important; justify-items: stretch !important; }
+.pl-detail .plt-link:focus { outline: 0; }
+.pl-detail .plt-link:focus-visible { outline: 2px solid #0b5fd3; outline-offset: 3px; border-radius: 4px; }
+.pld-history { display: grid; gap: 10px; }
+.pld-history[hidden] { display: none !important; }
+.pld-history h3 { margin: 0 !important; font-size: 15px !important; font-weight: 700; color: #15213a; }
+.pld-history-sub { margin: -4px 0 4px !important; font-size: 12.5px; color: #7b8494; }
+.pld-history .review-empty { padding: 28px 16px; border: 1px dashed #d6d1c7; border-radius: 12px; background: transparent; text-align: center; color: #7b8494; font-size: 13px; }
+.pld-history article { margin: 0 !important; padding: 14px 16px !important; border: 1px solid #e8e5de !important; border-radius: 12px !important; background: #fff !important; font-size: 13px; color: #465066; }
+.pld-history article strong { color: #15213a; }
+.pld-history [role="status"] { font-size: 13px; color: #7b8494; }

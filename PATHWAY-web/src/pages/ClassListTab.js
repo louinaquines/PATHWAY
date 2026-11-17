@@ -198,7 +198,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           <div className="cls-card">
             <h2 className="cls-h">Import class list</h2>
             <label className="cls-drop" data-drag={drag || undefined} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); readFile(e.dataTransfer.files?.[0]); }}>
-              <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={e => readFile(e.target.files?.[0])} />
+              <input type="file" title="" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={e => readFile(e.target.files?.[0])} />
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
               <span>{input ? <><b>{csvRows.length} students in this file</b> · {csvNew} new, {csvRows.length - csvNew} already on the list</> : <>Drop your CSV here, or <u>choose a file</u></>}</span>
               <small>Columns: StudentID, FirstName, LastName</small>

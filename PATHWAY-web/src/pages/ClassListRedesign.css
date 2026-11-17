@@ -67,3 +67,11 @@ dialog.authorized-roster-drawer:has(.cls) > .roster-drawer-header { display: non
 .cls-results li[data-status="created"] span { color: #1f7a4d; font-weight: 600; } .cls-results li[data-status="failed"] span { color: #b3261e; font-weight: 600; }
 .cls-results small { color: #7b8494; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) { .cls-fields { grid-template-columns: 1fr; } .cls-row { grid-template-columns: minmax(0, 1fr) 40px; } .cls-row > :is(.cls-id, .cls-user, .cls-date) { display: none; } }
+/* fixes */
+dialog.authorized-roster-drawer:has(.cls) > .cls, .cls { width: 100% !important; max-width: none !important; box-sizing: border-box; align-self: stretch; }
+.cls-head { width: 100%; box-sizing: border-box; }
+.cls-card .cls-h, .cls-card h3 { font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0 !important; line-height: 1.3 !important; margin: 0 !important; color: #15213a !important; }
+.cls-drop input[type="file"] { font-size: 0; color: transparent; }
+.cls-card > :is(p, div):not([class]) { margin: 0; font-size: 13px; color: #7b8494; }
+.coordinator-page .cls :is(input, select):is(:focus, :focus-visible) { outline: 0 !important; }
+.cls-fields input:focus { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }

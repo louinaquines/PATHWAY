@@ -133,7 +133,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     || (progressFilter === 'unavailable' && student.attendanceRate == null)
   ));
 
-  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + progressFilter);
+  const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + progressFilter, 10);
   if (loading) {
     return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
   }

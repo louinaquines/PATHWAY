@@ -50,3 +50,32 @@
 .an-top { align-items: stretch !important; }
 .an-top > .an-card { height: 100%; box-sizing: border-box; }
 .an-where { align-content: space-between; }
+/* All students table */
+.an-records .analytics-table-scroll { max-height: none !important; overflow: visible !important; overflow-x: auto !important; border: 0 !important; }
+.an-records table thead th { background: transparent !important; position: static !important; }
+.an-records tbody tr, .an-records tbody tr[data-risk] { background: transparent !important; box-shadow: none !important; border-left: 0 !important; outline: 0 !important; }
+.an-records tbody tr[data-risk] td:first-child { box-shadow: none !important; border-left: 0 !important; }
+.an-records tbody tr:hover td { background: #faf9f6 !important; }
+.an-records td { vertical-align: middle !important; padding: 14px 12px !important; }
+.an-records td strong, .an-records td b { font-weight: 600 !important; }
+.an-records td span[style] { font-family: inherit !important; }
+.an-records td:first-child span { font-size: 12.5px !important; font-weight: 400 !important; color: #7b8494 !important; background: none !important; padding: 0 !important; }
+.an-records td div[style] { font-size: 13px !important; font-weight: 600 !important; color: #15213a !important; }
+.an-records td div[style] > div[style] { height: 6px !important; border-radius: 99px !important; background: #efece5 !important; min-width: 90px; }
+.an-records td div[style] > div[style] > div { background: #0b5fd3 !important; border-radius: 99px !important; }
+.an-records td div[style] > span { font-size: 12.5px !important; font-weight: 600 !important; color: #465066 !important; }
+.an-records details summary { list-style: none; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
+.an-records details summary::-webkit-details-marker { display: none; }
+.an-records .analytics-att-rate { font-weight: 600; font-size: 13px; color: #15213a; }
+.an-records .analytics-att-more { padding: 0 !important; border: 0 !important; background: none !important; color: #0b5fd3 !important; font-size: 12.5px !important; font-weight: 600 !important; }
+.an-records .analytics-att-panel { margin-top: 10px; padding: 12px; border: 1px solid #efece5; border-radius: 10px; background: #faf9f6; display: grid; gap: 4px; font-size: 12.5px; color: #465066; max-width: 380px; }
+.an-records .analytics-att-panel button { justify-self: start; height: 30px; padding: 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #15213a; cursor: pointer; }
+.an-records .analytics-status-cell { white-space: nowrap; }
+.an-records .risk-badge { padding: 3px 10px !important; font-size: 12px !important; font-weight: 600 !important; border: 0 !important; }
+.an-records .risk-badge[data-tone="high"] { background: #fbe9e7 !important; color: #b3261e !important; }
+.an-records .risk-badge[data-tone="medium"] { background: #fbf1d9 !important; color: #9a6200 !important; }
+.an-records .risk-badge[data-tone="low"], .an-records .risk-badge[data-tone="done"] { background: #e6f4ec !important; color: #1f7a4d !important; }
+.an-records .risk-badge[data-tone="none"] { background: #f1efe9 !important; color: #7b8494 !important; }
+.an-records .risk-badge i { width: 6px !important; height: 6px !important; }
+.an-records .analytics-status-sub { display: block; margin-top: 3px; font-size: 11.5px !important; color: #9aa1ad !important; }
+.an-records > :last-child { border-top: 1px solid #efece5; padding-top: 12px; margin-top: 4px; }

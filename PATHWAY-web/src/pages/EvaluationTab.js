@@ -461,10 +461,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
             <div><span>To</span><strong>{invitation.supervisorName}<em>{invitation.email}</em></strong></div>
             <div><span>About</span><strong>{invitation.studentName}{emailSent && <b className="lb-chip" data-tone="green">Sent</b>}</strong></div>
             <div><span>Subject</span><strong>PATHWAY supervisor evaluation request</strong></div>
-            <div><span>Link</span><strong className="ev-linkrow">Works for 7 days
-              <button type="button" className="rq-link" onClick={copyToClipboard}>{copied ? 'Link copied' : 'Copy link'}</button>
-              <button type="button" className="rq-link" aria-expanded={linkVisible} onClick={() => setLinkVisible(!linkVisible)}>{linkVisible ? 'Hide link' : 'Show link'}</button></strong></div>
-            {linkVisible && <input className="ev-linkfield" aria-label="Evaluation link" readOnly value={link} onFocus={event => event.target.select()} />}
+            <div><span>Link</span><strong>Works for 7 days</strong></div>
           </section>}
           <label className="ev-note" htmlFor="evaluation-email-message">Add a note (optional)
             <textarea id="evaluation-email-message" maxLength={2000} rows={3} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} placeholder="e.g. Thank you for guiding Jose this semester." /></label>

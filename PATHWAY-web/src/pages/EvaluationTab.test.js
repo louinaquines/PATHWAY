@@ -38,16 +38,7 @@ test('select all only prepares invitations for students assigned to the chosen c
   expect(requests.map(([, options]) => JSON.parse(options.body).studentId)).toEqual(['amy', 'ben']);
   expect(fetch.mock.calls.some(([url]) => url.endsWith('/email'))).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: 'Amy Ready to send' }));
-  expect(screen.queryByRole('textbox', { name: 'Evaluation link' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Show link' }));
-  expect(screen.getByRole('textbox', { name: 'Evaluation link' }).value).toContain('amy-token');
   fireEvent.click(screen.getByRole('button', { name: 'Ben Ready to send' }));
-  expect(screen.queryByRole('textbox', { name: 'Evaluation link' })).toBeNull();
-  const copy = jest.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } });
-  fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-  await screen.findByRole('button', { name: 'Link copied' });
-  expect(copy.mock.calls[0][0]).toContain('ben-token');
   fireEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
   await screen.findByRole('button', { name: 'Ben Sent' });
   expect(fetch.mock.calls.filter(([url]) => url.endsWith('/email')).map(([url]) => url.split('/').slice(-2).join('/'))).toEqual(['ben/email']);

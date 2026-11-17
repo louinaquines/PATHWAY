@@ -276,7 +276,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
       </div>
       {(() => { const st = panelId && (data?.students || []).find(x => x.id === panelId); if (!st) return null;
-        return <AttendancePanel st={st} today={data.today} sectionId={selectedSection?.id} editing={editing === st.id}
+        return <AttendancePanel st={st} today={data.today} deadline={schedule?.deadline} sectionId={selectedSection?.id} editing={editing === st.id}
           onEdit={() => setEditing(editing === st.id ? null : st.id)} onClose={() => { setPanelId(null); setEditing(null); }}
           isCurrent={isCurrent} onDenied={onDenied} />; })()}
     </div>
@@ -575,12 +575,31 @@ function HoursChart({ bars, average, height, wide = false }) {
 }
 
 const shortDate = d => { if (!d) return null; const t = new Date(String(d).length === 10 ? d + 'T00:00:00' : d); return isNaN(t) ? String(d) : t.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }); };
-function AttendancePanel({ st, today, sectionId, editing, onEdit, onClose, isCurrent, onDenied }) {
+function AttendancePanel({ st, today, deadline, sectionId, editing, onEdit, onClose, isCurrent, onDenied }) {
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const label = st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable');
   const tone = { High: 'red', Medium: 'amber', Low: 'green', Completed: 'green' }[label] || 'mute';
   const text = { High: 'High risk', Medium: 'At risk', Low: 'On track' }[label] || label;
-  const reasons = (st.reasonCodes || []).map(r => attendanceReasonLabels[r.code] || r.code);
+  const days = st.observationCounts?.attendanceEligibleDays;
+  const left = st.hoursRequired != null && st.hoursRendered != null ? Math.max(0, st.hoursRequired - st.hoursRendered) : null;
+  const describe = r => {
+    switch (r.code) {
+      case 'ATTENDANCE_BELOW_80': case 'ATTENDANCE_BELOW_90': {
+        const goal = r.code === 'ATTENDANCE_BELOW_80' ? 80 : 90;
+        return st.attendanceRate != null ? `Attendance is ${st.attendanceRate}%${days ? ` over ${days} work days` : ''} — below the ${goal}% goal` : `Attendance is below the ${goal}% goal`;
+      }
+      case 'CONSECUTIVE_ABSENCES': return r.count ? `Absent ${r.count} work days in a row without an excuse` : 'Absent several work days in a row';
+      case 'CREDIT_PROJECTION': return st.projectedCompletion ? `At the current pace (${st.hoursRendered ?? 0} h so far${left != null ? `, ${left} h left` : ''}), expected to finish ${shortDate(st.projectedCompletion)}` : `Finish date is estimated from ${st.hoursRendered ?? 0} counted hours`;
+      case 'PROJECTED_SHORTFALL': return `Expected to finish ${st.projectedCompletion ? shortDate(st.projectedCompletion) : 'late'}${deadline ? `, after the ${shortDate(deadline)} deadline` : ', after the deadline'}`;
+      case 'ZERO_VELOCITY': return `No new hours counted recently (still ${st.hoursRendered ?? 0} h)`;
+      case 'OVERDUE': return `Deadline${deadline ? ` (${shortDate(deadline)})` : ''} has passed with ${left ?? '?'} h still to go`;
+      case 'UNCERTAIN_ATTENDANCE': return `${r.attendanceDays || 'Some'} day${r.attendanceDays === 1 ? '' : 's'} with missing or duplicate clock-ins need checking`;
+      case 'INSUFFICIENT_ATTENDANCE': return `Only ${days ?? 0} work day${days === 1 ? '' : 's'} recorded — needs at least 5 to judge attendance`;
+      case 'INSUFFICIENT_CREDIT_HISTORY': return 'Not enough counted hours yet to estimate a finish date';
+      default: return attendanceReasonLabels[r.code] || r.code;
+    }
+  };
+  const reasons = (st.reasonCodes || []).map(describe);
   const initials = String(st.name || '?').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
   const tiles = [
     ['Attendance', st.attendanceRate == null ? '—' : `${st.attendanceRate}%`],

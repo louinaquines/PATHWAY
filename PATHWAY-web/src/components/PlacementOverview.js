@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import Icon from './Icons';
+import Pager from './Pager';
 
 const nameOf = s => [s.lastName, s.firstName].filter(Boolean).join(', ') || s.queue?.name || 'Student';
 const initials = n => String(n || '?').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
@@ -15,7 +16,7 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
   const [companyId, setCompanyId] = useState('');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  const [showAll, setShowAll] = useState(false);
+  const [wPage, setWPage] = useState(1);
   const base = '/coordinator/placement-workspace?sectionId=' + encodeURIComponent(section.id);
   const read = useCallback(async () => {
     const [r, w, c] = await Promise.all([
@@ -52,7 +53,8 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
     setPicked([]); await read(); onAssigned?.();
   };
   const toggle = id => setPicked(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const shownWaiting = showAll ? waiting : waiting.slice(0, 6);
+  const wPages = Math.max(1, Math.ceil(waiting.length / 5)); const wCur = Math.min(wPage, wPages);
+  const shownWaiting = waiting.slice((wCur - 1) * 5, wCur * 5);
   const placed = Number(summary?.assigned || 0); const total = placed + Number(summary?.waiting || 0) + Number(summary?.needsReview || 0);
 
   return <div className="plo">
@@ -91,7 +93,7 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
               <span className="plo-body"><strong>{n}</strong><small>{s.idNumber || 'No ID'}{s.status ? ` · ${s.status.replace(/_/g, ' ')}` : ''}</small></span>
               <button type="button" className="rq-link" onClick={e => { e.stopPropagation(); setPicked([s.id]); document.querySelector('.plo-place select')?.focus(); }}>Choose company</button>
             </div>; })}
-          {waiting.length > 6 && <button type="button" className="rq-link plo-more" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show fewer' : `Show ${waiting.length - 6} more students`}</button>}
+          {waiting.length > 5 && <div className="plo-pager"><span>{(wCur - 1) * 5 + 1}–{Math.min(wCur * 5, waiting.length)} of {waiting.length}</span><Pager page={wCur} pages={wPages} onGo={setWPage} label="Students without a company" /></div>}
         </div>}
       </section>
     </div>

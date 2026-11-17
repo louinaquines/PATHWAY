@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import { PortalFormDialog } from './PortalStates';
 import CoordinatorSearch from './CoordinatorSearch';
+import Pager from './Pager';
 
 const STEPS = [
   ['approved', 'Approved', false],
@@ -35,6 +36,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
   const [rows, setRows] = useState(null);
   const [step, setStep] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const base = '/coordinator/placement-workspace?sectionId=' + encodeURIComponent(section.id);
   const read = useCallback(async () => {
     const all = [];
@@ -56,6 +58,8 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
   const active = step || (STEPS.find(([k, , n]) => n && count(k)) || STEPS.find(([k]) => count(k)) || STEPS[0])[0];
   const shown = list.filter(r => r.where.step === active).sort((a, b) => (Date.parse(a.where.task?.record?.updatedAt || a.where.task?.record?.createdAt) || 0) - (Date.parse(b.where.task?.record?.updatedAt || b.where.task?.record?.createdAt) || 0));
   const max = Math.max(1, ...STEPS.map(([k]) => count(k)));
+  const pages = Math.max(1, Math.ceil(shown.length / 5)); const cur = Math.min(page, pages);
+  const pageRows = shown.slice((cur - 1) * 5, cur * 5);
 
   return <section className="plt">
     <div className="plt-head">
@@ -67,7 +71,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
     {rows && needsYou === 0 && <p className="plt-clear">✓ Nothing waiting on you. {count('emailed')} student{count('emailed') === 1 ? ' is' : 's are'} fully placed.</p>}
     <div className="plt-steps" role="tablist" aria-label="Placement steps">
       {STEPS.map(([key, label, needs], i) => { const n = count(key);
-        return <button key={key} type="button" role="tab" className="plt-step" aria-selected={active === key} data-zero={!n || undefined} data-needs={(needs && n > 0) || undefined} onClick={() => setStep(key)}>
+        return <button key={key} type="button" role="tab" className="plt-step" aria-selected={active === key} data-zero={!n || undefined} data-needs={(needs && n > 0) || undefined} onClick={() => { setStep(key); setPage(1); }}>
           <span className="plt-num">{rows ? n : '–'}</span>
           <span className="plt-label">{label}</span>
           <span className="plt-sub">{needs && n > 0 ? 'needs you' : i === STEPS.length - 1 ? 'done' : ' '}</span>
@@ -77,7 +81,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
     <div className="plt-list">
       {!rows && <p className="plt-empty">Loading…</p>}
       {rows && !shown.length && <p className="plt-empty">No students at this step.</p>}
-      {shown.map(r => { const rec = r.where.task?.record || {}; const since = Date.parse(rec.updatedAt || rec.createdAt); const days = since ? Math.floor((Date.now() - since) / DAY) : null; const stuck = STEPS.find(([k]) => k === active)[2] && days > 5;
+      {pageRows.map(r => { const rec = r.where.task?.record || {}; const since = Date.parse(rec.updatedAt || rec.createdAt); const days = since ? Math.floor((Date.now() - since) / DAY) : null; const stuck = STEPS.find(([k]) => k === active)[2] && days > 5;
         return <div key={r.id} className="plt-row">
           <i className="plo-av">{initials(r.name)}</i>
           <span className="plo-body"><strong>{r.name}</strong><small>{[r.company && r.company !== '—' ? r.company : rec.companyName, r.idNumber].filter(Boolean).join(' · ')}</small></span>
@@ -85,6 +89,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
             : days != null && active !== 'emailed' && <span className="plt-wait" data-stuck={stuck || undefined}>{days <= 0 ? 'today' : `waiting ${days} day${days === 1 ? '' : 's'}`}</span>}
           <button type="button" className={STEPS.find(([k]) => k === active)[2] ? 'rq-btn' : 'plt-link'} onClick={() => onOpen(r)}>{r.where.label}<span className="sr-only"> for {r.name}</span></button>
         </div>; })}
+      {shown.length > 5 && <div className="plo-pager"><span>{(cur - 1) * 5 + 1}–{Math.min(cur * 5, shown.length)} of {shown.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Students at this step" /></div>}
     </div>
     {historyOpen && <HistoryPanel section={section} onClose={() => setHistoryOpen(false)} />}
   </section>;

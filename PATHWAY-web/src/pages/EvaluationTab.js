@@ -392,7 +392,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               </select>
               {!companies.length && <p className="evaluation-field-note">Companies will appear here once students in this section are placed.</p>}
             </div>
-            <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
+            <div ref={studentPicker} style={styles.field} className="evaluation-student-picker" onBlur={event => { const next = event.relatedTarget; if (next && !event.currentTarget.contains(next) && !next.contains(event.currentTarget)) setSelectionOpen(false); }} onKeyDown={event => { if (event.key === 'Escape' && selectionOpen) { event.preventDefault(); event.stopPropagation(); setSelectionOpen(false); studentPicker.current?.querySelector('button')?.focus(); } }}>
               <label style={styles.label} id="evaluation-students-label">Students</label>
               <button type="button" className="evaluation-students-trigger" aria-labelledby="evaluation-students-label"
                 aria-expanded={selectionOpen} aria-controls="evaluation-student-options" disabled={!companyKey || busy || preparedInvitations.length > 0}

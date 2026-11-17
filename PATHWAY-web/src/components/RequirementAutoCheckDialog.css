@@ -86,3 +86,11 @@
 .acx-foot > span { flex: 1; min-width: 0; font-size: 12.5px; color: #7b8494; } .acx-foot b { color: #15213a; }
 .acx-foot .autocheck-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
 .acx-foot .autocheck-primary:disabled { opacity: .5; cursor: default; }
+.acx .acx-switch { min-height: 0 !important; margin: 0 !important; padding: 12px 0 !important; }
+.acx .acx-switch strong, .acx .acx-switch small { margin: 0 !important; line-height: 1.35; }
+.acx-body { gap: 12px !important; align-content: start; }
+.acx-body > * { margin: 0; }
+.acx-adv { padding-top: 12px !important; }
+.acx-drop { padding: 18px 16px !important; }
+.coordinator-page .acx :is(input, textarea):is(:focus, :focus-visible) { outline: 0 !important; }
+.coordinator-page .acx .acx-switch input:focus-visible { outline: 2px solid #0b5fd3 !important; outline-offset: 2px !important; }

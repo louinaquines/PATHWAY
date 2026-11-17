@@ -5,6 +5,9 @@ import Icon from "../components/Icons";
 import AttendanceAccess from "../components/AttendanceAccess";
 import AnnouncementEmailDelivery from "../components/AnnouncementEmailDelivery";
 import "./NotificationsTab.css";
+import "./AnnouncementsRedesign.css";
+import { createPortal } from "react-dom";
+import SectionPicker from "../components/SectionPicker";
 const timestamp = (value) =>
   value
     ? new Date(value).toLocaleString("en-PH", {
@@ -20,6 +23,8 @@ export default function NotificationsTab({
   section,
   sections = [],
   onOpenAttendanceRisk,
+  onStudents,
+  onSectionChange,
 }) {
   return (
     <AttendanceAccess key={userId} actorId={userId}>
@@ -29,6 +34,8 @@ export default function NotificationsTab({
           section={section}
           sections={sections}
           onOpenAttendanceRisk={onOpenAttendanceRisk}
+          onStudents={onStudents}
+          onSectionChange={onSectionChange}
           access={access}
         />
       )}
@@ -40,9 +47,13 @@ export function NotificationWorkspace({
   section,
   sections = [],
   onOpenAttendanceRisk,
+  onStudents,
+  onSectionChange,
   access,
 }) {
   const storage = `pathway-inbox:${userId}`;
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById("ann-top-actions")); }, []);
   const saved = useRef(null);
   if (saved.current === null) {
     try {
@@ -96,6 +107,9 @@ export function NotificationWorkspace({
       );
     } catch {}
   };
+  useEffect(() => {
+    try { if (sessionStorage.getItem("pathway-open-announcement") === "1") { sessionStorage.removeItem("pathway-open-announcement"); setDraft({ sectionId: section?.id || "", title: "", message: "" }); } } catch {}
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const close = () => {
     if (saving) return;
     detailVersion.current++;
@@ -247,8 +261,27 @@ export function NotificationWorkspace({
     }
   }
   return (
-    <div className="notifications-workspace">
-      <div className="inbox-heading">
+    <div className="ann notifications-workspace">
+      {(acts => topHost ? createPortal(acts, topHost) : <div className="ann-inline-actions">{acts}</div>)(<>
+        {onStudents && <div className="msg-switch" role="group" aria-label="Message type">
+          <button type="button" aria-pressed="false" onClick={onStudents}>Students</button>
+          <button type="button" aria-pressed="true">Announcements</button>
+        </div>}
+        <button
+          type="button"
+          className="rq-btn rq-primary inbox-primary"
+          onClick={(event) => {
+            opener.current = event.currentTarget;
+            setFormError("");
+            setDraft({ sectionId: section?.id || "", title: "", message: "" });
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8a5 5 0 0 1 0 8" /></svg>
+          {topHost ? "New announcement" : "Post announcement"}
+        </button>
+        {sections.length > 0 && onSectionChange && <SectionPicker sections={sections} selected={section} onChange={(sec) => onSectionChange(sec)} />}
+      </>)}
+      <div className="inbox-heading ann-tabs">
         <div role="tablist" aria-label="Inbox">
           <button
             role="tab"
@@ -265,16 +298,6 @@ export function NotificationWorkspace({
             Attendance alerts
           </button>
         </div>
-        <button
-          className="inbox-primary"
-          onClick={(event) => {
-            opener.current = event.currentTarget;
-            setFormError("");
-            setDraft({ sectionId: section?.id || "", title: "", message: "" });
-          }}
-        >
-          Post announcement
-        </button>
       </div>
       <section
         className="inbox-panel"

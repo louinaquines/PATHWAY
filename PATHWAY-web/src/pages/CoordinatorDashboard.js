@@ -559,7 +559,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements', 'companies', 'registrations', 'analytics'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements', 'companies', 'registrations', 'analytics', 'notifications'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -579,6 +579,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'registrations' && <div className="rq-top-actions" id="rg-top-actions" />}
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions" />}
           {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions" />}
+          {activeTab === 'notifications' && <div className="rq-top-actions" id="ann-top-actions" />}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button
@@ -806,11 +807,11 @@ export default function CoordinatorDashboard() {
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} onAnnouncements={() => setActiveTab('notifications')} onNewAnnouncement={() => setActiveTab('notifications')} />}
+            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} onAnnouncements={() => setActiveTab('notifications')} onNewAnnouncement={() => { try { sessionStorage.setItem('pathway-open-announcement', '1'); } catch {} setActiveTab('notifications'); }} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} highlightStudentId={attendanceTarget && attendanceTarget.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
-            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} section={selectedSection} sections={sections} onOpenAttendanceRisk={openAttendanceRisk} />}
+            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} section={selectedSection} sections={sections} onOpenAttendanceRisk={openAttendanceRisk} onStudents={() => setActiveTab('messages')} onSectionChange={fetchStudents} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
           </div>

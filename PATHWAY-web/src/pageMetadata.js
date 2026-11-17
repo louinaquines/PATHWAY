@@ -10,7 +10,7 @@ export const COORDINATOR_PAGE_TITLES = {
   registrations: 'Student Accounts',
   analytics: 'Internship Progress',
   messages: 'Messages',
-  notifications: 'Announcements & Alerts',
+  notifications: 'Announcements',
   classlist: 'Class List & Accounts',
   profile: 'Coordinator Profile',
 };

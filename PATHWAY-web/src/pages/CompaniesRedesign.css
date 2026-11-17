@@ -76,3 +76,8 @@
 .evn-item[data-kind="missing"] .evn-av { background: #fbe9e7; color: #b3261e; }
 @media (max-width: 760px) { .co-right { flex: 1 1 100%; } }
 .co-right .co-search { height: 38px; }
+/* beat the portal-wide focus outline for search inputs that sit inside a styled box */
+.coordinator-page .co .co-search input:is(:focus, :focus-visible),
+.coordinator-page :is(.ev-toolbar, .cl-toolbar, .pl-work-head, .lb, .rq) .coordinator-search input:is(:focus, :focus-visible),
+dialog :is(.plt-h-search, .apl-card) .coordinator-search input:is(:focus, :focus-visible) { outline: 0 !important; outline-offset: 0 !important; box-shadow: none !important; }
+.coordinator-page :is(.ev-toolbar, .cl-toolbar) .coordinator-search:focus-within { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }

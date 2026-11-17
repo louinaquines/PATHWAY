@@ -272,3 +272,8 @@ dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { 
 .pld-rcpts { display: flex; gap: 6px; flex-wrap: wrap; }
 .pl-detail .placement-stage-section .review-empty { padding: 24px 16px; border: 1px dashed #d6d1c7; border-radius: 12px; text-align: center; color: #7b8494; font-size: 13px; background: transparent; }
 .pl-detail .review-actions .pld-quiet { border-color: transparent !important; color: #465066 !important; padding: 0 6px !important; }
+.pld-nowrow { display: flex; align-items: stretch; gap: 8px; }
+.pld-nowrow .pld-now { flex: 1; }
+.pld-histbtn { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #465066; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.pld-histbtn:hover { background: #f7f5f0; color: #15213a; }
+.pld-histbtn[aria-pressed="true"] { background: #eaf1fd; border-color: #c9d9f3; color: #0b5fd3; }

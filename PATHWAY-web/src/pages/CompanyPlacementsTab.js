@@ -476,10 +476,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
           <div className="pld-who"><i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
             <div><h2>{nm}</h2><p>{studentIdsByUid.get(selectedQueue.id) || openedStudent?.idNumber} · {selectedSection?.name}</p></div>
             <span className="pl-grow" />
-            <button type="button" className="plt-link" aria-pressed={reviewStage === 'history'} onClick={() => setReviewStage(reviewStage === 'history' ? 'all' : 'history')}>{reviewStage === 'history' ? 'Back to tasks' : 'History'}</button>
             <button type="button" className="plt-x" aria-label="Close" onClick={() => setSelectedQueueStudent(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
           <ol className="pld-steps" aria-label={'Current step: ' + selectedQueue.current.step}>{steps.map(([k, l], i) => <li key={k} data-state={i < idx ? 'done' : i === idx ? 'now' : 'next'}><i aria-hidden="true" />{l}</li>)}</ol>
-          <p className="pld-now">{selectedQueue.current.step}</p>
+          <div className="pld-nowrow"><p className="pld-now">{selectedQueue.current.step}</p>
+            <button type="button" className="pld-histbtn" aria-pressed={reviewStage === 'history'} onClick={() => setReviewStage(reviewStage === 'history' ? 'all' : 'history')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></svg>
+              {reviewStage === 'history' ? 'Back to tasks' : 'History'}</button></div>
         </header>; })()}
       <div className="placement-detail-body">
 

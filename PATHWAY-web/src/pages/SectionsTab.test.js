@@ -46,6 +46,7 @@ test('a legacy placeholder is hidden and the coordinator can replace it with a M
   const messengerLink = 'https://m.me/j/example-invite/';
   adminRequest.mockResolvedValueOnce({ messengerLink });
   render(<SectionsTab coordinatorId="coord-a" selectedSection={{ ...section, messengerLink: 'N/a' }} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Rules and deadlines' }));
   const input = await screen.findByLabelText('Group chat link');
   expect(screen.queryByRole('link', { name: 'Open Group Chat' })).toBeNull();
   fireEvent.change(input, { target: { value: messengerLink } });

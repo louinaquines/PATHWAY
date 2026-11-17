@@ -575,6 +575,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'clearance' && <div className="rq-top-actions" id="cl-top-actions" />}
           {activeTab === 'placements' && <div className="rq-top-actions" id="pl-top-actions" />}
           {activeTab === 'companies' && <div className="rq-top-actions" id="co-top-actions" />}
+          {activeTab === 'sections' && <div className="rq-top-actions" id="sx-top-actions" />}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button

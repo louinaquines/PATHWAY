@@ -16,6 +16,11 @@ import { PortalEmpty } from '../components/PortalStates';
 import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
 import '../components/RequirementAutoCheckDialog.css';
 import './SectionsTab.css';
+import './RequirementsRedesign.css';
+import './LogbookRedesign.css';
+import './SectionsRedesign.css';
+import Pager from '../components/Pager';
+import { createPortal } from 'react-dom';
 
 function groupChatHref(value) {
   if (typeof value !== 'string' || !/^https:\/\//i.test(value.trim())) return '';
@@ -42,6 +47,11 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [autoCheckReq, setAutoCheckReq] = useState(null);
   const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
   const [searchQuery, setSearchQuery]   = useState('');
+  const [stuQuery, setStuQuery]         = useState('');
+  const [stuPage, setStuPage]           = useState(1);
+  const [addOpen, setAddOpen]           = useState(false);
+  const [topHost, setTopHost]           = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('sx-top-actions')); }, []);
 
   // Section names always follow "PROGRAM - 4A". Typing the name fills the year and letter;
   // picking a year or letter rewrites the name, so the three never disagree.
@@ -88,7 +98,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
   const CATEGORIES = ['Pre-OJT', 'Ongoing', 'Post-OJT'];
   const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
-  const filteredStudents = students.filter(student => matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selected?.name));
+  const filteredStudents = students.filter(student => matchesCoordinatorSearch(stuQuery, student.firstName, student.lastName, student.idNumber, student.companyName || student.company));
 
   const fetchSections = useCallback(async () => {
     if (!coordinatorId) return;
@@ -235,142 +245,62 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   }
 
   return (
-    <div className="sections-workspace" style={t.page}>
-      {/* Left Column: Sections List */}
-      <div className="sections-panel" style={t.left}>
-        <div style={t.leftHeader}>
-          <div>
-            <h2 style={t.leftTitle}>Sections</h2>
-            <span style={t.leftCount}>{sections.length} {sections.length === 1 ? 'section' : 'sections'}</span>
-          </div>
-          <button style={t.addBtn} onClick={() => setModal(true)}>+ New Section</button>
-        </div>
-        <div style={t.searchWrap}>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" placeholder="Search sections or students…" />
-        </div>
-
-        <div style={t.secList}>
-          {filteredSections.length === 0 && (
-            searchQuery
-              ? <div style={t.empty}>No sections match “{searchQuery}”.</div>
-              : <PortalEmpty compact icon="section" title="No sections yet" description="Click + New Section to create your first one." />
-          )}
-          <RecordPagination pagination={sectionsPage} label="Sections" />
-          {sectionsPage.items.map(sec => (
-            <div
-              className="section-list-card"
-              data-selected={selected?.id === sec.id}
-              key={sec.id}
-              style={{ ...t.secCard, ...(selected?.id === sec.id ? t.secCardActive : {}) }}
-            >
-              <button type="button" className="section-select" aria-pressed={selected?.id === sec.id} onClick={() => fetchStudents(sec)} style={t.secMainClick}>
-                <div style={t.secName}>{sec.name}</div>
-                {(selected?.id === sec.id || Array.isArray(sec.studentIds)) && <div style={t.secInfo}>{selected?.id === sec.id ? students.length : sec.studentIds.length} students</div>}
-                <div style={t.secHoursBadge}>{sec.hoursRequired} hrs required</div>
-              </button>
+    <div className="sx sections-workspace">
+      {(() => { const btn = <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button>;
+        return topHost ? createPortal(btn, topHost) : <div className="sx-inline">{btn}</div>; })()}
+      <aside className="sx-list sections-panel">
+        {sections.length > 6 && <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Find a section" />}
+        {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
+          : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
+        {sectionsPage.items.map(sec => { const on = selected?.id === sec.id; const n = on ? students.length : Array.isArray(sec.studentIds) ? sec.studentIds.length : null;
+          return <button key={sec.id} type="button" className="section-select sx-card" aria-pressed={on} onClick={() => { setStuPage(1); setAddOpen(false); fetchStudents(sec); }}>
+            <strong>{sec.name}</strong><small>{[n != null ? `${n} student${n === 1 ? '' : 's'}` : null, sec.hoursRequired ? `${sec.hoursRequired} hrs` : null].filter(Boolean).join(' · ')}</small>
+          </button>; })}
+        <RecordPagination pagination={sectionsPage} label="Sections" />
+      </aside>
+      <section className="sx-detail sections-detail">
+        {!selected ? (sections.length === 0
+          ? <PortalEmpty icon="section" title="Create your first section" description="A section groups your OJT students, their required hours and the documents they must submit."
+              steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']} action={{ label: '+ New Section', onClick: () => setModal(true) }} />
+          : <PortalEmpty icon="section" title="Select a section" description="Pick a section on the left to manage students, requirements and deadlines." />)
+        : (() => { const pending = students.filter(x => !x.accountApproved).length; const pages = Math.max(1, Math.ceil(filteredStudents.length / 8)); const cur = Math.min(stuPage, pages);
+          const rows = [...filteredStudents].sort(compareStudents).slice((cur - 1) * 8, cur * 8);
+          return <>
+            <header className="sx-head">
+              <div><h2>{selected.name}</h2>
+                <p>{[selected.hoursRequired ? `${selected.hoursRequired} hours required` : null, requirements.length && view === 'requirements' ? `${requirements.length} required documents` : null, selected.department].filter(Boolean).join(' · ')}
+                  {chatHref && <> · <a href={chatHref} target="_blank" rel="noreferrer">Open Group Chat</a></>}</p></div>
+              <button type="button" className="rq-btn" onClick={() => setView('rules')}>Change the rules</button>
+            </header>
+            <div className="rq-pills sx-tabs" role="group" aria-label="Section view">
+              <button type="button" aria-pressed={view === 'students'} onClick={() => fetchStudents(selected)}>Students {students.length}</button>
+              <button type="button" aria-pressed={view === 'requirements'} onClick={() => fetchRequirements(selected)}>Required documents{view === 'requirements' && requirements.length ? ` ${requirements.length}` : ''}</button>
+              <button type="button" aria-pressed={view === 'rules'} onClick={() => setView('rules')}>Rules and deadlines</button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Column: Detail Area */}
-      <div className="sections-detail" style={t.right}>
-        {!selected ? (
-          sections.length === 0 ? (
-            <PortalEmpty icon="section" title="Create your first section"
-              description="A section groups your OJT students, their required hours and the documents they must submit."
-              steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']}
-              action={{ label: '+ New Section', onClick: () => setModal(true) }} />
-          ) : (
-            <PortalEmpty icon="section" title="Select a section"
-              description="Pick a section on the left to manage students, requirements and deadlines." />
-          )
-        ) : (
-          <>
-            {/* Section Header Card */}
-            <div className="section-overview" style={t.detailHeader}>
-              <div>
-                <h2 style={t.detailTitle}>{selected.name}</h2>
-                <div className="section-detail-meta" style={t.detailSubRow}>
-                  <span><Icon name="building" size={14} /> {selected.department}</span>
-                  <span><Icon name="clock" size={14} /> {selected.hoursRequired} Hours</span>
-                  {chatHref ? (
-                    <a href={chatHref} target="_blank" rel="noreferrer" style={t.gcLink}>
-                      <><Icon name="chat" size={14} /> Open Group Chat</>
-                    </a>
-                  ) : (
-                    <span style={{ color: '#697991' }}>No group chat linked</span>
-                  )}
-                </div>
+            <div hidden={view !== 'students'} className="sx-panel">
+              <div className="sx-tools">
+                <CoordinatorSearch value={stuQuery} onChange={v => { setStuQuery(v); setStuPage(1); }} label="Find a student" placeholder="Find a student" />
+                <span className="sx-grow" />
+                <button type="button" className="rq-btn" aria-expanded={addOpen} onClick={() => setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
+                {sectionActions}
               </div>
-
-              <div className="section-management-actions">{sectionActions}{journalSettings}<details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
-                <label style={t.label}>Group chat link
-                  <input name="messengerLink" type="url" maxLength={500} style={t.input}
-                    defaultValue={chatHref} placeholder="https://m.me/j/…" />
-                </label>
-                <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
-                {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
-              </form></details></div>
-              <div className="section-view-toggle" style={t.viewToggle}>
-                <button
-                  aria-pressed={view === 'students'}
-                  style={{ ...t.toggleBtn, ...(view === 'students' ? t.toggleBtnActive : {}) }}
-                  onClick={() => fetchStudents(selected)}
-                >
-                  <Icon name="users" size={16} /> Students ({students.length})
-                </button>
-                <button
-                  aria-pressed={view === 'requirements'}
-                  style={{ ...t.toggleBtn, ...(view === 'requirements' ? t.toggleBtnActive : {}) }}
-                  onClick={() => fetchRequirements(selected)}
-                >
-                  <Icon name="clipboard" size={16} /> Requirements & deadlines
-                </button>
-              </div>
+              {addOpen && <div className="sx-add"><div className="sx-add-head"><strong>Add students</strong><span>Students in your department who haven’t joined a section.</span></div>
+                <UnassignedStudents sectionId={selected.id} department={selected.department} onAssign={() => fetchStudents(selected)} /></div>}
+              {pending > 0 && <p className="sx-banner">{pending} student{pending === 1 ? '’s account is' : 's’ accounts are'} still waiting for approval.</p>}
+              {filteredStudents.length === 0
+                ? <div className="sx-emptybox"><strong>{stuQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{stuQuery ? 'Try another name or student ID.' : 'Use Add students to put students in this section.'}</span></div>
+                : <div className="sx-table" role="table" aria-label="Section students">
+                    <div className="sx-row sx-rowhead" role="row"><span role="columnheader">Student ID</span><span role="columnheader">Name</span><span role="columnheader">Company</span><span role="columnheader">Account</span></div>
+                    {rows.map(student => <div key={student.id} className="sx-row" role="row">
+                      <span role="cell" className="sx-id">{student.idNumber || '—'}</span>
+                      <span role="cell" className="sx-name">{personName(student)}</span>
+                      <span role="cell" className="sx-co" data-none={!(student.companyName || student.company) || undefined}>{student.companyName || student.company || 'No company yet'}</span>
+                      <span role="cell"><b className="lb-chip" data-tone={student.accountApproved ? 'green' : 'amber'}>{student.accountApproved ? 'Active' : 'Pending approval'}</b></span>
+                    </div>)}
+                  </div>}
+              {filteredStudents.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, filteredStudents.length)} of {filteredStudents.length}</span><Pager page={cur} pages={pages} onGo={setStuPage} label="Section students" /></div>}
             </div>
-
-            {/* Students View */}
-            {view === 'students' && (
-              <div style={t.viewContent}>
-                <div style={t.subHeaderRow}>
-                  <h3 style={t.sectionLabel}>Students in this section</h3>
-
-                </div>
-
-                  {filteredStudents.length === 0 ? (
-                    <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
-                  ) : (
-                  <div className="section-student-table"><div className="coordinator-compact-table-wrap">
-                    <table className="coordinator-compact-table">
-                      <thead><tr><th>Student ID</th><th>Student name</th><th>Account</th></tr></thead>
-                      <tbody>{recordsPage.items.map(student => <tr key={student.id}>
-                        <td>{student.idNumber || '—'}</td><td>{personName(student)}</td>
-                        <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
-                          {student.accountApproved ? 'Active' : 'Pending approval'}
-                        </span></td>
-                      </tr>)}</tbody>
-                    </table>
-                  </div>
-                    <RecordPagination pagination={recordsPage} label="Section students" showSinglePage compact />
-                  </div>
-                )}
-
-                <div className="section-assignment" style={t.unassignedSection}>
-                  <h3 style={t.sectionLabel}>Assign students</h3>
-                  <p className="section-help">Students in your department who haven't joined a section.</p>
-                  <UnassignedStudents
-                    sectionId={selected.id}
-                    department={selected.department}
-                    onAssign={() => fetchStudents(selected)}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Requirements View */}
-            {view === 'requirements' && (
-              <div style={t.viewContent}>
+            {view === 'requirements' && <div style={t.viewContent}>
                 <div className="req-header-card" style={t.reqHeader}>
                   <div>
                     <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
@@ -448,12 +378,23 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
+              </div>}
+            <div hidden={view !== 'rules'} className="sx-panel sx-rules">
+              <div className="sx-rule"><h3>Required hours</h3><p><b>{selected.hoursRequired || '—'} hours</b> for every student in {selected.name}.</p></div>
+              <div className="sx-rule"><h3>Journals</h3>{journalSettings || <p>Journal settings aren’t available here.</p>}</div>
+              <div className="sx-rule"><h3>Group chat</h3>{chatHref ? <p><a href={chatHref} target="_blank" rel="noreferrer">Open the group chat</a></p> : <p>No group chat linked yet.</p>}
+                <div className="section-management-actions"><details className="section-chat-editor" open><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+                <label style={t.label}>Group chat link
+                  <input name="messengerLink" type="url" maxLength={500} style={t.input}
+                    defaultValue={chatHref} placeholder="https://m.me/j/…" />
+                </label>
+                <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
+                {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
+              </form></details></div></div>
+              <div className="sx-rule"><h3>Deadlines</h3><p>Each required document has its own deadline. <button type="button" className="rq-link" onClick={() => fetchRequirements(selected)}>Set them in Required documents</button></p></div>
+            </div>
+          </>; })()}
+      </section>
       {/* Create Section Modal */}
       {modal && (
         <div style={t.overlay}>

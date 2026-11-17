@@ -19,6 +19,7 @@ import AlertDialog from '../components/AlertDialog';
 import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import SectionPicker from '../components/SectionPicker';
 import Pager from '../components/Pager';
+import EvaluationInbox from '../components/EvaluationInbox';
 import { createPortal } from 'react-dom';
 import './EvaluationRedesign.css';
 
@@ -245,6 +246,20 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     return { student, item, state, score: scoreOf(item) };
   }).filter(row => matchesCoordinatorSearch(searchQuery, personName(row.student), row.student.idNumber, row.item?.companyName || row.student.companyName || row.student.company))
     .sort((a, b) => compareStudents(a.student, b.student));
+  const inboxItems = students.filter(student => placedIds.has(student.id) || latestByStudent.has(student.id)).flatMap(student => {
+    const item = latestByStudent.get(student.id); const name = personName(student);
+    const who = item?.supervisorName || 'The supervisor';
+    if (!item) return placedIds.has(student.id) ? [{ id: `none:${student.id}`, kind: 'none', name, student, time: 0, text: <><b>{name}</b> is placed, no evaluation yet</> }] : [];
+    if (item.submitted) { const sc = scoreOf(item); return [{ id: `ans:${item.id || student.id}`, kind: 'answered', name, student, time: Date.parse(item.submittedAt || item.expiresAt) || 0, text: <>{who} rated <b>{name}</b>{sc != null ? ` · ${Number(sc).toFixed(1)}` : ''}</> }]; }
+    const exp = Date.parse(item.expiresAt) || 0;
+    if (exp && exp < now) return [{ id: `exp:${item.id || student.id}`, kind: 'expired', name, student, time: exp, text: <><b>{name}</b>’s link expired, no answer</> }];
+    if (exp && exp - now < 2 * 86400000) return [{ id: `soon:${item.id || student.id}`, kind: 'expiring', name, student, time: exp, text: <><b>{name}</b>’s link expires soon</> }];
+    return [];
+  });
+  const openNotification = n => {
+    if (n.kind === 'answered') { setEvFilter('all'); setSearchQuery(personName(n.student)); setCurrentPage(1); setExpandedId(n.student.id); }
+    else openAsk(n.student);
+  };
   const counts = { all: rows.length, waiting: rows.filter(r => r.state === 'waiting').length, answered: rows.filter(r => r.state === 'answered').length, expired: rows.filter(r => r.state === 'expired').length, none: rows.filter(r => r.state === 'none').length };
   const shownRows = evFilter === 'all' ? rows : rows.filter(r => r.state === evFilter);
   const evPages = Math.max(1, Math.ceil(shownRows.length / 10));
@@ -303,7 +318,10 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
             {[['all', 'All', counts.all], ['waiting', 'Waiting for supervisor', counts.waiting], ['answered', 'Answered', counts.answered], ['expired', 'Link expired', counts.expired], ['none', 'Not asked yet', counts.none]].filter(([v, , n]) => v === 'all' || n > 0).map(([value, label, n]) =>
               <button key={value} type="button" aria-pressed={evFilter === value} onClick={() => { setEvFilter(value); setCurrentPage(1); }}>{label} {n}</button>)}
           </div>
+          <div className="ev-tools-right">
           <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setCurrentPage(1); }} label="Search students" placeholder="Find a student" />
+            <EvaluationInbox items={inboxItems} onOpen={openNotification} />
+          </div>
         </div>
         {status && !askOpen && <p className="ev-status" role="status">{status}</p>}
         <div className="ev-list">

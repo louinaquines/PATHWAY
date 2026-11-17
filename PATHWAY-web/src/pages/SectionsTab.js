@@ -313,16 +313,15 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               return <div className="sx-panel sx-req">
                 {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
                   onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
-                <div className="sx-stage" role="tablist" aria-label="OJT stage">
+                <div className="sx-req-tools">
+                  <div className="sx-stage" role="tablist" aria-label="OJT stage">
                   {stages.map(([k, l]) => { const items = requirements.filter(r => r.category === k); const late = items.filter(overdue).length;
                     return <button key={k} type="button" role="tab" aria-selected={reqStage === k} onClick={() => { setReqStage(k); setReqPage(1); }}>
                       {late > 0 && <i aria-label={`${late} overdue`} />}{l}<b>{items.length}</b></button>; })}
-                </div>
-                <div className="sx-req-tools">
-                  <span>{list.length} document{list.length === 1 ? '' : 's'}{list.filter(overdue).length ? <> · <em>{list.filter(overdue).length} overdue</em></> : ''}</span>
+                  </div>
                   <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
                 </div>
-                <p className="sx-hint">Add a reference file to let AI flag each submission green, yellow or red. Overdue alerts reach students automatically.</p>
+                <p className="sx-hint">{list.filter(overdue).length ? <><em>{list.filter(overdue).length} overdue</em> · </> : null}Add a reference file to let AI flag each submission green, yellow or red. Overdue alerts reach students automatically.</p>
                 {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
                 : <div className="sx-reqlist">{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
                   return <div key={req.id} className="sx-reqrow req-row">

@@ -98,3 +98,13 @@
 .sx-del { width: 30px; padding: 0 !important; justify-content: center; }
 .sx-del:hover { background: #fbe9e7 !important; color: #b3261e !important; border-color: #f3c9c4 !important; }
 @media (max-width: 760px) { .sx-reqrow { grid-template-columns: minmax(0, 1fr) auto; } .sx-reqrow .sx-date { grid-column: 1; } .sx-reqrow .lb-chip { grid-row: 2; grid-column: 2; } .sx-reqrow .sx-icon:not(.sx-del) { grid-column: 1; } .sx-stage { justify-self: stretch; overflow-x: auto; } }
+/* stage tabs as underline text, so they don't repeat the segmented control above */
+.sx-req-tools { border-bottom: 1px solid #e8e5de; align-items: flex-end; }
+.sx-stage { display: flex; gap: 22px; padding: 0; border-radius: 0; background: transparent; }
+.sx-stage button { height: 36px; padding: 0 2px; border-radius: 0; background: transparent !important; box-shadow: none !important; color: #7b8494; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.sx-stage button[aria-selected="true"] { color: #0b5fd3; border-bottom-color: #0b5fd3; }
+.sx-stage button:hover { color: #15213a; }
+.sx-stage button b { background: #f1efe9; }
+.sx-stage button[aria-selected="true"] b { background: #eaf1fd; color: #0b5fd3; }
+.sx-req-tools .sx-addreq { margin-bottom: 6px; }
+.sx-hint em { font-style: normal; color: #b3261e; font-weight: 600; }

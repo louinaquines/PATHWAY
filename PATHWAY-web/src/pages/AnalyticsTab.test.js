@@ -53,7 +53,7 @@ test('explicit tiers, progress and data quality override compatibility status an
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
-  expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
+  expect(screen.getAllByText(/Projected shortfall/).length).toBe(6); // 4 table rows + 2 'Needs a nudge' chips
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
   expect(screen.getByRole('dialog')).not.toHaveTextContent(/How is this calculated/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();
@@ -129,8 +129,8 @@ test('available zero totals remain zero rather than being confused with unavaila
   adminRequest.mockResolvedValue({ ...payload, countsAvailable: { completed: true, highRisk: true, totalHours: true }, completedInterns: 0, atRiskStudents: 0, totalHoursLogged: 0, averageHours: 0,
     students: [{ ...payload.students[0], hoursRendered: 0, completionPercentage: 0, attendanceRate: 0, riskTier: 'High', progressStatus: 'In progress', dataStatus: 'Ready' }] });
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
-  await screen.findByText('Test Student');
-  expect(screen.getAllByText('0 hrs')).toHaveLength(2);
+  await screen.findAllByText('Test Student');
+  expect(screen.getByText(/Class average: 0 h\./)).toBeInTheDocument();
   expect(screen.getAllByText('0%')).toHaveLength(2);
   expect(screen.getByText('High risk')).toBeInTheDocument();
   expect(screen.queryByText('On track')).not.toBeInTheDocument();

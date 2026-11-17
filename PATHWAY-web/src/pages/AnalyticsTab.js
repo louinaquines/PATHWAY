@@ -15,6 +15,9 @@ import AttendanceExcusedEditor from '../components/AttendanceExcusedEditor';
 import AttendanceCheckStatus from '../components/AttendanceCheckStatus';
 import { attendanceReasonLabels } from '../attendanceRiskLabels';
 import './CoordinatorRecords.css';
+import './AnalyticsRedesign.css';
+import { createPortal } from 'react-dom';
+import SectionPicker from '../components/SectionPicker';
 
 function csvEscape(v) {
   const text = String(v ?? '');
@@ -27,7 +30,9 @@ export default function AnalyticsTab(props) {
   </AttendanceAccess>;
 }
 
-function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, onDenied, isCurrent }) {
+function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, onDenied, isCurrent, sections = [], onSectionChange }) {
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('an-top-actions')); }, []);
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -133,21 +138,19 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
   }
   return (
-    <div className="coordinator-analytics-page" style={s.page}>
-      <div className="analytics-toolbar">
-        <div className="analytics-actions" style={s.actions}>
-          <button type="button" style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
-          {selectedSection?.id && <button ref={editButton} type="button" style={s.secondaryBtn} onClick={() => {
+    <div className="an coordinator-analytics-page">
+      {(() => { const acts = <>
+          <button type="button" className="rq-btn" onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
+          {selectedSection?.id && <button ref={editButton} type="button" className="rq-btn" onClick={() => {
             setScheduleError('');
             setExceptionDate('');
             setDraft(schedule);
           }}>Work schedule</button>}
-          <button type="button" style={s.secondaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
+          <button type="button" className="rq-btn" onClick={exportCsv} disabled={!data?.students?.length}>
             <Icon name="download" size={15} /> Export CSV
           </button>
-        </div>
-      </div>
-
+        {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}</>;
+        return topHost ? createPortal(acts, topHost) : <div className="an-inline-actions">{acts}</div>; })()}
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
       {draft && <PortalFormDialog className="admin-term-dialog analytics-schedule-modal" label="Edit work schedule" closeOnBackdrop
         onCancel={() => { if (!saving) closeSchedule(); }}>
@@ -193,34 +196,14 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         </form>
       </PortalFormDialog>}
 
-      {/* Metrics Summary Grid */}
-      {data && (
-        <div className="analytics-metrics analytics-overview">
-          <section className="analytics-group" aria-label="Students">
-            <h3 className="analytics-group-title">Students</h3>
-            <div className="analytics-group-grid">
-              <MetricCard tone="blue" icon="users" label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
-              <MetricCard tone="green" icon="active" label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
-              <MetricCard tone="indigo" icon="done" label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
-              <MetricCard tone="amber" icon="risk" label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
-            </div>
-          </section>
-          <section className="analytics-group" aria-label="Hours">
-            <h3 className="analytics-group-title">Hours</h3>
-            <div className="analytics-group-grid">
-              <MetricCard tone="teal" icon="clock" label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
-              <MetricCard tone="slate" icon="avg" label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
-            </div>
-          </section>
-        </div>
-      )}
+      {data && <AnalyticsOverview data={data} onOpen={id => { setSearchQuery(''); setProgressFilter('all'); requestAnimationFrame(() => { const row = document.getElementById(`attendance-student-${id}`); row?.scrollIntoView?.({ block: 'center' }); const d = row?.querySelector('details'); if (d) d.open = true; }); }} />}
 
       {/* Student Progress Breakdown Table */}
-      <div className="analytics-records" style={s.tableCard}>
-        <div style={s.cardHeader}>
+      <div className="an-card an-records">
+        <div className="an-head">
           <div>
-            <h3 style={s.cardTitle}>Student progress</h3>
-            {data?.today && <p style={s.sub}>As of <time dateTime={data.today}>{data.today}</time></p>}
+            <h3 className="an-title">All students</h3>
+            {data?.today && <p className="an-sub">As of <time dateTime={data.today}>{data.today}</time></p>}
           </div>
           <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" placeholder="Search by name or ID…" />
           <select aria-label="Progress filter" value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
@@ -523,3 +506,57 @@ const s = {
     fontSize: 13,
   },
 };
+
+const TIER = { Low: 'on', Completed: 'on', Medium: 'mid', High: 'far' };
+function AnalyticsOverview({ data, onOpen }) {
+  const students = data.students || [];
+  const total = students.length;
+  const bars = [...students].filter(st => st.hoursRendered != null).sort((a, b) => (b.hoursRendered || 0) - (a.hoursRendered || 0));
+  const max = Math.max(1, ...bars.map(st => st.hoursRequired || st.hoursRendered || 0));
+  const count = tier => students.filter(st => TIER[st.riskTier ?? st.risk] === tier).length;
+  const placed = students.filter(st => st.companyName).length;
+  const done = students.filter(st => st.progressStatus === 'Completed').length;
+  const nudge = students.filter(st => ['High', 'Medium'].includes(st.riskTier)).sort((a, b) => (a.riskTier === 'High' ? 0 : 1) - (b.riskTier === 'High' ? 0 : 1));
+  const [page, setPage] = useState(1);
+  const pages = Math.max(1, Math.ceil(nudge.length / 5)); const cur = Math.min(page, pages);
+  const stats = [
+    ['Placed in a company', placed],
+    ['Clocking in now', data.activeInterns ?? 0],
+    ['Finished their hours', done],
+    ['Needs a nudge', nudge.length],
+  ];
+  return <>
+    <div className="an-top">
+      <section className="an-card an-chart" aria-label="Hours done so far">
+        <h3 className="an-title">Hours done so far</h3>
+        <p className="an-sub">Each bar is one student, tallest first.{data.averageHours != null ? ` Class average: ${data.averageHours} h.` : ''}</p>
+        {bars.length ? <div className="an-bars" role="img" aria-label={`Hours for ${bars.length} students`}>
+          {bars.map(st => <span key={st.id} className="an-bar" data-tier={TIER[st.riskTier ?? st.risk] || 'none'}
+            style={{ height: `${Math.max(3, Math.min(100, ((st.hoursRendered || 0) / max) * 100))}%` }} title={`${st.name}: ${st.hoursRendered} of ${st.hoursRequired ?? '—'} h`} />)}
+        </div> : <p className="an-empty">No hours logged yet.</p>}
+        <div className="an-legend"><span data-tier="on">On track {count('on')}</span><span data-tier="mid">A little behind {count('mid')}</span><span data-tier="far">Far behind {count('far')}</span></div>
+      </section>
+      <section className="an-card an-where" aria-label="Where the class is">
+        <h3 className="an-title">Where the class is</h3>
+        {stats.map(([label, n]) => <div key={label} className="an-stat">
+          <div><span>{label}</span><b>{n} of {total}</b></div>
+          <i><em style={{ width: `${total ? (n / total) * 100 : 0}%` }} /></i>
+        </div>)}
+      </section>
+    </div>
+    <section className="an-card" aria-label="Needs a nudge">
+      <div className="an-head"><div><h3 className="an-title">Needs a nudge</h3><p className="an-sub">Students who are behind on hours or attendance.</p></div></div>
+      {nudge.length ? <div className="an-nudge">
+        {nudge.slice((cur - 1) * 5, cur * 5).map(st => <div key={st.id} className="an-nrow">
+          <span className="an-av" aria-hidden="true">{String(st.name || '?').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</span>
+          <span className="an-nname">{st.name}<small>{st.idNumber}</small></span>
+          <span className="an-nhrs">{st.hoursRendered ?? 0} of {st.hoursRequired ?? '—'} h</span>
+          <span className="an-nwhy"><b className="lb-chip" data-tone={st.riskTier === 'High' ? 'red' : 'amber'}>{(st.reasonCodes || []).map(r => attendanceReasonLabels[r.code]).find(Boolean) || (st.riskTier === 'High' ? 'Far behind' : 'A little behind')}</b></span>
+          <button type="button" className="rq-link an-open" onClick={() => onOpen(st.id)}>Open</button>
+        </div>)}
+        {nudge.length > 5 && <div className="an-foot"><span>{(cur - 1) * 5 + 1}–{Math.min(cur * 5, nudge.length)} of {nudge.length}</span>
+          <div className="an-pager"><button type="button" className="rq-btn" aria-label="Previous nudge page" disabled={cur === 1} onClick={() => setPage(cur - 1)}>‹</button><button type="button" className="rq-btn" aria-label="Next nudge page" disabled={cur === pages} onClick={() => setPage(cur + 1)}>›</button></div></div>}
+      </div> : <p className="an-empty">Everyone is on track right now.</p>}
+    </section>
+  </>;
+}

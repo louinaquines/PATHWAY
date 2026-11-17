@@ -604,7 +604,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </span>
       {workspace === 'reviews' && (queueCursors.length > 1 || nextQueueCursor) && <nav aria-label="Placement students pagination"><button type="button" className="rq-btn" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button type="button" className="rq-btn" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav>}
     </footer>
-    {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyEmailInbox /></div></PortalFormDialog>}
+    {emailOpen && <PortalFormDialog className="cei-dialog" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><CompanyEmailInbox onClose={()=>setEmailOpen(false)} /></PortalFormDialog>}
     <AlertDialog
       open={Boolean(reviewConfirm)}
       tone={reviewConfirm?.status === 'approved' ? 'warning' : 'danger'}

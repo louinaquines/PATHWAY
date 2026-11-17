@@ -4,8 +4,11 @@ import { adminRequest } from '../adminApi';
 import CoordinatorSearch from '../components/CoordinatorSearch';
 import { PortalFormDialog } from '../components/PortalStates';
 import './CoordinatorRecords.css';
+import './RegistrationsRedesign.css';
 
-const tabs = { pending: 'Awaiting approval', approved: 'Approved', rejected: 'Rejected or inactive' };
+const tabs = { pending: 'Waiting', approved: 'Approved', rejected: 'Turned away' };
+const initials = s => ((s.firstName || '')[0] || '') + ((s.lastName || '')[0] || '') || '?';
+const ago = v => { if (!v) return ''; const t = typeof v === 'number' ? v : v?._seconds ? v._seconds * 1000 : Date.parse(v); if (!t) return ''; const d = Math.floor((Date.now() - t) / 86400000); if (d < 1) { const h = Math.floor((Date.now() - t) / 3600000); return h < 1 ? 'signed up just now' : `signed up ${h} hour${h === 1 ? '' : 's'} ago`; } return d === 1 ? 'signed up yesterday' : `signed up ${d} days ago`; };
 const nameOf = student => personName(student);
 
 const usernameOf = student => student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—');
@@ -87,62 +90,52 @@ export default function RegistrationsTab({ selectedSection }) {
 
   const data = result?.scope === scope ? result : null;
   const page = cursors.length;
-  return <div ref={workspace} tabIndex={-1} className="registrations-page accounts-workspace">
-    <div className="registration-tabs" aria-label="Account status">
-      {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
-        onClick={() => { setTab(key); setCursors(['']); }}>
-        {label} <span>{counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : 0}</span>
-      </button>)}
-    </div>
-    <div className="accounts-card">
-      <div className="accounts-toolbar">
-        <CoordinatorSearch value={search} onChange={setSearch} label="Search student accounts" placeholder="Search name or ID…" />
-        <label><input type="checkbox" checked={unassigned} onChange={event => {
-          setUnassigned(event.target.checked); setCursors(['']);
-        }} /> Show students without a section</label>
+  const countOf = key => counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : 0;
+  const total = data?.total || 0;
+  return <div ref={workspace} tabIndex={-1} className="rgx">
+    <div className="rgx-tools">
+      <div className="rq-pills rgx-pills" role="group" aria-label="Account status">
+        {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
+          onClick={() => { setTab(key); setCursors(['']); }}>{label} <b>{countOf(key)}</b></button>)}
       </div>
-      {error ? <div className="accounts-empty-state" role="status"><strong>No student accounts yet</strong><span>Accounts appear here once students sign up for this section.</span><button type="button" onClick={() => setRevision(value => value + 1)}>Check again</button></div>
-        : sectionId === undefined ? <p>Select a section to view student accounts.</p>
-        : !data ? <p role="status" className="accounts-loading">Loading student accounts…</p>
-        : <>
-          <div className="coordinator-compact-table-wrap">
-            <table className="coordinator-compact-table">
-              <thead><tr>{['Student ID', 'Student name', 'Username', 'Section', 'Account status', 'Actions'].map(label => <th key={label} scope="col" className={["Username", "Section"].includes(label) ? "accounts-extra" : undefined}>{label}</th>)}</tr></thead>
-              <tbody>{data.rows.length ? data.rows.map(student => <tr key={student.id}>
-                <td>{student.idNumber || '—'}</td>
-                <td className="accounts-name">{nameOf(student) || 'Name unavailable'}</td>
-                <td className="accounts-extra">{usernameOf(student)}</td>
-                <td className="accounts-extra">{unassigned ? 'Unassigned' : selectedSection?.name}</td>
-                <td>{student.status === 'inactive' ? 'Inactive' : tab === 'rejected' ? 'Rejected' : tabs[tab]}</td>
-                <td><button type="button" className="portal-secondary accounts-row-action"
-                  aria-label={(tab === 'pending' ? 'Review ' : 'Details for ') + (nameOf(student) || student.idNumber || 'student')}
-                  onClick={event => {
-                    opener.current = event.currentTarget;
-                    setActionError('');
-                    setSelected(student);
-                  }}>{tab === 'pending' ? 'Review' : 'Details'}</button></td>
-              </tr>) : <tr><td className="accounts-empty" colSpan={6}>
-                <p>{term ? 'No matching students.' : tab === 'pending' ? 'No accounts awaiting approval.' : 'No students in this view.'}</p>
-                {!term && tab === 'pending' && counts?.sectionId === sectionId && counts?.revision === revision && counts.values.approved > 0 && (
-                  <button type="button" className="portal-secondary" onClick={() => {
-                    setTab('approved');
-                    setCursors(['']);
-                  }}>View approved accounts</button>
-                )}
-              </td></tr>}</tbody>
-            </table>
-          </div>
-          <nav className="accounts-footer" aria-label="Student accounts pagination">
-            <span role="status">{data.total ? ((page - 1) * 25 + 1) + '–' + ((page - 1) * 25 + data.rows.length) + ' of ' + data.total + ' students' : '0 students'}</span>
-            <div className="accounts-actions">
-              <button type="button" className="portal-secondary" aria-label="Previous page" disabled={page === 1} onClick={() => setCursors(cursors.slice(0, -1))}>‹</button>
-              <span>Page {page} of {Math.max(1, Math.ceil(data.total / 25))}</span>
-              <button type="button" className="portal-secondary" aria-label="Next page" disabled={!data.nextCursor} onClick={() => setCursors([...cursors, data.nextCursor])}>›</button>
-            </div>
-          </nav>
-        </>}
+      <div className="rgx-right">
+        <label className="rgx-check"><input type="checkbox" checked={unassigned} onChange={event => { setUnassigned(event.target.checked); setCursors(['']); }} /> No section yet</label>
+        <CoordinatorSearch value={search} onChange={setSearch} label="Search student accounts" placeholder="Find a student" />
+      </div>
     </div>
-    {selected && <PortalFormDialog className="admin-create-drawer accounts-drawer" closeOnBackdrop
+    {actionError && !selected && <p role="alert" className="rgx-alert">{actionError}</p>}
+    {error ? <div className="rgx-empty" role="status"><strong>Couldn’t load accounts</strong><span>{error}</span><button type="button" className="rq-btn" onClick={() => setRevision(value => value + 1)}>Try again</button></div>
+      : sectionId === undefined ? <div className="rgx-empty"><strong>Select a section</strong><span>Pick a section to see who signed up.</span></div>
+      : !data ? <p role="status" className="rgx-loading">Loading student accounts…</p>
+      : !data.rows.length ? <div className="rgx-empty"><strong>{term ? 'No matching students' : tab === 'pending' ? 'No one is waiting' : 'No students here'}</strong>
+          <span>{term ? 'Try another name or student ID.' : tab === 'pending' ? 'New sign-ups for this section will show up here.' : 'Nothing in this list yet.'}</span>
+          {!term && tab === 'pending' && countOf('approved') > 0 && <button type="button" className="rq-btn" onClick={() => { setTab('approved'); setCursors(['']); }}>View approved accounts</button>}</div>
+      : <div className="rgx-list">
+        {data.rows.map(student => { const name = nameOf(student) || 'Name unavailable';
+          return <div key={student.id} className="rgx-row">
+            <span className="rgx-av" aria-hidden="true">{initials(student).toUpperCase()}</span>
+            <button type="button" className="rgx-who" aria-label={(tab === 'pending' ? 'Review ' : 'Details for ') + (nameOf(student) || student.idNumber || 'student')}
+              onClick={event => { opener.current = event.currentTarget; setActionError(''); setSelected(student); }}>
+              <strong>{name}</strong>
+              <small>{[student.idNumber, unassigned ? 'No section' : selectedSection?.name, tab === 'pending' ? ago(student.createdAt) : null].filter(Boolean).join(' · ')}</small>
+            </button>
+            {tab === 'pending' ? <div className="rgx-acts">
+              <button type="button" className="rq-btn" aria-label={'Turn away ' + name} disabled={saving} onClick={event => { opener.current = event.currentTarget; setActionError(''); setSelected(student); setReject(student); }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>Turn away</button>
+              <button type="button" className="rq-btn rq-primary" aria-label={'Approve ' + name} disabled={saving} onClick={() => decide(student, 'approved')}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>Approve</button>
+            </div> : <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : 'red'}>{student.status === 'inactive' ? 'Inactive' : tabs[tab]}</b>}
+          </div>; })}
+        <nav className="rgx-foot" aria-label="Student accounts pagination">
+          <span role="status">{total ? ((page - 1) * 25 + 1) + '–' + ((page - 1) * 25 + data.rows.length) + ' of ' + total : '0'}</span>
+          <div className="rgx-pager">
+            <button type="button" className="rq-btn" aria-label="Previous page" disabled={page === 1} onClick={() => setCursors(cursors.slice(0, -1))}>‹</button>
+            <span>Page {page} of {Math.max(1, Math.ceil(total / 25))}</span>
+            <button type="button" className="rq-btn" aria-label="Next page" disabled={!data.nextCursor} onClick={() => setCursors([...cursors, data.nextCursor])}>›</button>
+          </div>
+        </nav>
+      </div>}
+    {selected && <PortalFormDialog className="rgx-dialog" closeOnBackdrop
       label="Student account details" onCancel={() => {
         if (saving) return;
         if (reject) setReject(null);
@@ -151,7 +144,7 @@ export default function RegistrationsTab({ selectedSection }) {
       <div className="accounts-drawer-layout">
         <header>
           <h2>{nameOf(selected) || 'Name unavailable'}</h2>
-          <button autoFocus type="button" className="portal-secondary" disabled={saving} onClick={() => closeDetails()}>Close</button>
+          <button autoFocus type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={() => closeDetails()}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </header>
         <div className="accounts-drawer-body">
           <dl>
@@ -161,16 +154,16 @@ export default function RegistrationsTab({ selectedSection }) {
             <div><dt>Department</dt><dd>{selected.department || '—'}</dd></div>
             <div><dt>Account created</dt><dd>{selected.createdAt ? new Date(selected.createdAt).toLocaleDateString('en-PH') : '—'}</dd></div>
           </dl>
-          {reject && <p role="status">Reject this student registration? The student will remain unable to access the student workflow.</p>}
+          {reject && <p role="status" className="rgx-warn">Reject this student registration? They won’t be able to use the student app until approved.</p>}
           {actionError && <p role="alert">{actionError}</p>}
         </div>
         {tab === 'pending' && <footer>
           {reject ? <>
-            <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(null)}>Cancel rejection</button>
-            <button type="button" className="portal-secondary" disabled={saving} onClick={() => decide(selected, 'rejected')}>Reject registration</button>
+            <button type="button" className="rq-btn" disabled={saving} onClick={() => setReject(null)}>Cancel</button>
+            <button type="button" className="rq-btn rgx-danger" disabled={saving} onClick={() => decide(selected, "rejected")}>Reject registration</button>
           </> : <>
-            <button type="button" className="portal-secondary" disabled={saving} onClick={() => setReject(selected)}>Reject</button>
-            <button type="button" className="portal-primary" disabled={saving} onClick={() => decide(selected, 'approved')}>Approve</button>
+            <button type="button" className="rq-btn" disabled={saving} onClick={() => setReject(selected)}>Reject</button>
+            <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => decide(selected, "approved")}>Approve</button>
           </>}
         </footer>}
       </div>

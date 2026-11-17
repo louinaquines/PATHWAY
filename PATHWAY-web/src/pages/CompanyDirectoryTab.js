@@ -5,10 +5,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import AlertDialog from '../components/AlertDialog';
 import './CompanyDirectoryTab.css';
+import './RequirementsRedesign.css';
+import './CompaniesRedesign.css';
+import { createPortal } from 'react-dom';
+import SectionPicker from '../components/SectionPicker';
 
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
-export default function CompanyDirectoryTab({ readOnly = true }) {
+export default function CompanyDirectoryTab({ readOnly = true, selectedSection = null, sections = [], onSectionChange }) {
+  const [selectedId, setSelectedId] = useState('');
+  const [fullOnly, setFullOnly] = useState(false);
+  const [roster, setRoster] = useState({ id: '', items: null });
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('co-top-actions')); }, []);
   const [formOpen, setFormOpen] = useState(false);
   const [companies, setCompanies] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -172,37 +181,46 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
         </footer>
       </form></PortalFormDialog>}
 
-      <section className="company-directory-records" style={styles.listCard} aria-label="Company records">
-        <div className="directory-controls">
-          <label className="directory-search">Search companies<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Name, industry, or address" aria-label="Search companies" style={styles.input} /></label>
-          <label>Availability <select value={availability} onChange={event => setAvailability(event.target.value)}>
-            <option value="all">All companies</option>
-            <option value="active">Active companies</option>
-            <option value="slots">Has available slots</option>
-          </select></label>
-          <button type="button" onClick={load} style={styles.secondaryButton}>Refresh</button>
-          <button type="button" className="coordinator-add-company" style={styles.primaryButton} disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>Add company</button>
-        </div>
-
-        {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div> : loadFailed ? <p style={styles.empty}>Company records could not be loaded. Resolve the error above, then click Refresh.</p> : companies.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} /> :
-          <div className="directory-table-wrap"><table className="directory-table"><thead><tr><th>Company</th><th>Industry</th><th>Internship slots <small>All sections</small></th><th>Status</th><th>Actions</th></tr></thead><tbody>{companies.map(company => {
-            const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
-            return <tr key={company.id}>
-              <td><strong>{company.name || 'Unnamed company'}</strong><small>{company.address || '—'}</small></td>
-              <td>{company.industry || <button type="button" className="coordinator-inline-link" onClick={() => editCompany(company)}>Add industry</button>}</td>
-              <td><strong>{!configured || company.availableSlots == null ? "Capacity not set" : company.availableSlots === 0 ? "Full" : company.availableSlots + " available"}</strong>{configured && <small>{company.occupiedSlots} / {company.capacity} placed</small>}</td>
-              <td><span style={company.active ? styles.activePill : styles.inactivePill}>{company.active ? 'Active' : 'Inactive'}</span></td>
-              <td><button type="button" aria-label={'Edit ' + company.name} onClick={() => editCompany(company)} style={styles.editButton}>Edit</button></td>
-            </tr>;
-          })}</tbody></table></div>}
-        {!loading && !loadFailed && <footer className="directory-results"><span>{companies.length} {companies.length === 1 ? "company" : "companies"} on this page</span><nav className="portal-record-pagination" aria-label="Partner companies pagination">
-          <button type="button" className="portal-secondary" disabled={loading || cursors.length === 1}
-            onClick={() => setPaging({ scope, cursors: cursors.slice(0, -1) })}>Previous</button>
-          <span>Page {cursors.length}</span>
-          <button type="button" className="portal-secondary" disabled={loading || !nextCursor}
-            onClick={() => setPaging({ scope, cursors: [...cursors, nextCursor] })}>Next</button>
-        </nav></footer>}
-      </section>
+      {(() => {
+        const shown = fullOnly ? companies.filter(c => c.availableSlots === 0) : companies;
+        const sel = shown.find(c => c.id === selectedId) || shown[0] || null;
+        const top = <>
+          <button type="button" className="rq-btn co-add" disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add company</button>
+          {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
+        </>;
+        return <>
+          {topHost ? createPortal(top, topHost) : null}
+          <p className="co-sub">The places where your students train.</p>
+          <div className="co">
+            <section className="co-list company-directory-records" aria-label="Company records">
+              <div className="co-tools">
+                <label className="co-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a company" aria-label="Search companies" /></label>
+                <div className="rq-pills" role="group" aria-label="Filter companies">
+                  {[['all', 'All', false], ['slots', 'Has open slots', false], ['full', 'Full', true]].map(([v, l, full]) => { const on = full ? fullOnly : !fullOnly && availability === v;
+                    return <button key={v} type="button" aria-pressed={on} onClick={() => { setFullOnly(full); if (!full) setAvailability(v); else setAvailability('all'); }}>{l}</button>; })}
+                </div>
+                {!topHost && <button type="button" className="rq-btn" onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>Add company</button>}
+              </div>
+              {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div>
+                : loadFailed ? <p className="co-empty">Company records could not be loaded. <button type="button" className="rq-link" onClick={load}>Try again</button></p>
+                : shown.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' || fullOnly ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' || fullOnly ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} />
+                : <ul className="co-rows">{shown.map(company => { const cap = Number.isSafeInteger(company.capacity) && company.capacity > 0 ? company.capacity : null; const used = Number(company.occupiedSlots || 0); const open = company.availableSlots;
+                  const sup = company.placementDefaults?.supervisorName;
+                  return <li key={company.id}><button type="button" className="co-row" aria-pressed={sel?.id === company.id} onClick={() => setSelectedId(company.id)}>
+                    <i className="co-av">{String(company.name || '?').split(/[\s-]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
+                    <span className="co-main"><strong>{company.name || 'Unnamed company'}{!company.active && <b className="lb-chip" data-tone="mute">Inactive</b>}</strong><small>{[company.address, sup].filter(Boolean).join(' · ') || 'No address yet'}</small></span>
+                    <span className="co-cap">{cap ? (cap <= 10 ? <span className="plo-slots" aria-hidden="true">{Array.from({ length: cap }, (_, i) => <i key={i} data-on={i < used || undefined} />)}</span> : <span className="plo-bar" aria-hidden="true"><b style={{ width: `${Math.min(100, used / cap * 100)}%` }} /></span>) : null}
+                      <small data-full={open === 0 || undefined}>{cap ? `${used} student${used === 1 ? '' : 's'} · ${open === 0 ? 'full' : `${open} open`}` : 'Capacity not set'}</small></span>
+                  </button></li>; })}</ul>}
+              {!loading && !loadFailed && (cursors.length > 1 || nextCursor) && <footer className="co-foot"><span>Page {cursors.length}</span><span className="co-pg">
+                <button type="button" className="rq-btn" aria-label="Previous" disabled={loading || cursors.length === 1} onClick={() => setPaging({ scope, cursors: cursors.slice(0, -1) })}>‹</button>
+                <button type="button" className="rq-btn" aria-label="Next" disabled={loading || !nextCursor} onClick={() => setPaging({ scope, cursors: [...cursors, nextCursor] })}>›</button></span></footer>}
+            </section>
+            {sel && <CompanyDetail company={sel} section={selectedSection} roster={roster} setRoster={setRoster} onEdit={() => editCompany(sel)} />}
+          </div>
+        </>;
+      })()}
     </div>
     <AlertDialog open={confirmDeactivate} tone="warning" title="Deactivate this company?"
       description="Students will no longer be able to submit new proposals for this company. Existing official placements and history will remain unchanged."
@@ -210,6 +228,42 @@ export default function CompanyDirectoryTab({ readOnly = true }) {
       onCancel={() => setConfirmDeactivate(false)}
       onConfirm={async () => { setConfirmDeactivate(false); await saveCompany(false); }} />
   </div>;
+}
+
+function CompanyDetail({ company, section, roster, setRoster, onEdit }) {
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    if (!section?.id || roster.id === company.id + ':' + section.id) return;
+    let on = true; setRoster({ id: company.id + ':' + section.id, items: null }); setMore(false);
+    adminRequest('/coordinator/placement-workspace?sectionId=' + encodeURIComponent(section.id) + '&view=students&companyId=' + encodeURIComponent(company.id))
+      .then(d => { if (on) setRoster({ id: company.id + ':' + section.id, items: d.students || [] }); })
+      .catch(() => { if (on) setRoster({ id: company.id + ':' + section.id, items: [] }); });
+    return () => { on = false; };
+  }, [company.id, section?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const d = company.placementDefaults || {};
+  const email = d.supervisorEmail || company.email;
+  const geo = company.geofence;
+  const items = roster.id === company.id + ':' + section?.id ? roster.items : null;
+  const list = items ? (more ? items : items.slice(0, 3)) : [];
+  const nm = s => [s.lastName, s.firstName].filter(Boolean).join(', ') || 'Student';
+  return <aside className="co-detail" aria-label={company.name}>
+    <div className="co-dhead"><h2>{company.name}</h2><button type="button" className="rq-btn" aria-label={'Edit ' + company.name} onClick={onEdit}>Edit</button></div>
+    <dl className="co-facts">
+      <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" /></svg><span><dt>Supervisor</dt><dd>{d.supervisorName || 'Not set'}</dd></span></div>
+      <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg><span><dt>Email</dt><dd>{email || 'Not set'}</dd></span></div>
+      <div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12z" /><circle cx="12" cy="9" r="2.5" /></svg><span><dt>Address</dt><dd>{company.address || 'Not set'}</dd></span></div>
+    </dl>
+    {geo?.enabled ? <>
+      <div className="co-map" aria-hidden="true"><i className="co-ring" /><i className="co-pin" /></div>
+      <p className="co-note">Students can only clock in within {geo.radiusMeters} metres of this spot.</p>
+    </> : <p className="co-note co-note-box">Students can clock in from anywhere. <button type="button" className="rq-link" onClick={onEdit}>Set a location</button></p>}
+    <div className="co-students">
+      <h3>{!section ? 'Pick a section to see students' : items == null ? 'Loading students…' : `${items.length} student${items.length === 1 ? '' : 's'} train${items.length === 1 ? 's' : ''} here`}</h3>
+      {list.map(s => <div key={s.id} className="co-stu"><i className="co-av sm">{nm(s).split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i><span>{nm(s)}</span><small>{s.idNumber}</small></div>)}
+      {items && items.length > 3 && <button type="button" className="rq-link" onClick={() => setMore(!more)}>{more ? 'Show fewer' : `Show ${items.length - 3} more`}</button>}
+    </div>
+    {email && <a className="rq-btn co-msg" target="_blank" rel="noopener noreferrer" href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}`}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>Send a message to the supervisor</a>}
+  </aside>;
 }
 
 const styles = {

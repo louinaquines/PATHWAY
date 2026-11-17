@@ -77,10 +77,10 @@ test('coordinator directory pages rows, searches later records and retains edit 
     return { companies: companies.slice(0, 25), nextCursor: '24' };
   });
   render(<CompanyDirectoryTab readOnly={false} />);
-  expect(await screen.findByText('Partner 01')).toBeInTheDocument();
+  expect((await screen.findAllByText('Partner 01')).length).toBeGreaterThan(0);
   expect(screen.queryByText('Partner 30')).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox',{name:'Search companies'}),{target:{value:'Partner 30'}});
-  expect(await screen.findByText('Partner 30')).toBeInTheDocument();
+  expect((await screen.findAllByText('Partner 30')).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button',{name:'Edit Partner 30'}));
   expect(screen.getByLabelText('Company name')).toHaveValue('Partner 30');
   expect(screen.getByLabelText('Require location for attendance')).toBeChecked();

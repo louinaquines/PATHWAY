@@ -1,0 +1,61 @@
+.coordinator-page main:has(.co) { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-page main:has(.co) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 4px !important; }
+.coordinator-page main:has(.co) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
+.coordinator-page main:has(.co) > div { background: transparent !important; }
+.company-directory-page:has(.co) { padding: 0 40px 32px !important; max-width: none !important; color: #15213a; }
+.company-directory-page:has(.co) .company-directory-layout { display: block !important; }
+.co-sub { margin: 0 0 18px; font-size: 13.5px; color: #7b8494; }
+.co-add { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
+.co-add:hover:not(:disabled) { background: #0a52b6 !important; }
+.co { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+.co-list { min-width: 0; display: grid; gap: 12px; padding: 16px; background: #fff; border: 1px solid #e8e5de; border-radius: 12px; }
+.co-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.co-search { flex: 1 1 220px; max-width: 280px; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #9aa1ad; }
+.co-search:focus-within { border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.co-search input { flex: 1; min-width: 0; height: 34px; border: 0 !important; outline: 0 !important; box-shadow: none !important; padding: 0 !important; background: transparent; font-family: inherit; font-size: 13px; color: #15213a; }
+.co-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.co-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 0; border-radius: 10px; background: transparent; font-family: inherit; text-align: left; cursor: pointer; transition: background-color .12s; }
+.co-row:hover { background: #faf9f6; }
+.co-row[aria-pressed="true"] { background: #eaf1fd; }
+.co-av { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 8px; background: #f1efe9; color: #465066; font-style: normal; font-size: 11.5px; font-weight: 700; }
+.co-av.sm { width: 26px; height: 26px; border-radius: 50%; font-size: 10px; }
+.co-row[aria-pressed="true"] .co-av { background: #fff; }
+.co-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.co-main strong { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: #15213a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.co-main small { font-size: 12px; color: #7b8494; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.co-main .lb-chip { font-size: 10.5px; }
+.co-cap { flex: none; width: 150px; display: grid; justify-items: end; gap: 5px; }
+.co-cap .plo-slots { justify-content: flex-end; }
+.co-cap .plo-bar { width: 100%; }
+.co-cap small { font-size: 11.5px; font-weight: 600; color: #1f7a4d; }
+.co-cap small[data-full] { color: #7b8494; }
+.co-empty { margin: 0; padding: 24px; text-align: center; color: #7b8494; font-size: 13px; }
+.co-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #efece5; font-size: 12.5px; color: #7b8494; }
+.co-pg { display: flex; gap: 6px; } .co-pg .rq-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }
+.co-detail { position: sticky; top: 0; display: grid; gap: 14px; padding: 18px; background: #fff; border: 1px solid #e8e5de; border-radius: 12px; font-size: 13px; color: #465066; }
+.co-dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.co-dhead h2 { margin: 0; font-size: 16px; font-weight: 700; color: #15213a; }
+.co-dhead .rq-btn { height: 30px; font-size: 12.5px; }
+.co-facts { margin: 0; display: grid; gap: 10px; }
+.co-facts > div { display: flex; gap: 10px; align-items: flex-start; }
+.co-facts svg { flex: none; margin-top: 2px; color: #9aa1ad; }
+.co-facts dt { font-size: 11.5px; color: #9aa1ad; }
+.co-facts dd { margin: 1px 0 0; font-size: 13px; font-weight: 600; color: #15213a; overflow-wrap: anywhere; }
+.co-map { position: relative; height: 130px; border-radius: 10px; overflow: hidden; background-color: #eef0ea; background-image: linear-gradient(#fff 3px, transparent 3px), linear-gradient(90deg, #fff 3px, transparent 3px); background-size: 46px 42px; background-position: -6px -4px; }
+.co-ring { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px 0 0 -46px; border-radius: 50%; background: rgba(11,95,211,.12); border: 2px solid rgba(11,95,211,.5); }
+.co-pin { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #0b5fd3; box-shadow: 0 0 0 3px #fff; }
+.co-note { margin: -4px 0 0; font-size: 12px; color: #7b8494; }
+.co-note-box { margin: 0; padding: 10px 12px; border-radius: 8px; background: #f7f5f0; }
+.co-note .rq-link, .co-students .rq-link { padding: 0; border: 0; background: none; color: #0b5fd3; font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; justify-self: start; }
+.co-students { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid #efece5; }
+.co-students h3 { margin: 0; font-size: 13px; font-weight: 700; color: #15213a; }
+.co-stu { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #15213a; }
+.co-stu span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-stu small { font-size: 11.5px; color: #9aa1ad; }
+.co-msg { justify-content: center; text-decoration: none; }
+@media (max-width: 1100px) {
+  .coordinator-page main:has(.co) > header.requirements-topbar { flex-wrap: wrap; gap: 12px; padding: 18px 16px 4px !important; }
+  .company-directory-page:has(.co) { padding: 0 16px 24px !important; }
+  .co { grid-template-columns: 1fr; } .co-detail { position: static; }
+}
+@media (max-width: 600px) { .co-cap { width: auto; } .co-search { max-width: none; } }

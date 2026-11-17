@@ -8,6 +8,10 @@ import "./NotificationsTab.css";
 import "./AnnouncementsRedesign.css";
 import { createPortal } from "react-dom";
 import SectionPicker from "../components/SectionPicker";
+const rowIcon = (kind, row) => kind === "attendance" ? "clock"
+  : /placement|company/i.test(row?.title || "") ? "briefcase"
+  : /announce/i.test(row?.title || "") ? "megaphone"
+  : /review|submitted|document|requirement|journal/i.test(row?.title || "") ? "clipboard" : "bell";
 const timestamp = (value) =>
   value
     ? new Date(value).toLocaleString("en-PH", {
@@ -281,30 +285,17 @@ export function NotificationWorkspace({
         </button>
         {sections.length > 0 && onSectionChange && <SectionPicker sections={sections} selected={section} onChange={(sec) => onSectionChange(sec)} />}
       </>)}
-      <div className="inbox-heading ann-tabs">
-        <div role="tablist" aria-label="Inbox">
-          <button
-            role="tab"
-            aria-selected={kind === "activity"}
-            onClick={() => setKind("activity")}
-          >
-            Activity
-          </button>
-          <button
-            role="tab"
-            aria-selected={kind === "attendance"}
-            onClick={() => setKind("attendance")}
-          >
-            Attendance alerts
-          </button>
-        </div>
-      </div>
+      <div className="ann-card">
       <section
         className="inbox-panel"
         aria-label={
           kind === "activity" ? "Activity inbox" : "Attendance alerts"
         }
       >
+        <div className="ann-switch" role="tablist" aria-label="Inbox">
+          <button role="tab" aria-selected={kind === "activity"} onClick={() => setKind("activity")}>Activity{kind === "activity" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
+          <button role="tab" aria-selected={kind === "attendance"} onClick={() => setKind("attendance")}>Attendance alerts{kind === "attendance" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
+        </div>
         <div className="inbox-toolbar">
           <label className="inbox-search">
             <Icon name="search" size={18} />
@@ -323,9 +314,8 @@ export function NotificationWorkspace({
             <option value="all">All</option>
             <option value="unread">Unread</option>
           </select>
-          <button onClick={() => setRetry((v) => v + 1)} disabled={busy}>
-            <Icon name="refresh" size={16} />
-            Refresh
+          <button className="ann-refresh" aria-label="Refresh" title="Refresh" onClick={() => setRetry((v) => v + 1)} disabled={busy}>
+            <Icon name="refresh" size={15} />
           </button>
           <span className="inbox-count">
             {Number.isFinite(counts.unread)
@@ -377,21 +367,21 @@ export function NotificationWorkspace({
           ) : (
             page.records.map((row) => (
               <button
-                className="inbox-row"
+                className={`inbox-row${detail?.id === row.id ? " is-on" : ""}${row.read ? "" : " is-unread"}`}
                 key={row.id}
                 onClick={(event) => open(row, event)}
               >
                 <span className="inbox-row-icon">
                   <Icon
-                    name={kind === "attendance" ? "clock" : "bell"}
-                    size={20}
+                    name={rowIcon(kind, row)}
+                    size={17}
                   />
                 </span>
                 <span className="inbox-row-copy">
                   <strong>{row.title}</strong>
                   <span>{row.message}</span>
                 </span>
-                <time>{timestamp(row.createdAt)}</time>
+                <time>{row.createdAt ? timestamp(row.createdAt) : ""}</time>
                 <span
                   className={`inbox-dot ${row.read ? "is-read" : ""}`}
                   aria-label={row.read ? "Read" : "Unread"}
@@ -434,20 +424,35 @@ export function NotificationWorkspace({
           </nav>
         </footer>
       </section>
-      {(detail || draft) && (
+      <section className="ann-detail" {...(detail ? { role: "dialog", "aria-label": "Notification details" } : {})}>
+        {detail ? <>
+          <header className="ann-detail-head"><span className="inbox-row-icon"><Icon name={rowIcon(kind, detail)} size={18} /></span>
+            <div><h3>{detail.title}</h3><p>{kind === "attendance" ? "Attendance alert" : "Activity"}{detail.createdAt ? ` · ${timestamp(detail.createdAt)}` : ""}</p></div>
+            <button type="button" className="plt-x" aria-label="Close details" onClick={close}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
+          <div className="ann-detail-body"><p className="inbox-detail-message">{detail.message}</p>
+            {detail.loading && <p role="status">Loading details…</p>}
+            {formError && <p role="alert">{formError}</p>}</div>
+          <footer className="ann-detail-foot">
+            {kind === "attendance" && !detail.loading && <button className="rq-btn" onClick={() => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); }}>View student</button>}
+            <button className="rq-btn rq-primary" onClick={read} disabled={saving || detail.read || detail.loading}>{saving ? "Saving…" : detail.read ? "Read" : "Mark as read"}</button>
+          </footer>
+        </> : <div className="ann-pick"><Icon name="bell" size={30} /><strong>Pick a notification</strong><span>Its details will show here.</span></div>}
+      </section>
+      </div>
+      {draft && (
         <PortalFormDialog
-          label={draft ? "Post announcement" : "Notification details"}
+          label="Post announcement"
           className="inbox-drawer"
           closeOnBackdrop
           onCancel={close}
         >
           <header>
-            <h2>{draft ? "Post announcement" : "Notification details"}</h2>
+            <h2>Post announcement</h2>
             <button onClick={close} disabled={saving} aria-label="Close drawer">
               ×
             </button>
           </header>
-          {draft ? (
+          {(
             <form onSubmit={post}>
               <div className="inbox-drawer-body">
                 {announcement ? (
@@ -518,38 +523,6 @@ export function NotificationWorkspace({
                 )}
               </footer>
             </form>
-          ) : (
-            <>
-              <div className="inbox-drawer-body">
-                <h3>{detail.title}</h3>
-                <time>{timestamp(detail.createdAt)}</time>
-                <p className="inbox-detail-message">{detail.message}</p>
-                {detail.loading && <p role="status">Loading details…</p>}
-                {formError && <p role="alert">{formError}</p>}
-              </div>
-              <footer>
-                {kind === "attendance" && !detail.loading && (
-                  <button
-                    onClick={() => {
-                      persist();
-                      onOpenAttendanceRisk?.({
-                        studentId: detail.studentId,
-                        sectionId: detail.sectionId,
-                      });
-                    }}
-                  >
-                    View student
-                  </button>
-                )}
-                <button
-                  className="inbox-primary"
-                  onClick={read}
-                  disabled={saving || detail.read || detail.loading}
-                >
-                  {saving ? "Saving…" : detail.read ? "Read" : "Mark as read"}
-                </button>
-              </footer>
-            </>
           )}
         </PortalFormDialog>
       )}

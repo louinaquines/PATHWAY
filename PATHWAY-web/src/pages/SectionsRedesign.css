@@ -64,3 +64,7 @@
 .sx-detail { padding: 20px 24px !important; }
 .sx-list { width: 240px; }
 @media (max-width: 1100px) { .sx-list { width: auto; } }
+.coordinator-page .sx .rq-stages button { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; height: 38px !important; min-height: 38px !important; padding: 0 12px !important; border: 0 !important; border-radius: 9px !important; background: transparent !important; box-shadow: none !important; cursor: pointer; }
+.sx .rq-stages button { background: transparent !important; color: inherit; font-family: inherit; cursor: pointer; box-shadow: none !important; }
+.sx .rq-stages button:hover { background: transparent !important; }
+.sx-tabs { margin-top: 0; }

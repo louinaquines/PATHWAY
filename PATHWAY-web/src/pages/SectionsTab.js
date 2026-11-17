@@ -272,10 +272,11 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   {chatHref && <> · <a href={chatHref} target="_blank" rel="noreferrer">Open Group Chat</a></>}</p></div>
               <button type="button" className="rq-btn" onClick={() => setView('rules')}>Change the rules</button>
             </header>
-            <div className="rq-pills sx-tabs" role="group" aria-label="Section view">
-              <button type="button" aria-pressed={view === 'students'} onClick={() => fetchStudents(selected)}>Students {students.length}</button>
-              <button type="button" aria-pressed={view === 'requirements'} onClick={() => fetchRequirements(selected)}>Required documents{view === 'requirements' && requirements.length ? ` ${requirements.length}` : ''}</button>
-              <button type="button" aria-pressed={view === 'rules'} onClick={() => setView('rules')}>Rules and deadlines</button>
+            <div className="rq-stages sx-tabs" role="tablist" aria-label="Section view" style={{ '--count': 3, '--index': view === 'requirements' ? 1 : view === 'rules' ? 2 : 0 }}>
+              <span className="rq-stages-thumb" aria-hidden="true" />
+              <button type="button" role="tab" aria-selected={view === 'students'} onClick={() => fetchStudents(selected)}><i data-tone={pending ? 'amber' : 'mute'} aria-hidden="true" /><strong>Students · {students.length}</strong></button>
+              <button type="button" role="tab" aria-selected={view === 'requirements'} onClick={() => fetchRequirements(selected)}><i data-tone="mute" aria-hidden="true" /><strong>Required documents{view === 'requirements' && requirements.length ? ` · ${requirements.length}` : ''}</strong></button>
+              <button type="button" role="tab" aria-selected={view === 'rules'} onClick={() => setView('rules')}><i data-tone="mute" aria-hidden="true" /><strong>Rules and deadlines</strong></button>
             </div>
             <div hidden={view !== 'students'} className="sx-panel">
               <div className="sx-tools">

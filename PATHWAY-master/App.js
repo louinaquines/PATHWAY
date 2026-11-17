@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { signOut } from 'firebase/auth';
 import { Animated, StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import StudentSuccessHost from './components/StudentSuccessHost';
+import StudentToastHost from './components/StudentToastHost';
 import { auth } from './firebaseConfig';
 import { destinationForProfile } from './services/authDestination';
 import { postBackend } from './services/backendApi';
@@ -29,6 +30,7 @@ import LogbookScreen from './screens/LogbookScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import WorkplaceSupportScreen from './screens/WorkplaceSupportScreen';
 import ActivityHistoryScreen from './screens/ActivityHistoryScreen';
 import SettingsInfoScreen from './screens/SettingsInfoScreen';
 
@@ -41,6 +43,7 @@ const Placeholder = ({ route }) => (
 );
 
 const Stack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef();
 
 function withStudentMotion(Screen) {
   function StudentScreenWithMotion(props) {
@@ -61,6 +64,7 @@ const LogbookWithMotion = withStudentMotion(LogbookScreen);
 const AttendanceWithMotion = withStudentMotion(AttendanceScreen);
 const ProgressWithMotion = withStudentMotion(ProgressScreen);
 const NotificationsWithMotion = withStudentMotion(NotificationsScreen);
+const WorkplaceSupportWithMotion = withStudentMotion(WorkplaceSupportScreen);
 const ActivityHistoryWithMotion = withStudentMotion(ActivityHistoryScreen);
 
 export default function App() {
@@ -80,6 +84,8 @@ export default function App() {
   const [loginNotice, setLoginNotice] = useState('');
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [startupComplete, setStartupComplete] = useState(false);
+  const [studentScreenVisible, setStudentScreenVisible] = useState(false);
+  const updateToastVisibility = () => setStudentScreenVisible(!['Login', 'Onboarding', 'ForgotPassword', 'ChangePassword', 'CoordinatorDashboard', 'SupervisorDashboard', 'AdminDashboard'].includes(navigationRef.getCurrentRoute()?.name));
   const [startupLogoFrame, setStartupLogoFrame] = useState(null);
   const startupProgress = useRef(new Animated.Value(0)).current;
 
@@ -158,7 +164,7 @@ export default function App() {
   ) : (!initialRoute || !fontsReady) ? (
     startupComplete ? <StartupMarkHold /> : <View style={{ flex: 1, backgroundColor: COLORS.primaryDeep }} />
   ) : (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} onReady={updateToastVisibility} onStateChange={updateToastVisibility}>
 
         <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Login">
@@ -185,6 +191,7 @@ export default function App() {
         <Stack.Screen name="Requirements" component={RequirementsWithMotion} />
         <Stack.Screen name="StudentRequirements" component={RequirementsWithMotion} />
         <Stack.Screen name="Company" component={CompanyWithMotion} />
+        <Stack.Screen name="PlacementChange" component={CompanyWithMotion} />
         <Stack.Screen name="Review" component={ReviewWithMotion} />
         <Stack.Screen name="Approval" component={ApprovalWithMotion} />
         <Stack.Screen name="LogToday" component={AttendanceWithMotion} />
@@ -194,6 +201,7 @@ export default function App() {
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordWithMotion} />
         <Stack.Screen name="Progress" component={ProgressWithMotion} />
         <Stack.Screen name="Notifications" component={NotificationsWithMotion} />
+        <Stack.Screen name="WorkplaceSupport" component={WorkplaceSupportWithMotion} />
         <Stack.Screen name="ActivityHistory" component={ActivityHistoryWithMotion} />
         <Stack.Screen name="Appearance" component={SettingsInfoScreen} />
         <Stack.Screen name="HelpCenter" component={SettingsInfoScreen} />
@@ -214,6 +222,7 @@ export default function App() {
         {appContent}
         <StudentDialogHost />
         <StudentSuccessHost />
+        <StudentToastHost enabled={startupComplete && studentScreenVisible && !restoreError} />
       </View>
       {!startupComplete ? (
         <AnimatedSplash

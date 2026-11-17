@@ -177,7 +177,7 @@ export default function AnimatedSplash({
 
       <Animated.View pointerEvents="none" style={[styles.wordmarkFrame, { top: startTop + logoSize + 18, opacity: wordmarkOpacity, transform: [{ translateY: wordmarkOffset }] }]}>
         <Text style={styles.wordmark}>PATHWAY</Text>
-        <Text style={styles.tagline}>OJT MANAGEMENT</Text>
+        <Text style={styles.tagline}>Your path from learning to experience</Text>
       </Animated.View>
     </View>
   );
@@ -191,7 +191,7 @@ export function StartupMarkHold() {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.primaryDeep} />
       <PathwayMark size={size} decorative style={styles.holdLogoTile} />
       <Text style={styles.wordmark}>PATHWAY</Text>
-      <Text style={styles.tagline}>OJT MANAGEMENT</Text>
+      <Text style={styles.tagline}>Your path from learning to experience</Text>
     </View>
   );
 }
@@ -241,10 +241,12 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: COLORS.textSecondary,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 2.2,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500',
+    letterSpacing: 0.2,
     textAlign: 'center',
+    paddingHorizontal: 24,
     marginTop: 8,
   },
   holdRoot: {

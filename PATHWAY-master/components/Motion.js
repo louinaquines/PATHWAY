@@ -59,7 +59,7 @@ export function useMotionPreferenceReady() {
   return useContext(MotionPreferenceContext).ready;
 }
 
-export function ScreenEntrance({ children, style, ...viewProps }) {
+export function ScreenEntrance({ children, style, delay = 0, ...viewProps }) {
   const reducedMotion = useReducedMotion();
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -73,11 +73,12 @@ export function ScreenEntrance({ children, style, ...viewProps }) {
     const animation = Animated.timing(progress, {
       toValue: 1,
       duration: MOTION.screenDuration,
+      delay,
       useNativeDriver: Platform.OS !== 'web',
     });
     animation.start();
     return () => animation.stop();
-  }, [progress, reducedMotion]);
+  }, [progress, reducedMotion, delay]);
 
   const baseStyle = StyleSheet.flatten(style) || {};
   const translateY = progress.interpolate({

@@ -206,13 +206,6 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   if (loading) return <div style={{ padding: 32 }}>Loading company placements...</div>;
   return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
-    {workspace === 'reviews' && <div className="placement-review-top-toolbar">
-      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
-        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
-      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
-        suppliedItems={error ? [] : placementNotices} onRefresh={load}
-        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
-    </div>}
     <CompanyConversations sectionId={selectedSection?.id} />
     <div className="placement-page-header">
       <div><h2 style={{ margin: 0 }}>Company Placements</h2>
@@ -223,6 +216,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>Companies</button>
       <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Placement Reviews{items.filter(item => item.status === 'pending_review').length ? ` (${items.filter(item => item.status === 'pending_review').length})` : ''}</button>
     </div>
+    {workspace === 'reviews' && <div className="placement-review-top-toolbar" style={{ marginTop: 20 }}>
+      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
+        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
+      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
+        suppliedItems={error ? [] : placementNotices} onRefresh={load}
+        onOpen={(student, item) => { setReviewStage(item.stage); setReviewStatus('all'); setReviewSearch(student.firstName || student.id); }} />
+    </div>}
     {error && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
     {workspace === 'companies' && selectedSection && !error && <PlacementCompanies key={selectedSection.id} companies={companies} students={assignedStudents} sectionName={selectedSection.name} />}
     {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>
@@ -236,10 +236,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <div><span>Final approvals</span><strong>{pendingFinalReviews}</strong><small>Pre-deployment submissions</small><button type="button" onClick={() => { setReviewStage('final'); setReviewStatus('pending_review'); setReviewSearch(''); }}>Open final approval queue</button></div>
       <div><span>Endorsement paperwork</span><strong>{endorsementItems.length}</strong><small>Awaiting a verified signed copy</small><button type="button" onClick={() => { setReviewStage('endorsement'); setReviewStatus('all'); setReviewSearch(''); }}>Open endorsements</button></div>
     </div>
-    <div className="review-toolbar">
+    <div className="review-stage-filter-row">
+    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', 'Endorsements'], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewStatus('all'); }}>{label}</button>)}</div>
+    <div className="review-toolbar review-status-filter">
       <label>Status<select value={reviewStatus} onChange={event => setReviewStatus(event.target.value)}><option value="all">All statuses</option>{Object.entries({ ...labels, awaiting_document: 'Awaiting signed copy', signed_copy_verified: 'Signed copy verified' }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     </div>
-    <div className="review-stage-tabs" role="group" aria-label="Review stages">{[['all', 'All stages'], ['placement', `Company requests (${pendingPlacements})`], ['final', `Final approvals (${pendingFinalReviews})`], ['endorsement', 'Endorsements'], ['history', 'History']].map(([value, label]) => <button key={value} type="button" aria-pressed={reviewStage === value} onClick={() => { setReviewStage(value); setReviewStatus('all'); }}>{label}</button>)}</div>
+    </div>
     <section hidden={!['all', 'placement'].includes(reviewStage)}>
     <div className="review-section-heading"><h3>Company placement requests</h3><p>Confirm the company, supervisor, and schedule before assigning an official placement.</p></div>
     {sortedReviews(items).length === 0 && <div className="review-empty">No company placement requests match this view.</div>}

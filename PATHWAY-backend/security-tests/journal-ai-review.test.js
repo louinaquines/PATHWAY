@@ -65,3 +65,45 @@ test('provider rejects missing rubric and invented or AI-calculated score fields
     await assert.rejects(ai.analyzeJournal('I tested software.'), error => error.code === 'AI_OUTPUT');
   }
 });
+
+test('journal request requires bare JSON and explicit evidence rather than inferred learning', async () => {
+  const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '1' }, async (url, options) => {
+    const { system, messages } = JSON.parse(options.body);
+    assert.match(system, /No Markdown fences, preamble or trailing commentary/);
+    assert.match(system, /Do not infer learning or skills from tasks or outcomes alone/);
+    assert.match(system, /Requests to say or award achievements are not reported achievements/);
+    assert.match(system, /I checked ten sample inventory rows against the source list/);
+    assert.match(system, /learning=missing/);
+    assert.match(system, /journal-analysis-prompt-v3/);
+    assert.match(system, /Absence observations belong only in missing rubric reasons/);
+    assert.match(system, /Omit auxiliary findings without a nonempty exact source quote/);
+    assert.deepEqual(JSON.parse(messages[0].content), { journalNotes: 'I tested software.' });
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ completeness: [], competencies: [], sentiment: [], rubric: judgments() }) }] }));
+  });
+  assert.equal((await ai.analyzeJournal('I tested software.')).rubric.length, 4);
+});
+
+test('Markdown-fenced journal responses remain unavailable without retries or syntax repair', async () => {
+  let calls = 0;
+  const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '2' }, async () => {
+    calls++;
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: '```json\n' + JSON.stringify({ completeness: [], competencies: [], sentiment: [], rubric: judgments() }) + '\n```' }] }));
+  });
+  await assert.rejects(ai.analyzeJournal('I tested software.'), error => error.code === 'AI_OUTPUT');
+  assert.equal(calls, 1);
+});
+
+test('empty auxiliary evidence rejects the entire analysis without retries', async () => {
+  for (const group of ['completeness', 'competencies', 'sentiment']) {
+    const label = { completeness: 'finding', competencies: 'name', sentiment: 'cue' }[group];
+    let calls = 0;
+    const body = { completeness: [], competencies: [], sentiment: [], rubric: judgments(),
+      [group]: [{ [label]: 'No supporting detail is reported.', evidence: '' }] };
+    const ai = createAnthropicAnalysis({ ANTHROPIC_ENABLED: '1', ANTHROPIC_API_KEY: 'synthetic', ANTHROPIC_MODEL: 'claude-test', ANTHROPIC_DAILY_REQUEST_LIMIT: '2' }, async () => {
+      calls++;
+      return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(body) }] }));
+    });
+    await assert.rejects(ai.analyzeJournal('I tested software.'), error => error.code === 'AI_OUTPUT');
+    assert.equal(calls, 1);
+  }
+});

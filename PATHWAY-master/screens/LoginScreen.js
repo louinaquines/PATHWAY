@@ -9,7 +9,9 @@ import {
   Platform,
   StatusBar,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { destinationForProfile } from '../services/authDestination';
@@ -17,6 +19,7 @@ import { postBackend } from '../services/backendApi';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import AuthHero, { AuthPanel } from '../components/AuthHero';
+import DashboardLoading from '../components/DashboardLoading';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import { UserIcon, LockIcon, EyeIcon, EyeOffIcon, AlertCircleIcon, ChevronRightIcon } from '../components/Icons';
 
@@ -24,13 +27,20 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [openingDashboard, setOpeningDashboard] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isFocusedEmail, setIsFocusedEmail] = useState(false);
   const [isFocusedPass, setIsFocusedPass] = useState(false);
   const passwordInputRef = useRef(null);
+  const { height, width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const compact = height < 800;
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
 
   const handleLogin = async () => {
+    if (loading) return;
     setError('');
     onClearInitialError?.();
     if (!email.trim()) { setError('Enter your username.'); return; }
@@ -55,6 +65,11 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
         await auth.signOut();
         return;
       }
+      // Skip the dashboard animation when the student must change their password first.
+      if (destination !== 'ChangePassword') {
+        setOpeningDashboard(true);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
       navigation.reset({ index: 0, routes: [{ name: destination }] });
     } catch (err) {
       switch (err.code) {
@@ -67,9 +82,12 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
         default: setError('Something went wrong. Try again.');
       }
     } finally {
+      setOpeningDashboard(false);
       setLoading(false);
     }
   };
+
+  if (openingDashboard) return <DashboardLoading />;
 
   return (
     <KeyboardAvoidingView
@@ -79,20 +97,27 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
 
       <ScrollView
+        onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
+        onContentSizeChange={(_, nextHeight) => setContentHeight(nextHeight)}
+        scrollEnabled={contentHeight > viewportHeight + 1}
+        bounces={false}
+        overScrollMode="never"
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
       >
         <AuthHero
+          illustrated
+          heroHeight={Math.min(360, Math.max(180, height - (compact ? 490 : 540) - insets.bottom))}
           title="Welcome"
-          subtitle="Your OJT journey continues here."
+          subtitle="Your OJT journey starts here."
           startupProgress={startupProgress}
           startupTransition={startupTransition}
           onStartupLogoLayout={onStartupLogoLayout}
         />
 
-        <AuthPanel style={styles.card} startupProgress={startupProgress} startupTransition={startupTransition}>
+        <AuthPanel style={[styles.card, compact && styles.compactCard, { paddingBottom: (compact ? 12 : 18) + insets.bottom, paddingHorizontal: width < 360 ? 18 : 24 }]} startupProgress={startupProgress} startupTransition={startupTransition}>
           <Text variant="heading" style={styles.formTitle}>Sign in</Text>
           <Text style={styles.formIntro}>Sign in with your coordinator-issued account.</Text>
 
@@ -111,7 +136,7 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
             </View>
             <TextInput
               style={styles.textInput}
-              placeholder="e.g. uclm-24228132"
+              placeholder="Enter your username"
               placeholderTextColor={COLORS.textPlaceholder}
               value={email}
               onChangeText={setEmail}
@@ -214,7 +239,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flexGrow: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#F9FBFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     marginTop: -28,
@@ -223,6 +248,7 @@ const styles = StyleSheet.create({
     paddingBottom: 38,
     ...SHADOWS.floating,
   },
+  compactCard: { paddingTop: 14 },
   authTabs: {
     flexDirection: 'row',
     backgroundColor: COLORS.surfaceMuted,

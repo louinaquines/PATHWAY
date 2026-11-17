@@ -78,3 +78,11 @@ test('submitted import enables file-linked saving and displays saved history', a
   const payload = JSON.parse(adminRequest.mock.calls.find(([path, options]) => path.endsWith('/reviews') && options?.method === 'POST')[1].body);
   expect(payload.sourceVersion).toBe('a'.repeat(64)); expect(payload.form.month).toBe(10);
 });
+
+test('saved escalation history labels potential discrepancy as Needs verification', async () => {
+  adminRequest.mockResolvedValue({ reviews: [{ id: 'flagged', period: '2026-10', createdAt: '2026-10-11T00:00:00Z',
+    fileName: 'test.pdf', coordinatorId: 'staff', escalation: { id: 'queue-id', status: 'needs_verification', reasons: ['daily_duration'] } }] });
+  render(<DtrReviewDialog student={{ id: 'student' }} onClose={() => {}} />);
+  expect(await screen.findByText(/Potential discrepancy — Needs verification/)).toBeInTheDocument();
+  expect(screen.getByText(/Digital elapsed spans do not verify breaks, OCR accuracy, or misconduct/)).toBeInTheDocument();
+});

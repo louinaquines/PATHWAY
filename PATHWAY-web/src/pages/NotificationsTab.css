@@ -3,9 +3,10 @@
 .notification-workspace-header { display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; align-items: center; width: 100%; color: #172b46; }
 .notification-workspace-header h2 { margin: 0; font-size: 24px; }
 .notification-workspace-header p { margin: 8px 0 0; font-size: 14px; color: #62758e; }
-.notification-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 5px; border: 1px solid #dce5f1; border-radius: 12px; background: #eef3f9; width: min(100%, 460px); box-sizing: border-box; }
-.notification-switch-slider { position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc(50% - 5px); background: white; border: 1px solid #cdddf1; border-radius: 8px; box-sizing: border-box; transition: transform 200ms ease; }
+.notification-switch { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 5px; border: 1px solid #dce5f1; border-radius: 12px; background: #eef3f9; width: min(100%, 660px); box-sizing: border-box; }
+.notification-switch-slider { position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 3); background: white; border: 1px solid #cdddf1; border-radius: 8px; box-sizing: border-box; transition: transform 200ms ease; }
 .notification-switch.is-broadcast .notification-switch-slider { transform: translateX(100%); }
+.notification-switch.is-support .notification-switch-slider { transform: translateX(200%); }
 .notification-switch button { position: relative; z-index: 1; padding: 13px 10px; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #62758e; cursor: pointer; }
 .notification-switch button[aria-selected="true"] { color: #075fc9; }
 .notification-switch button:focus-visible { outline: 2px solid #075fc9; border-radius: 8px; }
@@ -15,6 +16,16 @@
 .notifications-page [role="tabpanel"] button > div { overflow-wrap: anywhere; }
 @media (max-width: 650px) { .notifications-page { padding: 16px !important; } .notifications-page form > div:nth-child(2) { grid-template-columns: 1fr !important; } }
 @media (prefers-reduced-motion: reduce) { .notification-switch-slider { transition: none; } }
+.workplace-support header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.workplace-support header h2, .workplace-support header p { width: 100%; margin: 0; }
+.workplace-support article, .support-detail { border: 1px solid #dce5f1; border-radius: 12px; padding: 16px; margin-top: 14px; overflow-wrap: anywhere; }
+.support-report-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.workplace-support button { background: #eef3f9; border: 1px solid #cdddf1; border-radius: 8px; padding: 10px 14px; color: #172b46; margin: 4px; cursor: pointer; }
+.workplace-support button:disabled { opacity: .55; cursor: default; }
+.workplace-support button:focus-visible { outline: 2px solid #075fc9; outline-offset: 2px; }
+.support-detail p { white-space: pre-wrap; }
+.support-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 650px) { .support-report-list { grid-template-columns: 1fr; } .notification-switch button { padding: 10px 3px; font-size: 12px; overflow-wrap: anywhere; } .workplace-support { padding: 16px !important; } }
 .attendance-risk-panel { width: 100%; min-width: 0; box-sizing: border-box; padding: 24px; background: white; border: 1px solid #e4eaf3; border-radius: 16px; color: #152238; }
 .attendance-risk-panel p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .attendance-risk-panel article { margin-top: 12px; padding: 16px; background: #f6f8fc; border: 1px solid #dbe4f0; border-radius: 10px; }

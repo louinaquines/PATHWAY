@@ -13,7 +13,10 @@ const VARIANTS = {
   attendance: { profile: false, stats: false, cards: 2, darkHeader: false },
   logbook: { profile: false, stats: false, cards: 3, darkHeader: false },
   review: { profile: false, stats: false, cards: 4, darkHeader: false },
+  gate: { profile: false, stats: false, cards: 0, darkHeader: false },
 };
+// Screens that use the student top bar: button left, PATHWAY mark centre, bell right.
+const BRAND_HEADER = new Set(['dashboard', 'gate', 'requirements', 'placement', 'review']);
 
 function Block({ pulse, style }) {
   return <Animated.View style={[styles.block, style, { opacity: pulse }]} />;
@@ -44,11 +47,19 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
         barStyle={layout.darkHeader ? 'light-content' : 'dark-content'}
         backgroundColor={layout.darkHeader ? COLORS.primaryDark : COLORS.surface}
       />
-      <View style={[styles.header, layout.darkHeader ? styles.darkHeader : styles.lightHeader]}>
-        <Block pulse={pulse} style={[styles.headerIcon, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
-        <Block pulse={pulse} style={[styles.headerTitle, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
-        <Block pulse={pulse} style={[styles.headerAction, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
-      </View>
+      {BRAND_HEADER.has(variant) ? (
+        <View style={[styles.header, styles.lightHeader, styles.brandHeader]}>
+          <Block pulse={pulse} style={styles.brandSideButton} />
+          <Block pulse={pulse} style={styles.brandMark} />
+          <Block pulse={pulse} style={styles.brandSideButton} />
+        </View>
+      ) : (
+        <View style={[styles.header, layout.darkHeader ? styles.darkHeader : styles.lightHeader]}>
+          <Block pulse={pulse} style={[styles.headerIcon, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
+          <Block pulse={pulse} style={[styles.headerTitle, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
+          <Block pulse={pulse} style={[styles.headerAction, layout.darkHeader ? styles.darkHeaderBlock : styles.lightHeaderBlock]} />
+        </View>
+      )}
       {variant === 'inbox' && (
         <View style={styles.inboxControls}>
           <View style={styles.inboxTabs}>
@@ -85,7 +96,49 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
             </View>
           </View>
         )}
-        {variant === 'progress' ? (
+        {variant === 'gate' ? (
+          <View style={{ gap: 18 }}>
+            <View style={styles.gateWelcome}>
+              <View style={{ flex: 1, gap: 8 }}>
+                <Block pulse={pulse} style={{ width: 120, height: 10 }} />
+                <Block pulse={pulse} style={{ width: '70%', height: 26 }} />
+                <Block pulse={pulse} style={{ width: '58%', height: 12 }} />
+              </View>
+              <Block pulse={pulse} style={styles.gateCharacter} />
+            </View>
+            <View style={[styles.card, { padding: 18, gap: 14 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Block pulse={pulse} style={{ width: 52, height: 52, borderRadius: 26 }} />
+                <View style={{ gap: 8 }}>
+                  <Block pulse={pulse} style={{ width: 96, height: 9 }} />
+                  <Block pulse={pulse} style={{ width: 110, height: 22, borderRadius: 11 }} />
+                </View>
+              </View>
+              <Block pulse={pulse} style={{ width: '72%', height: 18 }} />
+              <Block pulse={pulse} style={{ width: '92%', height: 11 }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Block pulse={pulse} style={{ width: 110, height: 11 }} />
+                <Block pulse={pulse} style={{ width: 34, height: 11 }} />
+              </View>
+              <Block pulse={pulse} style={{ width: '100%', height: 8, borderRadius: 4 }} />
+              <Block pulse={pulse} style={{ width: '100%', height: 46, borderRadius: RADIUS.lg }} />
+            </View>
+            <View style={{ gap: 6 }}>
+              <Block pulse={pulse} style={{ width: 170, height: 16 }} />
+              <Block pulse={pulse} style={{ width: 200, height: 10 }} />
+            </View>
+            <View style={styles.gateGrid}>
+              {[0, 1, 2, 3].map(key => (
+                <View key={key} style={[styles.card, styles.gateTile]}>
+                  <Block pulse={pulse} style={{ width: 34, height: 34, borderRadius: 17 }} />
+                  <Block pulse={pulse} style={{ width: '70%', height: 12 }} />
+                  <Block pulse={pulse} style={{ width: '90%', height: 10 }} />
+                  <Block pulse={pulse} style={{ width: 70, height: 20, borderRadius: 10 }} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : variant === 'progress' ? (
           <View style={{ gap: 16 }}>
             <View style={[styles.card, { gap: 20, padding: 20 }]}>
               <Block pulse={pulse} style={{ width: 130, height: 12 }} />
@@ -232,15 +285,11 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
         <View style={styles.dashboardBottomDock}>
           <View style={styles.dashboardQuickActions}>
             <Block pulse={pulse} style={styles.dashboardMessageAction} />
-            <Block pulse={pulse} style={styles.dashboardLogAction} />
           </View>
           <View style={styles.dashboardBottomBar}>
-            {[0, 1, 2, 3].map(key => (
-              <View key={key} style={styles.dashboardTabPlaceholder}>
-                <Block pulse={pulse} style={styles.dashboardTabIcon} />
-                <Block pulse={pulse} style={styles.dashboardTabLabel} />
-              </View>
-            ))}
+            {[0, 1].map(key => <View key={key} style={styles.dashboardTabPlaceholder}><Block pulse={pulse} style={styles.dashboardTabIcon} /></View>)}
+            <View style={styles.dashboardCenterSlot}><Block pulse={pulse} style={styles.dashboardCenterButton} /></View>
+            {[2, 3].map(key => <View key={key} style={styles.dashboardTabPlaceholder}><Block pulse={pulse} style={styles.dashboardTabIcon} /></View>)}
           </View>
         </View>
       ) : null}
@@ -250,6 +299,15 @@ export default function StudentScreenSkeleton({ variant = 'dashboard' }) {
 }
 
 const styles = StyleSheet.create({
+  brandHeader: { justifyContent: 'space-between', minHeight: 70, paddingVertical: 12 },
+  brandSideButton: { width: 42, height: 42, borderRadius: 14 },
+  brandMark: { width: 38, height: 38, borderRadius: 19 },
+  gateWelcome: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 120 },
+  gateCharacter: { width: 110, height: 120, borderRadius: 55 },
+  gateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  gateTile: { flexBasis: '47%', flexGrow: 1, padding: 14, gap: 10, minHeight: 140 },
+  dashboardCenterSlot: { flex: 1, alignItems: 'center' },
+  dashboardCenterButton: { width: 62, height: 62, borderRadius: RADIUS.full, marginTop: -30, backgroundColor: COLORS.primaryLight, borderWidth: 4, borderColor: COLORS.background },
   inboxControls: { backgroundColor: COLORS.surface, paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
   inboxTabs: { flexDirection: 'row', gap: 8, padding: 4, borderRadius: 16, backgroundColor: COLORS.surfaceMuted },
   screen: { flex: 1, backgroundColor: COLORS.background },
@@ -273,9 +331,9 @@ const styles = StyleSheet.create({
   dashboardQuickActions: { flexDirection: 'column', alignItems: 'flex-end', gap: 10, paddingHorizontal: 14, paddingBottom: 8 },
   dashboardMessageAction: { width: 60, height: 60, borderRadius: RADIUS.full, backgroundColor: COLORS.surfaceMuted },
   dashboardLogAction: { width: 60, height: 60, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight },
-  dashboardBottomBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight, backgroundColor: COLORS.surface },
+  dashboardBottomBar: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingTop: 10, paddingBottom: 12, marginHorizontal: 14, marginBottom: 10, borderRadius: 28, borderWidth: 1, borderColor: COLORS.borderLight, backgroundColor: COLORS.surface },
   dashboardTabPlaceholder: { flex: 1, alignItems: 'center', gap: 4 },
-  dashboardTabIcon: { width: 34, height: 28, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight },
+  dashboardTabIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: COLORS.secondaryLight },
   dashboardTabLabel: { width: 30, height: 8, borderRadius: 4 },
   pageTitle: { width: '52%', height: 22, marginBottom: 10 },
   pageSubtitle: { width: '78%', height: 11, marginBottom: 18 },

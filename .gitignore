@@ -54,3 +54,6 @@ __pycache__/
 # Keep the project manuscript and its extracted private working files out
 /PATHWAY-OJT-Management-System-with-AI-Analytics-1.docx
 /.docx_extracted/
+
+output/
+tmp/

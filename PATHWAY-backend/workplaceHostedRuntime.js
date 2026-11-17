@@ -8,7 +8,8 @@ const { createWorkplaceJournalWorker } = require('./workplaceJournalWorker');
 const { PRICE_PROFILE, reserveCostMicroUsd } = require('./workplaceAnalysisPricing');
 const { LIMITS } = require('./workplaceRealUsePolicy');
 const unavailable = () => Object.assign(Error('Hosted analysis unavailable.'), { code: 'HOSTED_UNAVAILABLE' });
-function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, clock = () => new Date() } = {}) {
+function createHostedWorkplaceRuntime({ db, enabled = false, successfulNextJob = false, readinessGate = false, gate, apiKey, transport, clock = () => new Date() } = {}) {
+  let continuation;
   const active = enabled === true && db && typeof apiKey === 'string' && apiKey.trim() && typeof transport === 'function';
   const control = () => db.doc('workplaceHostedControl/control');
   const time = () => { const n = clock(); if (!(n instanceof Date) || !Number.isFinite(n.getTime())) throw unavailable(); return n; };
@@ -17,8 +18,22 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
   async function wake({ jobId } = {}) {
     if (!active) return { status: 'disabled', processed: 0 };
     if (!validId(jobId)) throw unavailable(); // Exact target only; never scan historical journals.
-    const initial = (await control().get()).data();
-    if (!usable(initial)) {
+    let admission;
+    if (readinessGate === true) {
+      if (successfulNextJob === true || !require('./workplaceReadinessGate').isWorkplaceReadinessGate(gate)) throw unavailable();
+      admission = await gate.assertExecution({ jobId });
+    }
+    const initialSnapshot = await control().get(), initial = initialSnapshot.data();
+    if (readinessGate !== true && initial?.readinessProtocol != null) return { status: 'stopped', processed: 0 };
+    if (successfulNextJob === true && (initial?.operatingMode !== 'successful-next-job-v1'
+      || initial.stopProtocol !== 'operator-revision-v1' || !Number.isSafeInteger(initial.operatorRevision)
+      || initial.operatorRevision < 0)) return { status: 'stopped', processed: 0 };
+    const permit = continuation;
+    continuation = undefined;
+    const continued = successfulNextJob === true && initial?.enabled === true && initial.stopped === true
+      && permit?.version?.isEqual(initialSnapshot.updateTime) && permit.session === initial.stopSession
+      && permit.day === time().toISOString().slice(0, 10) && time().getTime() < permit.deadline;
+    if (!usable(initial) && !continued) {
       // A stopped process may quarantine expired sending work, never reclaim or dispatch it.
       let processed = 0;
       if (initial?.enabled === true && initial.stopped === true && validId(initial.epoch)) {
@@ -37,12 +52,34 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
       }
       return { status: 'stopped', processed };
     }
-    const session = randomUUID(), day = time().toISOString().slice(0, 10), ticket = Symbol('continuation');
-    let issued = false, selected, owner, prepared;
+    const session = admission?.session || randomUUID(), day = time().toISOString().slice(0, 10), ticket = Symbol('continuation');
+    let issued = false, selected, owner, prepared, ownedVersion, leaseDeadline, stopCalls = 0, uncertain = false;
+    // Worker finalization errors may be caught internally; they still forbid releasing the interlock.
+    const workerDb = successfulNextJob !== true && readinessGate !== true ? db : new Proxy(db, { get(target, key) {
+      if (key === 'runTransaction') return async callback => {
+        try { return await target.runTransaction(callback); } catch (error) { uncertain = true; throw error; }
+      };
+      const value = target[key]; return typeof value === 'function' ? value.bind(target) : value;
+    } });
     const profileKey = digest(['model','currency','inputRate','outputRate','reviewedAt','expiresAt'].map(k => PRICE_PROFILE[k]));
     const attemptRef = db.doc(`workplaceHostedAttempts/${digest([jobId, 1])}`);
-    const bound = c => c?.enabled === true && c.epoch === initial.epoch && c.notBefore === initial.notBefore;
+    const bound = c => c?.enabled === true && c.epoch === initial.epoch && c.notBefore === initial.notBefore
+      && (successfulNextJob !== true || (c.operatingMode === 'successful-next-job-v1'
+        && c.stopProtocol === 'operator-revision-v1' && c.operatorRevision === initial.operatorRevision));
     async function stop() {
+      stopCalls++;
+      if (readinessGate === true) {
+        if (stopCalls !== 1) { gate.invalidate(); throw unavailable(); }
+        await gate.assertExecution({ jobId }); issued = true; return ticket;
+      }
+      if (successfulNextJob === true && stopCalls === 1) {
+        if (issued) return ticket;
+        // The acknowledged CAS write version fences even same-value operator stops.
+        const result = await control().update({ stopped: true, stopSession: session, stopJobId: jobId,
+          stoppedAt: time().toISOString() }, { lastUpdateTime: initialSnapshot.updateTime });
+        ownedVersion = result.writeTime;
+        issued = true; return ticket;
+      }
       await db.runTransaction(async tx => {
         const c = (await tx.get(control())).data();
         if (!bound(c) || (c.stopped !== false && c.stopSession !== session)) throw unavailable();
@@ -50,11 +87,12 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
       });
       issued = true; return ticket;
     }
-    async function check(value, action) {
+    async function check(value, action, finalized = false) {
+      if (readinessGate === true) await gate.assertExecution({ jobId });
       if (!prepared || !isDeepStrictEqual(value, prepared) || time().toISOString().slice(0, 10) !== day
         || reserveCostMicroUsd({ ...prepared, now: time() }) !== LIMITS.reservationMicroUsd) throw unavailable();
       const expiry = await db.runTransaction(async tx => {
-        const c = (await tx.get(control())).data();
+        const controlSnapshot = await tx.get(control()), c = controlSnapshot.data();
         const job = (await tx.get(db.doc(`workplaceJournalAnalysisJobs/${jobId}`))).data();
         const lease = (await tx.get(db.doc('workplaceJournalWorker/control'))).data();
         const budget = (await tx.get(db.doc(`workplaceAnalysisBudgetAttempts/${digest([jobId, 1])}`))).data();
@@ -62,8 +100,12 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
         const prior = (await tx.get(attemptRef)).data();
         const live = data => data?.leaseOwner === owner && Date.parse(data.leaseUntil) > time().getTime();
         if (!bound(c) || !(c.stopped === false || (issued && c.stopped === true && c.stopSession === session))
+          || (successfulNextJob === true && !(issued ? ownedVersion : initialSnapshot.updateTime)?.isEqual(controlSnapshot.updateTime))
           || !job || !selected || digest([job.studentId, job.entryId, job.sourceHash, job.sourceRevision, job.consentRevision, job.disclosureVersion]) !== selected
-          || job.state !== 'sending' || job.attempts !== 1 || !live(job) || !live(lease)
+          || job.attempts !== 1 || (finalized ? job.state !== 'processed' || job.leaseOwner !== null || job.leaseUntil !== null
+            || lease?.leaseOwner || !Number.isFinite(leaseDeadline) || time().getTime() >= leaseDeadline
+            || !Number.isFinite(Date.parse(job.updatedAt)) || Date.parse(job.updatedAt) >= leaseDeadline
+            : job.state !== 'sending' || !live(job) || !live(lease))
           || Date.parse(job.createdAt) < Date.parse(initial.notBefore) || !Number.isFinite(Date.parse(job.createdAt))
           || Date.parse(job.createdAt) > time().getTime() || (brake && brake.blocked !== false)
           || budget?.day !== day || budget.reservedMicroUsd !== LIMITS.reservationMicroUsd) throw unavailable();
@@ -78,15 +120,23 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
           || !isDeepStrictEqual(prepareWorkplaceClaudeRequest(entry.rawNotes), prepared)) throw unavailable();
         const fingerprint = digest([selected, prepared.request, profileKey, day, initial.epoch]);
         if (prior && (prior.fingerprint !== fingerprint || prior.session !== session || prior.owner !== owner)) throw unavailable();
+        if (finalized && (prior?.stage !== 'generation' || prior.day !== day || prior.reservedMicroUsd !== LIMITS.reservationMicroUsd
+          || !job.usage || !['inputTokens', 'outputTokens'].every(k => Number.isSafeInteger(job.usage[k]) && job.usage[k] >= 0)
+          || job.usage.inputTokens > prepared.inputTokenUpperBound || job.usage.outputTokens > prepared.maxOutputTokens
+          || stopCalls !== 1 || uncertain || !issued || c.stopped !== true || c.stopJobId !== jobId)) throw unavailable();
         const binding = { fingerprint, session, owner, day, reservedMicroUsd: LIMITS.reservationMicroUsd };
+        if (finalized && (time().toISOString().slice(0, 10) !== day || time().getTime() >= leaseDeadline
+          || reserveCostMicroUsd({ ...prepared, now: time() }) !== LIMITS.reservationMicroUsd)) throw unavailable();
         if (action) await action(tx, prior, binding);
-        return Math.min(Date.parse(job.leaseUntil), Date.parse(lease.leaseUntil));
+        return finalized ? leaseDeadline : Math.min(Date.parse(job.leaseUntil), Date.parse(lease.leaseUntil));
       });
       if (time().getTime() >= expiry || time().toISOString().slice(0, 10) !== day) throw unavailable();
+      if (!finalized) leaseDeadline = expiry;
+      if (readinessGate === true) await gate.assertExecution({ jobId });
     }
     const authority = {
       assertReady: p => check(p),
-      assertContinuation: async (t, p) => { if (issued && t !== ticket) throw unavailable(); await check(p); },
+      assertContinuation: async (t, p) => { if (issued && stopCalls > 0 && t !== ticket) throw unavailable(); await check(p); },
       reserve: p => check(p, async (tx, prior, binding) => {
         if (prior) throw unavailable();
         const ref = db.doc(`workplaceHostedDays/${day}`), snapshot = await tx.get(ref);
@@ -123,8 +173,25 @@ function createHostedWorkplaceRuntime({ db, enabled = false, apiKey, transport, 
       },
     };
     try {
-      return await createWorkplaceJournalWorker({ db, enabled: true, analyzer, clock, onAccountingUncertain: stop }).runBatch({ limit: 1, jobId });
-    } catch { await stop().catch(() => {}); return { status: 'unavailable', processed: 0 }; }
+      if (continued) {
+        const write = await control().update({ stopped: true, stopSession: session, stopJobId: jobId,
+          stoppedAt: time().toISOString() }, { lastUpdateTime: initialSnapshot.updateTime });
+        ownedVersion = write.writeTime; issued = true;
+      }
+      const result = await createWorkplaceJournalWorker({ db: workerDb, enabled: true, analyzer, clock, onAccountingUncertain: stop }).runBatch({ limit: 1, jobId });
+      if (readinessGate === true) {
+        if (uncertain) { gate.invalidate(); return { status: 'unavailable', processed: 0 }; }
+        if (stopCalls === 0 && !issued) return result;
+        if (stopCalls !== 1 || !issued) { gate.invalidate(); return { status: 'unavailable', processed: 0 }; }
+        await gate.finishSuccess({ jobId });
+      }
+      if (successfulNextJob === true && issued) {
+        // Never durably reopen sharing: only an acknowledged read permits same-process handoff.
+        await check(prepared, undefined, true);
+        continuation = { version: ownedVersion, session, day, deadline: leaseDeadline };
+      }
+      return result;
+    } catch { if (readinessGate === true) gate.invalidate(); else await stop().catch(() => {}); return { status: 'unavailable', processed: 0 }; }
   }
   return { wake };
 }

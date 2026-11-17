@@ -26,7 +26,7 @@ export function activityTime(value) {
 export function buildActivity(attendance, journals, notifications) {
   return [
     ...attendance.map(item => ({ id: `a-${item.id}`, type: 'attendance', text: `Attendance logged: ${Number(item.hoursToday || 0).toFixed(2)} hrs`, createdAt: item.timeOut || item.timeIn || `${item.date}T00:00:00+08:00` })),
-    ...journals.map(item => ({ id: `l-${item.id}`, type: 'journal', text: `Week ${item.weekNum || ''} logbook submitted`, createdAt: item.createdAt })),
+    ...journals.map(item => ({ id: `l-${item.id}`, type: 'journal', text: item.frequency === 'daily' ? `Daily journal submitted · ${item.periodStart}` : `Week ${item.weekNum || ''} logbook submitted`, createdAt: item.createdAt })),
     ...notifications.map(item => ({ id: `n-${item.id}`, type: 'notification', text: item.title || item.message || 'Coordinator update', createdAt: item.createdAt })),
   ].sort((a, b) => activityTime(b.createdAt) - activityTime(a.createdAt) || a.id.localeCompare(b.id));
 }

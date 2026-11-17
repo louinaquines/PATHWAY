@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { adminDocumentBlob, adminDownload, adminRequest } from '../adminApi';
 import Icon from './Icons';
 import PdfPreview from './PdfPreview';
-import DocumentAiAssistance from './DocumentAiAssistance';
+import DocumentTriagePanel from './DocumentTriagePanel';
 import { extractPdfChecks, documentTextChecks } from '../documentTextChecks';
 import './DocumentPreviewDialog.css';
 
@@ -22,6 +22,7 @@ export default function DocumentPreviewDialog({ path, fileName, sectionId, requi
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [checks, setChecks] = useState(null);
+  const [triageContext, setTriageContext] = useState(null);
   const [terms, setTerms] = useState('');
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
@@ -44,12 +45,16 @@ export default function DocumentPreviewDialog({ path, fileName, sectionId, requi
   const textChecks = checks?.text != null ? documentTextChecks(checks.text, terms.split('\n').map(term => term.trim()).filter(Boolean)) : null;
   useEffect(() => {
     dialog.current.showModal();
-    setPreview(null); setChecks(null); setError(''); setLoading(true);
+    setPreview(null); setChecks(null); setTriageContext(null); setError(''); setLoading(true);
     let active = true;
     let url;
     (async () => {
       try {
+        const contextPath = studentId && requirementId ? `/coordinator/students/${encodeURIComponent(studentId)}/requirements/${encodeURIComponent(requirementId)}/triage` : null;
+        const before = contextPath ? await adminRequest(contextPath).catch(() => null) : null;
         const blob = await adminDocumentBlob(path);
+        const after = before ? await adminRequest(contextPath).catch(() => null) : null;
+        if (active && before?.version && after?.version === before.version) setTriageContext(after);
         const mime = previewMime(new Uint8Array(await blob.slice(0, 12).arrayBuffer()));
         if (!active) return;
         if (mime) {
@@ -94,7 +99,8 @@ export default function DocumentPreviewDialog({ path, fileName, sectionId, requi
       {textChecks && terms.trim() && <aside className="document-review-checks"><strong>Expected text check · current settings</strong>
         {textChecks.missingTerms.length ? <p>Not found: {textChecks.missingTerms.join(', ')}. Review the document manually.</p> : <p>Expected text found. Field values and signatures still require manual inspection.</p>}
       </aside>}
-      {studentId && requirementId && checks?.text?.trim() && <DocumentAiAssistance studentId={studentId} requirementId={requirementId} text={checks.text} sourceVersion={path} />}
+      {studentId && requirementId && checks?.text?.trim() && triageContext && <DocumentTriagePanel key={triageContext.version} studentId={studentId} requirementId={requirementId} text={checks.text} context={triageContext} />}
+      {studentId && requirementId && checks?.text?.trim() && !triageContext && <p>File-linked triage is unavailable. Reload the preview or continue manual document review.</p>}
       {error ? <p role="alert">{error}</p> : loading ? <p role="status">Loading document…</p> : !preview ? <p>Preview is unavailable for this file. Download it to open it.</p> : preview.mime === 'application/pdf'
         ? <PdfPreview url={preview.url} />
         : <img src={preview.url} alt={fileName || 'Uploaded document'} />}

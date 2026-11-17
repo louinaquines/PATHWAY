@@ -5,8 +5,9 @@ import {
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  Platform,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { doc, getDoc, getDocs, collection, query, orderBy } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { studentHours } from '../services/studentHours';
@@ -15,6 +16,7 @@ import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView from '../components/RefreshableScrollView';
+import StudentSurface from '../components/StudentSurface';
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -101,7 +103,8 @@ export default function ProgressScreen({ navigation }) {
   const currentReqConfig = REQ_STATUS_CONFIG[reqStatus] || REQ_STATUS_CONFIG.not_submitted;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StudentSurface tone="page" />
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
 
       {/* Modern Top Header */}
@@ -114,14 +117,20 @@ export default function ProgressScreen({ navigation }) {
         >
           <ChevronLeftIcon size={22} color={COLORS.primaryDark} />
         </MotionTouchableOpacity>
-        <Text style={styles.headerTitle}>OJT Progress</Text>
+        <View style={styles.headerCaption}><ProgressIcon size={18} color={COLORS.primary} /><Text style={styles.headerTitle}>OJT Progress</Text></View>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView onRefresh={fetchAll} skeletonVariant="progress" contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.intro}>
+          <StudentSurface waves />
+          <View style={styles.introCopy}><Text style={styles.introTitle}>OJT Progress</Text><Text style={styles.introSubtitle}>Check your hours, requirements, and overall training progress.</Text></View>
+          <Image source={require('../assets/pathway-guide-thumbsup-plain-laptop.png')} style={styles.introGuide} resizeMode="contain" accessible={false} />
+        </View>
         {/* Hours Progress Hero Card */}
         <View style={styles.hoursCard}>
-          <Text style={styles.hoursTitle}>TOTAL OJT HOURS</Text>
+          <StudentSurface waves />
+          <View style={styles.hoursCaption}><ClockIcon size={18} color={COLORS.primary} /><Text style={styles.hoursTitle}>TOTAL OJT HOURS</Text></View>
 
           <View style={styles.hoursRow}>
             <View style={styles.hoursStat}>
@@ -173,6 +182,7 @@ export default function ProgressScreen({ navigation }) {
             },
           ]}
         >
+          <Image source={require('../assets/pathway-guide-thinking.png')} style={styles.clearanceGuide} resizeMode="contain" accessible={false} />
           <View style={styles.clearanceHeader}>
             {clearanceComplete || clearanceReady ? (
               <CheckCircleIcon size={22} color={COLORS.successDark} />
@@ -407,11 +417,19 @@ export default function ProgressScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  headerCaption: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  intro: { minHeight: 110, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', marginBottom: -12 },
+  introCopy: { flex: 1, minWidth: 0, paddingBottom: 12 },
+  introTitle: { fontSize: 24, lineHeight: 30, fontWeight: '600', color: '#0A1631' },
+  introSubtitle: { fontSize: 12, lineHeight: 17, color: COLORS.textMuted, maxWidth: 230, marginTop: 4 },
+  introGuide: { width: 125, height: 118, alignSelf: 'flex-end' },
+  clearanceGuide: { position: 'absolute', right: -4, bottom: -1, width: 100, aspectRatio: 1374 / 1145, opacity: 0.95 },
+  hoursCaption: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -423,7 +441,7 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: COLORS.surface,
-    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingTop: 12,
     paddingBottom: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -455,10 +473,11 @@ const styles = StyleSheet.create({
   },
   // Hours card
   hoursCard: {
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 20,
-    marginBottom: 16,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.card,
@@ -468,7 +487,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 16,
+    marginBottom: 0,
   },
   hoursRow: {
     flexDirection: 'row',
@@ -532,9 +551,11 @@ const styles = StyleSheet.create({
   },
   // Clearance card
   clearanceCard: {
+    overflow: 'hidden',
+    paddingRight: 104,
     borderRadius: RADIUS.lg,
-    padding: 18,
-    marginBottom: 16,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 1,
     ...SHADOWS.soft,
   },
@@ -558,8 +579,8 @@ const styles = StyleSheet.create({
   sectionCard: {
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
-    padding: 18,
-    marginBottom: 16,
+    padding: 13,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.card,
@@ -576,8 +597,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.textPrimary,
   },
   statusBadge: {

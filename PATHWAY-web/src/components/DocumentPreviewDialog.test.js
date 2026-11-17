@@ -5,12 +5,22 @@ import { extractPdfChecks } from '../documentTextChecks';
 jest.mock('../adminApi', () => ({ adminDocumentBlob: jest.fn(), adminDownload: jest.fn(), adminRequest: jest.fn() }));
 jest.mock('../documentTextChecks', () => ({ ...jest.requireActual('../documentTextChecks'), extractPdfChecks: jest.fn() }));
 jest.mock('./PdfPreview', () => ({ __esModule: true, default: ({ url }) => <div aria-label="PDF preview" data-url={url} /> }));
+jest.mock('./DocumentTriagePanel', () => ({ __esModule: true, default: ({ context }) => <div>Bound triage {context.version}</div> }));
 const bytes = text => Uint8Array.from([...text].map(char => char.charCodeAt(0)));
 beforeEach(() => {
+  adminRequest.mockReset();
   extractPdfChecks.mockResolvedValue({ text: 'Student name Test', characters: 17, pages: 1, message: 'Manual review required.' });
   HTMLDialogElement.prototype.showModal = jest.fn(function () { this.setAttribute('open', ''); });
   URL.createObjectURL = jest.fn(() => 'blob:private-document');
   URL.revokeObjectURL = jest.fn();
+});
+
+test('triage is offered only when the file identity remains stable across preview acquisition', async () => {
+  adminDocumentBlob.mockResolvedValue({ slice: () => ({ arrayBuffer: async () => bytes('%PDF-1.7').buffer }) });
+  adminRequest.mockResolvedValueOnce({ version: 'a'.repeat(64) }).mockResolvedValueOnce({ version: 'b'.repeat(64) });
+  render(<DocumentPreviewDialog path="/protected/download" studentId="student" requirementId="certificate" onClose={() => {}} />);
+  expect(await screen.findByText(/File-linked triage is unavailable/)).toBeInTheDocument();
+  expect(screen.queryByText(/Bound triage/)).toBeNull();
 });
 test('only PDF and supported raster image signatures preview', () => {
   expect(previewMime(bytes('%PDF-1.7'))).toBe('application/pdf');

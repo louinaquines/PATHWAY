@@ -9,6 +9,7 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './NotificationsTab.css';
 import AnnouncementEmailDelivery from '../components/AnnouncementEmailDelivery';
+import WorkplaceSupportPanel from '../components/WorkplaceSupportPanel';
 import AttendanceRiskNotices from '../components/AttendanceRiskNotices';
 import AttendanceAccess from '../components/AttendanceAccess';
 
@@ -113,8 +114,10 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
           <span className="notification-switch-slider" aria-hidden="true" />
           <button type="button" role="tab" id="notification-inbox-tab" aria-controls="notification-inbox-panel" aria-selected={workspace === 'inbox'} onClick={() => setWorkspace('inbox')}>Notification inbox {items.filter(item => !item.read).length > 0 && <span>{items.filter(item => !item.read).length}</span>}</button>
           <button type="button" role="tab" id="notification-broadcast-tab" aria-controls="notification-broadcast-panel" aria-selected={workspace === 'broadcast'} onClick={() => setWorkspace('broadcast')}>Broadcast announcement</button>
+          <button type="button" role="tab" id="notification-support-tab" aria-controls="notification-support-panel" aria-selected={workspace === 'support'} onClick={() => setWorkspace('support')}>Workplace Support</button>
         </div>
       </div>
+      {workspace === 'support' && <div id="notification-support-panel" role="tabpanel" aria-labelledby="notification-support-tab"><WorkplaceSupportPanel key={userId} userId={userId} /></div>}
       {/* Broadcast Announcement Form */}
       <form id="notification-broadcast-panel" role="tabpanel" aria-labelledby="notification-broadcast-tab" hidden={workspace !== 'broadcast'} style={s.compose} onSubmit={sendAnnouncement}>
         <div style={s.composeHeader}>
@@ -192,7 +195,7 @@ function NotificationsContent({ userId, onOpenAttendanceRisk, access }) {
             <h2 style={s.listTitle}>Coordinator Notification Inbox</h2>
             <p style={s.sub}>Your activity alerts. Click a notification to mark it read.</p>
           </div>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />
+          {workspace === 'inbox' && <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search notifications..." label="Search notifications" />}
           <button type="button" style={s.refreshBtn} onClick={load}>
             <Icon name="refresh" size={14} /> Refresh
           </button>

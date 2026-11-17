@@ -1,11 +1,14 @@
-import React, { useRef } from 'react';
-import { Animated, ImageBackground, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, Image, ImageBackground, Platform, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient, Stop, Rect, Path } from 'react-native-svg';
 import { COLORS } from '../theme';
 import { ChevronLeftIcon } from './Icons';
 import { FONTS, useCustomFontsAvailable } from './AppText';
 import PathwayMark from './PathwayMark';
 
 const CAMPUS_IMAGE = require('../assets/pathway-campus-auth.png');
+const LOGIN_HERO_IMAGE = require('../assets/pathway-login-hero.jpg');
 
 function revealStyle(progress, inputRange, opacityRange, offset = 0) {
   if (!progress) return { opacity: 1, transform: [{ translateY: 0 }] };
@@ -25,12 +28,42 @@ export default function AuthHero({
   startupProgress,
   startupTransition = false,
   onStartupLogoLayout,
+  illustrated = false,
+  guideSource,
+  heroHeight,
 }) {
+  const { height, width } = useWindowDimensions();
+  const [measuredWidth, setMeasuredWidth] = useState(width);
+  const insets = useSafeAreaInsets();
   const logoRef = useRef(null);
   const customFontsAvailable = useCustomFontsAvailable();
   const fallbackBody = Platform.OS === 'web' ? 'system-ui' : Platform.OS === 'android' ? 'sans-serif' : undefined;
   const fallbackHeading = Platform.OS === 'web' ? 'Georgia, serif' : Platform.OS === 'android' ? 'serif' : undefined;
   const progress = startupTransition ? startupProgress : null;
+  // Entrance: welcome copy, then the character, fade in while rising slightly.
+  const copyIn = useRef(new Animated.Value(illustrated && !startupTransition ? 0 : 1)).current;
+  const guideIn = useRef(new Animated.Value(illustrated && !startupTransition ? 0 : 1)).current;
+  useEffect(() => {
+    if (!illustrated || startupTransition) return undefined;
+    let cancelled = false;
+    const run = reduce => {
+      if (cancelled) return;
+      if (reduce) { copyIn.setValue(1); guideIn.setValue(1); return; }
+      const ease = Easing.bezier(0.22, 1, 0.36, 1);
+      Animated.parallel([
+        Animated.timing(copyIn, { toValue: 1, duration: 620, delay: 120, easing: ease, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(guideIn, { toValue: 1, duration: 760, delay: 280, easing: ease, useNativeDriver: Platform.OS !== 'web' }),
+      ]).start();
+    };
+    AccessibilityInfo.isReduceMotionEnabled?.().then(run).catch(() => run(false));
+    return () => { cancelled = true; };
+  }, [illustrated, startupTransition, copyIn, guideIn]);
+  const copyEnter = { opacity: copyIn, transform: [{ translateY: copyIn.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] };
+  const guideEnter = { opacity: guideIn, transform: [{ translateY: guideIn.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }] };
+  const heroH = (heroHeight ?? Math.min(360, Math.max(280, height * 0.4))) + insets.top;
+  const wide = measuredWidth >= 600;
+  // Welcome copy sits under the logo with breathing room, scaled for phones and tablets.
+  const copyTop = insets.top + 24 + 40 + Math.max(28, Math.round(heroH * 0.1));
   const backdropOpacity = progress
     ? progress.interpolate({ inputRange: [0, 0.38, 0.84, 1], outputRange: [1, 1, 0, 0] })
     : 0;
@@ -49,10 +82,11 @@ export default function AuthHero({
   };
 
   return (
-    <ImageBackground source={CAMPUS_IMAGE} resizeMode="cover" style={styles.hero} imageStyle={styles.image}>
-      <View pointerEvents="none" style={styles.tint} />
+    <ImageBackground source={illustrated ? LOGIN_HERO_IMAGE : CAMPUS_IMAGE} resizeMode="cover" onLayout={event => setMeasuredWidth(event.nativeEvent.layout.width)} style={[styles.hero, illustrated && { height: (heroHeight ?? Math.min(360, Math.max(280, height * 0.4))) + insets.top, flexShrink: 0, overflow: 'hidden' }]} imageStyle={[styles.image, illustrated && styles.heroPhoto]}>
+      {illustrated ? null : <View pointerEvents="none" style={styles.tint} />}
+      {illustrated && <Animated.Image source={guideSource || require('../assets/pathway-guide-thumbsup-plain-laptop.png')} style={[styles.loginGuide, guideEnter, { width: Math.min(measuredWidth * 0.62, heroH * 1.05), height: heroH * 0.82 }]} resizeMode="contain" accessible={false} />}
       <Animated.View pointerEvents="none" style={[styles.deepCover, { opacity: backdropOpacity }]} />
-      <View style={styles.content}>
+      <View style={[styles.content, illustrated && styles.illustratedContent, illustrated && { paddingTop: copyTop, paddingHorizontal: wide ? 48 : 26 }]}>
         {onBack ? (
           <TouchableOpacity
             onPress={onBack}
@@ -63,7 +97,7 @@ export default function AuthHero({
             <ChevronLeftIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
         ) : null}
-        <View style={styles.brandRow}>
+        <View style={[styles.brandRow, illustrated && styles.illustratedBrand, illustrated && { top: insets.top + 24, left: wide ? 48 : 26 }]}>
           <Animated.View style={[styles.logoFrame, logoStyle]}>
             <View ref={logoRef} onLayout={reportLogoFrame} style={styles.logoMeasureTarget}>
               <PathwayMark size={40} decorative />
@@ -71,8 +105,10 @@ export default function AuthHero({
           </Animated.View>
         <Animated.Text style={[styles.brandName, brandStyle, { fontFamily: customFontsAvailable ? FONTS.bodySemiBold : fallbackBody }]}>PATHWAY</Animated.Text>
       </View>
-        <Animated.Text style={[styles.title, titleStyle, { fontFamily: customFontsAvailable ? FONTS.headingBold : fallbackHeading }]}>{title}</Animated.Text>
-        <Animated.Text style={[styles.subtitle, subtitleStyle, { fontFamily: customFontsAvailable ? FONTS.body : fallbackBody }]}>{subtitle}</Animated.Text>
+        <Animated.View style={illustrated ? [styles.welcomeCopy, wide && { width: '45%' }, copyEnter] : undefined}>
+          <Animated.Text style={[styles.title, illustrated && styles.illustratedTitle, titleStyle, illustrated && wide && { fontSize: 46 }, { fontFamily: customFontsAvailable ? FONTS.headingBold : fallbackHeading }]}>{title}</Animated.Text>
+          <Animated.Text style={[styles.subtitle, illustrated && styles.illustratedSubtitle, subtitleStyle, illustrated && wide && { fontSize: 18, lineHeight: 26 }, { fontFamily: customFontsAvailable ? FONTS.body : fallbackBody }]}>{subtitle}</Animated.Text>
+        </Animated.View>
       </View>
     </ImageBackground>
   );
@@ -93,12 +129,19 @@ export function AuthPanel({ children, style, startupProgress, startupTransition 
 }
 
 const styles = StyleSheet.create({
+  illustratedContent: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-start', paddingHorizontal: 26, paddingBottom: 40 },
+  illustratedBrand: { position: 'absolute', left: 26, top: 28 },
+  welcomeCopy: { width: '52%', alignItems: 'stretch' },
+  illustratedTitle: { fontSize: 34, textShadowColor: 'rgba(0,40,110,0.35)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
+  illustratedSubtitle: { textShadowColor: 'rgba(0,40,110,0.35)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4, width: '100%', maxWidth: '100%', fontSize: 14, lineHeight: 20, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
+  loginGuide: { position: 'absolute', right: -18, bottom: 0 },
   hero: {
     height: 270,
     backgroundColor: COLORS.primaryDark,
     justifyContent: 'flex-end',
   },
   image: { width: '100%', height: '100%' },
+  heroPhoto: { resizeMode: 'cover' },
   tint: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 69, 156, 0.72)',

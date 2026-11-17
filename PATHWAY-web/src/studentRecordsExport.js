@@ -18,14 +18,14 @@ export async function buildStudentRecordsWorkbook(student, section, attendance, 
     punches.addRow([...identity, record.date || '', timestamp(record.timeIn), timestamp(record.timeOut), record.timeOut && Number.isFinite(Number(record.hoursToday)) ? Number(record.hoursToday) : null, record.timeOut ? record.status || 'Completed' : 'In progress']);
   });
   punches.getColumn(7).numFmt = '0.00';
-  const weekly = workbook.addWorksheet('Weekly Journals');
-  weekly.addRow(['Student ID', 'Student name', 'Section', 'Week', 'Week range', 'Reported hours', 'Status', 'Submitted / created (Philippine time)', 'Reviewed (Philippine time)', 'Weekly report', 'Original notes', 'Coordinator feedback']);
+  const weekly = workbook.addWorksheet('Journals');
+  weekly.addRow(['Student ID', 'Student name', 'Section', 'Entry', 'Reporting period', 'Reported hours', 'Status', 'Submitted / created (Philippine time)', 'Reviewed (Philippine time)', 'Journal report', 'Original notes', 'Coordinator feedback']);
   [...journals].sort((a, b) => (a.weekNum || 0) - (b.weekNum || 0)).forEach(record => {
-    weekly.addRow([...identity, record.weekNum ?? '', record.weekRange || '', Number.isFinite(Number(record.hours)) ? Number(record.hours) : null, record.status || '', timestamp(record.submittedAt || record.createdAt), timestamp(record.reviewedAt), String(record.refined || ''), String(record.rawNotes || ''), String(record.reviewReason || '')]);
+    weekly.addRow([...identity, record.frequency === 'daily' ? 'Daily' : record.weekNum ?? '', record.frequency === 'daily' ? record.periodStart || '' : record.weekRange || '', Number.isFinite(Number(record.hours)) ? Number(record.hours) : null, record.status || '', timestamp(record.submittedAt || record.createdAt), timestamp(record.reviewedAt), String(record.refined || ''), String(record.rawNotes || ''), String(record.reviewReason || '')]);
   });
   weekly.getColumn(6).numFmt = '0.00';
   const info = workbook.addWorksheet('Export information');
-  info.addRows([['Field', 'Value'], ['Student ID', identity[0]], ['Student', name], ['Section', section?.name || ''], ['Exported (Philippine time)', timestamp(workbook.created)], ['Attendance records', attendance.length], ['Weekly journal records', journals.length], ['Hours', 'Attendance hours and weekly reported hours are separate; do not add them together. In-progress attendance has blank hours.'], ['Scope', 'Selected student only. Both sheets are exported regardless of the visible tab. Empty sheets contain headers.'], ['Privacy', 'Passwords, authentication tokens, private file links, and location coordinates are excluded.']]);
+  info.addRows([['Field', 'Value'], ['Student ID', identity[0]], ['Student', name], ['Section', section?.name || ''], ['Exported (Philippine time)', timestamp(workbook.created)], ['Attendance records', attendance.length], ['Journal records', journals.length], ['Hours', 'Attendance hours and journal reported hours are separate; do not add them together. In-progress attendance has blank hours.'], ['Scope', 'Selected student only. Both sheets are exported regardless of the visible tab. Empty sheets contain headers.'], ['Privacy', 'Passwords, authentication tokens, private file links, and location coordinates are excluded.']]);
   for (const sheet of workbook.worksheets) {
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, sheet.rowCount), column: sheet.columnCount } };

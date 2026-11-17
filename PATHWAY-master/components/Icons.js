@@ -44,7 +44,8 @@ export function BellIcon({ size = 22, color = '#004B87', hasUnread = false }) {
   );
 }
 
-export function FileIcon({ size = 22, color = '#004B87' }) {
+export function FileIcon({ size = 22, color = '#004B87', filled = false }) {
+  if (filled) return <Svg width={size} height={size} viewBox="0 0 24 24"><Path d="M5 1h9l6 6v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2Z" fill={color} /><Path d="M14 1v7h6" fill="#F4F9FF" /><Path d="M7 12h9M7 16h9M7 20h6" stroke="#F4F9FF" strokeWidth="1.5" strokeLinecap="round" /></Svg>;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -245,7 +246,8 @@ export function ProgressIcon({ size = 20, color = '#004B87' }) {
   );
 }
 
-export function ProfileIcon({ size = 20, color = '#004B87' }) {
+export function ProfileIcon({ size = 20, color = '#004B87', filled = false }) {
+  if (filled) return <Svg width={size} height={size} viewBox="0 0 24 24"><Circle cx="12" cy="7" r="5" fill={color} /><Path d="M3 23v-4a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6v4Z" fill={color} /></Svg>;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -260,7 +262,8 @@ export function ProfileIcon({ size = 20, color = '#004B87' }) {
   );
 }
 
-export function BuildingIcon({ size = 20, color = '#004B87' }) {
+export function BuildingIcon({ size = 20, color = '#004B87', filled = false }) {
+  if (filled) return <Svg width={size} height={size} viewBox="0 0 24 24"><Path fill={color} fillRule="evenodd" d="M6 1a3 3 0 0 0-3 3v19h7v-5h4v5h7V4a3 3 0 0 0-3-3ZM7 5h3v3H7Zm7 0h3v3h-3ZM7 11h3v3H7Zm7 0h3v3h-3Z" /></Svg>;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="2" width="16" height="20" rx="2" stroke={color} strokeWidth="2" />
@@ -318,7 +321,8 @@ export function TasksIcon({ size = 20, color = '#004B87' }) {
   );
 }
 
-export function SettingsIcon({ size = 20, color = '#004B87' }) {
+export function SettingsIcon({ size = 20, color = '#004B87', filled = false }) {
+  if (filled) return <Svg width={size} height={size} viewBox="0 0 24 24"><Path fill={color} fillRule="evenodd" d="M9 1h6l1 4 3-1 3 5-3 3 3 3-3 5-3-1-1 4H9l-1-4-3 1-3-5 3-3-3-3 3-5 3 1ZM16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z" /></Svg>;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />

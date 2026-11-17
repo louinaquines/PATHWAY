@@ -30,12 +30,26 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^14.0.0",
-    "nodemailer": "^10.0.13"
+    "nodemailer": "^10.2.1"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
     "firebase": "^12.19.0",
     "firebase-tools": "^15.31.0",
     "smtp-server": "^3.19.16"
+  },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.6"
+    },
+    "gaxios": {
+      "uuid": "11.1.1"
+    },
+    "get-uri": {
+      "basic-ftp": "6.2.3"
+    },
+    "firebase-tools": {
+      "@google-cloud/pubsub": "6.0.1"
+    }
   }
 }

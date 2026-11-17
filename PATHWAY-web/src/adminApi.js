@@ -2,44 +2,64 @@ import { auth } from './firebase';
 
 export const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
 
-async function authenticatedFetch(path, options = {}) {
+async function authenticatedFetch(path, options = {}, observeStatus = () => {}) {
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in again.');
   const send = async forceRefresh => {
+    if (options.signal?.aborted) throw new Error('Request timed out. Please try again.');
     const token = await user.getIdToken(forceRefresh);
-    if (options.signal?.aborted) throw new Error('Request cancelled.');
     if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
-    return fetch(`${API}${path}`, {
+    if (options.signal?.aborted) throw new Error('Request timed out. Please try again.');
+    const response = await fetch(`${API}${path}`, {
       ...options,
       headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` },
     });
+    observeStatus(response.status);
+    return response;
   };
   let response = await send(false);
+  if (options.signal?.aborted) throw new Error('Request timed out. Please try again.');
   // These API routes reject authentication before performing any mutation.
   // Never replay network failures, permission denials, or server errors.
   if (response.status === 401) {
     try { response = await send(true); }
-    catch { throw new Error('Your session could not be refreshed. Please sign in again.'); }
+    catch { throw Object.assign(new Error('Your session could not be refreshed. Please sign in again.'), { status: 401 }); }
   }
   return response;
 }
 
-export async function adminRequest(path, options = {}) {
-  const { deadlineMs, ...requestOptions } = options;
+async function operation(options, perform) {
+  const { timeoutMs = options.deadlineMs || 0, deadlineMs, ...fetchOptions } = options;
   const user = auth.currentUser;
-  const controller = deadlineMs ? new AbortController() : null;
-  let timer;
-  const execute = async () => {
+  if (!user) throw Object.assign(new Error('Please sign in again.'), { status: 401 });
+  const abort = timeoutMs ? new AbortController() : null;
+  let timer, responseStatus;
+  const timeout = abort && new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = Object.assign(new Error('Request timed out. Please try again.'), { code: 'DEADLINE_EXCEEDED' });
+      if ([401, 403, 404].includes(responseStatus)) error.status = responseStatus;
+      reject(error); abort.abort();
+    }, timeoutMs);
+  });
+  const work = async () => {
+    const result = await perform({ ...fetchOptions, ...(abort ? { signal: abort.signal } : {}) }, status => { responseStatus = status; });
+    if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
+    return result;
+  };
+  try { return await (timeout ? Promise.race([work(), timeout]) : work()); }
+  finally { if (timer) clearTimeout(timer); }
+}
+
+export function adminRequest(path, options = {}) {
+  return operation(options, async (fetchOptions, observeStatus) => {
     const response = await authenticatedFetch(path, {
-      ...requestOptions,
-      ...(controller ? { signal: controller.signal } : {}),
+      ...fetchOptions,
       headers: {
         'Content-Type': 'application/json',
-        ...(requestOptions.headers || {}),
+        ...(fetchOptions.headers || {}),
       },
-    });
+    }, observeStatus);
     const data = await response.json().catch(() => ({}));
-    if (auth.currentUser !== user) throw new Error('Your session changed. Please sign in again.');
     if (!response.ok) {
       const message = response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || (response.status === 404
         ? 'This feature is unavailable on the running backend. Restart the local PATHWAY workflow to load the updated server.'
@@ -49,27 +69,18 @@ export async function adminRequest(path, options = {}) {
       throw error;
     }
     return data;
-  };
-  if (!controller) return execute();
-  try {
-    return await Promise.race([execute(), new Promise((_, reject) => {
-      timer = setTimeout(() => {
-        reject(Object.assign(new Error('Request timed out. Reload to check the current server state before trying again.'), { code: 'DEADLINE_EXCEEDED' }));
-        controller.abort();
-      }, deadlineMs);
-    })]);
-  } finally { clearTimeout(timer); }
+  });
 }
 
-export async function adminDocumentBlob(path) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Please sign in again.');
-  const response = await authenticatedFetch(path);
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    throw new Error(response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || 'Could not download this document.');
-  }
-  return response.blob();
+export function adminDocumentBlob(path, options = {}) {
+  return operation(options, async (fetchOptions, observeStatus) => {
+    const response = await authenticatedFetch(path, fetchOptions, observeStatus);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw Object.assign(new Error(response.status === 401 ? 'Your session has expired or is invalid. Please sign in again.' : data.error || 'Could not download this document.'), { status: response.status });
+    }
+    return response.blob();
+  });
 }
 
 export async function adminDownload(path, fileName = 'document') {

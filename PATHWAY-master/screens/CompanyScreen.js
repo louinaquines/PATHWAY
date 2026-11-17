@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +20,8 @@ import { AppText as Text, AppTextInput as TextInput } from '../components/AppTex
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import StudentSurface from '../components/StudentSurface';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
@@ -33,6 +36,7 @@ import {
   BuildingIcon,
   ArrowRightIcon,
   ChevronIcon,
+  ChevronLeftIcon,
 } from '../components/Icons';
 
 const EMPTY_FORM = {
@@ -58,10 +62,14 @@ const statusLabel = {
   pending_review: 'In review',
   approved: 'Approved',
   needs_revision: 'Needs update',
-  rejected: 'Resubmit',
+  rejected: 'Declined',
 };
 
-export default function CompanyScreen({ navigation }) {
+export default function CompanyScreen({ navigation, route }) {
+  const dedicatedChange = route?.name === 'PlacementChange';
+  const insets = useSafeAreaInsets();
+  const reachedStep = Math.max(2, Math.min(4, Number(route?.params?.reachedStep) || 2));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const { width } = useWindowDimensions();
   const isNarrow = width < 360;
   const [loading, setLoading] = useState(true);
@@ -77,7 +85,7 @@ export default function CompanyScreen({ navigation }) {
   const [showMenuDrawer, setShowMenuDrawer] = useState(false);
   const { loggingOut, logout } = useStudentLogout(navigation);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [placementChangeMode, setPlacementChangeMode] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
 
@@ -129,9 +137,15 @@ export default function CompanyScreen({ navigation }) {
         .map(item => ({ id: item.id, ...item.data() }))
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0];
 
-      if (latest) {
+      if (userData.placementStatus === 'approved' && (userData.company || userData.companyName)) {
+        setProposalId(null);
+        setReviewReason('');
+        setRequestOpen(false);
+        setProposalStatus('approved');
+        setForm({ ...EMPTY_FORM, ...userData, companyName: userData.company || userData.companyName });
+      } else if (latest) {
         setProposalId(latest.id);
-        setProposalStatus(userData.placementStatus === 'approved' ? 'approved' : latest.status || 'draft');
+        setProposalStatus(latest.status === 'approved' ? 'not_started' : latest.status || 'draft');
         setReviewReason(latest.reviewReason || '');
         setForm({ ...EMPTY_FORM, ...latest });
       } else if (userSnap.exists() && userData.company) {
@@ -189,6 +203,7 @@ export default function CompanyScreen({ navigation }) {
   };
 
   const saveProposal = async (status) => {
+    if (!showEditor || saving) return;
     if (cleared || loadFailed || loading) return;
     if (status === 'pending_review' && !validateSubmission()) return;
     if (proposalStatus === 'approved') return;
@@ -200,12 +215,12 @@ export default function CompanyScreen({ navigation }) {
         status,
         ...(proposalId ? { proposalId } : {}),
       };
-      const saved = await postBackend('/student/company-proposals', payload);
+      const saved = await postBackend('/student/placement-requests', payload);
       setProposalId(saved.id);
       setProposalStatus(status);
-      if (status === 'pending_review') setPlacementChangeMode(false);
+      if (status === 'pending_review') setRequestOpen(false);
       if (status === 'draft') Alert.alert('Draft saved', 'You can edit it later.');
-      if (status === 'pending_review') Alert.alert('Submitted', 'Your company placement is under review.', [
+      if (status === 'pending_review') Alert.alert('Submitted', 'Your coordinator will review your suggested placement.', [
         { text: 'Done', style: 'cancel' },
         { text: 'Back to dashboard', onPress: () => navigation.replace('StudentDashboard') },
       ]);
@@ -219,28 +234,19 @@ export default function CompanyScreen({ navigation }) {
 
   const handleLogout = logout;
 
-  const startPlacementChange = () => {
-    if (cleared || loadFailed) return;
-    const { id, status, createdAt, updatedAt, reviewReason: previousReason, studentId, studentName, department, sectionId, ...draft } = form;
-    setProposalId(null);
-    setProposalStatus('draft');
-    setReviewReason('');
-    setPlacementChangeMode(true);
-    setForm({ ...EMPTY_FORM, ...draft, status: 'draft', companyId: '' });
-  };
-
-  const canEdit = ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
-  const showEditor = !cleared && !loadFailed && (canEdit || placementChangeMode);
+  const canRequest = !readOnlyStep && !cleared && !loadFailed
+    && ['not_started', 'draft', 'needs_revision', 'rejected'].includes(proposalStatus);
+  const showEditor = canRequest && requestOpen;
   const placementApproved = proposalStatus === 'approved';
   const placementNeedsAttention = ['needs_revision', 'rejected'].includes(proposalStatus);
   const placementUnderReview = proposalStatus === 'pending_review';
   const placementStatusMessage = {
-    not_started: 'Select a company and enter your placement details.',
-    draft: 'Draft saved. Complete the details and submit.',
-    pending_review: 'Your company placement is under review.',
+    not_started: 'Your coordinator has not assigned a company yet.',
+    draft: 'Your request draft has not been sent.',
+    pending_review: 'Your coordinator is reviewing your request.',
     approved: 'Your company placement is approved.',
-    needs_revision: 'Read the comments, update your details, and resubmit.',
-    rejected: 'Update your placement details and resubmit.',
+    needs_revision: 'Your coordinator asked you to update your request.',
+    rejected: 'Your request was declined. You can wait for an assignment or suggest another placement.',
   }[proposalStatus] || 'Your placement status will appear here.';
 
   if (loggingOut) {
@@ -254,29 +260,38 @@ export default function CompanyScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      <PreDeploymentTopBar
+      {dedicatedChange ? <View style={[styles.changeHeader, { paddingTop: insets.top + 12, paddingLeft: Math.max(18, insets.left), paddingRight: Math.max(18, insets.right) }]}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to profile" onPress={() => navigation.goBack()} style={styles.changeBack}><ChevronLeftIcon size={22} color={COLORS.primary} /></TouchableOpacity>
+        <Text style={styles.changeHeaderTitle}>Placement change</Text>
+        <View style={styles.changeHeaderSpacer} />
+      </View> : <PreDeploymentTopBar
         onMenuPress={() => setShowMenuDrawer(true)}
         onNotificationsPress={() => setShowNotifications(true)}
-      />
+      />}
 
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: isNarrow ? 14 : 20 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View style={styles.pageHeading}>
-          <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 2</Text>
-          <Text variant="heading" style={styles.heading}>Company Placement</Text>
-          <Text style={styles.pageDescription}>Enter your company and supervisor details.</Text>
+        <View style={[styles.pageHeading, styles.changeHero, !dedicatedChange && styles.companyIntro]}>
+          <StudentSurface tone="welcome" waves />
+          {!dedicatedChange && <Image source={require('../assets/pathway-guide-writing.png')} style={styles.companyGuide} resizeMode="contain" accessible={false} />}
+          <Text style={styles.subheading}>{dedicatedChange ? 'YOUR NEXT PLACEMENT' : 'PRE-DEPLOYMENT · STEP 2'}</Text>
+          <Text style={[styles.heading, styles.changeTitle]}>{dedicatedChange ? 'Request a placement change' : 'Company placement'}</Text>
+          <Text style={styles.pageDescription}>{dedicatedChange ? 'Propose updated company and supervisor details for coordinator review. Your official placement changes only after approval.' : 'Wait for your coordinator to assign a company, or suggest a placement for review.'}</Text>
         </View>
 
-        <PreDeploymentStepper
+        {!dedicatedChange && <PreDeploymentStepper
           activeStep={2}
+          reachedStep={reachedStep}
           completedSteps={requirementsComplete ? [1] : []}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 3) navigation.replace('Review');
-            if (step === 4) navigation.replace('Approval');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 3) navigation.replace('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
+            if (step === 4) navigation.replace('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
-        />
+        />}
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
-        <View style={styles.statusCard}>
+        {(!dedicatedChange || !placementApproved || loadFailed || cleared) && <View style={styles.statusCard}>
+          <StudentSurface waves />
           {loadFailed && <TouchableOpacity accessibilityRole="button" onPress={loadCompanyData}><Text style={styles.secondaryButtonText}>Retry loading placement</Text></TouchableOpacity>}
           {cleared && <TouchableOpacity accessibilityRole="button" onPress={() => navigation.replace('StudentDashboard')}><Text style={styles.secondaryButtonText}>OJT cleared — records are read-only. Back to dashboard</Text></TouchableOpacity>}
           <View style={styles.statusHeadingRow}>
@@ -318,17 +333,36 @@ export default function CompanyScreen({ navigation }) {
               <Text style={styles.reviewReason}>{reviewReason}</Text>
             </View>
           )}
-        </View>
+        </View>}
 
         {proposalStatus === 'pending_review' && (
           <View style={styles.pendingCard}>
             <View style={styles.pendingIcon}><FileIcon size={18} color={COLORS.warningDark} /></View>
             <View style={styles.pendingCopy}>
               <Text style={styles.sectionTitle}>What happens next</Text>
-              <Text style={styles.pendingText}>Wait for your coordinator’s review before resubmitting.</Text>
+              <Text style={styles.pendingText}>Wait for your coordinator to approve or decline your request{form.companyName ? ' for ' + form.companyName : ''}.</Text>
             </View>
           </View>
         )}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>{placementApproved ? 'Assigned company' : 'Waiting for your coordinator'}</Text>
+          <Text style={styles.sectionDescription}>You can continue to Final Review once your coordinator confirms your placement.</Text>
+          {!placementApproved && !loadFailed && <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={loadCompanyData}>
+            <Text style={styles.secondaryButtonText}>Check placement status</Text>
+          </TouchableOpacity>}
+          {placementApproved && <>
+            <Text style={styles.cardTitle}>{form.companyName || 'Company details pending'}</Text>
+            <Text style={styles.cardSubtitle}>{form.companyAddress || 'Address not provided'}</Text>
+            <Text style={styles.cardSubtitle}>Supervisor: {form.supervisorName || 'Not provided'}</Text>
+            <Text style={styles.cardSubtitle}>Schedule: {form.startDate || 'Not provided'} to {form.endDate || 'Not provided'}</Text>
+          </>}
+        </View>
+
+        {canRequest && <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: requestOpen }}
+          style={styles.secondaryButton} onPress={() => setRequestOpen(open => !open)}>
+          <Text style={styles.secondaryButtonText}>{requestOpen ? 'Hide placement request' : 'Suggest a placement (optional)'}</Text>
+        </TouchableOpacity>}
 
         {showEditor && (
           <>
@@ -336,8 +370,8 @@ export default function CompanyScreen({ navigation }) {
               <View style={styles.cardSectionHeading}>
                 <View style={styles.sectionIcon}><SearchIcon size={18} color={COLORS.primary} /></View>
                 <View style={styles.flex}>
-                  <Text style={styles.sectionTitle}>Find a company</Text>
-                  <Text style={styles.sectionDescription}>Select a listed company or enter another company.</Text>
+                  <Text style={styles.sectionTitle}>Suggest a company</Text>
+                  <Text style={styles.sectionDescription}>Choose a listed company or enter your own suggestion.</Text>
                 </View>
               </View>
               <View style={styles.searchBarContainer}>
@@ -390,33 +424,36 @@ export default function CompanyScreen({ navigation }) {
               <Field label="Additional notes" value={form.notes} onChangeText={value => updateField('notes', value)} editable={showEditor} multiline />
               <View style={[styles.actionRow, isNarrow && styles.actionColumn]}>
                 <TouchableOpacity accessibilityRole="button" style={[styles.secondaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('draft')} disabled={saving}><Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save draft'}</Text></TouchableOpacity>
-                <MotionTouchableOpacity accessibilityRole="button" style={[styles.primaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('pending_review')} disabled={saving}><Text style={styles.primaryButtonText}>{saving ? 'Submitting...' : 'Submit for review'}</Text></MotionTouchableOpacity>
+                <MotionTouchableOpacity accessibilityRole="button" style={[styles.primaryButton, isNarrow && styles.stackedButton]} onPress={() => saveProposal('pending_review')} disabled={saving}><Text style={styles.primaryButtonText}>{saving ? 'Submitting...' : 'Send request'}</Text></MotionTouchableOpacity>
               </View>
             </View>
           </>
         )}
 
         {proposalStatus === 'approved' && (
-          <View style={styles.approvedCard}>
+          <View style={[styles.approvedCard, dedicatedChange && styles.changeSummary]}>
+            {!dedicatedChange && <StudentSurface tone="mint" waves />}
             <View style={styles.approvedHeadingRow}>
               <View style={styles.approvedIcon}><CheckCircleIcon size={22} color={COLORS.successDark} /></View>
               <View style={styles.flex}>
-                <Text style={styles.approvedTitle}>Placement approved</Text>
-                <Text style={styles.approvedText}>Continue to Step 3: Final review.</Text>
+                <Text style={styles.approvedTitle}>{dedicatedChange ? 'Current placement' : 'Placement approved'}</Text>
+                <Text style={styles.approvedText}>{dedicatedChange ? 'Start a change request below. Your coordinator will review the proposed details.' : 'Continue to Step 3: Final review.'}</Text>
               </View>
             </View>
-            <TouchableOpacity
+            {dedicatedChange && <>
+              <View style={styles.changeDetail}><Text style={styles.changeLabel}>Company</Text><Text style={styles.changeValue}>{form.companyName || 'Not available'}</Text></View>
+              <View style={styles.changeDetail}><Text style={styles.changeLabel}>Supervisor</Text><Text style={styles.changeValue}>{form.supervisorName || 'Not available'}</Text></View>
+              <View style={styles.changeNotice}><Text style={styles.pageDescription}>Your current placement stays in place while your coordinator reviews the request.</Text></View>
+            </>}
+            {!dedicatedChange && <TouchableOpacity
               style={styles.reviewStepBtn}
-              onPress={() => navigation.navigate('Review')}
+              onPress={() => navigation.navigate('Review', readOnlyStep ? { readOnlyStep: 3 < reachedStep, reachedStep } : { readOnlyStep: false })}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Continue to final review"
             >
               <Text style={styles.reviewStepBtnText}>Continue to final review</Text>
               <ArrowRightIcon size={17} color={COLORS.textOnPrimary} />
-            </TouchableOpacity>
-            {!cleared && <TouchableOpacity accessibilityRole="button" style={styles.changeRequestBtn} onPress={startPlacementChange} activeOpacity={0.85}>
-              <Text style={styles.secondaryButtonText}>Request placement change</Text>
             </TouchableOpacity>}
           </View>
         )}
@@ -469,6 +506,20 @@ function Field({ label, value, onChangeText, editable, half, multiline, placehol
 }
 
 const styles = StyleSheet.create({
+  companyIntro: { minHeight: 160, paddingRight: 130, justifyContent: 'center' },
+  companyGuide: { position: 'absolute', right: -6, bottom: -10, width: 142, height: 148 },
+  changeHero: { position: 'relative', overflow: 'hidden', borderRadius: 22, padding: 20, marginBottom: 18 },
+  changeTitle: { fontSize: 24, lineHeight: 30, fontWeight: '600' },
+  changeSummary: { backgroundColor: '#FFFFFF', borderColor: '#E3ECF8', borderRadius: 22, padding: 20, gap: 16 },
+  changeDetail: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, borderBottomWidth: 1, borderBottomColor: '#EDF2F8', paddingBottom: 14 },
+  changeLabel: { fontSize: 12, color: COLORS.textMuted, width: 75 },
+  changeValue: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: COLORS.textPrimary },
+  changeNotice: { backgroundColor: '#F0F6FF', padding: 12, borderRadius: 12 },
+  changePrimary: { backgroundColor: COLORS.primary, borderColor: COLORS.primary, minHeight: 50 },
+  changeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, flexShrink: 0, paddingBottom: 12, backgroundColor: '#FFFFFF' },
+  changeBack: { width: 44, minHeight: 44, flexShrink: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF3FF', borderRadius: 12 },
+  changeHeaderTitle: { flex: 1, minWidth: 0, fontSize: 16, lineHeight: 22, textAlign: 'center', fontWeight: '600', color: COLORS.textPrimary },
+  changeHeaderSpacer: { width: 44, flexShrink: 0 },
   container: { flex: 1, backgroundColor: COLORS.background },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
   gateTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12 },
@@ -498,7 +549,7 @@ const styles = StyleSheet.create({
   stepNumberActive: { color: COLORS.primary, fontWeight: '800' },
   stepLabel: { color: COLORS.textMuted, fontSize: 10, textAlign: 'center' },
   stepLabelActive: { color: COLORS.primary, fontWeight: '800' },
-  statusCard: { backgroundColor: COLORS.surface, borderRadius: 16, borderWidth: 1, borderColor: COLORS.borderLight, padding: 15, marginBottom: 12, ...SHADOWS.soft },
+  statusCard: { position: 'relative', overflow: 'hidden', backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.borderLight, padding: 15, marginBottom: 12, ...SHADOWS.soft },
   statusHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   statusIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: COLORS.primarySubtle, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   statusIconSuccess: { backgroundColor: COLORS.successSubtle },
@@ -553,7 +604,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: { color: COLORS.primary, fontWeight: '800', fontSize: 12, textAlign: 'center' },
   searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: 12, marginBottom: 4 },
   searchInput: { flex: 1, paddingVertical: 10, paddingLeft: 8, fontSize: 13, color: COLORS.textPrimary, minWidth: 0 },
-  approvedCard: { backgroundColor: COLORS.successSubtle, borderRadius: 16, borderWidth: 1, borderColor: '#A7F3D0', padding: 16, gap: 12, ...SHADOWS.soft },
+  approvedCard: { position: 'relative', overflow: 'hidden', backgroundColor: COLORS.successSubtle, borderRadius: 20, borderWidth: 1, borderColor: '#A7F3D0', padding: 16, gap: 12, ...SHADOWS.soft },
   approvedHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   approvedIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center' },
   approvedTitle: { fontSize: 16, fontWeight: '800', color: COLORS.successDark, marginBottom: 2 },

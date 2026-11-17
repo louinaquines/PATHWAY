@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  Image,
   Platform,
   ScrollView,
   StatusBar,
@@ -20,6 +21,7 @@ import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import StudentSurface from '../components/StudentSurface';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
@@ -43,7 +45,9 @@ const statusText = {
 
 const EMPTY_COMPANY = {};
 
-export default function ReviewScreen({ navigation }) {
+export default function ReviewScreen({ navigation, route }) {
+  const reachedStep = Math.max(3, Math.min(4, Number(route?.params?.reachedStep) || 3));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +195,7 @@ export default function ReviewScreen({ navigation }) {
     !['pending_review', 'approved'].includes(request?.status);
 
   const submit = async () => {
-    if (!ready || saving) return;
+    if (readOnlyStep || !ready || saving) return;
     setSaving(true);
     try {
       const canResubmitExisting = request?.id && ['needs_revision', 'rejected'].includes(request.status);
@@ -203,7 +207,7 @@ export default function ReviewScreen({ navigation }) {
       Alert.alert(
         'Submitted for Coordinator Review',
         'Your application was submitted for final review.',
-        [{ text: 'View Approval Status', onPress: () => navigation.replace('Approval') }]
+        [{ text: 'View Approval Status', onPress: () => navigation.replace('Approval', readOnlyStep ? { readOnlyStep: 4 < reachedStep, reachedStep } : { readOnlyStep: false }) }]
       );
     } catch (error) {
       console.error('Final review submission error:', error);
@@ -274,6 +278,7 @@ export default function ReviewScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <StudentSurface tone="page" />
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <PreDeploymentTopBar
@@ -286,19 +291,23 @@ export default function ReviewScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pageHeading}>
+          <StudentSurface tone="welcome" waves />
+          <Image source={require('../assets/pathway-guide-thinking.png')} style={styles.reviewGuide} resizeMode="contain" accessible={false} />
           <Text style={styles.subheading}>PRE-DEPLOYMENT · STEP 3</Text>
-          <Text variant="heading" style={styles.heading}>Final Review</Text>
+          <Text style={styles.heading}>Final review</Text>
           <Text style={styles.pageDescription}>Check your documents and placement before submitting.</Text>
         </View>
 
         <PreDeploymentStepper
           activeStep={3}
+          reachedStep={reachedStep}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 2) navigation.replace('Company');
-            if (step === 4) navigation.replace('Approval');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 2) navigation.replace('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 4) navigation.replace('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
         />
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         {/* Review status adapts to draft, pending, revision, superseded, and approved states. */}
         <Card title="Submission status" icon={<FileIcon size={20} color={COLORS.primary} />}>
@@ -351,7 +360,7 @@ export default function ReviewScreen({ navigation }) {
           action={(
             <TouchableOpacity
               style={styles.editAction}
-              onPress={() => navigation.replace('Requirements')}
+              onPress={() => navigation.replace('Requirements', readOnlyStep ? { readOnlyStep: 1 < reachedStep, reachedStep } : { readOnlyStep: false })}
               accessibilityRole="button"
               accessibilityLabel="Edit required documents"
             >
@@ -425,7 +434,7 @@ export default function ReviewScreen({ navigation }) {
           action={(
             <TouchableOpacity
               style={styles.editAction}
-              onPress={() => navigation.replace('Company')}
+              onPress={() => navigation.replace('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
               accessibilityRole="button"
               accessibilityLabel="Edit company placement"
             >
@@ -463,7 +472,7 @@ export default function ReviewScreen({ navigation }) {
         <View style={[styles.actions, narrow && styles.actionsStacked]}>
           <TouchableOpacity
             style={[styles.secondaryBtn, narrow && styles.stackedAction]}
-            onPress={() => navigation.replace('Company')}
+            onPress={() => navigation.replace('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false })}
             activeOpacity={0.8}
             accessibilityRole="button"
           >
@@ -472,9 +481,9 @@ export default function ReviewScreen({ navigation }) {
 
           <MotionTouchableOpacity
             style={[styles.primaryBtn, narrow && styles.stackedAction, !ready && !requestPending && !requestApproved && styles.disabledBtn]}
-            disabled={(!ready && !requestPending && !requestApproved) || saving}
+            disabled={readOnlyStep || (!ready && !requestPending && !requestApproved) || saving}
             onPress={() => {
-              if (requestPending || requestApproved) navigation.replace('Approval');
+              if (requestPending || requestApproved) navigation.replace('Approval', readOnlyStep ? { readOnlyStep: 4 < reachedStep, reachedStep } : { readOnlyStep: false });
               else submit();
             }}
             activeOpacity={0.85}
@@ -505,6 +514,7 @@ export default function ReviewScreen({ navigation }) {
 function Card({ title, icon, action, children }) {
   return (
     <View style={styles.card}>
+      <StudentSurface tone={title === 'Document checklist' ? 'mint' : 'blue'} waves />
       <View style={styles.cardHeader}>
         <View style={styles.cardIcon}>{icon}</View>
         <Text style={styles.cardTitle} numberOfLines={2}>{title}</Text>
@@ -587,11 +597,14 @@ const styles = StyleSheet.create({
   },
   pageHeading: {
     marginBottom: 17,
+    position: 'relative', overflow: 'hidden', borderRadius: 22,
+    minHeight: 160, justifyContent: 'center', padding: 18, paddingRight: 130,
   },
+  reviewGuide: { position: 'absolute', right: -4, bottom: -14, width: 140, height: 148 },
   heading: {
     color: COLORS.textPrimary,
     fontSize: 25,
-    fontWeight: '900',
+    fontWeight: '600',
     letterSpacing: -0.4,
   },
   pageDescription: {
@@ -671,6 +684,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   card: {
+    position: 'relative',
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     borderWidth: 1,

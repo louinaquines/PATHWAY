@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Modal from './BackdropModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerStudentDialog } from '../services/studentAlert';
@@ -25,8 +25,9 @@ export default function StudentDialogHost() {
             <CloseIcon size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            <Text accessibilityRole="header" variant="heading" style={styles.title}>{dialog?.title}</Text>
-            {dialog?.message ? <Text style={styles.message}>{dialog.message}</Text> : null}
+            {dialog?.isError && <Image source={require('../assets/pathway-guide-error.png')} style={styles.character} resizeMode="contain" accessible={false} />}
+            <Text accessibilityRole="header" style={[styles.title, dialog?.isError && styles.centered]}>{dialog?.title}</Text>
+            {dialog?.message ? <Text accessibilityLiveRegion="polite" style={[styles.message, dialog?.isError && styles.centered]}>{dialog.message}</Text> : null}
           </ScrollView>
           <View style={styles.actions}>
             {dialog?.buttons.map((action, index) => (
@@ -47,8 +48,10 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, maxHeight: '90%', backgroundColor: '#FFF', borderRadius: 24, padding: 24 },
   close: { alignSelf: 'flex-end', width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   body: { flexShrink: 1 },
-  bodyContent: { paddingBottom: 24 },
-  title: { fontSize: 25, color: COLORS.textPrimary, marginBottom: 12 },
+  bodyContent: { paddingTop: 12, paddingBottom: 24 },
+  character: { width: 160, height: 165, alignSelf: 'center', marginTop: 0, marginBottom: 16 },
+  centered: { textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 12 },
   message: { fontSize: 16, lineHeight: 24, color: COLORS.textSecondary },
   actions: { gap: 10 },
   button: { minHeight: 48, borderRadius: 14, padding: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },

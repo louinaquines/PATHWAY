@@ -40,12 +40,13 @@ function scoreJournalCompleteness(entry, rubric) {
     return { ...judgment, label, weight, points: weight * CREDIT[judgment.level] };
   });
   const period = validPeriod(entry.weekRange);
-  const hours = typeof entry.hours === 'number' && Number.isFinite(entry.hours) && entry.hours > 0 && entry.hours <= 168;
+  const daily = entry.frequency === 'daily';
+  const hours = typeof entry.hours === 'number' && Number.isFinite(entry.hours) && entry.hours > 0 && entry.hours <= (daily ? 24 : 168);
   const points = (Number(period) + Number(hours)) * 5;
   criteria.push({ id: 'metadata', label: 'Reporting dates and hours', weight: 10, points,
     level: points === 10 ? 'full' : points === 5 ? 'partial' : 'missing', evidence: '',
-    reason: `${period ? 'Reporting period is a valid ordered ISO date range of up to seven days.' : 'Reporting dates could not be validated: a yearless label or missing/invalid ISO date range earns no date points.'} ${hours ? 'Weekly hours are within the plausible range (over zero, at most 168).' : 'Weekly hours are missing or invalid.'} Metadata checks do not verify attendance.` });
+    reason: `${period ? 'Reporting period is a valid ordered ISO date range of up to seven days.' : 'Reporting dates could not be validated: a yearless label or missing/invalid ISO date range earns no date points.'} ${hours ? `${daily ? 'Daily' : 'Weekly'} hours are within the plausible range (over zero, at most ${daily ? 24 : 168}).` : `${daily ? 'Daily' : 'Weekly'} hours are missing or invalid.`} Metadata checks do not verify attendance.` });
   const total = criteria.reduce((sum, item) => sum + item.points, 0);
-  return { version: VERSION, status: total >= 80 ? 'Complete' : total >= 50 ? 'Needs more detail' : 'Incomplete', total, criteria };
+  return { version: VERSION, status: total >= 80 ? 'Sufficient detail' : total >= 50 ? 'Needs more detail' : 'Incomplete', total, criteria };
 }
 module.exports = { validateNarrativeRubric, scoreJournalCompleteness };

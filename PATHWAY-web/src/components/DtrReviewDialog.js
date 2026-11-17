@@ -158,7 +158,8 @@ export default function DtrReviewDialog({ student, onClose }) {
         {result.digitalOnlyDates.length > 0 && <p>Digital dates not entered: {result.digitalOnlyDates.join(', ')}</p>}
       </section>}
       <section aria-label="Saved DTR reviews"><h3>Saved reviews</h3>{historyError && <p>{historyError}</p>}
-        {history.map(item => <details key={item.id}><summary>{item.period} · {new Date(item.createdAt).toLocaleString()}</summary>
+        {history.map(item => <details key={item.id}><summary>{item.period} · {new Date(item.createdAt).toLocaleString()}{item.escalation && ' · Potential discrepancy — Needs verification'}</summary>
+          {item.escalation && <p>Digital elapsed spans do not verify breaks, OCR accuracy, or misconduct. Human verification is required; credited hours are unchanged.</p>}
           <p>{item.fileName} · Reviewed by {item.coordinatorId}</p><p>{item.notes || 'No notes.'}</p>
           <p>Saved snapshot; current attendance or file may have changed.</p>
           {(item.comparison?.results || []).filter(row => row.status !== 'blank').map(row => <p key={row.date}>{row.date} · {row.status.replaceAll('_', ' ')}</p>)}

@@ -1,5 +1,5 @@
 // screens/LogbookScreen.js
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,16 +8,17 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  AppState,
 } from 'react-native';
 import Modal from '../components/BackdropModal';
-import { collection, addDoc, doc, runTransaction, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
+import { collection, doc, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
 import { readRecordPage, mergeRecords } from '../services/recordPagination';
 import { logbookLoadErrorMessage } from '../services/logbookLoadError';
-import { journalWeekRange as getWeekRange } from '../services/journalWeekRange';
+import { journalEntryTitle, journalContextChanged, validJournalSettings } from '../services/journalPresentation';
 import LoadMore from '../components/LoadMore';
 import { showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
-import { postBackend } from '../services/backendApi';
+import { postBackend, requestBackend } from '../services/backendApi';
 import { createJournalMigrationClient, journalRevisionExpectation } from '../services/journalSubmission';
 import JournalAnalysisConsent from '../components/JournalAnalysisConsent';
 import usePlacementEligibility, { PLACEMENT_REQUIRED } from '../services/usePlacementEligibility';
@@ -28,6 +29,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView from '../components/RefreshableScrollView';
+import StudentSurface from '../components/StudentSurface';
+import JournalHeaderArtwork from '../components/JournalHeaderArtwork';
 import {
   ChevronLeftIcon,
   ChevronIcon,
@@ -41,10 +44,12 @@ import {
   CalendarIcon,
   ArrowRightIcon,
   InfoIcon,
+  FileIcon,
 } from '../components/Icons';
 
 // ─── Status configuration ───────────────────────────────────────────────────
 const STATUS_CONFIG = {
+  draft: { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', dot: '#3B82F6', label: 'Draft' },
   pending: {
     bg: '#FFF7ED',
     border: '#FED7AA',
@@ -107,6 +112,8 @@ function ReviewStatusCard({ summary }) {
 
   return (
     <View style={styles.reviewCard}>
+      <StudentSurface waves />
+      <View pointerEvents="none" accessible={false} style={styles.reviewWatermark}><FileIcon filled size={67} color="#DCEEFF" /></View>
       <View style={styles.reviewIconWrap}>
         <Icon size={17} color={iconColor} />
       </View>
@@ -136,7 +143,7 @@ function LogEntryCard({ entry, isExpanded, onToggle, onRevise, eligible }) {
         <View style={styles.entryTop}>
           <View style={{ flex: 1, marginRight: 10 }}>
             <Text style={styles.entryTitle} numberOfLines={1}>
-              Week {entry.weekNum} — {entry.weekRange}
+              {journalEntryTitle(entry)}
             </Text>
             <View style={styles.entryMetaRow}>
               <CalendarIcon size={11} color={COLORS.textMuted} />
@@ -184,10 +191,16 @@ function LogEntryCard({ entry, isExpanded, onToggle, onRevise, eligible }) {
           </View>
         )}
 
-        {/* Bottom row: expand toggle */}
         {entry.status === 'rejected' && (
-          <MotionTouchableOpacity disabled={!eligible} onPress={event => { event.stopPropagation(); onRevise(entry); }} accessibilityRole="button" accessibilityLabel={`Edit and resubmit Week ${entry.weekNum}`} style={styles.reviseButton}>
-            <Text style={styles.reviseButtonText}>Edit and resubmit</Text>
+          <View style={styles.feedbackBox} accessibilityRole="alert">
+            <Text style={styles.feedbackTitle}>Coordinator feedback</Text>
+            <Text style={styles.feedbackText}>{entry.reviewReason || 'Your coordinator asked you to revise this entry.'}</Text>
+          </View>
+        )}
+        {/* Bottom row: expand toggle */}
+        {['rejected', 'draft'].includes(entry.status) && (
+          <MotionTouchableOpacity disabled={!eligible} onPress={event => { event.stopPropagation(); onRevise(entry); }} accessibilityRole="button" accessibilityLabel={`Edit and resubmit ${journalEntryTitle(entry)}`} style={styles.reviseButton}>
+            <Text style={styles.reviseButtonText}>{entry.status === 'draft' ? 'Continue draft' : 'Edit and resubmit'}</Text>
             <ArrowRightIcon size={16} color={COLORS.primary} />
           </MotionTouchableOpacity>
         )}
@@ -215,10 +228,13 @@ export default function LogbookScreen({ navigation }) {
   const [hours, setHours] = useState('');
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState('');
+  const [aiConsentOpen, setAiConsentOpen] = useState(false);
+  const [aiError, setAiError] = useState('');
   const currentDraft = useRef({});
   currentDraft.current = { rawNotes, editingEntry, modal };
   const aiInFlight = useRef(false);
   const [saving, setSaving] = useState(false);
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [pageState, setPageState] = useState({ cursor: null, hasMore: false });
   const [loadingMore, setLoadingMore] = useState(false);
@@ -226,9 +242,44 @@ export default function LogbookScreen({ navigation }) {
   const [summary, setSummary] = useState({ count: 0, hours: 0, pending: 0, approved: 0, rejected: 0 });
 
   const uid = auth.currentUser.uid;
+  const [journalSettings, setJournalSettings] = useState(null);
+  const [settingsError, setSettingsError] = useState('');
+  const [draftSettings, setDraftSettings] = useState(null);
+  const [draftNeedsConfirmation, setDraftNeedsConfirmation] = useState(false);
+  const settingsRequest = useRef(null);
+  const refreshSettings = useCallback(async () => {
+    if (settingsRequest.current) return settingsRequest.current;
+    const request = requestBackend('/student/journal-settings/read', { timeoutMs: 15000 }).then(value => {
+      if (!validJournalSettings(value)) throw new Error('Journal settings unavailable.');
+      setJournalSettings(value); setSettingsError(''); return value;
+    }).catch(error => { setSettingsError(error.message); throw error; }).finally(() => { if (settingsRequest.current === request) settingsRequest.current = null; });
+    settingsRequest.current = request; return request;
+  }, [uid]);
+  useEffect(() => {
+    const refresh = () => { if (AppState.currentState !== 'background') refreshSettings().catch(() => {}); };
+    refresh(); const timer = setInterval(refresh, 30000);
+    const appListener = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    const unsubscribe = navigation.addListener?.('focus', refresh);
+    return () => { clearInterval(timer); appListener.remove(); unsubscribe?.(); };
+  }, [refreshSettings, navigation]);
+  const activeFrequency = journalSettings?.frequency || 'weekly';
+  const draftFrequency = editingEntry && editingEntry.status !== 'draft' ? editingEntry.frequency || 'weekly' : draftSettings?.frequency || activeFrequency;
+  const daily = draftFrequency === 'daily', maxHours = daily ? 24 : 168;
+  // Minimum journal length (also enforced by the backend).
+  const minWords = daily ? 50 : 150;
+  const wordCount = (rawNotes.trim().match(/\S+/g) || []).length;
+  // A returned (rejected) entry must be edited before it can be resubmitted.
+  const revisingRejected = editingEntry?.status === 'rejected';
+  const unchangedRevision = revisingRejected && rawNotes.trim() === String(editingEntry.rawNotes || '').trim();
+  const revisionReason = editingEntry?.reviewReason || editingEntry?.rejectionReason || editingEntry?.reviewComment || editingEntry?.feedback || '';
+  const openEntry = async () => {
+    if (recoveryRequired) { setModal(true); return; }
+    try { const value = await refreshSettings(); setDraftSettings(value); setDraftNeedsConfirmation(false); setModal(true); }
+    catch (error) { Alert.alert('Journal settings unavailable', error.message); }
+  };
   const backendSubmission = process.env.EXPO_PUBLIC_JOURNAL_BACKEND_SUBMISSION === '1';
   const migration = useRef(null);
-  if (!migration.current) migration.current = createJournalMigrationClient(postBackend, () => doc(collection(db, 'users', uid, 'logbook')).id);
+  if (!migration.current) migration.current = createJournalMigrationClient(postBackend, () => doc(collection(db, 'users', uid, 'logbook')).id, '/student/period-journals');
 
   useEffect(() => { fetchEntries(); }, []);
 
@@ -268,43 +319,53 @@ export default function LogbookScreen({ navigation }) {
 
   const checkNotes = () => {
     if (!rawNotes.trim()) {
-      Alert.alert('No notes yet', 'Write your weekly notes first.');
+      Alert.alert('No notes yet', `Write your ${draftFrequency} notes first.`);
       return;
     }
     const warnings = [];
     if (rawNotes.trim().split(/\s+/).length < 20) warnings.push('Check that your activities and learning are described.');
-    if (!Number.isFinite(Number(hours)) || Number(hours) <= 0 || Number(hours) > 168) warnings.push('Enter weekly hours from 1 to 168.');
-    Alert.alert('Notes checklist', (warnings.length ? warnings.join('\n\n') : 'No basic warnings found.') + '\n\nCheck your week, activities, learning and hours before submitting. Your notes are not rewritten or approved.');
+    if (!Number.isFinite(Number(hours)) || Number(hours) <= 0 || Number(hours) > maxHours) warnings.push(`Enter ${draftFrequency} hours greater than zero and no more than ${maxHours}.`);
+    Alert.alert('Notes checklist', (warnings.length ? warnings.join('\n\n') : 'No basic warnings found.') + '\n\nCheck your reporting dates, activities, learning and hours before submitting. Your notes are not rewritten or approved.');
   };
 
+  // AI refinement: consent is asked inline inside the entry sheet (a second modal would hide the sheet on web).
   const requestAiRefinement = () => {
-    if (!rawNotes.trim() || rawNotes.length > 8000) return Alert.alert('Notes required', 'Enter notes up to 8,000 characters first.');
-    if (aiInFlight.current || saving) return;
+    setAiError('');
+    if (!rawNotes.trim() || rawNotes.length > 8000) { setAiError('Write your notes first (up to 8,000 characters).'); return; }
+    if (aiInFlight.current || saving || recoveryRequired) return;
+    setAiConsentOpen(true);
+  };
+  const sendNotesToAi = async () => {
+    setAiConsentOpen(false);
+    if (aiInFlight.current) return;
     const draft = { rawNotes, editingEntry };
-    Alert.alert('Optional AI assistance', 'These notes will be sent to AI. Remove personal or confidential company information first. AI can make mistakes; review the suggestion before using it. Your original notes are kept.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Send notes', onPress: async () => {
-        if (aiInFlight.current || currentDraft.current.rawNotes !== draft.rawNotes || currentDraft.current.editingEntry !== draft.editingEntry || !currentDraft.current.modal) return;
-        aiInFlight.current = true;
-        setRefining(true);
-        try {
-          const result = await postBackend('/refine-logbook', { notes: draft.rawNotes, consent: true });
-          if (typeof result.refined !== 'string' || !result.refined.trim() || result.refined.length > 8000) throw new Error('No usable AI suggestion returned.');
-          if (currentDraft.current.rawNotes === draft.rawNotes && currentDraft.current.editingEntry === draft.editingEntry && currentDraft.current.modal) setRefined(result.refined);
-        } catch (error) { Alert.alert('AI unavailable', `${error.message}\n\nYou can still use Check notes and submit your original notes.`); }
-        finally { aiInFlight.current = false; setRefining(false); }
-      } },
-    ]);
+    aiInFlight.current = true;
+    setRefining(true);
+    setAiError('');
+    try {
+      const result = await postBackend('/refine-logbook', { notes: draft.rawNotes, consent: true });
+      if (typeof result.refined !== 'string' || !result.refined.trim() || result.refined.length > 8000) throw new Error('No usable AI suggestion returned.');
+      if (currentDraft.current.rawNotes === draft.rawNotes && currentDraft.current.editingEntry === draft.editingEntry) setRefined(result.refined);
+    } catch (error) { setAiError(`${error.message || 'AI refinement failed.'} You can still submit your original notes.`); }
+    finally { aiInFlight.current = false; setRefining(false); }
   };
 
   const handleSubmit = async () => {
     if (saving || refining) return;
     if (!rawNotes.trim()) {
-      Alert.alert('Notes required', 'Enter your weekly notes before submitting.');
+      Alert.alert('Notes required', `Enter your ${draftFrequency} notes before submitting.`);
       return;
     }
-    if (!hours || !Number.isFinite(+hours) || +hours <= 0 || +hours > 168) {
-      Alert.alert('Invalid hours', 'Enter weekly hours greater than 0 and no more than 168.');
+    if (unchangedRevision) {
+      Alert.alert('Edit your entry first', 'Your coordinator asked for changes. Update your notes to address the feedback, then resubmit.');
+      return;
+    }
+    if (wordCount < minWords) {
+      Alert.alert('Add more detail', `A ${draftFrequency} journal needs at least ${minWords} words. You have ${wordCount}.`);
+      return;
+    }
+    if (!hours || !Number.isFinite(+hours) || +hours <= 0 || +hours > maxHours) {
+      Alert.alert('Invalid hours', `Enter ${draftFrequency} hours greater than 0 and no more than ${maxHours}.`);
       return;
     }
     if (rawNotes.trim().length > 8000 || refined.trim().length > 8000) {
@@ -316,26 +377,27 @@ export default function LogbookScreen({ navigation }) {
       const entryText = refined.trim() || rawNotes.trim();
       const content = { rawNotes: rawNotes.trim(), refined: entryText, aiRefined: Boolean(refined.trim()), hours: +hours, status: 'pending' };
       let submission;
-      if (backendSubmission) {
-        const { status, ...payload } = content;
-        submission = await migration.current.submit({ ...payload, ...(editingEntry ? { entryId: editingEntry.id, expectedRevision: editingEntry.sourceRevision ?? 0, expectedSource: journalRevisionExpectation(editingEntry) } : {}) });
-      } else if (editingEntry) {
-        await runTransaction(db, async transaction => {
-          const entryRef = doc(db, 'users', uid, 'logbook', editingEntry.id);
-          const [profile, current] = await Promise.all([transaction.get(doc(db, 'users', uid)), transaction.get(entryRef)]);
-          if (profile.data()?.clearanceStatus === 'cleared') throw new Error('Cleared OJT records are locked.');
-          if (!current.exists() || current.data().status !== 'rejected') throw new Error('This entry is no longer available for revision. Reopen Logbook to refresh it.');
-          transaction.update(entryRef, content);
-        });
+      if (migration.current.hasPendingJournal()) {
+        submission = await migration.current.retryPendingJournal();
       } else {
-        const createdAt = new Date();
-        await addDoc(collection(db, 'users', uid, 'logbook'), {
-          ...content,
-          weekNum: summary.count + 1,
-          weekRange: getWeekRange(createdAt),
-          createdAt: createdAt.toISOString(),
-        });
+      if (!editingEntry || editingEntry.status === 'draft') {
+        const fresh = await refreshSettings();
+        if (draftNeedsConfirmation || journalContextChanged(draftSettings, fresh)) {
+          Alert.alert('Review updated reporting period', `Your coordinator settings or reporting dates changed to ${fresh.frequency}: ${fresh.periodStart}${fresh.periodEnd !== fresh.periodStart ? ` – ${fresh.periodEnd}` : ''}. Your notes are kept. Review the updated period before submitting.`, [
+            { text: 'Keep draft', style: 'cancel' },
+            { text: 'Use updated period', onPress: () => { setDraftSettings(fresh); setDraftNeedsConfirmation(false); migration.current.discardJournalDraft(); } },
+          ]);
+          return;
+        }
       }
+      {
+        const { status, ...payload } = content;
+        submission = await migration.current.submit({ ...payload,
+          ...(!editingEntry || editingEntry.status === 'draft' ? { department: draftSettings.department, frequency: draftSettings.frequency, settingsRevision: draftSettings.revision, periodStart: draftSettings.periodStart } : {}),
+          ...(editingEntry ? { entryId: editingEntry.id, expectedRevision: editingEntry.sourceRevision ?? 0, expectedSource: journalRevisionExpectation(editingEntry), ...(editingEntry.status === 'draft' ? { submitDraft: true } : {}) } : {}) });
+      }
+      }
+      setRecoveryRequired(false);
       setModal(false);
       showStudentSuccess(editingEntry ? 'Logbook resubmitted' : 'Logbook submitted', `Your entry was saved and is ready for coordinator review.${submission ? (submission.analysisStatus === 'queued' ? ' Automated analysis is queued, not reviewed. Automatic processing is not active in this release.' : ' Automatic analysis is not enabled for this submission.') : ''}`);
       setEditingEntry(null);
@@ -344,6 +406,7 @@ export default function LogbookScreen({ navigation }) {
       setRefined('');
       fetchEntries();
     } catch (e) {
+      setRecoveryRequired(migration.current.hasPendingJournal());
       Alert.alert('Could not submit', e.message || 'Failed to submit logbook entry. Try again.');
     } finally {
       setSaving(false);
@@ -352,6 +415,7 @@ export default function LogbookScreen({ navigation }) {
 
   const closeModal = () => {
     if (saving) return;
+    if (recoveryRequired) { setModal(false); return; }
     migration.current.discardJournalDraft();
     setEditingEntry(null);
     setModal(false);
@@ -361,8 +425,10 @@ export default function LogbookScreen({ navigation }) {
   };
 
   const reviseEntry = entry => {
+    if (recoveryRequired) { setModal(true); return; }
     migration.current.discardJournalDraft();
     setEditingEntry(entry);
+    if (entry.status === 'draft') { setDraftSettings(journalSettings); setDraftNeedsConfirmation(true); }
     setRawNotes(entry.rawNotes || entry.refined || '');
     setHours(String(entry.hours || ''));
     setRefined(entry.aiRefined ? entry.refined || '' : '');
@@ -401,14 +467,24 @@ export default function LogbookScreen({ navigation }) {
       </View>
 
       <ScrollView onRefresh={fetchEntries} skeletonVariant="logbook" contentContainerStyle={[styles.scroll, { paddingBottom: 100 + insets.bottom }]} showsVerticalScrollIndicator={false}>
+        <StudentSurface tone="page" />
 
         <View style={styles.pageIntro}>
-          <Text style={styles.pageEyebrow}>WEEKLY JOURNAL</Text>
-          <Text variant="heading" style={styles.pageTitle}>Your logbook</Text>
-          <Text style={styles.pageSubtitle}>Submit weekly reports and check their status.</Text>
+          <StudentSurface waves />
+          <View pointerEvents="none" accessible={false} style={styles.journalHeaderArtwork}><JournalHeaderArtwork /></View>
+          <Text style={styles.pageEyebrow}>{journalSettings ? `${activeFrequency.toUpperCase()} JOURNAL` : 'JOURNAL'}</Text>
+          <Text style={styles.pageTitle}>Your logbook</Text>
+          <Text style={styles.pageSubtitle}>{journalSettings ? `Submit ${activeFrequency} reports and check their status.` : 'Loading your department journal settings…'}</Text>
+          {journalSettings && (
+            <View style={styles.scheduleChip} accessibilityLabel={`Journal schedule: ${activeFrequency}`}>
+              <CalendarIcon size={12} color="#1D4ED8" />
+              <Text style={styles.scheduleChipText}>{activeFrequency === 'daily' ? 'Daily · one entry each workday' : 'Weekly · one entry per week'}</Text>
+            </View>
+          )}
         </View>
 
         {backendSubmission && <JournalAnalysisConsent client={migration.current} />}
+        {!!settingsError && <View style={styles.loadErrorCard}><Text style={styles.loadErrorText}>{settingsError}</Text><MotionTouchableOpacity onPress={() => refreshSettings().catch(() => {})}><Text>Retry journal settings</Text></MotionTouchableOpacity></View>}
 
         {loadError ? (
           <View style={styles.loadErrorCard}>
@@ -423,6 +499,7 @@ export default function LogbookScreen({ navigation }) {
           <>
         {/* ── Stats summary ── */}
         <View style={styles.statsBar}>
+          <StudentSurface />
           <View style={styles.statsHeading}>
             <LogbookIcon size={15} color={COLORS.primary} />
             <Text style={styles.statsEyebrow}>ACTIVITY SUMMARY</Text>
@@ -454,23 +531,24 @@ export default function LogbookScreen({ navigation }) {
 
         {/* ── Entries section header ── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Weekly Entries</Text>
+          <Text style={styles.sectionTitle}>Journal Entries</Text>
           <Text style={styles.sectionCount}>{summary.count} logs</Text>
         </View>
 
         {/* ── Empty state ── */}
         {entries.length === 0 && (
           <View style={styles.emptyCard}>
+            <StudentSurface waves />
             <View style={styles.emptyIconBg}>
               <LogbookIcon size={34} color={COLORS.primary} />
             </View>
             <Text style={styles.emptyTitle}>No Log Entries Yet</Text>
             <Text style={styles.emptySub}>
-              Add a weekly report with your hours, tasks, and key takeaways. Your coordinator will review it after submission.
+              Add a {activeFrequency} report with your hours, tasks, and key takeaways. Your coordinator will review it after submission.
             </Text>
             <MotionTouchableOpacity
               style={styles.emptyBtn}
-              onPress={() => setModal(true)} disabled={!eligible}
+              onPress={openEntry} disabled={!eligible || !journalSettings}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Add your first logbook entry"
@@ -496,6 +574,8 @@ export default function LogbookScreen({ navigation }) {
 
         {/* ── Attendance handoff ── */}
         <View style={styles.dtrCard}>
+          <StudentSurface waves />
+          <View pointerEvents="none" accessible={false} style={styles.attendanceWatermark}><CalendarIcon size={61} color="#CBE4FF" /></View>
           <View style={styles.dtrHeaderRow}>
             <View style={styles.dtrIconWrap}>
               <CalendarIcon size={16} color={COLORS.primary} />
@@ -507,7 +587,7 @@ export default function LogbookScreen({ navigation }) {
           </View>
           <View style={styles.dtrNotice}>
             <InfoIcon size={16} color={COLORS.textMuted} />
-            <Text style={styles.dtrNoticeText}>DTR uploads are not available. Record attendance in Logs.</Text>
+            <Text style={styles.dtrNoticeText}>Upload your signed Form 48 (DTR) in Requirements. Daily time in/out is recorded in Logs.</Text>
           </View>
           <MotionTouchableOpacity
             style={styles.attendanceBtn}
@@ -528,11 +608,11 @@ export default function LogbookScreen({ navigation }) {
 
       {/* ── New Log Modal ── */}
       <MotionTouchableOpacity
-        onPress={() => setModal(true)} disabled={!eligible}
+        onPress={openEntry} disabled={!eligible || !journalSettings}
         style={[styles.floatingAddButton, { bottom: 40 + insets.bottom, opacity: eligible ? 1 : 0.5 }]}
         activeOpacity={0.8}
         accessibilityRole="button"
-        accessibilityLabel="Add new log entry"
+        accessibilityLabel={`New ${activeFrequency} entry`}
       >
         <PlusIcon size={27} color="#FFFFFF" />
       </MotionTouchableOpacity>
@@ -542,17 +622,20 @@ export default function LogbookScreen({ navigation }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { marginTop: insets.top + 8, paddingBottom: Math.max(16, insets.bottom) }]}>
+            <StudentSurface tone="page" />
 
             {/* Modal drag handle */}
             <View style={styles.sheetHandle} />
 
             {/* Modal header */}
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>{editingEntry ? `Revise Week ${editingEntry.weekNum}` : 'New Weekly Entry'}</Text>
+              <StudentSurface waves />
+              <View pointerEvents="none" accessible={false} style={styles.journalModalArtwork}><JournalHeaderArtwork /></View>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={styles.modalTitle}>{editingEntry ? `${editingEntry.status === 'draft' ? 'Continue' : 'Revise'} ${daily ? 'Daily' : 'Weekly'} Entry` : `New ${daily ? 'Daily' : 'Weekly'} Entry`}</Text>
                 <Text style={styles.modalWeek}>
-                  Week {editingEntry?.weekNum ?? summary.count + 1}  ·  {editingEntry ? (editingEntry.weekRange || 'Reporting period unavailable') : getWeekRange(new Date())}
+                  {editingEntry && editingEntry.status !== 'draft' ? journalEntryTitle(editingEntry) : draftSettings ? `${draftSettings.periodStart}${daily ? '' : ` – ${draftSettings.periodEnd}`}` : 'Reporting period unavailable'}
                 </Text>
               </View>
               <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
@@ -560,59 +643,49 @@ export default function LogbookScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalFormContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets={false}>
+              {revisingRejected && (
+                <View style={styles.revisionBox} accessibilityRole="alert">
+                  <Text style={styles.revisionTitle}>Changes requested by your coordinator</Text>
+                  {revisionReason ? <Text style={styles.revisionReason}>“{revisionReason}”</Text> : null}
+                  <Text style={[styles.revisionHint, !unchangedRevision && styles.revisionHintDone]}>{unchangedRevision ? 'Edit your notes to address this feedback before resubmitting.' : 'Notes updated. You can resubmit when ready.'}</Text>
+                </View>
+              )}
 
               {/* Hours input */}
-              <Text style={styles.fieldLabel}>Hours Rendered This Week</Text>
+              <Text style={styles.fieldLabel}>{daily ? 'Hours Rendered That Day' : 'Hours Rendered This Week'}</Text>
               <View style={styles.fieldWrap}>
                 <ClockIcon size={16} color={COLORS.textMuted} />
                 <TextInput
                   style={styles.fieldInput}
-                  placeholder="e.g. 40"
+                  placeholder={daily ? 'e.g. 8' : 'e.g. 40'}
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={hours}
                   onChangeText={setHours}
+                  editable={!saving && !recoveryRequired}
                   keyboardType="numeric"
                 />
                 <Text style={styles.fieldUnit}>hrs</Text>
               </View>
 
               {/* Notes input */}
-              <Text style={styles.fieldLabel}>Weekly Activities & Tasks</Text>
+              <Text style={styles.fieldLabel}>{daily ? 'Today’s Activities & Tasks' : 'Weekly Activities & Tasks'}</Text>
               <View style={[styles.fieldWrap, styles.textAreaWrap]}>
                 <TextInput
                   style={styles.textArea}
-                  placeholder="Describe what you accomplished this week (e.g. Configured database, attended stand-up meetings, completed onboarding)..."
+                  placeholder={`Describe what you accomplished ${daily ? 'today' : 'this week'}, what you learned, and any challenges…`}
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={rawNotes}
-                  onChangeText={value => { setRawNotes(value); setRefined(''); }}
+                  editable={!saving && !recoveryRequired}
+                  onChangeText={value => { setRawNotes(value); setRefined(''); setAiError(''); setAiConsentOpen(false); }}
                   multiline
                   textAlignVertical="top"
                 />
               </View>
 
-              {/* AI Refine button */}
-              <TouchableOpacity
-                style={[styles.refineBtn, styles.checkNotesBtn, (refining || saving) && { opacity: 0.6 }]}
-                onPress={checkNotes}
-                disabled={refining || saving}
-                activeOpacity={0.85}
-              >
-                {refining ? (
-                  <ActivityIndicator color={COLORS.accentDark} size="small" />
-                ) : (
-                  <>
-                    <CheckCircleIcon size={20} color="#475569" />
-                    <View style={styles.assistCopy}>
-                      <Text style={styles.checkNotesTitle}>Check notes</Text>
-                      <Text style={styles.assistCaption}>Quick check · no AI request</Text>
-                    </View>
-                  </>
-                )}
-              </TouchableOpacity>
-
+              <Text style={[styles.wordCount, wordCount >= minWords && styles.wordCountOk]}>{wordCount} / {minWords} words minimum</Text>
               {/* Refined output */}
-              <TouchableOpacity style={[styles.refineBtn, styles.aiRefineBtn, (refining || saving) && { opacity: 0.6 }]} onPress={requestAiRefinement} disabled={refining || saving} accessibilityLabel="Request optional AI journal refinement" accessibilityRole="button" accessibilityState={{ disabled: refining || saving, busy: refining }}>
+              <TouchableOpacity style={[styles.refineBtn, styles.aiRefineBtn, (refining || saving || recoveryRequired) && { opacity: 0.6 }]} onPress={requestAiRefinement} disabled={refining || saving || recoveryRequired} accessibilityLabel="Request optional AI journal refinement" accessibilityRole="button" accessibilityState={{ disabled: refining || saving || recoveryRequired, busy: refining }}>
                 {refining ? <ActivityIndicator size="small" color="#2563EB" /> : <SparklesIcon size={20} color="#2563EB" />}
                 <View style={styles.assistCopy}>
                   <Text style={styles.aiRefineTitle}>{refining ? 'Generating suggestion…' : 'Refine with AI'}</Text>
@@ -620,6 +693,17 @@ export default function LogbookScreen({ navigation }) {
                 </View>
                 {!refining && <ArrowRightIcon size={18} color="#2563EB" />}
               </TouchableOpacity>
+              {aiConsentOpen && !refining && (
+                <View style={styles.aiConsentBox} accessibilityRole="alert">
+                  <Text style={styles.aiConsentTitle}>Send these notes to AI?</Text>
+                  <Text style={styles.aiConsentText}>Remove personal or confidential company information first. AI can make mistakes, so review the suggestion before using it. Your original notes are kept.</Text>
+                  <View style={styles.aiConsentActions}>
+                    <TouchableOpacity style={styles.aiConsentCancel} onPress={() => setAiConsentOpen(false)} accessibilityRole="button"><Text style={styles.aiConsentCancelText}>Cancel</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.aiConsentSend} onPress={sendNotesToAi} accessibilityRole="button"><Text style={styles.aiConsentSendText}>Send notes</Text></TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              {aiError ? <Text style={styles.aiErrorText} accessibilityRole="alert">{aiError}</Text> : null}
               {refined ? (
                 <View style={styles.refinedBox}>
                   <View style={styles.refinedHeaderRow}>
@@ -628,7 +712,7 @@ export default function LogbookScreen({ navigation }) {
                   </View>
                   <Text style={styles.suggestionHint}>Review for accuracy before submitting. Your original notes are unchanged.</Text>
                   <Text style={styles.refinedText}>{refined}</Text>
-                  <TouchableOpacity style={styles.discardSuggestionBtn} onPress={() => setRefined('')} disabled={saving || refining} accessibilityLabel="Discard AI suggestion and use original notes" accessibilityRole="button">
+                  <TouchableOpacity style={styles.discardSuggestionBtn} onPress={() => setRefined('')} disabled={saving || refining || recoveryRequired} accessibilityLabel="Discard AI suggestion and use original notes" accessibilityRole="button">
                     <CloseIcon size={16} color="#475569" />
                     <Text style={styles.discardSuggestionText}>Discard suggestion</Text>
                   </TouchableOpacity>
@@ -649,17 +733,17 @@ export default function LogbookScreen({ navigation }) {
                 <MotionTouchableOpacity
                   style={[
                     styles.submitBtn,
-                    (saving || !rawNotes.trim() || !hours) && { opacity: 0.45 },
+                    (saving || !rawNotes.trim() || !hours || unchangedRevision) && { opacity: 0.45 },
                   ]}
                   onPress={handleSubmit}
-                  disabled={saving || !eligible || !rawNotes.trim() || !hours}
+                  disabled={saving || !eligible || !rawNotes.trim() || !hours || unchangedRevision}
                   activeOpacity={0.85}
                 >
                   {saving ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                      <Text style={styles.submitBtnText}>{editingEntry ? 'Resubmit entry' : 'Submit Log'}</Text>
+                  <Text style={styles.submitBtnText}>{recoveryRequired ? 'Retry submission' : editingEntry ? editingEntry.status === 'draft' ? 'Submit draft' : unchangedRevision ? 'Edit notes to resubmit' : 'Resubmit entry' : 'Submit Log'}</Text>
                       <ArrowRightIcon size={15} color="#fff" />
                     </>
                   )}
@@ -677,6 +761,13 @@ export default function LogbookScreen({ navigation }) {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  journalHeaderArtwork: { position: 'absolute', right: -3, bottom: -3, width: 108, height: 100 },
+  journalModalArtwork: { position: 'absolute', right: 0, bottom: -5, width: 132, height: 112 },
+  reviewWatermark: { position: 'absolute', right: -8, bottom: -12, opacity: 0.5 },
+  attendanceWatermark: { position: 'absolute', right: 12, top: 10, opacity: 0.6 },
+  modalHeaderCopy: { flex: 1, paddingRight: 80 },
+  modalFormScroll: { flexShrink: 1, minHeight: 0 },
+  modalFormContent: { paddingBottom: 16 },
   floatingAddButton: { position: 'absolute', right: 20, width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.primary, borderWidth: 1, borderColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', zIndex: 4, ...SHADOWS.soft },
   reviseButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, marginTop: 12, borderRadius: 12, backgroundColor: COLORS.primaryLight },
   reviseButtonText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
@@ -768,6 +859,10 @@ const styles = StyleSheet.create({
   },
 
   pageIntro: {
+    minHeight: 112,
+    justifyContent: 'center',
+    paddingRight: 95,
+    overflow: 'hidden',
     marginBottom: 16,
   },
   pageEyebrow: {
@@ -837,8 +932,9 @@ const styles = StyleSheet.create({
 
   // ── Stats bar ───────────────────────────────────────────────────────────────
   statsBar: {
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+    borderRadius: 16,
     padding: 15,
     marginBottom: 12,
     borderWidth: 1,
@@ -855,7 +951,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.9,
-    color: COLORS.textMuted,
+    color: COLORS.primary,
   },
   statsMetrics: {
     flexDirection: 'row',
@@ -887,6 +983,7 @@ const styles = StyleSheet.create({
 
   // ── Coordinator review status ────────────────────────────────────────────────
   reviewCard: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
@@ -909,11 +1006,12 @@ const styles = StyleSheet.create({
   },
   reviewCopy: {
     flex: 1,
+    paddingRight: 18,
   },
   reviewTitle: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
     marginBottom: 2,
   },
   reviewText: {
@@ -944,9 +1042,10 @@ const styles = StyleSheet.create({
 
   // ── Empty state ──────────────────────────────────────────────────────────────
   emptyCard: {
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.xl,
-    padding: 32,
+    borderRadius: 16,
+    padding: 22,
     alignItems: 'center',
     marginBottom: 16,
     borderWidth: 1,
@@ -963,8 +1062,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '600',
     color: COLORS.textPrimary,
     marginBottom: 6,
   },
@@ -1109,6 +1208,7 @@ const styles = StyleSheet.create({
 
   // ── Attendance handoff ───────────────────────────────────────────────────────
   dtrCard: {
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
     borderRadius: RADIUS.lg,
     padding: 15,
@@ -1183,6 +1283,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
+    flexShrink: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    width: '100%',
+    maxWidth: 620,
+    alignSelf: 'center',
+    paddingBottom: 24,
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: RADIUS.xxl,
     borderTopRightRadius: RADIUS.xxl,
@@ -1200,17 +1307,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   modalHeader: {
+    flexShrink: 0,
+    minHeight: 105,
+    overflow: 'hidden',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 18,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
+    marginBottom: 4,
+    paddingBottom: 10,
+    paddingTop: 8,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '600',
     color: COLORS.textPrimary,
   },
   modalWeek: {
@@ -1273,6 +1382,27 @@ const styles = StyleSheet.create({
   },
 
   // ── Refine button ─────────────────────────────────────────────────────────────
+  feedbackBox: { marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FDE68A', backgroundColor: '#FFFBEB' },
+  feedbackTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 0.6, textTransform: 'uppercase', color: '#B45309', marginBottom: 4 },
+  feedbackText: { fontSize: 13, lineHeight: 19, color: '#78350F' },
+  revisionBox: { marginBottom: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#FDE68A', backgroundColor: '#FFFBEB' },
+  revisionTitle: { fontSize: 13.5, fontWeight: '700', color: '#92400E' },
+  revisionReason: { marginTop: 6, fontSize: 13, lineHeight: 19, color: '#78350F' },
+  revisionHint: { marginTop: 8, fontSize: 12, fontWeight: '600', color: '#B45309' },
+  revisionHintDone: { color: '#047857' },
+  wordCount: { marginTop: 6, fontSize: 12, fontWeight: '600', color: '#B45309', textAlign: 'right' },
+  wordCountOk: { color: '#047857' },
+  aiConsentBox: { marginTop: 10, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' },
+  aiConsentTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  aiConsentText: { fontSize: 12.5, lineHeight: 18, color: '#475569' },
+  aiConsentActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  aiConsentCancel: { flex: 1, height: 40, borderRadius: 10, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  aiConsentCancelText: { fontSize: 13, fontWeight: '600', color: '#334155' },
+  aiConsentSend: { flex: 1, height: 40, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center' },
+  aiConsentSendText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  aiErrorText: { marginTop: 8, fontSize: 12.5, color: '#B91C1C' },
+  scheduleChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, marginTop: 6, maxWidth: '65%' },
+  scheduleChipText: { fontSize: 12, fontWeight: '600', color: '#1D4ED8' },
   refineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1284,11 +1414,11 @@ const styles = StyleSheet.create({
     minHeight: 64,
     marginTop: 10,
   },
-  checkNotesBtn: { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' },
-  aiRefineBtn: { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+  checkNotesBtn: { backgroundColor: '#F0F7FF', borderColor: '#E0EDFF' },
+  aiRefineBtn: { backgroundColor: '#F0F7FF', borderColor: '#E0EDFF' },
   assistCopy: { flex: 1, gap: 4 },
-  checkNotesTitle: { color: '#334155', fontSize: 14, fontWeight: '700' },
-  aiRefineTitle: { color: '#1D4ED8', fontSize: 14, fontWeight: '700' },
+  checkNotesTitle: { color: '#17243C', fontSize: 13, fontWeight: '600' },
+  aiRefineTitle: { color: '#17243C', fontSize: 13, fontWeight: '600' },
   assistCaption: { color: '#64748B', fontSize: 12, lineHeight: 17 },
   suggestionHint: { color: '#64748B', fontSize: 12, lineHeight: 18, marginBottom: 14 },
   discardSuggestionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#DBEAFE' },
@@ -1351,7 +1481,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
   },
   submitBtn: {
-    flex: 1.5,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

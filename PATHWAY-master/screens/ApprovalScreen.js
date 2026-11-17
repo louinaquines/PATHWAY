@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
+  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -14,6 +15,7 @@ import { auth, db } from '../firebaseConfig';
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
+import StudentSurface from '../components/StudentSurface';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
@@ -27,7 +29,9 @@ import {
   ArrowRightIcon,
 } from '../components/Icons';
 
-export default function ApprovalScreen({ navigation }) {
+export default function ApprovalScreen({ navigation, route }) {
+  const reachedStep = Math.max(4, Math.min(4, Number(route?.params?.reachedStep) || 4));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState(null);
   const [menu, setMenu] = useState(false);
@@ -108,6 +112,7 @@ export default function ApprovalScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <StudentSurface tone="page" />
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <PreDeploymentTopBar
@@ -117,26 +122,31 @@ export default function ApprovalScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.pageIntro}>
+          <StudentSurface tone="welcome" waves />
+          <Image source={require('../assets/pathway-guide-thumbsup-plain-laptop.png')} style={styles.headerCharacter} resizeMode="contain" />
           <View style={styles.introMetaRow}>
             <Text style={styles.subheading}>PRE-DEPLOYMENT</Text>
-            <View style={styles.stageBadge}>
-              <Text style={styles.stageBadgeText}>STEP 04 / 04</Text>
-            </View>
           </View>
-          <Text variant="heading" style={styles.heading}>Approval &amp; Clearance</Text>
+          <Text style={styles.heading}>Approval &amp; Clearance</Text>
           <Text style={styles.pageDescription}>Check your application status.</Text>
         </View>
 
         <PreDeploymentStepper
           activeStep={4}
+          reachedStep={reachedStep}
           onStepPress={step => {
-            if (step === 1) navigation.replace('Requirements');
-            if (step === 2) navigation.replace('Company');
-            if (step === 3) navigation.replace('Review');
+            if (step === 1) navigation.replace('Requirements', { readOnlyStep: 1 < reachedStep, reachedStep });
+            if (step === 2) navigation.replace('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 3) navigation.replace('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
           }}
         />
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         <View style={[styles.statusCard, status === 'approved' && styles.statusCardApproved]}>
+          <StudentSurface tone={status === 'approved' ? 'mint' : 'blue'} waves />
+          {status === 'approved' && (
+            <Image source={require('../assets/pathway-guide-progress.png')} style={styles.successCharacter} resizeMode="contain" />
+          )}
           <View style={styles.statusHeader}>
             <View style={[
               styles.statusIcon,
@@ -197,7 +207,7 @@ export default function ApprovalScreen({ navigation }) {
           ) : needsReviewAction ? (
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() => navigation.replace('Review')}
+              onPress={() => navigation.replace('Review', readOnlyStep ? { readOnlyStep: 3 < reachedStep, reachedStep } : { readOnlyStep: false })}
               activeOpacity={0.85}
               accessibilityRole="button"
             >
@@ -235,6 +245,26 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   pageIntro: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 22,
+    minHeight: 160,
+    padding: 18,
+    paddingRight: 130,
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  headerCharacter: {
+    position: 'absolute',
+    right: -6,
+    bottom: -10,
+    width: 142,
+    height: 148,
+  },
+  successCharacter: {
+    alignSelf: 'center',
+    width: 180,
+    height: 170,
     marginBottom: 16,
   },
   introMetaRow: {
@@ -263,8 +293,9 @@ const styles = StyleSheet.create({
   },
   heading: {
     color: COLORS.textPrimary,
-    fontSize: 25,
-    fontWeight: '800',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '600',
     letterSpacing: -0.45,
   },
   pageDescription: {
@@ -274,8 +305,10 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statusCard: {
+    position: 'relative',
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
-    borderRadius: RADIUS.lg,
+    borderRadius: 20,
     padding: 17,
     borderWidth: 1,
     borderColor: COLORS.borderLight || COLORS.border,

@@ -30,7 +30,7 @@ test('coordinator sees phone attendance in Philippine time even without journal 
   expect(await screen.findByText('2:45:38 AM')).toBeVisible();
   expect(screen.getByText('2:47:13 AM')).toBeVisible();
   expect(screen.getByText('0.03')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Weekly journals' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Journals' }));
   expect(screen.queryByRole('button', { name: 'Compare DTR' })).not.toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByText('No Entries Submitted')).toBeVisible();

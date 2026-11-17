@@ -53,3 +53,9 @@
 }
 .placement-review-top-toolbar .coordinator-search input { width: 100%; min-width: 0; }
 .placement-review-top-toolbar .submission-notifications { flex: 0 0 auto; }
+.review-stage-filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 24px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+.review-stage-filter-row .review-stage-tabs { padding-bottom: 0; border-bottom: 0; }
+.review-stage-filter-row .review-status-filter { margin: 0 0 0 auto; }
+.review-stage-filter-row .review-status-filter label { display: flex; align-items: center; gap: 12px; }
+.review-status-filter select { width: 220px; max-width: 100%; }
+@media(max-width: 700px) { .review-stage-filter-row .review-status-filter { margin-left: 0; width: 100%; } .review-status-filter select { flex: 1; min-width: 0; } }

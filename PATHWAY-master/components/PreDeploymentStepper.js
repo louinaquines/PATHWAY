@@ -1,3 +1,4 @@
+import { canOpenPreDeploymentStep } from './preDeploymentNavigation';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { COLORS, SHADOWS } from '../theme';
@@ -6,7 +7,7 @@ import { AppText as Text } from './AppText';
 const STEPS = ['Documents', 'Company', 'Review', 'Approval'];
 
 /** Shared four-stage pipeline indicator used by every pre-deployment screen. */
-export default function PreDeploymentStepper({ activeStep = 1, completedSteps, onStepPress, style }) {
+export default function PreDeploymentStepper({ activeStep = 1, completedSteps, onStepPress, reachedStep = activeStep, style }) {
   const active = Math.min(Math.max(Number(activeStep) || 1, 1), STEPS.length);
   const isComplete = step => completedSteps == null
     ? step < active
@@ -29,12 +30,12 @@ export default function PreDeploymentStepper({ activeStep = 1, completedSteps, o
             <TouchableOpacity
               key={label}
               style={styles.stepItem}
-              onPress={() => onStepPress?.(step)}
-              disabled={!onStepPress}
+              onPress={() => { if (canOpenPreDeploymentStep(step, active, reachedStep)) onStepPress?.(step); }}
+              disabled={!onStepPress || !canOpenPreDeploymentStep(step, active, reachedStep)}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityLabel={`Open ${label} step`}
-              accessibilityState={{ selected: isCurrent }}
+              accessibilityState={{ selected: isCurrent, disabled: !onStepPress || !canOpenPreDeploymentStep(step, active, reachedStep) }}
             >
               <View style={[styles.circle, (isCurrent || isDone) && styles.circleFilled]}>
                 <Text style={[styles.number, (isCurrent || isDone) && styles.numberFilled]}>{step}</Text>

@@ -47,17 +47,20 @@ test('submitted source is assignment-protected and rejects replaced file version
 
 test('save recomputes attendance, is idempotent, and blocks stale/cleared/outsider reviews', async () => {
   const routes = {}; let stored, writes = 0, owns = true;
-  const student = { role: 'student', requirements: { dtr: { fileName: 'test.pdf', cloudinaryAssetId: 'asset' } } };
+  const student = { role: 'student', sectionId: 's', department: 'IT', requirements: { dtr: { fileName: 'test.pdf', cloudinaryAssetId: 'asset' } } };
   const savedRef = { kind: 'saved' };
   const query = { kind: 'query', where() { return this; }, limit() { return this; } };
-  const userRef = { kind: 'user', get: async () => ({ exists: true, data: () => student }), collection(name) { return name === 'attendance' ? query : { doc: () => savedRef }; } };
+  const userRef = { id: 'student', kind: 'user', get: async () => ({ exists: true, data: () => student }), collection(name) { return name === 'attendance' ? query : { doc: () => savedRef }; } };
   const tx = { async get(ref) {
+    if (ref.kind === 'actor') return { exists: true, data: () => ({ role: 'coordinator', accountApproved: true, department: 'IT' }) };
+    if (ref.kind === 'section') return { exists: true, data: () => ({ coordinatorId: owns ? 'staff' : 'other', department: 'IT' }) };
+    if (ref.kind === 'escalation') return { exists: false };
     if (ref.kind === 'user') return { exists: true, data: () => student };
     if (ref.kind === 'saved') return { exists: Boolean(stored), data: () => stored };
     return { size: 0, docs: [] };
-  }, set(ref, entry) { assert.equal(ref, savedRef); stored = entry; writes++; } };
+  }, set(ref, entry) { if (ref === savedRef) { stored = entry; writes++; } else assert.ok(['escalation', 'notice'].includes(ref.kind)); } };
   installDtrReview({ app: { get(path, middleware, fn) { routes[`GET ${path}`] = fn; }, post(path, middleware, fn) { routes[`POST ${path}`] = fn; } },
-    db: { collection: () => ({ doc: () => userRef }), runTransaction: fn => fn(tx) }, requireStaff() {},
+    db: { collection: name => ({ doc: id => name === 'sections' ? { kind: 'section' } : name === 'dtrEscalations' ? { kind: 'escalation' } : name === 'notifications' ? { kind: 'notice' } : id === 'staff' ? { kind: 'actor' } : userRef }), runTransaction: fn => fn(tx) }, requireStaff() {},
     coordinatorOwnsStudent: async () => owns, allowRate: () => true,
     assertRecordsOpen(value) { if (value.clearanceStatus === 'cleared') throw Object.assign(new Error('Locked'), { status: 409 }); },
     writeAuditInTransaction() {} });

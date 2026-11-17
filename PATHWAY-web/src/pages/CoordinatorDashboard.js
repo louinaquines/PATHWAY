@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import SectionsTab from './SectionsTab';
+import JournalFrequencySettings from '../components/JournalFrequencySettings';
 import LogbookTab from './LogbookTab';
 import RegistrationsTab from './RegistrationsTab';
 import ClassListTab from './ClassListTab';
@@ -372,7 +373,7 @@ export default function CoordinatorDashboard() {
         {/* Topbar */}
         <header style={s.topbar} className="topbar requirements-topbar">
           <div style={s.topbarLeft} className="topbarLeft">
-            <div className="coordinator-header-title"><h1 style={s.pageTitle}>
+            <div className="coordinator-header-title"><div className="coordinator-title-settings-row"><h1 style={s.pageTitle}>
               {activeTab === 'requirements' ? 'Requirements Approval' :
                 activeTab === 'sections' ? 'Sections Management' :
                           activeTab === 'logbook' ? 'Student Logbook Review' :
@@ -387,7 +388,7 @@ export default function CoordinatorDashboard() {
                             activeTab === 'evaluations' ? 'Supervisor Evaluations' :
                               activeTab === 'clearance' ? 'Clearance Readiness' :
                                 activeTab === 'profile' ? 'Coordinator Profile' : ''}
-            </h1><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
+            </h1>{activeTab === 'sections' && <JournalFrequencySettings key={auth.currentUser?.uid} />}</div><p className="requirements-header-description">{HEADER_DESCRIPTIONS[activeTab]}</p></div>
             {activeTab === 'requirements' && pendingCount > 0 && (
               <span style={s.pendingBadge}>
                 {pendingCount} Pending Review

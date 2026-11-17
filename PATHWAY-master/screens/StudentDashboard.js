@@ -28,10 +28,14 @@ import { getStudentNotificationsEnabled, setStudentNotificationsEnabled } from '
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import PathwayWatermark from '../components/PathwayWatermark';
-import { MotionTouchableOpacity, useReducedMotion } from '../components/Motion';
+import { MotionTouchableOpacity, ScreenEntrance, useReducedMotion } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView, { StudentRefreshContext } from '../components/RefreshableScrollView';
 import ApprovalWelcome from '../components/ApprovalWelcome';
+import HomePanel from '../components/ApprovedStudentHome';
+import StudentSurface from '../components/StudentSurface';
+import LogsCalendarArtwork from '../components/LogsCalendarArtwork';
+import ProgressCardArtwork from '../components/ProgressCardArtwork';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PathwayMark from '../components/PathwayMark';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
@@ -40,7 +44,7 @@ import PreDeploymentNotificationsSheet from '../components/PreDeploymentNotifica
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
 import useStudentLogout from '../hooks/useStudentLogout';
 import { buildActivity } from '../services/recordPagination';
-import { attendanceHistoryForDate, attendanceRecordCountLabel } from '../services/attendanceHistory';
+import { attendanceHistoryForDate } from '../services/attendanceHistory';
 import {
   AlertCircleIcon,
   BellIcon,
@@ -71,7 +75,7 @@ const TABS = [
   { key: 'home', label: 'Home', Icon: HomeIcon },
   { key: 'logs', label: 'Logs', Icon: LogbookIcon },
   { key: 'progress', label: 'Progress', Icon: ProgressIcon },
-  { key: 'profile', label: 'Profile', Icon: ProfileIcon },
+  { key: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 
 const dateLabel = value => {
@@ -167,7 +171,8 @@ async function loadPreDeploymentSummary(uid, profile) {
       needsChanges: needsChangesCount,
     },
     placement: {
-      status: profile.placementStatus || latestProposal?.status || 'not_started',
+      status: profile.placementStatus === 'approved' ? 'approved'
+        : (latestProposal?.status === 'approved' ? 'not_started' : latestProposal?.status || profile.placementStatus || 'not_started'),
       companyName: profile.company || profile.companyName || latestProposal?.companyName || '',
       supervisorName: profile.supervisorName || latestProposal?.supervisorName || '',
     },
@@ -179,7 +184,19 @@ async function loadPreDeploymentSummary(uid, profile) {
   };
 }
 
+// Remember whether the student last saw the pre-deployment gate or the approved workspace,
+// so the loading skeleton matches the screen that is about to appear.
+const SKELETON_KIND_KEY = 'pathway.dashboardSkeletonKind';
+let lastSkeletonKind = null;
+
 export default function StudentDashboard({ navigation }) {
+  const [skeletonKind, setSkeletonKind] = useState(lastSkeletonKind || 'dashboard');
+  useEffect(() => {
+    if (lastSkeletonKind) return;
+    AsyncStorage.getItem(SKELETON_KIND_KEY).then(kind => {
+      if (kind === 'gate' || kind === 'dashboard') { lastSkeletonKind = kind; setSkeletonKind(kind); }
+    }).catch(() => {});
+  }, []);
   const [student, setStudent] = useState(null);
   const [preDeploymentSummary, setPreDeploymentSummary] = useState(null);
   const [attendance, setAttendance] = useState([]);
@@ -202,6 +219,15 @@ export default function StudentDashboard({ navigation }) {
   const insets = useSafeAreaInsets();
   const studentUid = auth.currentUser?.uid;
   const approvedForOjt = hasCompletedPreDeployment(student);
+  useEffect(() => {
+    if (!studentUid || loggingOut) return;
+    return onSnapshot(query(collection(db, 'notifications'), where('recipientId', '==', studentUid)), snapshot => {
+      if (auth.currentUser?.uid === studentUid) setNotifications(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+    }, () => {
+      if (auth.currentUser?.uid === studentUid) console.warn('Live notification updates could not connect.');
+    });
+  }, [studentUid, loggingOut]);
+
   const approvalWelcomeKey = approvedForOjt && studentUid
     ? `pathway:approval-welcome:v1:${studentUid}:${student.placementProposalId || 'initial'}` : null;
   const [welcomeCheckedKey, setWelcomeCheckedKey] = useState(null);
@@ -268,11 +294,10 @@ export default function StudentDashboard({ navigation }) {
     setPreDeploymentSummary(null);
     const summaryRequestId = ++summaryRequestRef.current;
     try {
-      const [user, att, logs, notices] = await Promise.all([
+      const [user, att, logs] = await Promise.all([
         getDoc(doc(db, 'users', uid)),
         getDocs(query(collection(db, 'users', uid, 'attendance'), orderBy('date', 'desc'))),
         getDocs(query(collection(db, 'users', uid, 'logbook'), orderBy('createdAt', 'desc'))),
-        getDocs(query(collection(db, 'notifications'), where('recipientId', '==', uid))),
       ]);
       if (!user.exists()) {
         setStudent(null);
@@ -290,7 +315,6 @@ export default function StudentDashboard({ navigation }) {
       }
       setAttendance(att.docs.map(item => ({ id: item.id, ...item.data() })));
       setLogbook(logs.docs.map(item => ({ id: item.id, ...item.data() })));
-      setNotifications(notices.docs.map(item => ({ id: item.id, ...item.data() })));
     } catch (error) {
       console.error('Unable to load student dashboard', error);
       setLoadError('Failed to load dashboard data. Check your network connection.');
@@ -337,6 +361,8 @@ export default function StudentDashboard({ navigation }) {
       required,
       progress: Math.min(rendered / Math.max(required, 1), 1),
       remaining: Math.max(required - rendered, 0),
+      verifiedShifts: verified,
+      totalShifts: attendance.length,
       attendancePercent: attendance.length
         ? Math.round((verified / attendance.length) * 100)
         : null,
@@ -389,7 +415,7 @@ export default function StudentDashboard({ navigation }) {
   }
 
   if (loading && !student) {
-    return <StudentScreenSkeleton variant="dashboard" />;
+    return <StudentScreenSkeleton variant={skeletonKind} />;
   }
 
   if (loadError && !student) {
@@ -400,6 +426,7 @@ export default function StudentDashboard({ navigation }) {
   if (approvedForOjt && showApprovalWelcome) return <ApprovalWelcome onComplete={finishApprovalWelcome} />;
 
   if (!hasCompletedPreDeployment(student)) {
+    if (lastSkeletonKind !== 'gate') { lastSkeletonKind = 'gate'; AsyncStorage.setItem(SKELETON_KIND_KEY, 'gate').catch(() => {}); }
     const next = nextPreDeploymentAction(student || {}, preDeploymentSummary);
     return (
       <Gate
@@ -412,6 +439,7 @@ export default function StudentDashboard({ navigation }) {
     );
   }
 
+  if (lastSkeletonKind !== 'dashboard') { lastSkeletonKind = 'dashboard'; AsyncStorage.setItem(SKELETON_KIND_KEY, 'dashboard').catch(() => {}); }
   const recent = buildActivity(attendance, logbook, notificationsEnabled ? notifications : []).slice(0, 5).map(item => ({
     ...item, date: dateLabel(item.createdAt),
     Icon: item.type === 'attendance' ? ClockIcon : item.type === 'journal' ? FileIcon : BellIcon,
@@ -424,49 +452,23 @@ export default function StudentDashboard({ navigation }) {
 
       {/* Student workspace top bar */}
       <View style={[styles.header, styles.homeHeader, { paddingTop: Math.max(14, insets.top) }]}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerLogoBadge}><PathwayMark size={40} decorative /></View>
-          <View style={styles.headerBrandCopy}>
-            <Text numberOfLines={1} style={[styles.brand, styles.homeBrand]}>PATHWAY</Text>
-          </View>
-        </View>
-
-        <View style={styles.headerRight}>
-          <Pressable
-            onPress={() => navigation.navigate('Notifications', { initialTab: 'notifications' })}
-            style={({ hovered, focused, pressed }) => [
-              styles.headerIconBtn,
-              hovered && styles.headerActionHover,
-              hovered && !reducedMotion && styles.headerActionHoverMotion,
-              focused && styles.headerActionFocus,
-              pressed && styles.headerActionPressed,
-              pressed && !reducedMotion && styles.headerActionPressMotion,
-              reducedMotion && styles.motionDisabledWeb,
-            ]}
-            accessibilityLabel="Notifications"
-            accessibilityRole="button"
-          >
-            <BellIcon size={20} color={COLORS.primaryDark} hasUnread={metrics.unread > 0} />
-          </Pressable>
-
-          <Pressable
-            onPress={() => { setSettingsVisible(true); switchTab('profile'); }}
-            style={({ hovered, focused, pressed }) => [
-              styles.headerIconBtn,
-              styles.headerSettingsBtn,
-              hovered && styles.headerActionHover,
-              hovered && !reducedMotion && styles.headerActionHoverMotion,
-              focused && styles.headerActionFocus,
-              pressed && styles.headerActionPressed,
-              pressed && !reducedMotion && styles.headerActionPressMotion,
-              reducedMotion && styles.motionDisabledWeb,
-            ]}
-            accessibilityLabel="Open settings"
-            accessibilityRole="button"
-          >
-            <SettingsIcon size={20} color={COLORS.primaryDark} />
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() => { setSettingsVisible(false); switchTab('profile'); }}
+          style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerActionPressed]}
+          accessibilityLabel="Open profile"
+          accessibilityRole="button"
+        >
+          <ProfileIcon size={20} color={COLORS.primaryDark} />
+        </Pressable>
+        <View pointerEvents="none" style={styles.headerBrandCenter}><PathwayMark size={38} decorative /></View>
+        <Pressable
+          onPress={() => navigation.navigate('Notifications', { initialTab: 'notifications' })}
+          style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerActionPressed]}
+          accessibilityLabel="Notifications"
+          accessibilityRole="button"
+        >
+          <BellIcon size={20} color={COLORS.primaryDark} hasUnread={metrics.unread > 0} />
+        </Pressable>
       </View>
 
       {/* Main Tab Panel Content */}
@@ -502,6 +504,8 @@ export default function StudentDashboard({ navigation }) {
         {tab === 'logs' && (
           <LogsPanel
             logbook={() => navigation.navigate('Logbook')}
+            openAttendance={() => navigation.navigate('LogToday')}
+            openProgress={() => navigation.navigate('Progress')}
             logbookRecords={logbook}
             student={student}
             metrics={metrics}
@@ -531,7 +535,7 @@ export default function StudentDashboard({ navigation }) {
             onChangePassword={() => navigation.navigate('ChangePassword')}
             onOpenScreen={name => navigation.navigate(name)}
           />
-          : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onRequestPlacementChange={() => navigation.navigate('Company')} />)}
+          : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onViewPlacement={() => navigation.navigate('Company')} />)}
       </Animated.View>
       </StudentRefreshContext.Provider>
 
@@ -562,7 +566,7 @@ export default function StudentDashboard({ navigation }) {
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom) }]}>
         <View style={styles.bottomDock}>
           {TABS.map(({ key, label, Icon }, index) => {
-            const active = key === tab;
+            const active = key === 'settings' ? tab === 'profile' && settingsVisible : key === tab;
             const hovered = key === hoveredTab;
             const focused = key === focusedTab;
             const emphasized = active || hovered || focused;
@@ -572,7 +576,7 @@ export default function StudentDashboard({ navigation }) {
                   accessibilityRole="tab"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={label}
-                  onPress={() => switchTab(key)}
+                  onPress={() => { if (key === 'settings') { setSettingsVisible(true); switchTab('profile'); } else { setSettingsVisible(false); switchTab(key); } }}
                   onHoverIn={() => setHoveredTab(key)}
                   onHoverOut={() => setHoveredTab(current => current === key ? null : current)}
                   onFocus={() => setFocusedTab(key)}
@@ -690,9 +694,11 @@ function Gate({
       ? student.preDeploymentStatus
       : 'not_submitted');
   const accountApproved = summary?.accountApproved ?? (student?.accountApproved === true);
+  const requirementsSubmitted = requirementsStatus === 'approved'
+    || (requirements?.total > 0 && requirements.received === requirements.total);
   const activeStep = !accountApproved
     ? null
-    : requirementsStatus !== 'approved'
+    : !requirementsSubmitted
       ? 0
       : placementStatus !== 'approved'
         ? 1
@@ -700,7 +706,7 @@ function Gate({
           ? 3
           : 2;
   const progressPercent = activeStep == null ? 0 : Math.round((activeStep / totalSteps) * 100);
-  const canOpenCompany = accountApproved && requirementsStatus === 'approved';
+  const canOpenCompany = accountApproved && requirementsSubmitted;
   const canOpenReview = canOpenCompany && placementStatus === 'approved';
   const formatStatus = value => ({
     approved: 'Approved',
@@ -796,6 +802,8 @@ function Gate({
     const tone = statusTone(item.status);
     const content = (
       <>
+        <StudentSurface tone={item.title === 'Student account' ? 'mint' : 'blue'} waves />
+        <View pointerEvents="none" style={styles.gateSummaryWatermark}><ItemIcon size={72} color="#D4E7FA" /></View>
         <View style={styles.gateSummaryTopRow}>
           <View style={styles.gateSummaryIcon}><ItemIcon size={17} color={COLORS.primary} /></View>
           {item.onPress ? <ChevronRightIcon size={16} color={COLORS.textMuted} /> : null}
@@ -842,17 +850,17 @@ function Gate({
       >
         <View style={styles.gateDashboard}>
           <View style={styles.gateWelcomeRow}>
+            <StudentSurface tone="welcome" waves />
             <View style={styles.gateWelcomeCopy}>
               <Text style={styles.gateEyebrow}>STUDENT DASHBOARD</Text>
-              <Text variant="heading" style={styles.gateWelcomeTitle}>Welcome, {firstName}</Text>
+              <Text style={styles.gateWelcomeTitle}>Welcome, {firstName}</Text>
               <Text style={styles.gateWelcomeSub}>Check your application status.</Text>
             </View>
-            <View style={styles.gateAvatar} accessibilityLabel={`${firstName}'s profile`}>
-              <Text style={styles.gateAvatarText}>{initials(student)}</Text>
-            </View>
+            <Image source={require('../assets/pathway-guide-waving.png')} style={styles.gateWelcomeCharacter} resizeMode="contain" accessible={false} />
           </View>
 
           <View style={styles.gateHeroCard}>
+            <StudentSurface waves />
             <View style={styles.gateHeroTopRow}>
               <View style={[styles.gateIconCircle, iconBg && { backgroundColor: iconBg }]}>{icon}</View>
               <View style={styles.gateHeroStatusCopy}>
@@ -862,7 +870,7 @@ function Gate({
                 </View>
               </View>
             </View>
-            <Text variant="heading" style={styles.gateTitle}>{title}</Text>
+            <Text style={styles.gateTitle}>{title}</Text>
             <Text style={styles.gateSub}>{message}</Text>
             <View style={styles.gateHeroProgressHeader}>
               <Text style={styles.gateHeroProgressLabel}>Overall progress</Text>
@@ -892,7 +900,10 @@ function Gate({
               </View>
               {student?.idNumber ? <Text style={styles.gateStudentId}>ID · {student.idNumber}</Text> : null}
             </View>
-            <View style={styles.gateSummaryGrid}>{summaryItems.map(renderSummaryItem)}</View>
+            <View style={styles.gateSummaryGrid}>{summaryItems.map(item => <React.Fragment key={item.title}>
+              {renderSummaryItem(item)}
+              {item.title === 'Company placement' && <MotionTouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('WorkplaceSupport')} style={[styles.gateSummaryTile, { flexBasis: '100%', minHeight: 48 }]}><Text style={styles.cardAction}>Get workplace support</Text></MotionTouchableOpacity>}
+            </React.Fragment>)}</View>
           </View>
         </View>
       </ScrollView>
@@ -911,8 +922,8 @@ function Gate({
   );
 }
 
-function Card({ children, style }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+function Card({ children, style, entrance = false, delay = 0 }) {
+  return entrance ? <ScreenEntrance delay={delay} style={[styles.card, style]}>{children}</ScreenEntrance> : <View style={[styles.card, style]}>{children}</View>;
 }
 
 function CardTitle({ Icon, title, action, onPress }) {
@@ -928,109 +939,6 @@ function CardTitle({ Icon, title, action, onPress }) {
         </MotionTouchableOpacity>
       )}
     </View>
-  );
-}
-
-function HomePanel({ student, metrics, recent, width, go }) {
-  const placement = usePlacementEligibility();
-  const normalizedProgress = Number.isFinite(metrics.progress)
-    ? Math.max(0, Math.min(metrics.progress, 1))
-    : 0;
-  const progressPercent = Math.round(normalizedProgress * 100);
-
-  return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.scroll,
-        { paddingHorizontal: width < 380 ? 16 : 20 },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.homeWelcome}>
-        <View style={styles.homeWelcomeCopy}>
-          <Text style={styles.homeEyebrow}>OJT SUMMARY</Text>
-          <Text variant="heading" style={styles.greeting}>Welcome, {student?.firstName || 'Student'}</Text>
-          <Text style={styles.profileDepartment}>{student?.department || student?.course || 'OJT Student'}</Text>
-        </View>
-        <View style={styles.homeAvatar} accessibilityLabel={`${student?.firstName || 'Student'} profile picture`}>
-          {student?.profilePhotoUrl
-            ? <Image source={{ uri: student.profilePhotoUrl }} style={styles.homeAvatarImage} />
-            : <Text style={styles.homeAvatarText}>{initials(student)}</Text>}
-        </View>
-      </View>
-
-      <View style={styles.homeProgressHero}>
-        <View style={styles.homeProgressHeader}>
-          <View style={styles.homeProgressLabelWrap}><ClockIcon size={15} color={COLORS.primary} /><Text style={styles.homeProgressLabel}>TOTAL OJT HOURS</Text></View>
-          <View style={styles.homeProgressPercentBadge}>
-            <Text style={styles.homeProgressPercent}>{progressPercent}% complete</Text>
-          </View>
-        </View>
-        <Text variant="heading" style={styles.homeHoursValue}>{metrics.rendered.toFixed(1)}<Text style={styles.homeHoursTotal}> / {metrics.required} hrs</Text></Text>
-        <View style={styles.homeProgressFooter}>
-          <Text style={styles.homeProgressRemaining}>{metrics.remaining.toFixed(1)} hours to go</Text>
-          <MotionTouchableOpacity onPress={() => go('Progress')} activeOpacity={0.7} accessibilityRole="button">
-            <View style={styles.homeProgressLink}><Text style={styles.homeProgressLinkText}>View progress</Text><ChevronRightIcon size={14} color={COLORS.primary} /></View>
-          </MotionTouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.homeStatsStrip}>
-        <View style={styles.homeStatCell}>
-          <Text style={styles.homeStatLabel}>VERIFIED RECORDS</Text>
-          <Text style={styles.homeStatValue}>{metrics.attendancePercent === null ? '—' : `${metrics.attendancePercent}%`}</Text>
-          <Text style={styles.homeStatHint}>verified shifts</Text>
-        </View>
-        <View style={styles.homeStatDivider} />
-        <View style={styles.homeStatCell}>
-          <Text style={styles.homeStatLabel}>PENDING LOGS</Text>
-          <Text style={styles.homeStatValue}>{metrics.pendingLogs}</Text>
-          <Text style={styles.homeStatHint}>awaiting coordinator</Text>
-        </View>
-      </View>
-
-      <View style={styles.homeSectionHeading}>
-        <Text style={styles.homeSectionTitle}>Official placement</Text>
-        <BuildingIcon size={18} color={COLORS.secondary} />
-      </View>
-      <View style={styles.homePlacementRow}>
-        <View style={styles.homePlacementMark}><BuildingIcon size={18} color={COLORS.primary} /></View>
-        <View style={styles.homePlacementCopy}>
-          <Text style={[styles.homePlacementName, !placement.assigned && styles.homePlacementPlaceholder]}>{placement.companyName || 'Company not assigned yet'}</Text>
-          <Text style={styles.homePlacementDetail} numberOfLines={2}>{placement.assigned ? (student?.supervisorName ? `Supervisor · ${student.supervisorName}` : 'Approved placement.') : 'No approved placement.'}</Text>
-        </View>
-        <View style={[styles.homePlacementStatus, placement.assigned ? styles.homePlacementConfirmed : styles.homePlacementPending]}>
-          <Text style={[styles.homePlacementStatusText, placement.assigned ? styles.homePlacementStatusConfirmedText : styles.homePlacementStatusPendingText]}>{placement.assigned ? 'Confirmed' : 'Pending'}</Text>
-        </View>
-      </View>
-
-      <View style={styles.homeActivityHeading}>
-        <View style={styles.homeSectionHeading}>
-          <Text style={styles.homeSectionTitle}>Recent activity</Text>
-          <CalendarIcon size={17} color={COLORS.secondary} />
-        </View>
-        <MotionTouchableOpacity onPress={() => go('ActivityHistory')} accessibilityRole="button" style={styles.homeSeeAll}>
-          <Text style={styles.cardAction}>View all activity</Text><ChevronRightIcon size={14} color={COLORS.secondary} />
-        </MotionTouchableOpacity>
-      </View>
-      <View style={styles.activityList}>
-        {recent.length ? recent.map((item, index) => (
-          <View style={[styles.activityRow, index === 0 && styles.activityRowFirst]} key={item.id}>
-            <View style={[styles.activityIcon, { backgroundColor: `${item.color}15` }]}><item.Icon size={16} color={item.color} /></View>
-            <Text style={styles.activityText} numberOfLines={2}>{item.text}</Text>
-            <Text style={styles.activityDate}>{item.date}</Text>
-          </View>
-        )) : (
-          <View style={styles.activityEmpty}>
-            <View style={styles.activityEmptyIcon}><CalendarIcon size={17} color={COLORS.secondary} /></View>
-            <View style={styles.activityEmptyCopy}>
-              <Text style={styles.activityEmptyTitle}>No recent activity</Text>
-              <Text style={styles.emptyText}>No attendance, reports, or updates yet.</Text>
-            </View>
-          </View>
-        )}
-      </View>
-    </ScrollView>
   );
 }
 
@@ -1066,7 +974,8 @@ function addDays(value, amount) {
   return date;
 }
 
-function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpdate }) {
+function LogsPanel({ logbook, openAttendance, openProgress, logbookRecords = [], student, metrics, onHoursUpdate }) {
+  const { width } = useWindowDimensions();
   const { eligible } = usePlacementEligibility();
   const uid = auth.currentUser?.uid;
   const todayStr = localDateKey(new Date());
@@ -1105,6 +1014,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
       const newLog = await punchAttendance('/attendance/time-in');
       setTodayLog(newLog);
       setAttLogs(prev => [newLog, ...prev]);
+      showStudentSuccess('Time-in recorded', 'Your shift has started.');
     } catch (e) {
       Alert.alert('Attendance unavailable', e.message || 'Failed to record time-in.');
     } finally { setSaving(false); }
@@ -1119,6 +1029,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
       setTodayLog(updated);
       setAttLogs(prev => prev.map(l => l.id === todayLog.id ? updated : l));
       if (onHoursUpdate) onHoursUpdate(); // refresh parent metrics
+      showStudentSuccess('Time-out recorded', 'Your shift has been saved.');
     } catch (e) {
       Alert.alert('Attendance unavailable', e.message || 'Failed to record time-out.');
     } finally { setSaving(false); }
@@ -1140,19 +1051,22 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
   const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
-    <ScrollView onRefresh={async () => { await Promise.all([fetchAtt(), onHoursUpdate?.()]); }} skeletonVariant="attendance" contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView onRefresh={async () => { await Promise.all([fetchAtt(), onHoursUpdate?.()]); }} skeletonVariant="attendance" style={styles.logsPage} contentContainerStyle={[styles.scroll, styles.logsScroll]} showsVerticalScrollIndicator={false}>
+      <StudentSurface tone="page" />
 
       {/* ── Page header ── */}
       <View style={styles.logsPageHeader}>
-        <Text variant="heading" style={styles.pageTitle}>Logs</Text>
-        <Text style={styles.pageSub}>Record attendance and weekly reports.</Text>
+        <StudentSurface waves />
+        <View style={styles.logsHeadingCopy}><Text variant="heading" style={styles.logsTitle}>Logs</Text><Text style={styles.pageSub}>Record attendance and journal reports.</Text></View>
+        <ScreenEntrance delay={100} style={[styles.logsGuide, width < 370 && styles.logsGuideCompact]}><Image source={require('../assets/pathway-guide-writing.png')} resizeMode="contain" accessible={false} style={{ width: '100%', height: '100%' }} /></ScreenEntrance>
       </View>
 
-      {/* ── Logs-only hours ledger: linear meter, distinct from the Home ring ── */}
-      <View style={styles.logsAccumulationCard}>
+      {/* Hours retain their existing attendance-backed values. */}
+      <ScreenEntrance style={styles.logsAccumulationCard}>
+        <StudentSurface waves />
         <View style={styles.logsAccumulationHeader}>
           <View style={styles.logsAccumulationLabelGroup}>
-            <View style={styles.logsAccumulationIcon}><ClockIcon size={15} color={COLORS.primaryDark} /></View>
+            <View style={styles.logsAccumulationIcon}><ClockIcon size={18} color={COLORS.primary} /></View>
             <Text style={styles.logsAccumulationLabel}>OJT HOURS</Text>
           </View>
           <View style={styles.logsAccumulationPercent}>
@@ -1162,35 +1076,32 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
         </View>
 
         <View>
-          <View style={styles.logsAccumulationValueRow}>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}</Text>
-            <Text style={styles.logsAccumulationUnit}>hours logged</Text>
-          </View>
-          <Text style={styles.logsAccumulationSubline}>of {metrics.required} required hours</Text>
-        </View>
-
-        <View
-          style={styles.logsAccumulationTrack}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel="OJT hours completed"
-          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
-        >
-          <View style={[styles.logsAccumulationFill, { width: `${progressPercent}%` }]} />
+          <Text variant="heading" style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}<Text style={styles.logsAccumulationUnit}> / {metrics.required} hrs</Text></Text>
         </View>
 
         <View style={styles.logsAccumulationFooter}>
-          <Text style={styles.logsAccumulationRemaining}>{metrics.remaining.toFixed(1)} hours remaining</Text>
-          <Text style={styles.logsAccumulationGoal}>{metrics.required}h goal</Text>
+          <View style={styles.logsMeterCopy}>
+            <View style={styles.logsAccumulationTrack} accessible accessibilityRole="progressbar" accessibilityLabel="OJT hours completed" accessibilityValue={{ min: 0, max: 100, now: progressPercent }}>
+              <View style={[styles.logsAccumulationFill, { width: `${Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100}%` }]} />
+            </View>
+          </View>
         </View>
-      </View>
+        <View style={styles.heroBottomRow}>
+          <Text style={styles.logsAccumulationRemaining}>{metrics.remaining.toFixed(1)} hours to go</Text>
+          <MotionTouchableOpacity onPress={openProgress} accessibilityRole="button" accessibilityLabel="View OJT progress" style={styles.progressCardCue}><Text style={styles.logsAccumulationGoal}>{metrics.required}h goal</Text><ChevronRightIcon size={18} color={COLORS.primary} /></MotionTouchableOpacity>
+        </View>
+      </ScreenEntrance>
 
       {/* ── Calendar and shift grouped as one attendance workspace ── */}
-      <Card style={styles.calendarCard}>
+      <Card entrance delay={90} style={styles.calendarCard}>
+        <StudentSurface />
+        <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.logsCalendarArtwork}><LogsCalendarArtwork /></View>
         <View style={styles.calendarHeader}>
+          <View style={styles.calendarTitleGroup}>
           <MotionTouchableOpacity onPress={() => { setWeekStart(weekStartFor(new Date())); setSelectedDate(todayStr); }} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel="Return to today">
             <Text style={styles.calendarMonth}>{selectedMonthLabel}</Text>
           </MotionTouchableOpacity>
+          </View>
           <View style={styles.calendarNav}>
             <MotionTouchableOpacity style={styles.calendarNavButton} onPress={() => changeWeek(-1)} accessibilityRole="button" accessibilityLabel="Previous week">
               <View style={styles.calendarChevronLeft}><ChevronIcon size={15} color={COLORS.textSecondary} /></View>
@@ -1259,20 +1170,22 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
         ) : !hasTimeIn ? (
           <MotionTouchableOpacity
             style={[styles.attPunchBtn, styles.attPunchIn, (saving || !eligible) && { opacity: 0.6 }]}
+            accessibilityRole="button" accessibilityLabel="Record time in"
             onPress={handleTimeIn} disabled={saving || !eligible} activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color={COLORS.primary} size="small" />
-              : <><CheckCircleIcon size={18} color={COLORS.secondary} /><Text style={styles.attPunchText}>Time in</Text></>}
+              ? <ActivityIndicator color="#FFFFFF" size="small" />
+              : <><ClockIcon size={19} color="#FFFFFF" /><Text style={styles.attPunchText}>Time in</Text></>}
           </MotionTouchableOpacity>
         ) : !hasTimeOut ? (
           <MotionTouchableOpacity
             style={[styles.attPunchBtn, styles.attPunchOut, saving && { opacity: 0.6 }]}
+            accessibilityRole="button" accessibilityLabel="Record time out"
             onPress={handleTimeOut} disabled={saving} activeOpacity={0.85}
           >
             {saving
-              ? <ActivityIndicator color={COLORS.primary} size="small" />
-              : <><ClockIcon size={18} color={COLORS.primary} /><Text style={styles.attPunchText}>Time out</Text></>}
+              ? <ActivityIndicator color="#FFFFFF" size="small" />
+              : <><ClockIcon size={19} color="#FFFFFF" /><Text style={styles.attPunchText}>Time out</Text></>}
           </MotionTouchableOpacity>
         ) : (
           <View style={styles.attDoneBox}>
@@ -1288,7 +1201,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
       {/* ── Attendance History ── */}
       <View style={styles.attSectionRow}>
         <Text style={styles.homeSectionTitle}>Attendance history</Text>
-        <Text style={styles.attSectionCount}>{attendanceRecordCountLabel(visibleAttendanceLogs.length)}</Text>
+        <MotionTouchableOpacity onPress={openAttendance} accessibilityRole="button" accessibilityLabel="View all attendance records" style={styles.logsSectionAction}><Text style={styles.homeProgressLinkText}>View all</Text><ChevronRightIcon size={16} color={COLORS.primary} /></MotionTouchableOpacity>
       </View>
 
       <Card style={styles.attHistoryCard}>
@@ -1299,8 +1212,9 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             <View style={styles.attHistoryEmptyIcon}><CalendarIcon size={18} color={COLORS.primary} /></View>
             <Text style={styles.emptyText}>{selectedIsToday ? 'No previous attendance records yet.' : 'No attendance for this date.'}</Text>
           </View>
-        ) : visibleAttendanceLogs.map((log, index) => (
+        ) : visibleAttendanceLogs.slice(0, 5).map((log, index) => (
           <View key={log.id} style={[styles.attLogRow, index > 0 && styles.attLogRowDivider]}>
+            <View style={styles.logsHistoryIcon}><CalendarIcon size={23} color={COLORS.primary} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.attLogDate}>{attFormatDate(log.date + 'T00:00:00')}</Text>
               <Text style={styles.attLogTime}>
@@ -1326,7 +1240,7 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
           <View style={styles.homeProgressLink}><Text style={styles.homeProgressLinkText}>Open logbook</Text><ChevronRightIcon size={14} color={COLORS.primary} /></View>
         </MotionTouchableOpacity>
       </View>
-      <Card>
+      <Card style={styles.logsJournalCard}>
         {selectedDate === todayStr && !selectedLogbook.length ? (
           <View style={styles.logsEmptyState}>
             <View style={styles.attHistoryEmptyIcon}><FileIcon size={18} color={COLORS.primary} /></View>
@@ -1338,11 +1252,10 @@ function LogsPanel({ logbook, logbookRecords = [], student, metrics, onHoursUpda
             const isPending  = !item.status || item.status === 'pending';
             return (
               <View style={[styles.logSummaryRow, index > 0 && styles.logSummaryDivider]} key={item.id}>
-                <View style={[styles.logSummaryDot,
-                  { backgroundColor: isApproved ? COLORS.success : isPending ? COLORS.warning : COLORS.danger }]} />
+                <View style={styles.logsJournalIcon}><LogbookIcon size={23} color={COLORS.warningDark} /></View>
                 <View style={styles.logSummaryCopy}>
-                  <Text style={styles.logSummaryTitle}>Week {item.weekNum || '—'}</Text>
-                  <Text style={styles.logSummarySub}>{item.weekRange || 'Weekly entry'}</Text>
+                  <Text style={styles.logSummaryTitle}>{item.frequency === 'daily' ? 'Daily journal' : item.frequency === 'weekly' ? 'Weekly journal' : `Week ${item.weekNum || '—'}`}</Text>
+                  <Text style={styles.logSummarySub}>{item.frequency === 'daily' ? item.periodStart : item.weekRange || 'Weekly entry'}</Text>
                 </View>
                 <View style={[
                   styles.logStatusPill,
@@ -1402,16 +1315,20 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
   const progressPercent = Math.round(Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100);
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      <View style={styles.progressPageHeader}>
-        <Text variant="heading" style={styles.pageTitle}>Progress</Text>
-        <Text style={styles.pageSub}>Check your hours, attendance, and requirements.</Text>
+    <ScrollView style={styles.logsPage} contentContainerStyle={[styles.scroll, styles.progressScroll]} showsVerticalScrollIndicator={false}>
+      <StudentSurface tone="page" />
+      <View style={styles.progressScreenHeader}>
+        <StudentSurface waves />
+        <View style={styles.progressScreenCopy}><Text variant="heading" style={styles.logsTitle}>Progress</Text><Text style={styles.pageSub}>Check your hours, attendance, and requirements.</Text></View>
+        <ScreenEntrance delay={100} style={styles.progressGuide}><Image source={require('../assets/pathway-guide-progress.png')} resizeMode="contain" accessible={false} style={{ width: '100%', height: '100%' }} /></ScreenEntrance>
       </View>
 
+      <MotionTouchableOpacity onPress={openProgress} accessibilityRole="button" accessibilityLabel={`OJT hours: ${metrics.rendered.toFixed(1)} rendered, ${metrics.required} required, ${metrics.remaining.toFixed(1)} remaining. View detailed OJT progress.`}>
       <Card style={styles.progressHeroCard}>
+        <StudentSurface waves />
         <View style={styles.progressHeroHeader}>
           <View style={styles.progressHeroLabelGroup}>
-            <ClockIcon size={15} color={COLORS.primary} />
+            <View style={styles.progressHeroIcon}><ClockIcon size={22} color={COLORS.primary} /></View>
             <Text style={styles.progressHeroLabel}>OJT HOURS</Text>
           </View>
           <Text style={styles.progressHeroPercent}>{progressPercent}% complete</Text>
@@ -1441,67 +1358,76 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
           accessibilityLabel="OJT hours completed"
           accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
         >
-          <View style={[styles.progressHeroFill, { width: `${progressPercent}%` }]} />
+          <View style={[styles.progressHeroFill, { width: `${Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100}%` }]} />
         </View>
         <View style={styles.progressHeroMeta}>
-          <Text style={styles.progressHeroMetaLabel}>Training target</Text>
-          <Text style={styles.progressHeroMetaText}>{metrics.required} hours</Text>
+          <Text style={styles.progressHeroMetaLabel}>{metrics.remaining.toFixed(1)} hours to go</Text>
+          <View style={styles.progressCardCue}><Text style={styles.progressHeroMetaText}>{metrics.required} hours goal</Text><ChevronRightIcon size={20} color={COLORS.primary} /></View>
         </View>
       </Card>
+      </MotionTouchableOpacity>
 
-      <View style={styles.progressInsight}>
+      <ScreenEntrance style={styles.progressInsight}>
+        <StudentSurface waves />
+        <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.progressSnapshotArtwork}><ProgressCardArtwork kind="snapshot" /></View>
         <View style={styles.progressInsightIcon}>
           <ProgressIcon size={16} color={COLORS.primary} />
         </View>
-        <View style={styles.progressInsightCopy}>
+        <View style={[styles.progressInsightCopy, styles.progressSnapshotCopy]}>
           <Text style={styles.progressInsightEyebrow}>CURRENT SNAPSHOT</Text>
           <Text style={styles.progressInsightText}>
             {metrics.remaining > 0 ? `${metrics.remaining.toFixed(1)} hours remaining.` : 'Required hours completed.'} {attendance.length ? `${verifiedDays} attendance day${verifiedDays === 1 ? '' : 's'} verified.` : 'Record attendance to track your hours.'}
           </Text>
         </View>
-      </View>
+      </ScreenEntrance>
 
       <View style={styles.progressSectionHeader}><Text style={styles.homeSectionTitle}>Your records</Text><Text style={styles.progressSectionCaption}>Updated from your submissions</Text></View>
       <View style={styles.progressRowsPanel}>
-        <View style={[styles.progressRecordGroup, styles.progressRecordGroupFirst]}>
+        <View style={styles.progressRecordGroup}>
+          <StudentSurface />
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: COLORS.secondaryLight }]}><CalendarIcon size={17} color={COLORS.primary} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Attendance</Text><Text style={styles.progressRecordSub}>{completedDays} completed shifts · {verifiedDays} verified</Text></View><MotionTouchableOpacity onPress={openAttendance} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Details</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
           <View style={[styles.analyticsGrid, styles.attendanceRecordMetrics]}><MetricLine label="Attendance days" value={attendance.length} /><MetricLine label="Missing time-outs" value={missingOuts} warning={missingOuts > 0} /></View>
         </View>
 
-        <View style={styles.progressRecordGroup}>
+        <View style={styles.progressRequirementsCard}>
+          <StudentSurface tone={requirementsApproved ? 'mint' : 'peach'} />
+          {requirementsApproved && <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.progressRequirementsArtwork}><ProgressCardArtwork kind="requirements" /></View>}
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: requirementsApproved ? COLORS.successLight : COLORS.warningLight }]}><FileIcon size={17} color={requirementsApproved ? COLORS.successDark : COLORS.warningDark} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Requirements</Text><Text style={styles.progressRecordSub}>{requirementsApproved ? 'All documents approved' : requirementTotal ? `${approvedRequirements} of ${requirementTotal} documents approved` : 'No document status'}</Text></View><MotionTouchableOpacity onPress={openRequirements} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Open</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
         </View>
 
-        <View style={styles.progressRecordGroup}>
+        <View style={styles.progressJournalCard}>
+          <StudentSurface tone="gold" />
+          <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.progressJournalArtworkClip}><View style={styles.progressJournalArtwork}><ProgressCardArtwork kind="journal" /></View></View>
           <View style={styles.progressRecordHeading}><View style={[styles.progressRecordIcon, { backgroundColor: COLORS.accentLight }]}><LogbookIcon size={17} color={COLORS.accentDark} /></View><View style={styles.progressRecordCopy}><Text style={styles.progressRecordTitle}>Logbook</Text><Text style={styles.progressRecordSub}>{approvedLogs} approved · {pendingLogs} awaiting review</Text></View><MotionTouchableOpacity onPress={openLogbook} accessibilityRole="button" style={styles.progressRecordAction}><Text style={styles.progressRecordActionText}>Open</Text><ChevronRightIcon size={14} color={COLORS.primary} /></MotionTouchableOpacity></View>
           <View style={[styles.analyticsGrid, styles.attendanceRecordMetrics]}><MetricLine label="Total entries" value={logbook.length} /><MetricLine label="Approved entries" value={approvedLogs} /></View>
         </View>
       </View>
 
       <View style={[styles.clearanceNotice, clearanceComplete ? styles.clearanceSuccess : styles.clearancePending]}>
-        <CheckCircleIcon size={20} color={clearanceComplete ? COLORS.successDark : COLORS.warningDark} />
-        <View style={styles.statusSummaryCopy}><Text style={[styles.statusSummaryTitle, { color: clearanceComplete ? COLORS.successDark : COLORS.warningDark }]}>{clearanceComplete ? 'OJT cleared' : 'Clearance pending'}</Text><Text style={styles.statusSummarySub}>{clearanceComplete ? 'Your coordinator has approved your OJT records.' : 'Complete your requirements and required hours.'}</Text></View>
+        {clearanceComplete ? <CheckCircleIcon size={23} color={COLORS.successDark} /> : <AlertCircleIcon size={23} color={COLORS.warningDark} />}
+        <View style={styles.statusSummaryCopy}><Text style={[styles.statusSummaryTitle, { color: clearanceComplete ? COLORS.successDark : COLORS.warningDark }]}>{clearanceComplete ? 'OJT cleared' : 'Clearance pending'}</Text><Text style={styles.statusSummarySub}>{clearanceComplete ? 'Your coordinator has approved your OJT records.' : 'Your coordinator confirms clearance after reviewing your completion requirements.'}</Text></View>
       </View>
 
-      <MotionTouchableOpacity style={styles.outlineAction} onPress={openProgress} accessibilityRole="button"><Text style={styles.outlineActionText}>View progress</Text></MotionTouchableOpacity>
     </ScrollView>
   );
 }
 
 function MetricLine({ label, value, warning }) { return <View style={styles.metricLine}><Text style={styles.metricLineLabel}>{label}</Text><Text style={[styles.metricLineValue, warning && { color: COLORS.warningDark }]}>{value}</Text></View>; }
 
-function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPlacementChange }) {
+function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onViewPlacement }) {
   const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
   const approved = Boolean(student?.accountApproved);
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll]} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll, styles.profileRedesignScroll]} showsVerticalScrollIndicator={false}>
+      <StudentSurface tone="page" />
       <View style={styles.progressPageHeader}>
         <Text variant="heading" style={styles.pageTitle}>Profile</Text>
         <Text style={styles.pageSub}>Student and placement details.</Text>
       </View>
 
-      <Card style={styles.profileIdentityCard}>
+      <Card entrance style={styles.profileIdentityCard}>
+        <StudentSurface waves />
         <MotionTouchableOpacity onPress={onPhotoPress} accessibilityRole="button" accessibilityLabel="Change profile photo" accessibilityHint="Opens the image picker" style={styles.avatarLarge}>
           {student?.profilePhotoUrl ? <Image source={{ uri: student.profilePhotoUrl }} style={styles.avatarImageLarge} /> : <Text style={styles.avatarLargeText}>{initials(student)}</Text>}
           <View style={styles.avatarEditBadge}><PlusIcon size={12} color="#FFFFFF" /></View>
@@ -1522,8 +1448,12 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         </View>
       </Card>
 
-      <Card style={styles.profileDetailsCard}>
-        <CardTitle Icon={ProfileIcon} title="Student details" />
+      <Card entrance delay={70} style={styles.profileDetailsCard}>
+        <View style={styles.profileSectionBanner}>
+          <StudentSurface waves />
+          <View pointerEvents="none" style={styles.profileWatermark}><ProfileIcon filled size={76} color="#C8E3FF" /></View>
+          <View style={styles.profileBannerHeading}><View style={styles.profileBannerIcon}><ProfileIcon size={23} color={COLORS.primary} /></View><Text style={styles.profileBannerTitle}>Student details</Text></View>
+        </View>
         <InfoRow label="Student ID" value={student?.idNumber || student?.studentId || '—'} />
         <InfoRow label="Email" value={student?.email || '—'} />
         <InfoRow label="Department" value={student?.department || student?.course || '—'} />
@@ -1533,8 +1463,12 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         />
       </Card>
 
-      <Card style={styles.profilePlacementCard}>
-        <CardTitle Icon={BuildingIcon} title="Official placement" />
+      <Card entrance delay={130} style={styles.profilePlacementCard}>
+        <View style={styles.profileSectionBanner}>
+          <StudentSurface waves />
+          <View pointerEvents="none" style={styles.profileWatermark}><BuildingIcon filled size={76} color="#C8E3FF" /></View>
+          <View style={styles.profileBannerHeading}><View style={styles.profileBannerIcon}><BuildingIcon size={23} color={COLORS.primary} /></View><Text style={styles.profileBannerTitle}>Official placement</Text></View>
+        </View>
         <InfoRow label="Company" value={student?.company || 'Not assigned yet'} />
         <InfoRow label="Supervisor" value={student?.supervisorName || '—'} />
         <View style={styles.profileManagedNotice}>
@@ -1548,18 +1482,19 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onRequestPl
         {student?.company && (
           <MotionTouchableOpacity
             style={styles.placementRequestButton}
-            onPress={onRequestPlacementChange}
+            onPress={onViewPlacement}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="Request a placement change"
+            accessibilityLabel="View company placement"
           >
-            <Text style={styles.placementRequestText}>Request a placement change</Text>
+            <Text style={styles.placementRequestText}>View company placement</Text>
             <ChevronRightIcon size={16} color={COLORS.secondary} />
           </MotionTouchableOpacity>
         )}
       </Card>
 
-      <MotionTouchableOpacity style={styles.settingsCard} onPress={onSettings} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open settings">
+      <MotionTouchableOpacity style={[styles.settingsCard, styles.profileSettingsSurface]} onPress={onSettings} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open settings">
+        <StudentSurface waves />
         <View style={styles.settingIcon}><SettingsIcon size={18} color={COLORS.secondary} /></View>
         <View style={styles.settingCopy}><Text style={styles.settingTitle}>Settings</Text><Text style={styles.settingValue}>Account, notifications, and support</Text></View>
         <ChevronRightIcon size={18} color={COLORS.textMuted} />
@@ -1584,16 +1519,18 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
   const approved = Boolean(student?.accountApproved);
   return (
     <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll, styles.settingsScroll]} showsVerticalScrollIndicator={false}>
+      <StudentSurface tone="page" />
       <MotionTouchableOpacity onPress={onBack} accessibilityRole="button" accessibilityLabel="Back to profile" style={styles.settingsBack}>
         <View style={styles.settingsBackArrow}><ChevronRightIcon size={15} color={COLORS.secondary} /></View>
         <Text style={styles.settingsBackText}>Profile</Text>
       </MotionTouchableOpacity>
       <View style={styles.settingsPageHeader}>
-        <Text variant="heading" style={styles.pageTitle}>Settings</Text>
+        <Text style={styles.settingsScreenTitle}>Settings</Text>
         <Text style={styles.pageSub}>Manage your account and notifications.</Text>
       </View>
 
       <Card style={styles.settingsAccountCard}>
+        <StudentSurface waves />
         <View style={styles.settingsIdentityHeader}>
           <View style={styles.settingsAvatar} accessibilityLabel={`${fullName} ${student?.profilePhotoUrl ? 'profile photo' : 'initials'}`}>
             {student?.profilePhotoUrl
@@ -1622,7 +1559,11 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
       </Card>
 
       <Card style={styles.settingsGroupCard}>
-        <CardTitle Icon={BellIcon} title="App preferences" />
+        <View style={styles.settingsSectionBanner}>
+          <StudentSurface waves />
+          <View pointerEvents="none" style={styles.settingsSectionWatermark}><SettingsIcon filled size={65} color="#C8E3FF" /></View>
+          <View style={styles.profileBannerHeading}><View style={styles.settingsPreferenceIcon}><BellIcon size={19} color={COLORS.primary} /></View><Text style={styles.settingsSectionTitle}>App preferences</Text></View>
+        </View>
         <SettingRow
           Icon={BellIcon}
           title="Notifications"
@@ -1647,7 +1588,11 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
       </Card>
 
       <Card style={styles.settingsGroupCard}>
-        <CardTitle Icon={FileIcon} title="Support and privacy" />
+        <View style={styles.settingsSectionBanner}>
+          <StudentSurface waves />
+          <View pointerEvents="none" style={styles.settingsSectionWatermark}><FileIcon filled size={65} color="#C8E3FF" /></View>
+          <View style={styles.profileBannerHeading}><View style={styles.settingsPreferenceIcon}><FileIcon size={19} color={COLORS.primary} /></View><Text style={styles.settingsSectionTitle}>Support and privacy</Text></View>
+        </View>
         <SettingRow Icon={FileIcon} title="Help center" value="PATHWAY support information" onPress={() => onOpenScreen('HelpCenter')} />
         <SettingRow Icon={InfoIcon} title="Privacy" value="Review how your records are used" onPress={() => onOpenScreen('Privacy')} />
       </Card>
@@ -1692,6 +1637,7 @@ function InfoRow({ label, value }) {
 }
 
 const styles = StyleSheet.create({
+  headerBrandCenter: { position: 'absolute', left: 0, right: 0, bottom: 10, height: 40, alignItems: 'center', justifyContent: 'center' },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -1722,6 +1668,8 @@ const styles = StyleSheet.create({
   errorSignOutText: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '600' },
   content: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
   },
   refreshStatus: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20 },
   refreshStatusText: { color: COLORS.textMuted, fontSize: 12 },
@@ -1740,6 +1688,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   homeHeader: {
+    flexShrink: 0,
+    zIndex: 2,
     backgroundColor: COLORS.surface,
     paddingHorizontal: 18,
     paddingBottom: 10,
@@ -1773,6 +1723,7 @@ const styles = StyleSheet.create({
   },
   homeBrand: { color: COLORS.primaryDark },
   headerRight: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -2050,29 +2001,45 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   // ── Logs Panel ──────────────────────────────────────────────────────────────
-  logsPageHeader: { gap: 4 },
-  logsAccumulationCard: { backgroundColor: COLORS.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.border, gap: 12, ...SHADOWS.soft },
+  logsPage: { backgroundColor: '#F9FBFF' },
+  logsScroll: { maxWidth: 656, paddingTop: 4, paddingBottom: 88 },
+  logsPageHeader: { flexDirection: 'row', alignItems: 'center', minHeight: 126, overflow: 'hidden', marginBottom: -30 },
+  logsHeadingCopy: { flex: 1, minWidth: 0, gap: 5, paddingVertical: 4 },
+  logsTitle: { fontSize: 35, lineHeight: 44, fontWeight: '700', color: '#0A1631' },
+  logsGuide: { width: 140, height: 131, alignSelf: 'flex-end' },
+  logsGuideCompact: { width: 105, height: 125 },
+  logsAccumulationCard: { backgroundColor: COLORS.surface, borderRadius: 22, padding: 14, borderWidth: 1, borderColor: '#E7EEF8', gap: 4, overflow: 'hidden', shadowColor: '#56729E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
   logsAccumulationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   logsAccumulationLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
-  logsAccumulationIcon: { width: 30, height: 30, borderRadius: 10, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
+  logsAccumulationIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#EDF5FF', alignItems: 'center', justifyContent: 'center' },
   logsAccumulationLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
   logsAccumulationPercent: { flexDirection: 'row', alignItems: 'baseline', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.primarySubtle },
   logsAccumulationPercentValue: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '800' },
   logsAccumulationPercentLabel: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' },
   logsAccumulationValueRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logsAccumulationValue: { color: COLORS.textPrimary, fontSize: 32, lineHeight: 40, fontWeight: '700', letterSpacing: -0.5, flexShrink: 1, minWidth: 0 },
-  logsAccumulationUnit: { color: COLORS.textSecondary, fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  logsAccumulationValue: { color: '#0A1631', fontSize: 36, lineHeight: 40, fontWeight: '700', marginTop: 2, flexShrink: 1, minWidth: 0, transform: [{ translateY: 6 }] },
+  logsAccumulationUnit: { color: COLORS.textMuted, fontSize: 16, fontWeight: '600', flexShrink: 1 },
   logsAccumulationSubline: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
-  logsAccumulationTrack: { width: '100%', height: 8, borderRadius: 4, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
-  logsAccumulationFill: { height: '100%', borderRadius: 4, backgroundColor: COLORS.primary },
-  logsAccumulationFooter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
-  logsAccumulationRemaining: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '700' },
-  logsAccumulationGoal: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600' },
-  calendarCard: { padding: 16 },
-  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  calendarMonth: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '800' },
-  calendarNav: { flexDirection: 'row', gap: 6 },
-  calendarNavButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
+  logsAccumulationTrack: { width: '100%', height: 8, borderRadius: 6, backgroundColor: '#E7EDF7', overflow: 'hidden' },
+  logsAccumulationFill: { height: '100%', borderRadius: 6, backgroundColor: '#0874E8' },
+  logsAccumulationFooter: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: -11, transform: [{ translateY: 6 }] },
+  heroBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: -2, minHeight: 44, transform: [{ translateY: 6 }] },
+  logsMeterCopy: { flex: 1, minWidth: 0, gap: 11 },
+  logsAccumulationRemaining: { color: COLORS.textSecondary, fontSize: 13 },
+  logsAccumulationGoal: { color: COLORS.textMuted, fontSize: 11 },
+  logsProgressAction: { minHeight: 44, alignItems: 'center', gap: 5, paddingHorizontal: 3 },
+  logsProgressCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F9FBFF', alignItems: 'center', justifyContent: 'center', ...SHADOWS.card },
+  logsSectionAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  logsHistoryIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#EAF4FF', alignItems: 'center', justifyContent: 'center' },
+  logsJournalIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: '#FFF2DC', alignItems: 'center', justifyContent: 'center' },
+  logsJournalCard: { borderRadius: 21, borderColor: '#E7EEF8', ...SHADOWS.card },
+  calendarCard: { padding: 16, overflow: 'hidden', borderRadius: 22, borderColor: '#E0EBFC', ...SHADOWS.card },
+  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 },
+  calendarTitleGroup: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  logsCalendarArtwork: { position: 'absolute', width: 230, height: 220, right: -18, top: -42, opacity: 0.10 },
+  calendarMonth: { color: '#0A1631', fontSize: 19, fontWeight: '700' },
+  calendarNav: { flexDirection: 'row', gap: 2, padding: 2, borderRadius: 24, backgroundColor: '#EDF4FF', flexShrink: 0 },
+  calendarNavButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   calendarChevronLeft: { transform: [{ rotate: '90deg' }] },
   calendarChevronRight: { transform: [{ rotate: '-90deg' }] },
   calendarWeekRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -2097,9 +2064,9 @@ const styles = StyleSheet.create({
   attTimeValue: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '900', marginTop: 6 },
   attTimeMuted: { color: COLORS.textMuted },
   attPunchBtn: { minHeight: 52, borderRadius: RADIUS.md, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...SHADOWS.soft },
-  attPunchIn: { backgroundColor: COLORS.surface, borderColor: COLORS.secondary },
-  attPunchOut: { backgroundColor: COLORS.surface, borderColor: COLORS.primary },
-  attPunchText: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
+  attPunchIn: { backgroundColor: '#0874E8', borderColor: '#0874E8' },
+  attPunchOut: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  attPunchText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   attDoneBox: { backgroundColor: COLORS.successLight, borderRadius: RADIUS.md, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   selectedDayStatus: { backgroundColor: COLORS.secondarySubtle, borderRadius: RADIUS.sm, paddingHorizontal: 10, paddingVertical: 9, marginTop: 2 },
   selectedDayStatusText: { color: COLORS.secondaryDark, fontSize: 11.5, fontWeight: '700', textAlign: 'center' },
@@ -2111,7 +2078,7 @@ const styles = StyleSheet.create({
   profileManagedNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, paddingHorizontal: 10, paddingVertical: 9, borderRadius: RADIUS.sm, backgroundColor: COLORS.secondarySubtle },
   attSectionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 },
   attSectionCount: { color: COLORS.textMuted, fontSize: 11 },
-  attHistoryCard: { paddingVertical: 4, paddingHorizontal: 14 },
+  attHistoryCard: { paddingVertical: 4, paddingHorizontal: 14, borderRadius: 21, borderColor: '#E7EEF8', ...SHADOWS.card },
   attHistoryEmpty: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   attHistoryEmptyIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   attLogRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
@@ -2165,20 +2132,25 @@ const styles = StyleSheet.create({
   },
   // Profile panel
   progressPageHeader: { gap: 4 },
-  progressHeroCard: { backgroundColor: COLORS.surface, borderColor: COLORS.border, borderRadius: 18, ...SHADOWS.card },
+  progressScroll: { maxWidth: 656, paddingTop: 4, paddingBottom: 88 },
+  progressScreenHeader: { minHeight: 128, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', marginBottom: -34 },
+  progressScreenCopy: { flex: 1, minWidth: 0, gap: 5 },
+  progressGuide: { width: 128, height: 134, alignSelf: 'flex-end' },
+  progressHeroCard: { backgroundColor: COLORS.surface, borderColor: '#E3ECFA', borderRadius: 22, overflow: 'hidden', ...SHADOWS.card },
+  progressHeroIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#EAF4FF', alignItems: 'center', justifyContent: 'center' },
   progressHeroHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   progressHeroLabelGroup: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   progressHeroLabel: { color: COLORS.primaryDark, fontSize: 10, fontWeight: '800', letterSpacing: 0.75 },
-  progressHeroStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 14, paddingVertical: 12, paddingHorizontal: 4, borderRadius: 13, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.borderLight },
+  progressHeroStats: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 13, paddingVertical: 13, paddingHorizontal: 3, borderRadius: 15, backgroundColor: '#F4F7FD', borderWidth: 1, borderColor: '#E7EDFA' },
   progressHeroStat: { flex: 1, minWidth: 0, alignItems: 'center' },
-  progressHeroNumber: { color: COLORS.textPrimary, fontSize: 21, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
-  progressHeroNumberAccent: { color: COLORS.accentDark, fontSize: 21, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },
+  progressHeroNumber: { color: '#0A1631', fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3 },
+  progressHeroNumberAccent: { color: COLORS.warningDark, fontSize: 24, fontWeight: '700', textAlign: 'center', letterSpacing: -0.3 },
   progressHeroCaption: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700', textAlign: 'center', marginTop: 3 },
   progressHeroDivider: { width: 1, height: 34, backgroundColor: COLORS.border },
-  progressHeroTrack: { height: 8, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
+  progressHeroTrack: { height: 9, borderRadius: RADIUS.full, backgroundColor: COLORS.secondaryLight, overflow: 'hidden' },
   progressHeroFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: COLORS.primary },
   progressHeroMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 9 },
-  progressHeroPercent: { fontSize: 11, color: COLORS.primaryDark, fontWeight: '800' },
+  progressHeroPercent: { fontSize: 11, color: COLORS.primaryDark, fontWeight: '700', backgroundColor: '#EAF4FF', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 18 },
   progressHeroMetaLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600' },
   progressHeroMetaText: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
   progressMetricGrid: { flexDirection: 'row', gap: 12 },
@@ -2189,23 +2161,30 @@ const styles = StyleSheet.create({
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   insightTitle: { color: COLORS.primary, fontSize: 15, fontWeight: '900' },
   insightText: { color: COLORS.textSecondary, fontSize: 13, lineHeight: 20 },
-  progressInsight: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 13, borderRadius: 14, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  progressInsight: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 21, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: '#DFE9FA', overflow: 'hidden', ...SHADOWS.soft },
+  progressSnapshotArtwork: { position: 'absolute', width: 70, height: 67, right: 3, bottom: -7, opacity: 0.85 },
+  progressSnapshotCopy: { paddingRight: 48 },
+  progressRequirementsArtwork: { position: 'absolute', width: 190, height: 80, right: 44, bottom: -3, opacity: 0.55 },
+  progressJournalArtworkClip: { position: 'absolute', top: 0, left: 0, right: 0, height: 70, overflow: 'hidden' },
+  progressJournalArtwork: { position: 'absolute', width: 100, height: 76, right: 61, top: 18, opacity: 0.18 },
   progressInsightIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center' },
   progressInsightCopy: { flex: 1, minWidth: 0, gap: 3 },
   progressInsightEyebrow: { color: COLORS.primaryDark, fontSize: 9, fontWeight: '800', letterSpacing: 0.65 },
   progressInsightText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18 },
-  progressSectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 },
+  progressSectionHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 2 },
   progressSectionCaption: { color: COLORS.textMuted, fontSize: 10.5 },
-  progressRowsPanel: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 15, paddingHorizontal: 14, ...SHADOWS.soft },
-  progressRecordGroup: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
-  progressRecordGroupFirst: { borderTopWidth: 0 },
+  progressRowsPanel: { gap: 12 },
+  progressRecordGroup: { padding: 14, borderWidth: 1, borderColor: '#E2EBFA', borderRadius: 21, backgroundColor: COLORS.surface, overflow: 'hidden', ...SHADOWS.soft },
+  progressRequirementsCard: { padding: 14, borderWidth: 1, borderColor: '#DDF2E9', borderRadius: 21, backgroundColor: '#F1FCF6', overflow: 'hidden', ...SHADOWS.soft },
+  progressJournalCard: { padding: 14, borderWidth: 1, borderColor: '#FAECD7', borderRadius: 21, backgroundColor: '#FFFAF2', overflow: 'hidden', ...SHADOWS.soft },
+  progressCardCue: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   attendanceRecordMetrics: { marginTop: 12 },
   progressRecordHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  progressRecordIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  progressRecordIcon: { width: 39, height: 39, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   progressRecordCopy: { flex: 1, minWidth: 0 },
   progressRecordTitle: { color: COLORS.textPrimary, fontSize: 13.5, fontWeight: '800' },
   progressRecordSub: { color: COLORS.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  progressRecordAction: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 1, paddingHorizontal: 4 },
+  progressRecordAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 1, paddingHorizontal: 4 },
   progressRecordActionText: { color: COLORS.primary, fontSize: 11.5, fontWeight: '800' },
   clearanceNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, borderRadius: 13, borderWidth: 1, padding: 14 },
   analyticsGrid: { gap: 0 },
@@ -2219,14 +2198,21 @@ const styles = StyleSheet.create({
   statusSummarySub: { color: COLORS.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 2 },
   clearanceSuccess: { backgroundColor: COLORS.successLight, borderColor: '#A7F3D0' },
   clearancePending: { backgroundColor: COLORS.warningLight, borderColor: '#FDE68A' },
-  profileIdentityCard: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 17 },
+  profileRedesignScroll: { paddingBottom: 88, gap: 14 },
+  profileSectionBanner: { marginHorizontal: -16, marginTop: -16, marginBottom: 2, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, overflow: 'hidden', minHeight: 52 },
+  profileWatermark: { position: 'absolute', right: 14, top: 5, opacity: 0.65 },
+  profileBannerHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  profileBannerIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#E3F0FF', alignItems: 'center', justifyContent: 'center' },
+  profileBannerTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600', color: '#0A1631' },
+  profileSettingsSurface: { borderRadius: 20, borderColor: '#E5EDF8', overflow: 'hidden' },
+  profileIdentityCard: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 17, borderRadius: 20, borderColor: '#E5EDF8', overflow: 'hidden' },
   profileIdentityCopy: { flex: 1, minWidth: 0, gap: 4 },
-  profileDetailsCard: { paddingBottom: 8 },
-  profilePlacementCard: { paddingBottom: 14 },
+  profileDetailsCard: { paddingBottom: 8, borderRadius: 20, borderColor: '#E5EDF8', overflow: 'hidden' },
+  profilePlacementCard: { paddingBottom: 14, borderRadius: 20, borderColor: '#E5EDF8', overflow: 'hidden' },
   avatarLarge: {
-    width: 68,
-    height: 68,
-    borderRadius: 21,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2234,7 +2220,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     ...SHADOWS.soft,
   },
-  avatarImageLarge: { width: '100%', height: '100%', borderRadius: 21 },
+  avatarImageLarge: { width: '100%', height: '100%', borderRadius: 40 },
   avatarEditBadge: { position: 'absolute', right: -4, bottom: -4, width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.surface },
   avatarLargeText: {
     color: '#FFFFFF',
@@ -2316,7 +2302,11 @@ const styles = StyleSheet.create({
   settingCopy: { flex: 1 },
   settingTitle: { color: COLORS.textPrimary, fontSize: 13, fontWeight: '800' },
   settingValue: { color: COLORS.textMuted, fontSize: 11, marginTop: 2 },
-  settingsScroll: { paddingTop: 12, paddingBottom: 28, gap: 12 },
+  settingsScroll: { paddingTop: 8, paddingBottom: 88, gap: 12 },
+  settingsScreenTitle: { fontSize: 25, lineHeight: 32, fontWeight: '600', color: '#0A1631' },
+  settingsSectionTitle: { fontSize: 15, lineHeight: 21, fontWeight: '600', color: '#0A1631' },
+  settingsSectionBanner: { marginHorizontal: -15, marginTop: -15, paddingHorizontal: 15, paddingVertical: 10, overflow: 'hidden' },
+  settingsSectionWatermark: { position: 'absolute', right: 8, top: 0, opacity: 0.55 },
   settingsPageHeader: { gap: 3, marginBottom: 1 },
   settingsBack: {
     alignSelf: 'flex-start',
@@ -2336,19 +2326,20 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     borderColor: COLORS.border,
     gap: 14,
+    overflow: 'hidden',
     ...SHADOWS.card,
   },
   settingsIdentityHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   settingsAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 15,
+    borderRadius: 24,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   settingsAvatarText: { color: COLORS.textOnPrimary, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
-  settingsAvatarImage: { width: '100%', height: '100%', borderRadius: 15 },
+  settingsAvatarImage: { width: '100%', height: '100%', borderRadius: 24 },
   settingsIdentityCopy: { flex: 1, minWidth: 0, gap: 4 },
   settingsName: { color: COLORS.textPrimary, fontSize: 15, fontWeight: '700' },
   settingsEmailLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
@@ -2370,7 +2361,7 @@ const styles = StyleSheet.create({
   settingsStatusText: { fontSize: 10.5, fontWeight: '700' },
   settingsStatusApprovedText: { color: COLORS.successDark },
   settingsStatusPendingText: { color: COLORS.warningDark },
-  settingsGroupCard: { padding: 15, borderRadius: 18, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  settingsGroupCard: { padding: 15, paddingBottom: 4, borderRadius: 18, borderColor: '#E5EDF8', overflow: 'hidden', ...SHADOWS.soft },
   settingsPreferenceRow: {
     minHeight: 54,
     flexDirection: 'row',
@@ -2396,7 +2387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFF3F3',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.dangerLight,
@@ -2495,12 +2486,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   gateWelcomeRow: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 22,
+    minHeight: 148,
+    padding: 18,
+    paddingRight: 125,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     marginBottom: 18,
   },
+  gateWelcomeCharacter: { position: 'absolute', right: -2, bottom: -10, width: 132, height: 142 },
   gateWelcomeCopy: { flex: 1, minWidth: 0 },
   gateEyebrow: {
     color: COLORS.primary,
@@ -2511,9 +2509,9 @@ const styles = StyleSheet.create({
   },
   gateWelcomeTitle: {
     color: COLORS.textPrimary,
-    fontSize: 26,
-    lineHeight: 32,
-    fontWeight: '800',
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '600',
   },
   gateWelcomeSub: {
     color: COLORS.textSecondary,
@@ -2533,6 +2531,8 @@ const styles = StyleSheet.create({
   },
   gateAvatarText: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
   gateHeroCard: {
+    position: 'relative',
+    overflow: 'hidden',
     padding: 18,
     borderRadius: 20,
     borderWidth: 1,
@@ -2576,7 +2576,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 22,
     lineHeight: 28,
-    fontWeight: '800',
+    fontWeight: '600',
     marginTop: 16,
   },
   gateSub: {
@@ -2632,23 +2632,26 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 12,
   },
-  gateSummarySectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '800' },
+  gateSummarySectionTitle: { color: COLORS.textPrimary, fontSize: 16, fontWeight: '600' },
   gateSummarySectionSub: { color: COLORS.textMuted, fontSize: 11, marginTop: 3 },
   gateStudentId: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700' },
   gateSummaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gateSummaryTile: {
+    position: 'relative',
+    overflow: 'hidden',
     flexBasis: '48%',
     flexGrow: 1,
     minWidth: 0,
-    minHeight: 164,
-    padding: 13,
-    borderRadius: 16,
+    minHeight: 150,
+    padding: 15,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     backgroundColor: COLORS.surface,
     ...SHADOWS.soft,
   },
   gateSummaryTileNarrow: { flexBasis: '100%' },
+  gateSummaryWatermark: { position: 'absolute', right: -7, bottom: -10, opacity: 0.45 },
   gateSummaryTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2679,3 +2682,4 @@ const styles = StyleSheet.create({
   gateSummaryBadge_neutral: { backgroundColor: COLORS.surfaceMuted },
   gateSummaryBadgeText_neutral: { color: COLORS.textMuted },
 });
+import { showStudentSuccess } from '../services/studentSuccess';

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Modal from './BackdropModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerStudentSuccess } from '../services/studentSuccess';
@@ -39,7 +39,7 @@ export default function StudentSuccessHost() {
         <Animated.View style={[styles.card, { opacity: progress, transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]} accessibilityViewIsModal>
           <ScrollView contentContainerStyle={styles.body}>
             <Animated.View style={{ transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }}>
-              <CheckCircleIcon size={64} color={COLORS.successDark} />
+              <Image source={require('../assets/pathway-guide-success.png')} style={styles.character} resizeMode="contain" accessible={false} />
             </Animated.View>
             <Text accessibilityRole="header" style={styles.title}>{feedback?.title}</Text>
             <Text accessibilityLiveRegion="polite" style={styles.message}>{feedback?.message}</Text>
@@ -55,8 +55,9 @@ export default function StudentSuccessHost() {
 const styles = StyleSheet.create({
   overlay: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15,23,42,0.35)' },
   card: { width: '100%', maxWidth: 360, maxHeight: '80%', borderRadius: 24, padding: 24, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
-  body: { alignItems: 'center', paddingVertical: 12 },
-  title: { fontSize: 22, fontWeight: '700', textAlign: 'center', color: COLORS.textPrimary, marginTop: 20 },
+  character: { width: 200, height: 180 },
+  body: { alignItems: 'center', paddingVertical: 4 },
+  title: { fontSize: 22, fontWeight: '600', textAlign: 'center', color: COLORS.textPrimary, marginTop: 16 },
   message: { fontSize: 15, lineHeight: 22, textAlign: 'center', color: COLORS.textSecondary, marginTop: 10 },
   button: { minHeight: 48, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   buttonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },

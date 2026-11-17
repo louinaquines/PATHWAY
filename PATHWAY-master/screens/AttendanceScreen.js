@@ -20,6 +20,8 @@ import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView from '../components/RefreshableScrollView';
+import StudentSurface from '../components/StudentSurface';
+import LogsCalendarArtwork from '../components/LogsCalendarArtwork';
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -113,6 +115,7 @@ export default function AttendanceScreen({ navigation }) {
       const newLog = await punchAttendance('/attendance/time-in');
       setToday(newLog);
       setLogs(prev => [newLog, ...prev]);
+      showStudentSuccess('Time-in recorded', 'Your shift has started.');
     } catch (e) {
       Alert.alert('Attendance unavailable', e.message || 'Failed to record time-in.');
       console.error(e);
@@ -130,6 +133,7 @@ export default function AttendanceScreen({ navigation }) {
       setToday(updated);
       setLogs(prev => prev.map(l => (l.id === today.id ? updated : l)));
       setUserData(u => ({ ...u, hoursRendered: Number(u?.hoursRendered || 0) + Number(result.hoursToday || 0) }));
+      showStudentSuccess('Time-out recorded', 'Your shift has been saved.');
     } catch (e) {
       Alert.alert('Attendance unavailable', e.message || 'Failed to record time-out.');
       console.error(e);
@@ -150,6 +154,7 @@ export default function AttendanceScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <StudentSurface tone="page" />
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Modern Top Header */}
@@ -170,7 +175,11 @@ export default function AttendanceScreen({ navigation }) {
       </View></SafeAreaView>
 
       <ScrollView onRefresh={fetchData} skeletonVariant="attendance" contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.pageIntro}><Text style={styles.progressSubHeader}>DAILY ATTENDANCE</Text><Text variant="heading" style={styles.pageTitle}>Your attendance</Text><Text style={styles.pageDescription}>Record your shift and track your OJT hours.</Text></View>
+        <View style={styles.pageIntro}>
+          <StudentSurface waves />
+          <View style={styles.introCopy}><Text style={styles.progressSubHeader}>DAILY ATTENDANCE</Text><Text style={styles.pageTitle}>Your attendance</Text><Text style={styles.pageDescription}>Record your shift and track your OJT hours.</Text></View>
+          <View pointerEvents="none" accessible={false} style={styles.calendarArtwork}><LogsCalendarArtwork /></View>
+        </View>
         {/* Hours Progress Hero Card */}
         <View style={styles.progressCard}>
           <View style={styles.progressRow}>
@@ -271,7 +280,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: COLORS.surface,
     width: '100%',
-    maxWidth: 760,
+    maxWidth: 656,
     alignSelf: 'center',
     position: 'relative',
     paddingTop: 12,
@@ -306,19 +315,21 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   // Hours Card
-  pageIntro: { marginBottom: 16 },
-  pageTitle: { fontSize: 26, lineHeight: 32, fontWeight: '700', color: COLORS.textPrimary, marginTop: 3 },
-  pageDescription: { fontSize: 13, lineHeight: 19, color: COLORS.textSecondary, marginTop: 3, maxWidth: 430 },
+  pageIntro: { minHeight: 125, marginBottom: 8, marginHorizontal: -8, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  introCopy: { flex: 1, minWidth: 0, paddingRight: 87 },
+  calendarArtwork: { position: 'absolute', right: -5, bottom: -3, width: 128, height: 124 },
+  pageTitle: { fontSize: 24, lineHeight: 30, fontWeight: '600', color: COLORS.textPrimary, marginTop: 3 },
+  pageDescription: { fontSize: 12, lineHeight: 18, color: COLORS.textSecondary, marginTop: 3, maxWidth: 250 },
   hoursRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 16 },
   hoursValue: { fontSize: 30, fontWeight: '800', color: COLORS.primary },
   hoursLabel: { fontSize: 12, color: COLORS.textSecondary },
   progressCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: RADIUS.lg,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: '#E6EEF9',
   },
   progressRow: {
     flexDirection: 'row',
@@ -553,3 +564,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+import { showStudentSuccess } from '../services/studentSuccess';

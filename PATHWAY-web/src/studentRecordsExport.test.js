@@ -5,21 +5,26 @@ test('Excel contains attendance and journals, correct timezone, safe text, and s
   const buffer = await workbook.xlsx.writeBuffer();
   const restored = new workbook.constructor();
   await restored.xlsx.load(buffer);
-  expect(restored.worksheets.map(sheet => sheet.name)).toEqual(['Attendance', 'Weekly Journals', 'Export information']);
+  expect(restored.worksheets.map(sheet => sheet.name)).toEqual(['Attendance', 'Journals', 'Export information']);
   const attendance = restored.getWorksheet('Attendance');
   expect(attendance.getCell('A2').value).toBe('00123');
   expect(attendance.getCell('B2').value).toBe('=1+1 Student');
   expect(attendance.getCell('E2').value).toContain('02:45:38 AM');
   expect(attendance.getCell('G2').value).toBe(0.03);
-  expect(restored.getWorksheet('Weekly Journals').getCell('F2').value).toBe(8);
-  expect(restored.getWorksheet('Weekly Journals').getCell('K2').value).toBe('=SUM(A1)');
+  expect(restored.getWorksheet('Journals').getCell('F2').value).toBe(8);
+  expect(restored.getWorksheet('Journals').getCell('K2').value).toBe('=SUM(A1)');
   const values = restored.worksheets.flatMap(sheet => sheet.getSheetValues());
   expect(JSON.stringify(values)).not.toMatch(/secret|private-url|private-coordinates/);
 }, 15000);
 
 test('empty exports keep both sheet headers and active punches have blank hours', async () => {
   const workbook = await buildStudentRecordsWorkbook({}, {}, [{ timeIn: '2026-10-07T18:45:38.775Z' }], []);
-  expect(workbook.getWorksheet('Weekly Journals').rowCount).toBe(1);
+  expect(workbook.getWorksheet('Journals').rowCount).toBe(1);
   expect(workbook.getWorksheet('Attendance').getCell('G2').value).toBeNull();
   expect(workbook.getWorksheet('Attendance').getCell('H2').value).toBe('In progress');
+});
+test('daily export keeps date and frequency instead of a fictional week number', async () => {
+  const book = await buildStudentRecordsWorkbook({}, {}, [], [{ frequency: 'daily', periodStart: '2026-10-22', hours: 8 }]);
+  expect(book.getWorksheet('Journals').getCell('D2').value).toBe('Daily');
+  expect(book.getWorksheet('Journals').getCell('E2').value).toBe('2026-10-22');
 });

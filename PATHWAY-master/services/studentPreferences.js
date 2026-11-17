@@ -1,6 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const notificationsKey = uid => `@pathway/student-preferences/${uid}/notifications-enabled`;
+const notificationListeners = new Set();
+
+export function subscribeStudentNotificationPreference(uid, listener) {
+  const subscription = { uid, listener };
+  notificationListeners.add(subscription);
+  return () => notificationListeners.delete(subscription);
+}
 
 export async function getStudentNotificationsEnabled(uid) {
   if (!uid) return true;
@@ -11,4 +18,7 @@ export async function getStudentNotificationsEnabled(uid) {
 export async function setStudentNotificationsEnabled(uid, enabled) {
   if (!uid) throw new Error('A signed-in student is required to save this preference.');
   await AsyncStorage.setItem(notificationsKey(uid), String(Boolean(enabled)));
+  for (const subscription of notificationListeners) {
+    if (subscription.uid === uid) subscription.listener(Boolean(enabled));
+  }
 }

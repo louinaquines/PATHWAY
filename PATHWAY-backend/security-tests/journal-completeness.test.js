@@ -7,12 +7,12 @@ const rubric = (levels = ['full', 'full', 'full', 'full']) => ['tasks', 'learnin
 
 test('approved weights, fractional credit and bands are calculated, never supplied by AI', () => {
   for (const [levels, metadata, total, status] of [
-    [['full','full','full','full'], {}, 100, 'Complete'],
+    [['full','full','full','full'], {}, 100, 'Sufficient detail'],
     [['partial','partial','partial','partial'], { hours: null }, 50, 'Needs more detail'],
     [['partial','partial','partial','partial'], {}, 55, 'Needs more detail'],
     [['missing','missing','missing','missing'], { hours: null, weekRange: '' }, 0, 'Incomplete'],
-    [['full','full','missing','full'], {}, 80, 'Complete'],
-    [['full','partial','full','partial'], {}, 80, 'Complete'],
+    [['full','full','missing','full'], {}, 80, 'Sufficient detail'],
+    [['full','partial','full','partial'], {}, 80, 'Sufficient detail'],
     [['partial','partial','partial','partial'], { hours: null, weekRange: '' }, 45, 'Incomplete'],
     [['full','partial','full','missing'], {}, 72.5, 'Needs more detail'],
   ]) {

@@ -4,11 +4,15 @@ function journalAnalysis(entry, others = [], skills = DEFAULT_SKILLS) {
   const normalize = value => value.toLowerCase().replace(/\s+/g, ' ').trim();
   const findings = [];
   if (!text.trim()) findings.push('Journal text is missing.');
-  if (!Number.isInteger(entry.weekNum) || entry.weekNum < 1) findings.push('Week number needs review.');
-  if (!Number.isFinite(entry.hours) || entry.hours <= 0 || entry.hours > 168) findings.push('Reported weekly hours need review.');
+  const daily = entry.frequency === 'daily';
+  if (daily) {
+    const date = new Date(`${entry.periodStart}T00:00:00Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== entry.periodStart || entry.periodEnd !== entry.periodStart) findings.push('Daily reporting date needs review.');
+  } else if (!Number.isInteger(entry.weekNum) || entry.weekNum < 1) findings.push('Week number needs review.');
+  if (!Number.isFinite(entry.hours) || entry.hours <= 0 || entry.hours > (daily ? 24 : 168)) findings.push(`Reported ${daily ? 'daily' : 'weekly'} hours need review.`);
   if (text.trim() && text.trim().split(/\s+/).length < 20) findings.push('Short entry: check that activities and learning are described.');
   const repetitions = others.filter(item => item.id !== entry.id && normalize(String(item.rawNotes || item.refined || '')) === normalize(text) && text.trim()).map(item => item.id);
-  if (repetitions.length) findings.push('Identical text appears in another entry; check the weekly details.');
+  if (repetitions.length) findings.push('Identical text appears in another entry; check the reporting details.');
   const competencies = Object.entries(skills).slice(0, 20).map(([name, keywords]) => ({ name,
     evidence: Array.isArray(keywords) ? keywords.slice(0, 30).filter(word => typeof word === 'string' && word.length >= 3 && word.length <= 60 && new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) : [] })).filter(item => item.evidence.length);
   const cues = ['challenging', 'difficult', 'enjoyed', 'frustrating', 'confident'].filter(word => new RegExp(`\\b${word}\\b`, 'i').test(text));
@@ -80,7 +84,7 @@ function installReviewAnalysis({ app, db, requireStaff, coordinatorOwnsStudent, 
       const entries = records.docs.slice(0, 100).map(doc => ({ ...doc.data(), id: doc.id }));
       const section = await db.collection('sections').doc(student.sectionId).get();
       const skills = section.data()?.journalKeywords || DEFAULT_SKILLS;
-      const weeks = [...new Set(entries.map(entry => entry.weekNum).filter(week => Number.isInteger(week) && week > 0 && week <= 1000))].sort((a, b) => a - b);
+      const weeks = [...new Set(entries.filter(entry => !entry.frequency).map(entry => entry.weekNum).filter(week => Number.isInteger(week) && week > 0 && week <= 1000))].sort((a, b) => a - b);
       const gaps = [];
       if (weeks.length) for (let week = weeks[0]; week <= weeks[weeks.length - 1]; week++) if (!weeks.includes(week)) gaps.push(week);
       res.set('Cache-Control', 'private, no-store');

@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { markSupportAssignment } = require('./workplaceSupportNotifications');
 
 const AUTH_DOMAIN = 'students.pathway.invalid';
 function accountIdentity(id) {
@@ -16,7 +17,10 @@ function installStudentAccounts({ app, auth, db, requireStaff, coordinatorSectio
   async function identity(req) {
     const header = req.headers.authorization || '';
     if (!header.startsWith('Bearer ')) throw Object.assign(new Error('Sign in again.'), { status: 401 });
-    return auth.verifyIdToken(header.slice(7), true);
+    const token = await auth.verifyIdToken(header.slice(7), true);
+    const profile = (await db.collection('users').doc(token.uid).get()).data();
+    if (profile?.disabled === true) throw Object.assign(new Error('Account access is disabled.'), { status: 403 });
+    return token;
   }
   function failure(res, error) {
     return res.status(error.status || 503).json({ error: error.status ? error.message : 'Account operation could not be completed. Contact your coordinator.' });
@@ -72,6 +76,7 @@ function installStudentAccounts({ app, auth, db, requireStaff, coordinatorSectio
       operation = crypto.randomUUID();
       await db.runTransaction(async tx => {
         const fresh = await tx.get(ref);
+        if (fresh.data()?.disabled === true) throw Object.assign(new Error('Account access is disabled.'), { status: 403 });
         if (fresh.data().passwordOperation) throw Object.assign(new Error('Another password operation is in progress. Contact your coordinator if it persists.'), { status: 409 });
         if (fresh.data().passwordEpoch !== profile.passwordEpoch) throw Object.assign(new Error('Your account changed. Sign in again.'), { status: 409 });
         tx.update(ref, { passwordChangeRequired: true, passwordOperation: operation });
@@ -137,6 +142,7 @@ function installStudentAccounts({ app, auth, db, requireStaff, coordinatorSectio
               accountApproved: true, status: 'active', requirementsStatus: 'not_submitted',
               passwordChangeRequired: true, passwordEpoch: epoch, provisioningStatus: 'pending',
               hoursRendered: 0, hoursRequired: section.hoursRequired || 486, company: '', createdAt: new Date().toISOString() });
+            markSupportAssignment(tx, db, account.uid);
             tx.set(roster, { idNumber: student.idNumber, department: req.staff.data.department, sectionId,
               active: true, claimedBy: account.uid, createdBy: req.staff.uid, createdAt: new Date().toISOString() }, { merge: true });
           });

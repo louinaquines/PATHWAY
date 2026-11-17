@@ -58,6 +58,15 @@ test('unavailable original has no numeric zero or invented score', async () => {
   expect(screen.queryByText(/\/100/)).toBeNull();
 });
 
+test('high journal score displays Sufficient detail without implying approval', async () => {
+  adminRequest.mockResolvedValue({ completeness: [], competencies: [], sentiment: [], scoring: { ...scoring, total: 80, status: 'Sufficient detail' } });
+  render(<JournalAiAnalysis studentId="student" entryId="entry" />);
+  fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(screen.getByText('Analyze this journal'));
+  await screen.findByText('80/100 — Sufficient detail');
+  expect(screen.queryByText('80/100 — Complete')).toBeNull();
+  expect(screen.getByText(/does not approve or change the journal/i)).toBeInTheDocument();
+});
+
 test('failed retry clears the previous score instead of leaving stale results visible', async () => {
   adminRequest.mockResolvedValueOnce({ completeness: [], competencies: [], sentiment: [], scoring }).mockRejectedValueOnce(new Error('private'));
   render(<JournalAiAnalysis studentId="student" entryId="entry" />);

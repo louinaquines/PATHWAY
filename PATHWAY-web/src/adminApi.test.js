@@ -1,5 +1,58 @@
-import { adminRequest } from './adminApi';
+import { adminRequest, adminDocumentBlob } from './adminApi';
 import { auth } from './firebase';
+
+test.each(['token', 'fetch', 'json', 'blob'])('optional deadline bounds %s even when abort is ignored', async stage => {
+  const original = global.fetch; const user = auth.currentUser; let signal;
+  if (stage === 'token') user.getIdToken.mockImplementationOnce(() => new Promise(() => {}));
+  global.fetch = jest.fn(async (_, options) => {
+    signal = options.signal;
+    if (stage === 'fetch') return new Promise(() => {});
+    return { ok: true, json: () => new Promise(() => {}), blob: () => new Promise(() => {}) };
+  });
+  try {
+    const operation = stage === 'blob' ? adminDocumentBlob : adminRequest;
+    await expect(Promise.race([operation('/coordinator/example', { timeoutMs: 5 }),
+      new Promise((_, reject) => setTimeout(() => reject(Error('Unbounded operation')), 100))])).rejects.toThrow(/timed out/i);
+    if (signal) expect(signal.aborted).toBe(true);
+    expect(global.fetch.mock.calls.length).toBeLessThanOrEqual(1);
+  } finally { global.fetch = original; }
+});
+
+test('document and refresh errors preserve authentication status', async () => {
+  const original = global.fetch;
+  try {
+    global.fetch = jest.fn(async () => ({ ok: false, status: 403, json: async () => ({ error: 'Denied' }) }));
+    await expect(adminDocumentBlob('/protected', { timeoutMs: 100 })).rejects.toMatchObject({ status: 403 });
+    auth.currentUser.getIdToken.mockResolvedValueOnce('old').mockRejectedValueOnce(Error('Revoked'));
+    global.fetch = jest.fn(async () => ({ ok: false, status: 401 }));
+    await expect(adminRequest('/protected', { timeoutMs: 100 })).rejects.toMatchObject({ status: 401 });
+  } finally { global.fetch = original; }
+});
+
+test('account change while reading a response prevents private results', async () => {
+  const original = global.fetch; const user = auth.currentUser;
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => { auth.currentUser = { uid: 'other' }; return { secret: true }; } }));
+  try { await expect(adminRequest('/protected', { timeoutMs: 100 })).rejects.toThrow(/session/i); }
+  finally { auth.currentUser = user; global.fetch = original; }
+});
+
+test('known permission denial retains status even when its error body stalls', async () => {
+  const original = global.fetch;
+  global.fetch = jest.fn(async () => ({ ok: false, status: 403, json: () => new Promise(() => {}) }));
+  try { await expect(adminRequest('/protected', { timeoutMs: 5 })).rejects.toMatchObject({ status: 403 }); }
+  finally { global.fetch = original; }
+});
+
+test('token arriving after timeout cannot send the abandoned mutation', async () => {
+  const original = global.fetch; let finish;
+  auth.currentUser.getIdToken.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  global.fetch = jest.fn();
+  try {
+    await expect(adminRequest('/protected', { method: 'POST', body: 'private', timeoutMs: 5 })).rejects.toThrow(/timed out/i);
+    finish('late-token'); await Promise.resolve(); await Promise.resolve();
+    expect(global.fetch).not.toHaveBeenCalled();
+  } finally { global.fetch = original; }
+});
 
 test.each(['token', 'fetch', 'body'])('optional deadline bounds a stalled %s without replay', async stage => {
   jest.useFakeTimers();

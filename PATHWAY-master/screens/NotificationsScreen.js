@@ -11,10 +11,14 @@ import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import RefreshableScrollView from '../components/RefreshableScrollView';
 import { ArrowRightIcon, BellIcon, ChatBubbleIcon, CheckCircleIcon, ChevronLeftIcon, CloseIcon, SearchIcon } from '../components/Icons';
 import { postBackend } from '../services/backendApi';
+import { loadSupportPage, openSupportNotice } from '../services/workplaceSupport';
+import { watchStudentInbox } from '../services/studentInboxLive';
 import { getStudentNotificationsEnabled } from '../services/studentPreferences';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText as Text, AppTextInput as TextInput } from '../components/AppText';
 import LoadMore from '../components/LoadMore';
+import StudentSurface from '../components/StudentSurface';
+import StudentGuidePose from '../components/StudentGuidePose';
 import { mergeRecords, activityTime } from '../services/recordPagination';
 
 const toDate = value => {
@@ -31,6 +35,13 @@ const displayName = item => item.senderName || item.senderRole || item.fromName 
 
 export default function NotificationsScreen({ navigation, route }) {
   const [items, setItems] = useState([]);
+  const [supportNotices, setSupportNotices] = useState([]);
+  const [supportPage, setSupportPage] = useState({ cursor: null, hasMore: false });
+  const [supportBusy, setSupportBusy] = useState(false);
+  const [supportError, setSupportError] = useState('');
+  const supportLock = useRef(false);
+  const supportRequest = useRef(0);
+  const supportOwner = useRef(auth.currentUser).current;
   const [announcement, setAnnouncement] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [conversations, setConversations] = useState([]);
@@ -52,12 +63,33 @@ export default function NotificationsScreen({ navigation, route }) {
   const [chatBusy, setChatBusy] = useState(false);
   const [chatError, setChatError] = useState('');
   const listRequest = useRef(0);
+  const liveRefresh = useRef(null);
+  const loadedNoticeCount = useRef(0);
+  loadedNoticeCount.current = items.length;
   const activeChat = useRef(null);
   const noticeLock = useRef(false);
   const olderLock = useRef(false);
   const chatPosition = useRef({ height: 0, offset: 0, prepend: null, follow: true });
   const uid = auth.currentUser?.uid;
   const insets = useSafeAreaInsets();
+
+  const loadSupportNotices = useCallback(async (cursor = null) => {
+    if (supportLock.current || auth.currentUser !== supportOwner) return;
+    supportLock.current = true;
+    const request = ++supportRequest.current;
+    setSupportBusy(true); setSupportError('');
+    try {
+      const page = await loadSupportPage('notices', cursor);
+      if (request !== supportRequest.current || auth.currentUser !== supportOwner) return;
+      setSupportNotices(previous => cursor ? mergeRecords(previous, page.records) : page.records);
+      setSupportPage(page);
+    } catch (error) { if (request === supportRequest.current && auth.currentUser === supportOwner) setSupportError(error.message); }
+    finally { if (request === supportRequest.current) { supportLock.current = false; setSupportBusy(false); } }
+  }, [supportOwner]);
+  useFocusEffect(useCallback(() => {
+    loadSupportNotices();
+    return () => { supportRequest.current++; supportLock.current = false; };
+  }, [loadSupportNotices]));
 
   useEffect(() => () => { activeChat.current = null; }, []);
 
@@ -88,7 +120,7 @@ export default function NotificationsScreen({ navigation, route }) {
     return () => { show.remove(); hide.remove(); };
   }, []);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     const request = ++listRequest.current;
     setListBusy(true);
     setListError('');
@@ -101,8 +133,19 @@ export default function NotificationsScreen({ navigation, route }) {
         postBackend('/student/assigned-coordinator', {}),
       ]);
       if (request !== listRequest.current) return;
+      let noticeRecords = notices.records;
+      let lastPage = notices;
+      if (silent) {
+        const seenCursors = new Set();
+        while (lastPage.hasMore && noticeRecords.length < loadedNoticeCount.current && !seenCursors.has(lastPage.cursor)) {
+          seenCursors.add(lastPage.cursor);
+          lastPage = await postBackend('/student/inbox/notifications', { search, cursor: lastPage.cursor });
+          if (request !== listRequest.current) return;
+          noticeRecords = mergeRecords(noticeRecords, lastPage.records);
+        }
+      }
       setNotificationsEnabled(isEnabled);
-      setItems(notices.records); setNoticePage(notices); setUnreadNotices(notices.unread);
+      setItems(noticeRecords); setNoticePage(lastPage); setUnreadNotices(notices.unread);
       setConversations(chats.conversations); setUnreadChats(chats.unread);
       setCoordinator(assignment.coordinator || null);
     } catch (error) { if (request === listRequest.current) setListError(error.message || 'Could not load your inbox.'); }
@@ -142,6 +185,15 @@ export default function NotificationsScreen({ navigation, route }) {
   }, [conversation]);
 
   const markRead = async item => {
+    if (item.type === 'workplace_support') {
+      try {
+        if (auth.currentUser !== supportOwner) return;
+        await openSupportNotice(item, { navigate: (name, params) => navigation.navigate(name, params) });
+        if (auth.currentUser !== supportOwner) return;
+        setSupportNotices(previous => previous.map(notice => notice.id === item.id ? { ...notice, read: true } : notice));
+      } catch (error) { if (auth.currentUser === supportOwner) Alert.alert('Unable to open support update', error.message); }
+      return;
+    }
     if (item.type === 'announcement') { setAnnouncement(item); return; }
     await saveNotificationRead(item);
   };
@@ -201,12 +253,21 @@ export default function NotificationsScreen({ navigation, route }) {
     setConversation({ ...item, messages: [], cursor: null, hasMore: false });
     loadChat(item);
   };
+  liveRefresh.current = async () => {
+    if (auth.currentUser?.uid !== uid) return;
+    if (noticeLock.current || olderLock.current || listBusy || chatBusy) return false;
+    await load({ silent: true });
+    if (auth.currentUser?.uid !== uid) return;
+    if (conversation && conversation.id !== 'new' && activeChat.current === conversation.id) {
+      await loadChat(conversation, { refresh: true });
+    }
+  };
   useFocusEffect(useCallback(() => {
-    if (!conversation || conversation.id === 'new') return;
-    const timer = setInterval(() => loadChat(conversation, { refresh: true }), 8000);
-    return () => clearInterval(timer);
-  }, [conversation?.id, conversation?.unread]));
-
+    if (!uid) return;
+    return watchStudentInbox(uid, () => liveRefresh.current?.(), () => {
+      if (auth.currentUser?.uid === uid) setListError('Live updates could not connect. Pull down to retry.');
+    });
+  }, [uid]));
   const sendMessage = async () => {
     const body = draft.trim();
     const sendingChat = conversation?.id;
@@ -249,10 +310,10 @@ export default function NotificationsScreen({ navigation, route }) {
   };
 
   const filteredNotifications = notificationsEnabled
-    ? items
+    ? [...items, ...(auth.currentUser === supportOwner ? supportNotices : [])].sort((a, b) => activityTime(b.createdAt) - activityTime(a.createdAt))
     : [];
   const filteredConversations = conversations;
-  const unreadNotificationCount = notificationsEnabled ? unreadNotices : 0;
+  const unreadNotificationCount = notificationsEnabled ? unreadNotices + supportNotices.filter(item => !item.read).length : 0;
   const unreadConversationCount = unreadChats;
   const listIsEmpty = tab === 'notifications'
     ? !notificationsEnabled || filteredNotifications.length === 0
@@ -322,12 +383,14 @@ export default function NotificationsScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.surface} />
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, SPACE.sm) }]}>
-        <MotionTouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
-        <View pointerEvents="none" style={[styles.headerHeading, { top: Math.max(insets.top, SPACE.sm) }]}>
-          <Text variant="heading" style={styles.title}>Inbox</Text>
-          <Text style={styles.headerSubtitle}>Messages and notifications</Text>
+      <View style={[styles.inboxHeader, { height: 100 + insets.top, paddingTop: Math.max(insets.top, SPACE.sm) }]}>
+        <StudentSurface waves />
+        <MotionTouchableOpacity onPress={() => navigation.goBack()} style={[styles.headerButton, { position: 'absolute', left: 16, top: Math.max(insets.top, SPACE.sm) + 32 }]} accessibilityRole="button" accessibilityLabel="Go back"><ChevronLeftIcon size={21} color={COLORS.primaryDark} /></MotionTouchableOpacity>
+        <View pointerEvents="none" style={[styles.inboxHeading, { top: Math.max(insets.top, SPACE.sm) + 28 }]}>
+          <Text style={styles.title}>Inbox</Text>
+          <Text style={styles.inboxSubtitle}>Messages and notifications</Text>
         </View>
+        <View pointerEvents="none" accessible={false} style={[styles.inboxGuide, { top: Math.max(insets.top, SPACE.sm) - 6 }]}><StudentGuidePose pose={2} size={110} /></View>
       </View>
       <View style={styles.tabsWrap}>
         <View style={styles.tabs}>
@@ -354,6 +417,7 @@ export default function NotificationsScreen({ navigation, route }) {
           return <MotionTouchableOpacity key={item.id} accessibilityRole="button" accessibilityLabel={`Conversation with ${item.name}${unread ? ', unread' : ''}. ${latest.body || latest.message || latest.title || 'Open conversation'}`} style={[styles.conversationCard, unread && styles.unreadCard]} onPress={() => openConversation(item)} activeOpacity={0.88}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={styles.rowBody}><View style={styles.rowTitleLine}><Text style={[styles.cardTitle, unread && styles.unreadTitle]}>{item.name}</Text><Text style={styles.date}>{formatDate(latest.createdAt)}</Text></View><Text style={styles.message} numberOfLines={2}>{latest.body || latest.message || latest.title || 'Open conversation'}</Text></View>{unread && <View style={styles.unreadDot} />}</MotionTouchableOpacity>;
         }) : <View><EmptyState icon="chat" title={search ? 'No matching conversations' : 'No messages'} text={search ? 'Try a different search.' : 'Send a message to your coordinator.'} />{!search && coordinator && <MotionTouchableOpacity accessibilityRole="button" style={styles.startChatButton} onPress={() => { activeChat.current = 'new'; setConversation({ id: 'new', conversationId: [uid, coordinator.id].sort().join('__'), participantId: coordinator.id, name: coordinator.name, messages: [], cursor: null, hasMore: false }); }} activeOpacity={0.85}><ChatBubbleIcon size={17} color="#FFFFFF" /><Text style={styles.startChatText}>New message</Text></MotionTouchableOpacity>}</View>)}
         <LoadMore hasMore={tab === 'notifications' && noticePage.hasMore} loading={listBusy} error={listError} onPress={tab === 'notifications' && noticePage.cursor && !listError ? loadMoreNotices : load} />
+        {tab === 'notifications' && notificationsEnabled && <LoadMore label="Load more support updates" hasMore={supportPage.hasMore} loading={supportBusy} error={supportError} onPress={() => loadSupportNotices(supportPage.cursor)} />}
       </RefreshableScrollView>
       <Modal visible={!!announcement} transparent animationType="fade" onRequestClose={closeAnnouncement}>
         <View style={[styles.announcementBackdrop, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
@@ -375,10 +439,14 @@ export default function NotificationsScreen({ navigation, route }) {
 }
 
 function EmptyState({ icon, title, text }) {
-  return <View style={styles.emptyCard}><View style={styles.emptyIconCircle}>{icon === 'chat' ? <ChatBubbleIcon size={30} color={COLORS.secondary} /> : <BellIcon size={30} color={COLORS.secondary} />}</View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptySub}>{text}</Text></View>;
+  return <View style={styles.emptyCard}><StudentGuidePose size={156} /><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptySub}>{text}</Text></View>;
 }
 
 const styles = StyleSheet.create({
+  inboxHeader: { position: 'relative', paddingHorizontal: 16, overflow: 'hidden', flexShrink: 0 },
+  inboxHeading: { position: 'absolute', left: 66, right: 72, alignItems: 'center', gap: 6 },
+  inboxSubtitle: { color: COLORS.textMuted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  inboxGuide: { position: 'absolute', right: 0 },
   announcementBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.45)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
   announcementPanel: { width: '100%', maxWidth: 600, maxHeight: '90%', backgroundColor: COLORS.surface, borderRadius: 22, overflow: 'hidden' },
   announcementHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 20, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
@@ -396,12 +464,12 @@ const styles = StyleSheet.create({
   headerIdentityCopy: { flex: 1, minWidth: 0, gap: 1 },
   chatTitle: { color: COLORS.textPrimary, fontSize: 16, lineHeight: 22, fontWeight: '700' },
   avatarSmall: { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
-  title: { color: COLORS.textPrimary, fontSize: 21, lineHeight: 27, fontWeight: '700', letterSpacing: -0.3 },
-  tabsWrap: { width: '100%', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
-  tabs: { width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: COLORS.surfaceMuted, padding: 4, borderRadius: 16, flexDirection: 'row', gap: 4 },
-  tabButton: { flex: 1, minWidth: 0, minHeight: 44, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
-  tabActive: { backgroundColor: COLORS.surface, borderColor: COLORS.borderLight, ...SHADOWS.soft },
-  tabText: { color: COLORS.textMuted, fontWeight: '600', fontSize: 12.5 },
+  title: { color: COLORS.textPrimary, fontSize: 24, lineHeight: 31, fontWeight: '600', letterSpacing: -0.3 },
+  tabsWrap: { width: '100%', backgroundColor: COLORS.surface, paddingHorizontal: SPACE.md, paddingTop: 6, paddingBottom: SPACE.sm },
+  tabs: { width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: '#EAF0F8', borderWidth: 1, borderColor: '#DEE7F2', padding: 4, borderRadius: 17, flexDirection: 'row', gap: 4 },
+  tabButton: { flex: 1, flexBasis: 0, minWidth: 0, minHeight: 44, paddingVertical: 8, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
+  tabActive: { backgroundColor: COLORS.surface, borderColor: '#D5E2F2' },
+  tabText: { flexShrink: 1, textAlign: 'center', color: COLORS.textMuted, fontWeight: '600', fontSize: 12.5, lineHeight: 18 },
   tabTextActive: { color: COLORS.primaryDark, fontWeight: '700' },
   tabCount: { minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: RADIUS.full, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
   tabCountText: { color: COLORS.primaryDark, fontSize: 9.5, fontWeight: '800' },
@@ -425,7 +493,7 @@ const styles = StyleSheet.create({
   unreadDot: { display: 'none' },
   message: { color: COLORS.textSecondary, fontSize: TYPE.caption, lineHeight: 18, marginTop: SPACE.xxs },
   date: { color: COLORS.textMuted, fontSize: TYPE.micro, marginTop: SPACE.xxs, fontWeight: '500' },
-  emptyCard: { width: '100%', maxWidth: 440, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl, paddingVertical: 30, backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: COLORS.borderLight, ...SHADOWS.soft },
+  emptyCard: { width: '100%', maxWidth: 440, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl, paddingVertical: 30 },
   emptyIconCircle: { width: 58, height: 58, borderRadius: 18, backgroundColor: COLORS.secondarySubtle, borderWidth: 1, borderColor: COLORS.secondaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.md },
   emptyTitle: { fontSize: TYPE.titleSmall, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
   emptySub: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', marginTop: SPACE.xs, lineHeight: 20, maxWidth: 320 },

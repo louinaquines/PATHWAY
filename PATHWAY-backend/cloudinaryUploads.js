@@ -25,19 +25,31 @@ function cloudinaryConfig(env = process.env) {
   return { cloudName, apiKey, apiSecret };
 }
 
+async function boundedProviderBytes(response, maxBytes) {
+  const chunks = []; let size = 0;
+  for await (const chunk of response.body) {
+    size += chunk.length;
+    if (size > maxBytes) throw Object.assign(new Error('Protected provider response exceeds its permitted size.'), { status: 502 });
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function fetchCloudinaryAsset({ cloudName, apiKey, apiSecret, resourceType, publicId, deliveryType = 'upload', env = process.env }) {
   const apiBase = (env.CLOUDINARY_API_BASE_URL || 'https://api.cloudinary.com/v1_1').replace(/\/$/, '');
   const encodedId = publicId.split('/').map(encodeURIComponent).join('/');
   const url = `${apiBase}/${encodeURIComponent(cloudName)}/resources/${resourceType}/${encodeURIComponent(deliveryType)}/${encodedId}`;
   const response = await fetch(url, {
     headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}` },
+    signal: AbortSignal.timeout(15000), redirect: 'error',
   });
   if (!response.ok) {
     const error = new Error(response.status === 404 ? 'Uploaded file was not found.' : 'Cloudinary could not verify the uploaded file.');
     error.status = response.status === 404 ? 400 : 502;
     throw error;
   }
-  return response.json();
+  try { return JSON.parse((await boundedProviderBytes(response, 64 * 1024)).toString('utf8')); }
+  catch { throw Object.assign(new Error('Cloudinary returned invalid asset metadata.'), { status: 502 }); }
 }
 
 async function fetchCloudinaryAssetDownload({ cloudName, apiKey, apiSecret, assetId, fileName, env = process.env }) {
@@ -54,13 +66,13 @@ async function fetchCloudinaryAssetDownload({ cloudName, apiKey, apiSecret, asse
     signature: signParams(signedParams, apiSecret),
   });
   const url = `${apiBase}/${encodeURIComponent(cloudName)}/asset/download?${query}`;
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000), redirect: 'error' });
   if (!response.ok) {
     const error = new Error('Cloudinary could not retrieve the protected document.');
     error.status = response.status === 404 ? 404 : 502;
     throw error;
   }
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = await boundedProviderBytes(response, 5 * 1024 * 1024);
   if (!bytes.length || bytes.length > 5 * 1024 * 1024) {
     throw Object.assign(new Error('The protected document exceeds the permitted size.'), { status: 502 });
   }

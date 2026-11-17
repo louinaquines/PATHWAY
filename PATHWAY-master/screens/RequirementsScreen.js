@@ -1,7 +1,8 @@
 // screens/RequirementsScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
+  Image,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
@@ -19,13 +20,14 @@ import { auth, db } from '../firebaseConfig';
 import { BACKEND_URL, requestBackend } from '../services/backendApi';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
 import { studentAlert as Alert } from '../services/studentAlert';
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
 import { COLORS, SHADOWS } from '../theme';
 import { AppText as Text } from '../components/AppText';
 import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView from '../components/RefreshableScrollView';
 import StudentLogoutScreen from '../components/StudentLogoutScreen';
+import StudentSurface from '../components/StudentSurface';
 import useStudentLogout from '../hooks/useStudentLogout';
 import PreDeploymentDrawer from '../components/PreDeploymentDrawer';
 import PreDeploymentTopBar from '../components/PreDeploymentTopBar';
@@ -82,6 +84,8 @@ const DEFAULT_PREDEPLOYMENT_DOCS = [
 ];
 
 export default function RequirementsScreen({ navigation, route }) {
+  const reachedStep = Math.max(1, Math.min(4, Number(route?.params?.reachedStep) || 1));
+  const readOnlyStep = route?.params?.readOnlyStep === true;
   const isDocumentHub = route?.name === 'StudentRequirements';
   const { width } = useWindowDimensions();
   const isNarrowScreen = width < 360;
@@ -97,10 +101,31 @@ export default function RequirementsScreen({ navigation, route }) {
   const [expandedRequirementId, setExpandedRequirementId] = useState(null);
   const [requirementsEligible, setRequirementsEligible] = useState(false);
   const [canEditRequirements, setCanEditRequirements] = useState(false);
+  const [trackingApproved, setTrackingApproved] = useState(false);
+  // After internship tracking is approved, only ongoing documents (DTR, logbook, reports) stay uploadable.
+  const ONGOING_IDS = ['dtr', 'logbook', 'narrative', 'eval_sheet', 'coc'];
+  const canEditItem = item => canEditRequirements && (!trackingApproved || ONGOING_IDS.includes(item.id));
   const [activeStep, setActiveStep] = useState(1);
 
   const currentUser = auth?.currentUser;
   const uid = currentUser?.uid;
+  const liveRequirements = useRef(null);
+
+  useEffect(() => {
+    liveRequirements.current = null;
+    if (!uid || loggingOut) return;
+    return onSnapshot(doc(db, 'users', uid), snapshot => {
+      if (auth.currentUser?.uid !== uid) return;
+      const profile = snapshot.data() || {};
+      liveRequirements.current = profile.requirements || {};
+      setCanEditRequirements(profile.accountApproved === true && profile.clearanceStatus !== 'cleared'); setTrackingApproved(profile.preDeploymentStatus === 'approved');
+      setRequirementsEligible(profile.requirementsStatus === 'approved');
+      setRequirements(previous => previous.map(item => ({ ...item,
+        ...(profile.requirements?.[item.id] || { status: 'not_submitted', fileUrl: null, fileName: null, fileSize: null, submittedAt: null }),
+        autoReview: profile.requirements?.[item.id]?.autoReview || null,
+      })));
+    }, () => console.warn('Document status updates could not connect.'));
+  }, [uid, loggingOut]);
 
   const handleLogout = logout;
 
@@ -139,9 +164,9 @@ export default function RequirementsScreen({ navigation, route }) {
 
       const userSnap = await getDoc(doc(db, 'users', uid));
       const userData = userSnap.data() || {};
-      setCanEditRequirements(userData.accountApproved === true && userData.preDeploymentStatus !== 'approved');
+      setCanEditRequirements(userData.accountApproved === true && userData.clearanceStatus !== 'cleared'); setTrackingApproved(userData.preDeploymentStatus === 'approved');
       setRequirementsEligible(userData.requirementsStatus === 'approved');
-      const saved = userData.requirements || {};
+      const saved = liveRequirements.current || userData.requirements || {};
 
       let sectionReqs = [];
       const sectionId = userData.sectionId;
@@ -166,6 +191,7 @@ export default function RequirementsScreen({ navigation, route }) {
           required: r.required !== false,
           fileTypeHint: r.fileTypeHint || 'PDF or Word (Max 5MB)',
           status: userSaved.status || 'not_submitted',
+          autoReview: userSaved.autoReview || null,
           fileUrl: userSaved.fileUrl || null,
           fileName: userSaved.fileName || null,
           fileSize: userSaved.fileSize || null,
@@ -338,9 +364,10 @@ export default function RequirementsScreen({ navigation, route }) {
   };
 
   const handlePickAndUpload = async (docItem) => {
+    if (readOnlyStep) return;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        type: ['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         copyToCacheDirectory: true,
       });
 
@@ -351,21 +378,28 @@ export default function RequirementsScreen({ navigation, route }) {
         Alert.alert('File too large', 'Choose a document smaller than 5 MB.');
         return;
       }
+      const aiReviewConsent = /\.(pdf|png|jpe?g)$/i.test(file.name || '') && await new Promise(resolve => {
+        Alert.alert('Optional automatic AI checks',
+          'Allow this file and your profile name/student ID to be sent to Anthropic for document checklist checks? The file may contain personal or sensitive information. AI cannot verify authenticity or approve it. Your coordinator makes the decision. You can upload without AI.',
+          [{ text: 'Without AI', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Allow AI checks', onPress: () => resolve(true) }]);
+      });
       setUploadingId(docItem.id);
       if (!uid) throw new Error('Please sign in again.');
       const authorization = await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}/upload-signature`);
       const uploaded = await uploadCloudinaryFile(file, authorization);
       const saved = await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}`, {
-        method: 'PUT', payload: { status: 'submitted', ...uploaded, fileName: file.name },
+        method: 'PUT', payload: { status: 'submitted', ...uploaded, fileName: file.name, aiReviewConsent, aiReviewConsentVersion: '1' },
       });
 
-      const updated = requirements.map(r =>
+      const liveResult = liveRequirements.current?.[docItem.id];
+      const autoReview = liveResult?.submittedAt === saved.submittedAt ? liveResult.autoReview : saved.autoReview;
+      setRequirements(previous => previous.map(r =>
         r.id === docItem.id
-          ? { ...r, status: 'submitted', fileUrl: saved.fileUrl, fileName: saved.fileName, fileSize: saved.fileSize, submittedAt: saved.submittedAt,
+          ? { ...r, status: 'submitted', fileUrl: saved.fileUrl, fileName: saved.fileName, fileSize: saved.fileSize, submittedAt: saved.submittedAt, autoReview,
             cloudinaryDeliveryType: docItem.id === 'endorsement_letter' ? 'authenticated' : null }
           : r
-      );
-      setRequirements(updated);
+      ));
 
       setUploadingId(null);
 
@@ -376,6 +410,7 @@ export default function RequirementsScreen({ navigation, route }) {
   };
 
   const handleDelete = (docItem) => {
+    if (readOnlyStep) return;
     Alert.alert(
       'Remove Document',
       `Are you sure you want to remove "${docItem.fileName || docItem.label}"?`,
@@ -418,6 +453,7 @@ export default function RequirementsScreen({ navigation, route }) {
 
   const visibleRequirements = isDocumentHub ? requirements : requirements.filter(item => !item.category || /pre|deploy/i.test(item.category));
   const requiredRequirements = visibleRequirements.filter(item => item.required !== false);
+  const canContinueToAssignment = requiredRequirements.length > 0 && requiredRequirements.every(item => ['submitted', 'approved'].includes(item.status));
   const requiredCount = requiredRequirements.length;
   const approvedCount = requiredRequirements.filter(item => item.status === 'approved').length;
   const inReviewCount = requiredRequirements.filter(item => item.status === 'submitted').length;
@@ -434,6 +470,7 @@ export default function RequirementsScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
+      <StudentSurface tone="page" />
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
 
       {isDocumentHub ? (
@@ -466,29 +503,30 @@ export default function RequirementsScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Page introduction */}
-        <View style={[styles.headerSection, isNarrowScreen && styles.headerSectionNarrow]}>
+        <View style={[styles.headerSection, isNarrowScreen && styles.headerSectionNarrow, styles.documentHubIntro, !isDocumentHub && styles.submissionIntro]}>
+          <StudentSurface waves /><Image source={require('../assets/pathway-guide-books.png')} style={styles.documentHubGuide} resizeMode="contain" accessible={false} />
           <View style={styles.headerMetaRow}>
             <Text style={styles.subPipelineLabel}>{isDocumentHub ? 'YOUR RECORDS' : 'PRE-DEPLOYMENT'}</Text>
-            {!isDocumentHub && <View style={styles.stageBadge}>
-              <Text style={styles.stageBadgeText}>STEP 01 / 04</Text>
-            </View>}
           </View>
-          <Text variant="heading" style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow]}>{isDocumentHub ? 'Your requirements' : 'Document Submission'}</Text>
+          <Text style={[styles.screenHeading, isNarrowScreen && styles.screenHeadingNarrow, styles.documentHubHeading]}>{isDocumentHub ? 'Your requirements' : 'Document submission'}</Text>
           <Text style={styles.headerDescription}>{isDocumentHub ? 'View your documents, review status and requested revisions.' : 'Upload your required documents.'}</Text>
         </View>
 
         {!isDocumentHub && <PreDeploymentStepper
           activeStep={1}
+          reachedStep={reachedStep}
           onStepPress={step => {
             if (step === 1) setActiveStep(1);
-            if (step === 2) navigation.navigate('Company');
-            if (step === 3) navigation.navigate('Review');
-            if (step === 4) navigation.navigate('Approval');
+            if (step === 2) navigation.navigate('Company', { readOnlyStep: 2 < reachedStep, reachedStep });
+            if (step === 3) navigation.navigate('Review', { readOnlyStep: 3 < reachedStep, reachedStep });
+            if (step === 4) navigation.navigate('Approval', { readOnlyStep: 4 < reachedStep, reachedStep });
           }}
         />}
+        {readOnlyStep && <Text style={{ color: '#526174', fontSize: 14, marginBottom: 16 }}>Completed step — view only. Return to your current step to continue.</Text>}
 
         {activeStep === 1 && <>
-          <View style={styles.checklistCard}>
+          <View style={[styles.checklistCard, isDocumentHub && styles.documentHubChecklist, { overflow: 'hidden' }]}>
+            <StudentSurface waves />
             <View style={styles.checklistTopRow}>
               <View style={styles.checklistIcon}>
                 <FileIcon size={18} color={COLORS.primary} />
@@ -558,6 +596,7 @@ export default function RequirementsScreen({ navigation, route }) {
                 accessibilityLabel={`${docItem.label}. ${isApproved ? 'Approved' : isRejected ? 'Action needed' : isSubmitted ? 'In review' : 'Required'}. ${isExpanded ? 'Tap to collapse.' : 'Tap to expand.'}`}
               >
                 {/* Card Title & Status Badge Header */}
+                {!isDocumentHub && <StudentSurface tone={isApproved ? 'mint' : 'blue'} waves />}
                 <View style={[styles.docHeaderRow, isExpanded && styles.docHeaderExpanded]}>
                   <View style={[
                     styles.docStatusIcon,
@@ -587,7 +626,7 @@ export default function RequirementsScreen({ navigation, route }) {
                   {docItem.status === 'submitted' && (
                     <View style={styles.pendingBadge}>
                       <Text style={styles.pendingBadgeIcon}>•</Text>
-                      <Text style={styles.pendingBadgeText}>In review</Text>
+                      <Text style={styles.pendingBadgeText}>{['queued', 'checking'].includes(docItem.autoReview?.status) ? 'AI checking' : 'In review'}</Text>
                     </View>
                   )}
 
@@ -607,6 +646,13 @@ export default function RequirementsScreen({ navigation, route }) {
 
                   <ChevronIcon size={16} color={COLORS.textMuted} expanded={isExpanded} />
                 </View>
+
+                {isExpanded && docItem.status === 'submitted' && (
+                  <View style={styles.aiStudentBox}>
+                    <Text style={styles.aiStudentTitle}>Under review</Text>
+                    <Text style={styles.aiStudentSub}>Your coordinator will review this document. You'll be notified once it's approved or if changes are needed.</Text>
+                  </View>
+                )}
 
                 {expandedRequirementId === docItem.id && isUploading && (
                   <View style={styles.uploadingBox}>
@@ -639,9 +685,9 @@ export default function RequirementsScreen({ navigation, route }) {
                         </Text>
                       </View>
                       </TouchableOpacity>
-                      {canEditRequirements && docItem.status !== 'approved' && <TouchableOpacity
+                      {canEditItem(docItem) && docItem.status !== 'approved' && <TouchableOpacity
                         style={styles.trashAction}
-                        onPress={event => { event.stopPropagation(); handleDelete(docItem); }}
+                        disabled={readOnlyStep} onPress={event => { event.stopPropagation(); handleDelete(docItem); }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         activeOpacity={0.7}
                       >
@@ -678,10 +724,10 @@ export default function RequirementsScreen({ navigation, route }) {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    {isRejected && canEditRequirements && (
+                    {isRejected && canEditItem(docItem) && (
                       <TouchableOpacity
                         style={styles.resubmitButton}
-                        onPress={() => handlePickAndUpload(docItem)}
+                        disabled={readOnlyStep} onPress={() => handlePickAndUpload(docItem)}
                         activeOpacity={0.75}
                       >
                         <RefreshIcon size={16} color={COLORS.secondary} />
@@ -692,7 +738,7 @@ export default function RequirementsScreen({ navigation, route }) {
                 )}
 
                 {/* ── State 3: Awaiting Upload ── */}
-                {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && canEditRequirements && (
+                {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && canEditItem(docItem) && (
                   <>
                     <TouchableOpacity
                       style={styles.dropzoneContainer}
@@ -721,14 +767,16 @@ export default function RequirementsScreen({ navigation, route }) {
 
         {/* ── Footer Navigation / Submit Button ── */}
         {!isDocumentHub && <View style={styles.footerSection}>
+          <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for a company assignment or send an optional placement request.' : 'Submit all required pre-deployment documents to continue.'}</Text>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
-            onPress={() => navigation.navigate('Company')}
+            disabled={!canContinueToAssignment}
+            onPress={() => { if (canContinueToAssignment) navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false }); }}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Continue to company selection"
+            accessibilityLabel="Continue to company assignment"
           >
-            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company placement</Text>
+            <Text style={[styles.continueButtonText, isNarrowScreen && styles.continueButtonTextNarrow]}>Continue to company assignment</Text>
           </MotionTouchableOpacity>
         </View>}
         </>}
@@ -754,6 +802,16 @@ export default function RequirementsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  aiStudentBox: { marginTop: 8, padding: 12, borderRadius: 12, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+  aiStudentTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  aiStudentSub: { marginTop: 6, fontSize: 12.5, color: '#475569' },
+  aiStudentIssue: { marginTop: 4, fontSize: 12.5, lineHeight: 18, color: '#92400E' },
+  aiStudentHint: { marginTop: 8, fontSize: 11.5, color: '#64748B' },
+  documentHubIntro: { minHeight: 135, justifyContent: 'center', paddingRight: 128, marginBottom: 0, overflow: 'hidden' },
+  submissionIntro: { borderRadius: 22, paddingLeft: 18, paddingVertical: 18, minHeight: 160, marginBottom: 16 },
+  documentHubGuide: { position: 'absolute', width: 142, height: 145, right: -4, bottom: -8 },
+  documentHubHeading: { fontSize: 24, lineHeight: 30, fontWeight: '600' },
+  documentHubChecklist: { marginTop: -10 },
   documentHubTopBar: {
     height: 64,
     paddingHorizontal: 20,
@@ -1067,6 +1125,8 @@ const styles = StyleSheet.create({
   comingSoonTitle: { color: COLORS.textPrimary, fontSize: 18, fontWeight: '800', marginTop: 12, textAlign: 'center' },
   comingSoonText: { color: COLORS.textSecondary, fontSize: 13, lineHeight: 20, textAlign: 'center', marginTop: 8 },
   docCard: {
+    position: 'relative',
+    overflow: 'hidden',
     backgroundColor: COLORS.surface,
     borderRadius: 15,
     padding: 15,

@@ -1,6 +1,5 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const backendDir = path.resolve(__dirname, '..');
 const dataDir = path.join(backendDir, '.emulator-data');
@@ -30,27 +29,25 @@ function latestSnapshot() {
   return null;
 }
 let saving = null;
+async function exportFromPinnedHub(destination, fetchImpl = fetch) {
+  const origin = 'http://127.0.0.1:4400';
+  const status = await fetchImpl(`${origin}/emulators`, { signal: AbortSignal.timeout(15000) });
+  if (!status.ok) throw new Error('Local demo emulator hub is unavailable.');
+  const services = await status.json();
+  const local = service => service && ['127.0.0.1','localhost','::1'].includes(service.host);
+  if (!local(services.auth) || services.auth.port !== 9099 || !local(services.firestore) || services.firestore.port !== 8080) {
+    throw new Error('Refusing backup: hub does not own the pinned demo services.');
+  }
+  const result = await fetchImpl(`${origin}/_admin/export`, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: destination, initiatedBy: 'pathway-local-demo', targets: ['auth','firestore'] }), signal: AbortSignal.timeout(60000) });
+  if (!result.ok) throw new Error('Local demo export failed; prior snapshots retained.');
+}
 function backup() {
   if (saving) return saving;
   const destination = snapshotPath();
-  const cli = path.join(path.dirname(require.resolve('firebase-tools/package.json')), 'lib/bin/firebase.js');
-  saving = new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cli, 'emulators:export', destination,
-      '--config', '../firebase.json', '--project', project, '--only', 'auth,firestore', '--non-interactive'], {
-      cwd: backendDir, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, GOOGLE_CLOUD_PROJECT: project, FIREBASE_CLI_DISABLE_UPDATE_CHECK: 'true' },
-    });
-    let exportCompleted = false;
-    let output = '';
-    child.stdout.on('data', data => { process.stdout.write(data); output = (output + data).slice(-4096); exportCompleted ||= output.includes('Export complete'); });
-    child.stderr.on('data', data => process.stderr.write(data));
-    child.once('error', reject);
-    child.once('close', code => {
-      if ((code === 0 || exportCompleted) && completeSnapshot(destination)) {
-        if (code !== 0) console.warn('Firebase CLI exited abnormally after export; snapshot files verified.');
-        resolve(destination);
-      } else reject(new Error(`Emulator backup failed (${code}); previous snapshots retained.`));
-    });
+  saving = exportFromPinnedHub(destination).then(() => {
+    if (!completeSnapshot(destination)) throw new Error('Local demo export is incomplete; previous snapshots retained.');
+    return destination;
   }).finally(() => { saving = null; });
   return saving;
 }
@@ -60,7 +57,7 @@ function watch() {
   const timer = setInterval(save, 5 * 60 * 1000);
   return () => clearInterval(timer);
 }
-module.exports = { latestSnapshot, snapshotPath, completeSnapshot, backup, watch };
+module.exports = { latestSnapshot, snapshotPath, completeSnapshot, backup, watch, exportFromPinnedHub };
 if (require.main === module) {
   if (process.argv.includes('--watch')) watch();
   else backup().catch(error => { console.error(error.message); process.exitCode = 1; });

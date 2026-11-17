@@ -1,5 +1,7 @@
 const { compareDtr } = require('./dtrComparison');
 const { createHash } = require('node:crypto');
+const { classifyEscalation, escalationId } = require('./dtrEscalation');
+const { assertAttendanceAccess } = require('./attendanceExcusedDates');
 
 function sourceVersion(requirement) {
   return createHash('sha256').update(JSON.stringify([
@@ -10,23 +12,35 @@ function sourceVersion(requirement) {
 
 function installDtrReview({ app, db, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction }) {
   const reviewPath = '/coordinator/students/:studentId/dtr/reviews';
+  const freshStudent = async (transaction, ref, actorId) => {
+    const snapshot = await transaction.get(ref);
+    const student = snapshot.exists ? snapshot.data() : null;
+    if (!student || !/^[A-Za-z0-9_-]{1,128}$/.test(student.sectionId || '')) throw Object.assign(new Error('Assigned students only.'), { status: 403 });
+    await assertAttendanceAccess(db, actorId, student.sectionId, ref.id, transaction);
+    assertRecordsOpen(student);
+    return student;
+  };
   const guard = (req, res) => {
     if (req.staff.role !== 'coordinator') { res.status(403).json({ error: 'Coordinator access required.' }); return false; }
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(req.params.studentId || '')) { res.status(400).json({ error: 'Invalid student.' }); return false; }
     return allowRate(req, res, { limit: 20, windowMs: 60_000, key: request => `dtr-review:${request.staff.uid}` });
   };
   app.get(reviewPath, requireStaff, async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
     if (!guard(req, res)) return;
     try {
       const ref = db.collection('users').doc(req.params.studentId);
-      const snapshot = await ref.get();
-      if (!snapshot.exists || !(await coordinatorOwnsStudent(req.staff.uid, snapshot.data()))) return res.status(403).json({ error: 'Assigned students only.' });
-      const records = await ref.collection('dtrReviews').orderBy('createdAt', 'desc').limit(20).get();
-      res.set('Cache-Control', 'private, no-store');
-      return res.json({ reviews: records.docs.map(doc => ({ ...doc.data(), id: doc.id })) });
-    } catch { return res.status(500).json({ error: 'Could not load review history.' }); }
+      const reviews = await db.runTransaction(async transaction => {
+        const student = await freshStudent(transaction, ref, req.staff.uid);
+        const records = await transaction.get(ref.collection('dtrReviews').orderBy('createdAt', 'desc').limit(20));
+        const version = student.requirements?.dtr?.fileName ? sourceVersion(student.requirements.dtr) : null;
+        return records.docs.map(doc => ({ ...doc.data(), id: doc.id })).filter(item => item.sourceVersion === version);
+      });
+      return res.json({ reviews });
+    } catch (error) { return res.status(error.status || 500).json({ error: error.status ? error.message : 'Could not load review history.' }); }
   });
   app.post(reviewPath, requireStaff, async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
     if (!guard(req, res)) return;
     try {
       const { form, sourceVersion: version, notes = '', reviewId } = req.body || {};
@@ -38,10 +52,7 @@ function installDtrReview({ app, db, requireStaff, coordinatorOwnsStudent, allow
       const savedRef = ref.collection('dtrReviews').doc(reviewId);
       const requestHash = createHash('sha256').update(JSON.stringify({ form, version, notes: notes.trim() })).digest('hex');
       const saved = await db.runTransaction(async transaction => {
-        const snapshot = await transaction.get(ref);
-        if (!snapshot.exists || !(await coordinatorOwnsStudent(req.staff.uid, snapshot.data()))) throw Object.assign(new Error('Assigned students only.'), { status: 403 });
-        const student = snapshot.data();
-        assertRecordsOpen(student);
+        const student = await freshStudent(transaction, ref, req.staff.uid);
         if (!student.requirements?.dtr?.fileName || sourceVersion(student.requirements.dtr) !== version) throw Object.assign(new Error('The DTR changed. Import it again.'), { status: 409 });
         const previous = await transaction.get(savedRef);
         if (previous.exists) {
@@ -51,11 +62,30 @@ function installDtrReview({ app, db, requireStaff, coordinatorOwnsStudent, allow
         const prefix = `${form.year}-${String(form.month).padStart(2, '0')}`;
         const records = await transaction.get(ref.collection('attendance').where('date', '>=', `${prefix}-01`).where('date', '<=', `${prefix}-31`).limit(367));
         if (records.size > 366) throw Object.assign(new Error('Too many attendance records.'), { status: 422 });
+        const comparison = compareDtr(form, records.docs.map(doc => doc.data()));
+        const finding = classifyEscalation(comparison);
+        const id = escalationId(req.params.studentId, version, prefix);
+        const escalationRef = db.collection('dtrEscalations').doc(id);
+        const existingEscalation = await transaction.get(escalationRef);
+        const escalation = existingEscalation.exists
+          ? { id, status: 'needs_verification', reasons: existingEscalation.data().reasons }
+          : finding ? { id, ...finding } : null;
         const entry = { createdAt: new Date().toISOString(), coordinatorId: req.staff.uid,
           sourceVersion: version, requestHash, fileName: student.requirements.dtr.fileName, period: prefix,
-          notes: notes.trim(), comparison: compareDtr(form, records.docs.map(doc => doc.data())) };
+          notes: notes.trim(), comparison, escalation };
+        if (finding && !existingEscalation.exists) {
+          transaction.set(escalationRef, { ...finding, studentId: req.params.studentId,
+            coordinatorId: req.staff.uid, sectionId: student.sectionId, sourceVersion: version,
+            period: prefix, reviewId, createdAt: entry.createdAt });
+          transaction.set(db.collection('notifications').doc(`dtr_${id}`), {
+            recipientId: req.staff.uid, senderId: req.staff.uid, senderRole: 'coordinator',
+            type: 'dtr_review', title: 'DTR needs verification',
+            message: 'A saved DTR comparison needs coordinator verification. Open saved DTR reviews to inspect it.',
+            read: false, createdAt: entry.createdAt,
+          });
+        }
         transaction.set(savedRef, entry);
-        writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'dtr.review_saved', targetType: 'dtrReviews', targetId: reviewId, details: { studentId: req.params.studentId, period: prefix } });
+        writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'dtr.review_saved', targetType: 'dtrReviews', targetId: reviewId, details: { studentId: req.params.studentId, period: prefix, escalationId: escalation?.id || null, escalationCreated: Boolean(finding && !existingEscalation.exists) } });
         return { ...entry, id: reviewId };
       });
       return res.json({ review: saved });

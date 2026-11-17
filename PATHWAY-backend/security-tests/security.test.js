@@ -27,7 +27,7 @@ const identities = {};
 let testEnv;
 let backend;
 let backendOutput = '';
-let nextPort = 3110;
+let nextPort = Number(process.env.PATHWAY_SECURITY_BACKEND_PORT || 3110);
 let cloudinaryServer;
 let cloudinaryServerUrl;
 let smtpServer;
@@ -1262,6 +1262,43 @@ test('protected endorsement downloads enforce student ownership and coordinator 
   ]);
 });
 
+test('disabled profiles lose API and direct Firestore access for every role', async () => {
+  for (const [identity, endpoint, method] of [[identities.studentA, '/student/assigned-coordinator', 'POST'],
+    [identities.coordinatorA, '/coordinator/company-directory', 'GET'], [identities.admin, '/admin/settings', 'GET']]) {
+    const active = await api(endpoint, identity, method === 'GET' ? undefined : {}, method);
+    assert.equal(active.response.status, 200, `Enabled ${identity.profile.role} on ${endpoint}: ${active.data.error || 'request failed'}`);
+    assert.equal((await api('/auth/profile', identity, {})).response.status, 200);
+    await testEnv.withSecurityRulesDisabled(async context => updateDoc(doc(context.firestore(), 'users', identity.uid), { disabled: true }));
+    try {
+      const result = await api(endpoint, identity, method === 'GET' ? undefined : {}, method);
+      assert.equal(result.response.status, 403);
+      assert.match(result.data.error, /disabled/i);
+      const bootstrap = await api('/auth/profile', identity, {});
+      assert.equal(bootstrap.response.status, 403);
+      assert.match(bootstrap.data.error, /disabled/i);
+      const password = await api('/student/change-password', identity, {});
+      assert.equal(password.response.status, 403);
+      assert.match(password.data.error, /disabled/i);
+      await assertFails(getDoc(doc(clientStore(identity), 'users', identity.uid)));
+    } finally {
+      await testEnv.withSecurityRulesDisabled(async context => updateDoc(doc(context.firestore(), 'users', identity.uid), { disabled: false }));
+    }
+  }
+});
+
+test('requirement change rate allows sixty attempts per student per hour', async () => {
+  const student = await createIdentity('uploadRateStudent', 'student', 'Department A', 'section-a');
+  await testEnv.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), 'users', student.uid), student.profile));
+  // Invalid payloads exercise admission without creating uploads or changing requirements.
+  for (let attempt = 1; attempt <= 60; attempt++) {
+    const result = await api('/requirements/application_form', student, { status: 'submitted' }, 'PUT');
+    assert.equal(result.response.status, 400, `Attempt ${attempt} must reach payload validation`);
+  }
+  const limited = await api('/requirements/application_form', student, { status: 'submitted' }, 'PUT');
+  assert.equal(limited.response.status, 429);
+  assert.ok(Number(limited.response.headers.get('retry-after')) > 0);
+});
+
 test('backend rejects unauthenticated, wrong-section, and unauthorized role actions', async () => {
   const unauthenticated = await api('/coordinator/assign-student', null, { studentId: identities.applicant.uid, sectionId: 'section-a' });
   assert.equal(unauthenticated.response.status, 401);
@@ -1514,6 +1551,42 @@ test('authorized registration, assignment, and requirement review use server-own
   assert.equal(stored.data().requirementsStatus, 'approved');
 });
 
+test('coordinator password locks and stale password epochs deny shared staff access', async () => {
+  const coordinator = identities.coordinatorA;
+  const route = '/coordinator/company-directory';
+  assert.equal((await api(route, coordinator, undefined, 'GET')).response.status, 200);
+  let original;
+  await testEnv.withSecurityRulesDisabled(async context => { original = (await getDoc(doc(context.firestore(), 'users', coordinator.uid))).data(); });
+  try {
+    for (const change of [{ passwordChangeRequired: true }, { passwordEpoch: 'synthetic-new-coordinator-epoch' }]) {
+      await testEnv.withSecurityRulesDisabled(async context => { await setDoc(doc(context.firestore(), 'users', coordinator.uid), { ...original, ...change }); });
+      assert.equal((await api(route, coordinator, undefined, 'GET')).response.status, 403);
+    }
+  } finally { await testEnv.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'users', coordinator.uid), original)); }
+});
+
+test('version-bound replacement decisions deduplicate retries and reject closed records', async () => {
+  const student = identities.studentA;
+  const requirement = { status: 'submitted', fileName: 'synthetic.pdf', cloudinaryAssetId: 'synthetic-triage-asset', submittedAt: '2026-10-25' };
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', student.uid), { clearanceStatus: 'pending', 'requirements.application_form': requirement });
+  });
+  const route = `/coordinator/students/${student.uid}/requirements/application_form/decision`;
+  const body = { status: 'rejected', reason: 'TEST ONLY: source is a different document.', requestId: 'synthetic-version-bound-decision', sourceVersion: require('../documentTriage').documentVersion(requirement) };
+  assert.equal((await api(route, identities.coordinatorA, body)).response.status, 200);
+  assert.equal((await api(route, identities.coordinatorA, body)).response.status, 200);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const notices = await getDocs(query(collection(context.firestore(), 'notifications'), where('recipientId', '==', student.uid)));
+    assert.equal(notices.docs.filter(item => item.data().message?.includes('TEST ONLY: source')).length, 1);
+    await updateDoc(doc(context.firestore(), 'users', student.uid), { clearanceStatus: 'cleared' });
+  });
+  assert.equal((await api(route, identities.coordinatorA, body)).response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    await updateDoc(doc(context.firestore(), 'users', student.uid), { clearanceStatus: 'pending', 'requirements.application_form.cloudinaryAssetId': 'replacement-asset' });
+  });
+  assert.equal((await api(route, identities.coordinatorA, body)).response.status, 409);
+});
+
 test('coordinator logbook reviews are authenticated, section-scoped, and atomic with audit and notification', async () => {
   const unauthenticated = await api(`/coordinator/students/${identities.studentA.uid}/logbook/logbook-pending/decision`, null, { status: 'approved' });
   assert.equal(unauthenticated.response.status, 401);
@@ -1541,6 +1614,50 @@ test('coordinator logbook reviews are authenticated, section-scoped, and atomic 
     assert.ok(notifications.docs.some(item => item.data().title === 'Logbook rejected'));
     assert.equal(audits.size, 2);
   });
+});
+
+test('candidate journal rules deny staff direct edits while coordinator API approval remains authorized', async () => {
+  const entryId = 'candidate-staff-review';
+  const entryPath = ['users', identities.studentA.uid, 'logbook', entryId];
+  const original = { rawNotes: 'Synthetic candidate review journal.', refined: 'Synthetic candidate review journal.', hours: 8, status: 'pending', sourceRevision: 1, analysisStatus: 'not-enabled' };
+  await testEnv.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), ...entryPath), original));
+  const candidateRules = readFileSync(path.join(rootDir, 'release-candidates/workplace-backend-journals.rules'), 'utf8');
+  let candidateEnv;
+  try {
+  candidateEnv = await initializeTestEnvironment({ projectId, firestore: { host: '127.0.0.1', port: firestoreEmulatorPort, rules: candidateRules } });
+  let previousNotices;
+  await testEnv.withSecurityRulesDisabled(async context => {
+    previousNotices = new Set((await getDocs(query(collection(context.firestore(), 'notifications'), where('recipientId', '==', identities.studentA.uid)))).docs.map(d => d.id));
+  });
+  const route = `/coordinator/students/${identities.studentA.uid}/logbook/${entryId}/decision`;
+  for (const staff of [identities.admin, identities.coordinatorA]) {
+    const store = clientStore(staff);
+    await assertSucceeds(getDoc(doc(store, ...entryPath)));
+    await assertFails(updateDoc(doc(store, ...entryPath), { status: 'approved' }));
+  }
+  assert.equal((await api(route, identities.admin, { status: 'approved' })).response.status, 403);
+  assert.equal((await api(route, identities.coordinatorB, { status: 'approved' })).response.status, 403);
+  await testEnv.withSecurityRulesDisabled(async context => assert.deepEqual((await getDoc(doc(context.firestore(), ...entryPath))).data(), original));
+  const approved = await api(route, identities.coordinatorA, { status: 'approved' });
+  assert.equal(approved.response.status, 200, JSON.stringify(approved.data));
+  assert.equal((await api(route, identities.coordinatorA, { status: 'approved' })).response.status, 409);
+  await testEnv.withSecurityRulesDisabled(async context => {
+    const store = context.firestore();
+    const saved = (await getDoc(doc(store, ...entryPath))).data();
+    assert.equal(saved.status, 'approved'); assert.equal(saved.reviewedBy, identities.coordinatorA.uid);
+    for (const key of ['rawNotes', 'refined', 'hours', 'sourceRevision', 'analysisStatus']) assert.deepEqual(saved[key], original[key]);
+    const audits = await getDocs(query(collection(store, 'auditLogs'), where('action', '==', 'logbook.reviewed'), where('targetId', '==', entryId)));
+    assert.equal(audits.size, 1);
+    const notices = await getDocs(query(collection(store, 'notifications'), where('recipientId', '==', identities.studentA.uid)));
+    const created = notices.docs.filter(d => !previousNotices.has(d.id));
+    assert.equal(created.length, 1); assert.equal(created[0].data().title, 'Logbook approved');
+  });
+  } finally {
+    const restored = await initializeTestEnvironment({ projectId, firestore: { host: '127.0.0.1', port: firestoreEmulatorPort, rules: firestoreRules } });
+    try { if (candidateEnv) await candidateEnv.cleanup(); } finally { await restored.cleanup(); }
+    assert.equal(readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8'), firestoreRules);
+    assert.equal(readFileSync(path.join(rootDir, 'release-candidates/workplace-backend-journals.rules'), 'utf8'), candidateRules);
+  }
 });
 
 test('company placement review validates ownership and atomically updates official assignment', async () => {

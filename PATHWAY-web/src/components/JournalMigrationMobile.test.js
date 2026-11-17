@@ -64,7 +64,7 @@ function mobileScreenFixture(enabled, failSubmission = false) {
     ? <textarea value={value} placeholder={placeholder} onChange={e => onChangeText(e.target.value)} />
     : <input value={value} placeholder={placeholder} onChange={e => onChangeText(e.target.value)} />;
   const press = ({ children, onPress, disabled, accessibilityLabel }) => <button aria-label={accessibilityLabel} onClick={onPress} disabled={disabled}>{children}</button>;
-  const native = { View: box, TouchableOpacity: press, KeyboardAvoidingView: box, StatusBar: () => null, ActivityIndicator: () => null, Platform: { OS: 'android' }, StyleSheet: { create: x => x } };
+  const native = { View: box, TouchableOpacity: press, KeyboardAvoidingView: box, StatusBar: () => null, ActivityIndicator: () => null, Platform: { OS: 'android' }, StyleSheet: { create: x => x }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) } };
   let serial = 0;
   const firestore = { collection: () => ({}), doc: () => ({ id: `opaque-${++serial}` }), query: () => ({}), orderBy: () => ({}), where: () => ({}), sum: () => ({}),
     getCountFromServer: async () => ({ data: () => ({ count: 0 }) }), getAggregateFromServer: async () => ({ data: () => ({ hours: 0 }) }), addDoc: jest.fn().mockResolvedValue({ id: 'legacy' }) };
@@ -83,10 +83,10 @@ function mobileScreenFixture(enabled, failSubmission = false) {
     '../components/BackdropModal': ({ visible, children }) => visible ? <div>{children}</div> : null,
     '../services/recordPagination': { readRecordPage: async () => ({ records: [], cursor: null, hasMore: false }), mergeRecords: (a, b) => [...a, ...b] },
     '../services/logbookLoadError': { logbookLoadErrorMessage: () => 'Unavailable' },
-    '../services/journalWeekRange': { journalWeekRange: pure('journalWeekRange.js', 'journalWeekRange') },
+    '../services/journalPresentation': Object.fromEntries(['journalEntryTitle', 'journalContextChanged', 'validJournalSettings'].map(name => [name, pure('journalPresentation.js', name)])),
     '../components/LoadMore': () => null, '../services/studentSuccess': { showStudentSuccess: success },
     '../firebaseConfig': { auth: { currentUser: { uid: 'synthetic-student' } }, db: {} },
-    '../services/backendApi': { postBackend: post },
+    '../services/backendApi': { postBackend: post, requestBackend: async () => ({ department: 'IT', frequency: 'weekly', revision: 0, periodStart: '2026-10-19', periodEnd: '2026-10-25' }) },
     '../services/journalSubmission': { createJournalMigrationClient: pure('journalSubmission.js', 'createJournalMigrationClient'), journalRevisionExpectation: pure('journalSubmission.js', 'journalRevisionExpectation') },
     '../components/JournalAnalysisConsent': JournalAnalysisConsent,
     '../services/usePlacementEligibility': { __esModule: true, default: () => ({ eligible: true }), PLACEMENT_REQUIRED: 'Placement required' },
@@ -94,6 +94,8 @@ function mobileScreenFixture(enabled, failSubmission = false) {
     '../components/Motion': { MotionTouchableOpacity: press }, 'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 0 }) },
     '../components/AppText': { AppText: text, AppTextInput: input }, '../components/StudentScreenSkeleton': () => null,
     '../components/RefreshableScrollView': box, '../components/Icons': new Proxy({}, { get: () => () => null }),
+    '../components/StudentSurface': () => null,
+    '../components/JournalHeaderArtwork': () => null,
   };
   const source = fs.readFileSync(path.resolve(__dirname, '../../../PATHWAY-master/screens/LogbookScreen.js'), 'utf8');
   const code = babel.transformSync(source, { configFile: false, babelrc: false, presets: [require.resolve('@babel/preset-react')], plugins: [require.resolve('@babel/plugin-transform-modules-commonjs')] }).code;
@@ -104,17 +106,17 @@ function mobileScreenFixture(enabled, failSubmission = false) {
   }, mod, mod.exports, { env: { EXPO_PUBLIC_JOURNAL_BACKEND_SUBMISSION: enabled ? '1' : undefined } });
   return { Component: mod.exports.default, post, firestore, success, alert };
 }
-test.each([false, true])('actual LogbookScreen uses exactly the selected submission path (backend=%s)', async enabled => {
+test.each([false, true])('period-aware submissions remain independent of analysis consent UI (consent UI=%s)', async enabled => {
   const f = mobileScreenFixture(enabled);
   render(<f.Component navigation={{ navigate: jest.fn(), goBack: jest.fn() }} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Add new log entry' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'New weekly entry' }));
+  await screen.findByText('New Weekly Entry');
   fireEvent.change(screen.getByPlaceholderText('e.g. 40'), { target: { value: '32' } });
   fireEvent.change(screen.getByPlaceholderText(/Describe what you accomplished/), { target: { value: 'Synthetic original activities' } });
   fireEvent.click(screen.getByText('Submit Log'));
-  await screen.findByRole('button', { name: 'Add new log entry' });
+  await screen.findByRole('button', { name: 'New weekly entry' });
   // Flush async submission through the visible modal closing rather than asserting a helper mock exists.
   await require('@testing-library/react').waitFor(() => expect(screen.queryByText('New Weekly Entry')).toBeNull());
-  expect(f.firestore.addDoc).toHaveBeenCalledTimes(enabled ? 0 : 1);
-  expect(f.post.mock.calls.filter(([route]) => route === '/student/journals')).toHaveLength(enabled ? 1 : 0);
-  if (!enabled) expect(f.post).not.toHaveBeenCalled();
+  expect(f.firestore.addDoc).not.toHaveBeenCalled();
+  expect(f.post.mock.calls.filter(([route]) => route === '/student/period-journals')).toHaveLength(1);
 });

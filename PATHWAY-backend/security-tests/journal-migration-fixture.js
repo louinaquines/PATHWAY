@@ -28,7 +28,7 @@ async function migrationFixture(install) {
     afterAuth = null; failAudit = false;
     for (const name of ['workplaceJournalConsents', 'workplaceJournalConsentReceipts', 'studentJournalReceipts', 'studentJournalSequences', 'workplaceJournalAnalysisJobs']) await db.recursiveDelete(db.collection(name));
     await db.recursiveDelete(db.collection(`users/${uid}/logbook`));
-    await db.doc(`users/${uid}`).set({ role: 'student', accountApproved: true, preDeploymentStatus: 'approved', placementStatus: 'approved', companyId: 'journal-company' });
+    await db.doc(`users/${uid}`).set({ role: 'student', department: 'Journal Test Department', accountApproved: true, preDeploymentStatus: 'approved', placementStatus: 'approved', companyId: 'journal-company' });
     await db.doc('companies/journal-company').set({ active: true });
   }
   return { db, uid, reset, setFailAudit: value => { failAudit = value; }, setAfterAuth: fn => { afterAuth = fn; },

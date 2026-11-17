@@ -181,23 +181,24 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       </div>
     </dialog>
     {(acts => topHost ? createPortal(acts, topHost) : <div className="msg-inline-actions">{acts}</div>)(<>
-      <button className="rq-btn msg-bell messages-alert-trigger" type="button" aria-label="Unread messages" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
-        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-        {messageAlerts.length > 0 && <span className="msg-count">{messageAlerts.length}</span>}
-      </button>
-      {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
+      <div className="msg-switch" role="group" aria-label="Message type">
+        <button type="button" aria-pressed="true">Students{messageAlerts.length > 0 && <b>{messageAlerts.length}</b>}</button>
+        <button type="button" aria-pressed="false" onClick={() => onAnnouncements?.()}>Announcements</button>
+      </div>
       {onNewAnnouncement && <button type="button" className="rq-btn rq-primary msg-new" onClick={onNewAnnouncement}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM16 8a5 5 0 0 1 0 8" /></svg>New announcement</button>}
+      {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
     </>)}
     <div className="msg-card">
     <section className="msg-list">
       <header className="msg-list-head">
         <h2 className="sr-only">Students</h2>
-        <div className="msg-switch" role="group" aria-label="Message type">
-          <button type="button" aria-pressed="true">Students{messageAlerts.length > 0 && <b>{messageAlerts.length}</b>}</button>
-          <button type="button" aria-pressed="false" onClick={() => onAnnouncements?.()}>Announcements</button>
-        </div>
-        <div className="coordinator-search msg-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <div className="msg-search-row"><div className="coordinator-search msg-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input type="search" aria-label="Search students and conversations" placeholder="Find a student" value={search} onChange={event => setSearch(event.target.value)} /></div>
+      <button className="rq-btn msg-bell messages-alert-trigger" type="button" aria-label="Unread messages" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
+        {messageAlerts.length > 0 && <span className="msg-count">{messageAlerts.length}</span>}
+      </button>
+        </div>
       </header>
       {error && <div className="msg-error" role="status">{error}<button type="button" className="rq-link" onClick={load}>Check again</button></div>}
       <div className="msg-rows" aria-busy={loading}>

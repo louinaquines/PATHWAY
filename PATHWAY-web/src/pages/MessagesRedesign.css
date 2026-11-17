@@ -60,3 +60,14 @@
 @media (max-width: 1100px) { .coordinator-page main:has(.msg) { height: auto; overflow: auto !important; } .msg { padding: 0 16px 24px !important; } .msg-card { grid-template-columns: 1fr; height: auto; } .msg-list { border-right: 0; max-height: 420px; } .msg-chat { min-height: 460px; border-top: 1px solid #efece5; } .coordinator-page main:has(.msg) > header.requirements-topbar { padding: 18px 16px 12px !important; flex-wrap: wrap; gap: 12px; } }
 .msg { flex-direction: column; gap: 12px; }
 .msg-inline-actions { display: flex; justify-content: flex-end; gap: 8px; }
+#msg-top-actions .msg-switch, .msg-inline-actions .msg-switch { margin-right: 4px; }
+.msg-switch button { height: 36px; padding: 0 14px; font-size: 13px; }
+.msg-list-head { padding: 12px; }
+.msg-search-row { display: flex; gap: 8px; align-items: center; }
+.msg-search-row .msg-search { flex: 1; }
+.msg-search-row .msg-bell { flex: 0 0 36px; width: 36px; height: 36px; display: grid !important; place-items: center; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #465066; cursor: pointer; }
+.msg-search-row .msg-bell:hover { border-color: #0b5fd3; color: #0b5fd3; }
+.msg-search > svg { flex: none; }
+.msg-row { padding: 10px 14px; }
+.msg-rows { scrollbar-width: thin; }
+.msg-list .msg-foot { padding: 8px 12px; }

@@ -469,6 +469,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
           <div className="ev-ask-foot">
             <button type="button" className="rq-link" disabled={busy} onClick={startOver}>Start over</button>
             <span className="f48-grow" />
+            <button type="button" className="rq-btn" disabled={busy || !link} onClick={copyToClipboard}>{copied ? 'Copied' : 'Copy link'}</button>
             {unsent.length > 1 && <button type="button" className="rq-btn" disabled={busy} onClick={sendAll}>Send all {unsent.length}</button>}
             <button type="button" className="rq-btn rq-primary" disabled={busy || emailSent} onClick={sendEmail}><Icon name="mail" size={14} /> {emailSent ? 'Invitation sent' : busy ? 'Sending…' : 'Send invitation'}</button>
           </div>

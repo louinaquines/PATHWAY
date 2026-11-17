@@ -578,6 +578,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'sections' && <div className="rq-top-actions" id="sx-top-actions" />}
           {activeTab === 'registrations' && <div className="rq-top-actions" id="rg-top-actions" />}
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions" />}
+          {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions" />}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button
@@ -805,7 +806,7 @@ export default function CoordinatorDashboard() {
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
+            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} onAnnouncements={() => setActiveTab('notifications')} onNewAnnouncement={() => setActiveTab('notifications')} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} highlightStudentId={attendanceTarget && attendanceTarget.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}

@@ -1,3 +1,4 @@
+import './EndorsementDraftDialog.css';
 import React from 'react';
 import PathwayLogo, { PATHWAY_LOGO_SOURCE } from './PathwayLogo';
 
@@ -113,16 +114,16 @@ export default function EndorsementDraftDialog({ draft, onClose }) {
   };
 
   return <div role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}
-    style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, background: 'rgba(15, 23, 42, .55)' }}>
+    className="edd-overlay">
     <section role="dialog" aria-modal="true" aria-labelledby="endorsement-draft-title"
-      style={{ width: 'min(820px, 100%)', maxHeight: '92vh', overflowY: 'auto', borderRadius: 16, background: '#F8FAFC', boxShadow: '0 24px 70px rgba(15,23,42,.28)' }}>
-      <header style={{ position: 'sticky', top: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 20px', background: '#0B2540', color: '#fff' }}>
-        <div><strong id="endorsement-draft-title">Endorsement letter draft</strong><div style={{ fontSize: 12, opacity: .8, marginTop: 3 }}>Draft {draft.draftVersion} · Template {draft.templateVersion} · Prepared {preparedDate}</div></div>
-        <button type="button" onClick={onClose} aria-label="Close draft preview" style={{ border: 0, borderRadius: 8, padding: '8px 12px', background: '#244361', color: '#fff', cursor: 'pointer' }}>Close</button>
+      className="edd">
+      <header className="edd-head">
+        <div><h2 id="endorsement-draft-title">Endorsement letter <b className="edd-chip">Draft v{draft.draftVersion}</b></h2><p>Prepared {preparedDate}<span title={`Template ${draft.templateVersion}`}> · {draft.preparedBy || 'Coordinator'}</span></p></div>
+        <button type="button" className="edd-x" onClick={onClose} aria-label="Close draft preview"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>
       </header>
-      <div style={{ padding: 20 }}>
-        <div role="alert" style={{ marginBottom: 14, padding: 12, border: '1px solid #F59E0B', borderRadius: 10, background: '#FFFBEB', color: '#92400E', fontWeight: 800, textAlign: 'center' }}>
-          DRAFT ONLY — requires coordinator review and authorized signature. It has not been issued or sent.
+      <div className="edd-body">
+        <div role="alert" className="edd-note">
+          <strong>Draft only.</strong> It needs the coordinator’s signature and hasn’t been issued or sent.
         </div>
         <article style={{ maxWidth: 700, margin: '0 auto', padding: '30px clamp(18px, 5vw, 48px)', background: '#fff', border: '1px solid #E2E8F0', boxShadow: '0 4px 14px rgba(15,23,42,.06)', color: '#17243A', lineHeight: 1.65 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 16, borderBottom: '2px solid #0B2540' }}>
@@ -142,12 +143,14 @@ export default function EndorsementDraftDialog({ draft, onClose }) {
           <p>Respectfully,</p>
           <div style={{ marginTop: 48 }}><div style={{ width: 260, maxWidth: '70%', borderTop: '1px solid #334155', paddingTop: 8 }}><strong>Authorized OJT Coordinator</strong><br />{draft.department}</div><p style={{ color: '#92400E', fontSize: 12, fontWeight: 700 }}>Authorized name, signature, and official designation must be added before issuance.</p></div>
         </article>
-        <p style={{ color: '#64748B', fontSize: 12, textAlign: 'center', margin: '12px 0 18px' }}>Printing or saving a PDF does not issue the letter or store a file in PATHWAY.</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" onClick={onClose} style={{ border: '1px solid #CBD5E1', borderRadius: 8, padding: '10px 14px', background: '#fff', color: '#334155', cursor: 'pointer', fontWeight: 700 }}>Close</button>
-          <button type="button" onClick={printDraft} style={{ border: 0, borderRadius: 8, padding: '10px 14px', background: '#0284C7', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>Print / Save draft as PDF</button>
         </div>
-      </div>
+      <footer className="edd-foot">
+        <span>Printing doesn’t issue the letter or save it in PATHWAY.</span>
+        <div>
+          <button type="button" className="edd-btn" onClick={onClose}>Close</button>
+          <button type="button" className="edd-btn edd-primary" onClick={printDraft}>Print or save as PDF</button>
+        </div>
+      </footer>
     </section>
   </div>;
 }

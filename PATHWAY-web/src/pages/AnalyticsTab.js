@@ -154,46 +154,49 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}</>;
         return topHost ? createPortal(acts, topHost) : <div className="an-inline-actions">{acts}</div>; })()}
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {draft && <PortalFormDialog className="admin-term-dialog analytics-schedule-modal" label="Edit work schedule" closeOnBackdrop
+      {draft && <PortalFormDialog className="ans-dialog" label="Edit work schedule" closeOnBackdrop
         onCancel={() => { if (!saving) closeSchedule(); }}>
-        <form onSubmit={saveSchedule}>
-          <header><h2>Edit work schedule</h2></header>
-          <div className="analytics-drawer-body">
-            <fieldset disabled={saving}>
-        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
-              <fieldset className="analytics-working-days">
-                <legend>Working days</legend>
-                <div className="analytics-weekday-tiles">
-                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
-                    <label key={day}>
-                      <input type="checkbox" aria-label={day} checked={draft.workingDays.includes(index)}
-                        onChange={event => setDraft(current => ({
-                          ...current,
-                          workingDays: event.target.checked
-                            ? [...current.workingDays, index]
-                            : current.workingDays.filter(value => value !== index),
-                        }))} />
-                      {day.slice(0, 3)}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-        <div className="analytics-exceptions">
-          <label>Excluded date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
-          <button type="button" className="portal-secondary" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {
-            setDraft(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
-            setExceptionDate('');
-          }}>Add date</button>
-          {draft.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
-            onClick={() => setDraft(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
-        </div>
-
+        <form onSubmit={saveSchedule} className="ans">
+          <header className="ans-head"><div><h2>Edit work schedule</h2><p>Used to count attendance and estimate finish dates for {selectedSection?.name || 'this section'}.</p></div>
+            <button type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={() => closeSchedule()}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
+          <fieldset disabled={saving} className="ans-body">
+            <div className="ans-sec"><h3>OJT period</h3>
+              <div className="ans-grid">{['startDate', 'deadline', 'startTime'].map(field => <label key={field} className="ans-field"><span>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'}</span> <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
+            </div>
+            <fieldset className="ans-sec">
+              <legend><h3>Working days</h3></legend>
+              <div className="ans-days">
+                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                  <label key={day} className="ans-day">
+                    <input type="checkbox" aria-label={day} checked={draft.workingDays.includes(index)}
+                      onChange={event => setDraft(current => ({
+                        ...current,
+                        workingDays: event.target.checked
+                          ? [...current.workingDays, index]
+                          : current.workingDays.filter(value => value !== index),
+                      }))} />
+                    <span>{day.slice(0, 3)}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="ans-hint">{draft.workingDays.length} day{draft.workingDays.length === 1 ? '' : 's'} a week</p>
             </fieldset>
-            {scheduleError && <p role="alert">{scheduleError}</p>}
-          </div>
-          <footer>
-            <button type="button" className="portal-secondary" disabled={saving} onClick={() => closeSchedule()}>Cancel</button>
-            <button type="submit" style={s.primaryBtn} disabled={saving}>{saving ? 'Saving…' : 'Save schedule'}</button>
+            <div className="ans-sec"><h3>Days off</h3><p className="ans-hint">Holidays or school events — these won’t count as absences.</p>
+              <div className="ans-add">
+                <label className="ans-field"><span className="sr-only">Excluded date</span><input type="date" aria-label="Excluded date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
+                <button type="button" className="rq-btn" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {
+                  setDraft(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate].sort() }));
+                  setExceptionDate('');
+                }}>Add date</button>
+              </div>
+              {draft.exceptions.length > 0 && <div className="ans-chips">{draft.exceptions.map(date => <button type="button" className="ans-chip" key={date} aria-label={'Remove excluded date ' + date}
+                onClick={() => setDraft(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{shortDate(date)}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>)}</div>}
+            </div>
+            {scheduleError && <p role="alert" className="ans-err">{scheduleError}</p>}
+          </fieldset>
+          <footer className="ans-foot">
+            <button type="button" className="rq-btn" disabled={saving} onClick={() => closeSchedule()}>Cancel</button>
+            <button type="submit" className="rq-btn rq-primary" disabled={saving}>{saving ? 'Saving…' : 'Save schedule'}</button>
           </footer>
         </form>
       </PortalFormDialog>}

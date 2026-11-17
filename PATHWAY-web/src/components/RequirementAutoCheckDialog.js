@@ -20,9 +20,10 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [initial, setInitial] = useState('');
 
   useEffect(() => {
-    adminRequest(path).then(r => setForm({ ...r.autoCheck, phrasesText: (r.autoCheck.requiredPhrases || []).join('\n') }))
+    adminRequest(path).then(r => { const f = { ...r.autoCheck, phrasesText: (r.autoCheck.requiredPhrases || []).join('\n') }; setForm(f); setInitial(JSON.stringify(f)); })
       .catch(e => setError(e.message || 'Could not load settings.'));
   }, [path]);
 
@@ -51,36 +52,52 @@ export default function RequirementAutoCheckDialog({ sectionId, requirement, onC
   };
 
   const set = patch => setForm(f => ({ ...f, ...patch }));
+  const dirty = !!form && (!!file || removeReference || JSON.stringify(form) !== initial);
+  const hasRef = !!file || (form?.referenceName && !removeReference);
+  const kb = n => n ? `${Math.max(1, Math.round(n / 1024))} KB` : '';
+  const fileIcon = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></svg>;
   return (
-    <div className="autocheck-backdrop" role="presentation" onClick={onClose}>
-      <div className="autocheck-dialog" role="dialog" aria-modal="true" aria-labelledby="autocheck-title" onClick={e => e.stopPropagation()}>
-        <header><h2 id="autocheck-title">Reference file · {requirement.label}</h2>
-          <p>Upload what a correct document looks like. Each student upload is compared to it and its name checked.</p></header>
-        {!form ? <p>{error || 'Loading…'}</p> : <>
-          <ol className="autocheck-steps"><li>Upload a correct sample</li><li>Students upload theirs</li><li>You see Green / Yellow / Red</li></ol>
-          <label className={'autocheck-drop' + (dragging ? ' is-drag' : '')}
-            onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
-            onDrop={e => { e.preventDefault(); setDragging(false); pickFile({ target: { files: e.dataTransfer.files } }); }}>
-            <input type="file" accept="application/pdf,image/png,image/jpeg" onChange={pickFile} hidden />
-            {file ? <><strong><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> {file.name}</strong><span>Ready to save · click to change</span></>
-              : form.referenceName && !removeReference ? <><strong><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> Current: {form.referenceName}</strong><span>Click or drop a file to replace</span></>
-              : <><strong><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg> Drop the blank form students must fill in and sign</strong><span>or click to choose · PDF, PNG or JPEG · up to 700 KB · blur real personal data</span></>}
-          </label>
-          {form.referenceName && !removeReference && !file && <button type="button" className="autocheck-link" onClick={() => setRemoveReference(true)}>Remove reference file</button>}
-          <label className="autocheck-toggle"><input type="checkbox" checked={!!form.enabled} onChange={e => set({ enabled: e.target.checked })} /> Auto-check student uploads for this requirement</label>
-          <p className="autocheck-hint">The AI only flags each upload Green, Yellow or Red. Nothing is approved or rejected until you decide.</p>
-          <label className="autocheck-toggle"><input type="checkbox" disabled={!form.enabled} checked={form.nameMustMatch !== false} onChange={e => set({ nameMustMatch: e.target.checked })} /> Student's name on the document must match their profile</label>
-          <details className="autocheck-advanced"><summary>Advanced options</summary>
-            <fieldset disabled={!form.enabled}>
-              <label className="autocheck-field"><span className="autocheck-label">Required words or phrases (one per line)</span>
-                <textarea rows={3} value={form.phrasesText} onChange={e => set({ phrasesText: e.target.value })} placeholder={'e.g. Certificate of Registration\nFirst Semester 2026-2027'} /></label>
-              <label className="autocheck-field"><span className="autocheck-label">Notes for the checker</span>
-                <textarea rows={2} maxLength={1000} value={form.notes || ''} onChange={e => set({ notes: e.target.value })} placeholder="e.g. Must have the registrar's dry seal area" /></label>
-            </fieldset>
-          </details>
-          {error && <p className="autocheck-error" role="alert">{error}</p>}
-          <footer><button type="button" className="autocheck-secondary" onClick={onClose}>Cancel</button>
-            <button type="button" className="autocheck-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save settings'}</button></footer>
+    <div className="autocheck-backdrop acx-backdrop" role="presentation" onClick={onClose}>
+      <div className="autocheck-dialog acx" role="dialog" aria-modal="true" aria-labelledby="autocheck-title" onClick={e => e.stopPropagation()}>
+        <header className="acx-head"><div><h2 id="autocheck-title">Reference file</h2><p>{requirement.label}</p></div>
+          <button type="button" className="acx-x" aria-label="Close" onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></header>
+        {!form ? <p className="acx-loading">{error || 'Loading…'}</p> : <>
+          <div className="acx-body">
+            <p className="acx-flow">Upload a correct sample <span>→</span> students upload theirs <span>→</span> you see <i data-c="g" /><i data-c="y" /><i data-c="r" /></p>
+            {hasRef ? <div className="acx-file">
+              <span className="acx-ficon">{fileIcon}</span>
+              <span className="acx-fname"><strong>{file ? file.name : form.referenceName}</strong><small>{file ? `${kb(file.size)} · ready to save` : 'Current reference file'}</small></span>
+              <label className="acx-btn">Replace<input type="file" accept="application/pdf,image/png,image/jpeg" onChange={pickFile} hidden /></label>
+              <button type="button" className="acx-btn acx-danger" onClick={() => { if (file) setFile(null); else setRemoveReference(true); }}>Remove</button>
+            </div>
+            : <label className={'autocheck-drop acx-drop' + (dragging ? ' is-drag' : '')}
+                onDragOver={e => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
+                onDrop={e => { e.preventDefault(); setDragging(false); pickFile({ target: { files: e.dataTransfer.files } }); }}>
+                <input type="file" accept="application/pdf,image/png,image/jpeg" onChange={pickFile} hidden />
+                <span className="acx-ficon">{fileIcon}</span>
+                <strong><b>Drop the blank form here</b>, or <u>choose a file</u></strong>
+                <span>PDF, PNG or JPEG · up to 700 KB</span>
+              </label>}
+            <p className="acx-warn">Use a blank form, or blur any real personal details first.</p>
+            <label className="acx-switch"><span><strong>Auto-check student uploads</strong><small>AI only flags green, yellow or red. You still approve or reject.</small></span>
+              <input type="checkbox" role="switch" aria-label="Auto-check student uploads for this requirement" checked={!!form.enabled} onChange={e => set({ enabled: e.target.checked })} /></label>
+            <label className="acx-switch" data-off={!form.enabled || undefined}><span><strong>Name must match their profile</strong><small>The student’s name on the document is checked.</small></span>
+              <input type="checkbox" role="switch" aria-label="Student's name on the document must match their profile" disabled={!form.enabled} checked={form.nameMustMatch !== false} onChange={e => set({ nameMustMatch: e.target.checked })} /></label>
+            <details className="autocheck-advanced acx-adv"><summary>Advanced options</summary>
+              <fieldset disabled={!form.enabled}>
+                <label className="autocheck-field"><span className="autocheck-label">Required words or phrases (one per line)</span>
+                  <textarea rows={3} value={form.phrasesText} onChange={e => set({ phrasesText: e.target.value })} placeholder={'e.g. Certificate of Registration\nFirst Semester 2026-2027'} /></label>
+                <label className="autocheck-field"><span className="autocheck-label">Notes for the checker</span>
+                  <textarea rows={2} maxLength={1000} value={form.notes || ''} onChange={e => set({ notes: e.target.value })} placeholder="e.g. Must have the registrar's dry seal area" /></label>
+              </fieldset>
+            </details>
+            {error && <p className="autocheck-error acx-error" role="alert">{error}</p>}
+          </div>
+          <footer className="acx-foot">
+            <span>{form.enabled ? (hasRef ? <>Auto-check is <b>on</b></> : <>Add a reference file so auto-check can compare</>) : <>Auto-check is <b>off</b></>}</span>
+            <button type="button" className="autocheck-secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="autocheck-primary" disabled={saving || !dirty} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
+          </footer>
         </>}
       </div>
     </div>

@@ -516,58 +516,57 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </article>)}
     </details>
     <details className="placement-stage-section" open={selectedQueue?.current.stage === "endorsement" || (selectedQueue?.current.stage === "verified")} style={{order:["endorsement","verified"].includes(selectedQueue?.current.stage) ? 0 : 1}} hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}><summary>Endorsement letter</summary>
-    <h3 style={{ marginTop: 30 }}>Endorsement letter</h3>
-    <p style={{ color: '#64748B', marginTop: -8 }}>Approved placements awaiting a signed endorsement letter. These records are not issued documents or email deliveries.</p>
-    {endorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No pending endorsement paperwork matches this view.</div>}
-    {recordCursors.endorsement && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("endorsement")}>Load older records</button>}<RecordPagination pagination={endorsementPage} label="Endorsements" />
-    {endorsementPage.items.map(item => <article className="review-card" key={item.id}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <strong>{item.studentName || item.studentId}</strong>
-        <span style={{ color: '#0369A1', fontWeight: 700, fontSize: 13 }}>Awaiting signed letter</span>
-      </div>
-      <p style={{ margin: '10px 0 5px' }}><b>{item.companyName || 'Company not recorded'}</b> · {item.internshipRole || 'Role not specified'}</p>
-      <div style={{ color: '#475569', fontSize: 13 }}>Supervisor: {item.supervisorName || '—'} · {item.startDate || '—'} to {item.endDate || '—'}</div>
-      <div style={{ color: '#64748B', fontSize: 12, marginTop: 8 }}>Approved {item.createdAt && !Number.isNaN(Date.parse(item.createdAt)) ? new Date(item.createdAt).toLocaleString() : 'date unavailable'} · Not sent</div>
-      {item.draftVersion > 0 && <div style={{ color: '#475569', fontSize: 12, marginTop: 5 }}>
-        Draft v{item.draftVersion} prepared{item.draftPreparedAt && !Number.isNaN(Date.parse(item.draftPreparedAt)) ? ` ${new Date(item.draftPreparedAt).toLocaleString()}` : ''}{item.draftPreparedByName ? ` by ${item.draftPreparedByName}` : ''}. The signed letter is still outstanding.
-      </div>}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-        {item.draftVersion > 0 && <button type="button" onClick={() => viewPreparedDraft(item)}
-          style={{ border: '1px solid #BAE6FD', borderRadius: 8, padding: '9px 13px', background: '#F0F9FF', color: '#075985', fontWeight: 700, cursor: 'pointer' }}>
-          View latest draft
-        </button>}
-        <button type="button" disabled={draftBusy === item.id} onClick={() => prepareEndorsementDraft(item)}
-          style={{ border: 0, borderRadius: 8, padding: '9px 13px', background: draftBusy === item.id ? '#94A3B8' : '#0284C7', color: '#fff', fontWeight: 700, cursor: draftBusy === item.id ? 'wait' : 'pointer' }}>
-          {draftBusy === item.id ? 'Preparing draft…' : item.draftVersion > 0 ? 'Prepare next version' : 'Prepare endorsement draft'}
-        </button>
-      </div>
-    </article>)}
-    <h3 style={{ marginTop: 30 }}>Signed endorsement letter and email status</h3>
-    <p style={{ color: '#64748B', marginTop: -8 }}>Only the verified private signed copy can be emailed to the student and official company contact. Email-server acceptance is recorded separately for each recipient.</p>
-    {deliveryNotice && <div role="status" style={{ padding: 12, marginBottom: 10, border: '1px solid #BAE6FD', borderRadius: 8, background: '#F0F9FF' }}>{deliveryNotice}</div>}
-    {verifiedEndorsementItems.filter(matchesReview).length === 0 && <div className="review-empty">No verified signed copies match this view.</div>}
-    {recordCursors.verified && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("verified")}>Load older records</button>}<RecordPagination pagination={verifiedPage} label="Verified endorsements" />
-    {verifiedPage.items.map(item => <article className="review-card" key={item.id}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <strong>{item.studentName || item.studentId}</strong>
-        <span style={{ color: '#047857', fontWeight: 700, fontSize: 13 }}>Signed copy verified</span>
-      </div>
-      <p style={{ margin: '10px 0 5px' }}><b>{item.companyName || 'Company not recorded'}</b> · {item.internshipRole || 'Role not specified'}</p>
-      <div style={{ color: '#475569', fontSize: 13 }}>Supervisor: {item.supervisorName || '—'} · {item.startDate || '—'} to {item.endDate || '—'}</div>
-      <div style={{ color: '#64748B', fontSize: 12, marginTop: 8 }}>
-        Verified {item.signedCopyVerifiedAt && !Number.isNaN(Date.parse(item.signedCopyVerifiedAt)) ? new Date(item.signedCopyVerifiedAt).toLocaleString() : 'date unavailable'} · Delivery: {({ not_sent: 'Not sent', sending: 'Email status still being checked', sent: 'Email service accepted the message. Inbox delivery is unconfirmed.', partial_failed: 'Some emails failed', failed: 'Failed' })[item.deliveryStatus ?? 'not_sent'] || 'Status unavailable'}
-      </div>
-      {item.deliveryRecipients && <div style={{ color: '#475569', fontSize: 13, marginTop: 8 }}>
-        {['student', 'company'].map(kind => <div key={kind}>{kind === 'student' ? 'Student' : 'Company'}: {item.deliveryRecipients[kind]?.status || 'Not sent yet'}{item.deliveryRecipients[kind]?.sentAt ? ` · ${new Date(item.deliveryRecipients[kind].sentAt).toLocaleString()}` : ''}</div>)}
-      </div>}
-      {item.deliveryStatus === 'sending' && <p style={{ color: '#9A3412', fontSize: 13 }}>Ask an administrator to check whether the email service accepted the message before retrying.</p>}
-      {['not_sent', 'failed', 'partial_failed', undefined].includes(item.deliveryStatus) && <button type="button"
-        disabled={deliveryBusy === item.id}
-        onClick={() => setDeliveryConfirm(item)}
-        style={{ border: 0, borderRadius: 8, padding: '10px 14px', marginTop: 12, background: deliveryBusy === item.id ? '#94A3B8' : '#0284C7', color: '#fff', fontWeight: 700, cursor: deliveryBusy === item.id ? 'wait' : 'pointer' }}>
-        {deliveryBusy === item.id ? 'Sending…' : item.deliveryStatus === 'failed' || item.deliveryStatus === 'partial_failed' ? 'Retry emails that failed' : 'Email the signed letter'}
-      </button>}
-    </article>)}
+    {(() => {
+      const when = v => { const t = Date.parse(v); return t ? new Date(t).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+      const day = v => { const t = Date.parse(v); return t ? new Date(t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''; };
+      const card = (item, verified) => {
+        const sent = verified && item.deliveryStatus === 'sent';
+        const chip = !verified ? (item.draftVersion > 0 ? ['Waiting for signed copy', 'amber'] : ['Draft needed', 'mute']) : sent ? ['Sent', 'green'] : item.deliveryStatus === 'sending' ? ['Checking email', 'amber'] : ['Ready to email', 'blue'];
+        const hint = !verified ? (item.draftVersion > 0 ? 'Print the draft, get it signed, then upload the signed copy.' : 'Prepare the draft so the company can sign it.') : sent ? 'The email service accepted the letter. Inbox delivery isn’t confirmed.' : 'Only the verified signed copy can be emailed.';
+        const steps = [
+          ['Placement approved', true, day(item.createdAt)],
+          ['Prepare the draft', item.draftVersion > 0 || verified, item.draftVersion > 0 ? `v${item.draftVersion} · ${day(item.draftPreparedAt)}` : ''],
+          ['Signed copy uploaded', verified, verified ? day(item.signedCopyVerifiedAt) : ''],
+          ['Emailed to student & company', sent, sent ? day(item.deliverySentAt || item.updatedAt) : ''],
+        ];
+        const now = steps.findIndex(x => !x[1]);
+        const rcp = item.deliveryRecipients || {};
+        return <article className="pld-letter" key={item.id}>
+          <div className="pld-letter-head"><h3>Endorsement letter</h3><b className="lb-chip" data-tone={chip[1]}>{chip[0]}</b></div>
+          <p className="pld-hint">{hint}</p>
+          <dl className="pld-facts">
+            <div><dt>Company</dt><dd>{item.companyName || 'Not recorded'}{item.internshipRole ? ` · ${item.internshipRole}` : ''}</dd></div>
+            <div><dt>Supervisor</dt><dd>{item.supervisorName || '—'}</dd></div>
+            <div><dt>Dates</dt><dd>{item.startDate ? `${day(item.startDate)} – ${day(item.endDate)}` : '—'}</dd></div>
+            <div><dt>Approved</dt><dd>{when(item.createdAt) || '—'}</dd></div>
+          </dl>
+          <ol className="pld-journey">{steps.map(([label, done, meta], i) => <li key={label} data-state={done ? 'done' : i === now ? 'now' : 'next'}><i aria-hidden="true" /><span>{label}</span>{i === now && !meta ? <em>you are here</em> : meta ? <small>{meta}</small> : null}</li>)}</ol>
+          {item.deliveryStatus === 'sending' && <p className="pld-warn">Ask an administrator to check whether the email service accepted the message before retrying.</p>}
+          <div className="pld-bar pld-letter-bar">
+            {!verified && <>
+              {item.draftVersion > 0 && <span className="pld-meta">Draft v{item.draftVersion}{item.draftPreparedAt ? ` · ${day(item.draftPreparedAt)}` : ''}{item.draftPreparedByName ? ` by ${item.draftPreparedByName}` : ''}</span>}
+              <div className="review-actions">
+                {item.draftVersion > 0 && <button type="button" onClick={() => viewPreparedDraft(item)}>View draft v{item.draftVersion}</button>}
+                <button type="button" className={item.draftVersion > 0 ? '' : 'review-approve'} disabled={draftBusy === item.id} onClick={() => prepareEndorsementDraft(item)}>{draftBusy === item.id ? 'Preparing…' : item.draftVersion > 0 ? 'Prepare new version' : 'Prepare draft'}</button>
+              </div>
+            </>}
+            {verified && <>
+              <span className="pld-rcpts">{['student', 'company'].map(k => { const st = rcp[k]?.status || 'not sent'; return <b key={k} className="lb-chip" data-tone={/sent|accept/i.test(st) && !/not/i.test(st) ? 'green' : /fail/i.test(st) ? 'red' : 'mute'}>{k === 'student' ? 'Student' : 'Company'} · {st}{rcp[k]?.sentAt ? ` ${day(rcp[k].sentAt)}` : ''}</b>; })}</span>
+              {['not_sent', 'failed', 'partial_failed', undefined].includes(item.deliveryStatus) && <div className="review-actions"><button type="button" className="review-approve" disabled={deliveryBusy === item.id} onClick={() => setDeliveryConfirm(item)}>{deliveryBusy === item.id ? 'Sending…' : item.deliveryStatus === 'failed' || item.deliveryStatus === 'partial_failed' ? 'Retry failed emails' : '✉ Email signed letter'}</button></div>}
+            </>}
+          </div>
+        </article>;
+      };
+      const pending = endorsementItems.filter(matchesReview); const ver = verifiedEndorsementItems.filter(matchesReview);
+      return <>
+        {deliveryNotice && <div role="status" className="pld-notice">{deliveryNotice}</div>}
+        {!pending.length && !ver.length && <div className="review-empty">No endorsement letter yet.</div>}
+        {endorsementPage.items.map(item => card(item, false))}
+        {verifiedPage.items.map(item => card(item, true))}
+        {(recordCursors.endorsement || recordCursors.verified) && <button type="button" className="plt-link" disabled={recordsBusy} onClick={() => loadMoreRecords(recordCursors.endorsement ? 'endorsement' : 'verified')}>Load older letters</button>}
+        <RecordPagination pagination={endorsementPage} label="Endorsements" /><RecordPagination pagination={verifiedPage} label="Verified endorsements" />
+      </>;
+    })()}
     </details>
     <section className="pld-history" hidden={reviewStage !== 'history'}>
     <h3>Placement history</h3>

@@ -108,3 +108,4 @@
 .sx-stage button[aria-selected="true"] b { background: #eaf1fd; color: #0b5fd3; }
 .sx-req-tools .sx-addreq { margin-bottom: 6px; }
 .sx-hint em { font-style: normal; color: #b3261e; font-weight: 600; }
+.sx-stage { gap: 36px; }

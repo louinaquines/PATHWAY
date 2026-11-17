@@ -276,7 +276,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             </header>
             <div className="rq-stages sx-tabs" role="tablist" aria-label="Section view" style={{ '--count': 3, '--index': view === 'requirements' ? 1 : view === 'rules' ? 2 : 0 }}>
               <span className="rq-stages-thumb" aria-hidden="true" />
-              <button type="button" role="tab" aria-selected={view === 'students'} onClick={() => fetchStudents(selected)}><i data-tone={pending ? 'amber' : 'mute'} aria-hidden="true" /><strong>Students · {students.length}</strong></button>
+              <button type="button" role="tab" aria-selected={view === 'students'} onClick={() => fetchStudents(selected)}><i data-tone="mute" aria-hidden="true" /><strong>Students · {students.length}</strong></button>
               <button type="button" role="tab" aria-selected={view === 'requirements'} onClick={() => fetchRequirements(selected)}><i data-tone="mute" aria-hidden="true" /><strong>Required documents{view === 'requirements' && requirements.length ? ` · ${requirements.length}` : ''}</strong></button>
               <button type="button" role="tab" aria-selected={view === 'rules'} onClick={() => setView('rules')}><i data-tone="mute" aria-hidden="true" /><strong>Rules and deadlines</strong></button>
             </div>
@@ -317,7 +317,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   <div className="sx-stage" role="tablist" aria-label="OJT stage">
                   {stages.map(([k, l]) => { const items = requirements.filter(r => r.category === k); const late = items.filter(overdue).length;
                     return <button key={k} type="button" role="tab" aria-selected={reqStage === k} onClick={() => { setReqStage(k); setReqPage(1); }}>
-                      {late > 0 && <i aria-label={`${late} overdue`} />}{l}<b>{items.length}</b></button>; })}
+                      {l}<b>{items.length}</b></button>; })}
                   </div>
                   <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
                 </div>

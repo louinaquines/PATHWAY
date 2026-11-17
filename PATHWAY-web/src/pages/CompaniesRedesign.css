@@ -1,5 +1,5 @@
 .coordinator-page main:has(.co) { background: #f4f2ec !important; background-image: none !important; }
-.coordinator-page main:has(.co) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 4px !important; }
+.coordinator-page main:has(.co) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; }
 .coordinator-page main:has(.co) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
 .coordinator-page main:has(.co) > div { background: transparent !important; }
 .company-directory-page:has(.co) { padding: 0 40px 32px !important; max-width: none !important; color: #15213a; }

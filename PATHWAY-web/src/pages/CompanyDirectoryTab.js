@@ -191,7 +191,6 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
         </>;
         return <>
           {topHost ? createPortal(top, topHost) : null}
-          <p className="co-sub">The places where your students train.</p>
           <div className="co">
             <section className="co-list" aria-label="Company records">
               <div className="co-tools">

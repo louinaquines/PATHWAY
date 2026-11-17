@@ -228,11 +228,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     if (!prev || rank(item) > rank(prev)) latestByStudent.set(item.studentId, item);
   });
   const now = Date.now();
+  const rate = v => { const n = Number(v); return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : null; };
+  const questionsOf = item => Array.isArray(item?.formDefinition?.questions) ? item.formDefinition.questions : [];
   const scoreOf = item => {
     if (!item?.submitted) return null;
     const values = item.formDefinition
-      ? item.formDefinition.questions.filter(q => q.type === 'rating').map(q => Number(item.answers?.[q.id])).filter(Number.isFinite)
-      : Object.values(item.ratings || {}).map(Number).filter(Number.isFinite);
+      ? questionsOf(item).filter(q => q?.type === 'rating').map(q => rate(item.answers?.[q.id])).filter(v => v != null)
+      : Object.values(item.ratings || {}).map(rate).filter(v => v != null);
     return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
   };
   const ago = value => { const days = Math.floor((now - Date.parse(value)) / 86400000); return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`; };
@@ -251,8 +253,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   // average per rating question across answered evaluations
   const summary = new Map();
   rows.filter(r => r.state === 'answered').forEach(({ item }) => {
-    if (item.formDefinition) item.formDefinition.questions.filter(q => q.type === 'rating').forEach(q => { const v = Number(item.answers?.[q.id]); if (Number.isFinite(v)) { const s = summary.get(q.label) || []; s.push(v); summary.set(q.label, s); } });
-    else Object.entries(item.ratings || {}).forEach(([k, v]) => { const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()); const s = summary.get(label) || []; s.push(Number(v)); summary.set(label, s); });
+    if (item.formDefinition) questionsOf(item).filter(q => q?.type === 'rating').forEach(q => { const v = rate(item.answers?.[q.id]); const label = String(q.label || 'Question').trim(); if (v != null) { const s = summary.get(label) || []; s.push(v); summary.set(label, s); } });
+    else Object.entries(item.ratings || {}).forEach(([k, v]) => { const n = rate(v); if (n == null) return; const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()); const s = summary.get(label) || []; s.push(n); summary.set(label, s); });
   });
   const answeredCount = counts.answered;
   const openAsk = student => {
@@ -317,13 +319,13 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 </div>
                 {item.submitted && (() => {
                   const list = item.formDefinition
-                    ? item.formDefinition.questions.map(q => ({ id: q.id, label: q.label, rating: q.type === 'rating', value: item.answers?.[q.id] }))
+                    ? questionsOf(item).map((q, i) => ({ id: q?.id || 'q' + i, label: String(q?.label || `Question ${i + 1}`), rating: q?.type === 'rating', value: item.answers?.[q?.id] }))
                     : Object.entries(item.ratings || {}).map(([k, v]) => ({ id: k, label: k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()), rating: true, value: v }));
                   const ratings = list.filter(x => x.rating), texts = list.filter(x => !x.rating);
                   return <>
                     {ratings.length > 0 && <div className="ev-ratings">{ratings.map(x => <div key={x.id} className="ev-rating">
-                      <span>{x.label}</span>{x.value !== undefined ? <>{dots(Number(x.value))}<strong>{x.value}<small> / 5</small></strong></> : <small className="f48-muted">Not answered</small>}</div>)}</div>}
-                    {texts.filter(x => x.value).map(x => <blockquote key={x.id} className="ev-quote"><small>{x.label}</small><p>{x.value}</p></blockquote>)}
+                      <span className="ev-q" title={x.label}>{x.label}</span>{rate(x.value) != null ? <>{dots(rate(x.value))}<strong>{rate(x.value)}<small> / 5</small></strong></> : x.value != null && x.value !== '' ? <strong className="ev-raw">{String(x.value)}</strong> : <small className="f48-muted ev-na">Not answered</small>}</div>)}</div>}
+                    {texts.filter(x => x.value != null && String(x.value).trim()).map(x => <blockquote key={x.id} className="ev-quote"><small>{x.label}</small><p>{String(x.value)}</p></blockquote>)}
                     {!item.formDefinition && item.comments && <blockquote className="ev-quote"><small>Comments</small><p>{item.comments}</p></blockquote>}
                   </>;
                 })()}
@@ -341,8 +343,8 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
         <div className="ev-card">
           {summary.size ? <>
             <p className="f48-muted">Average of {answeredCount} answer{answeredCount === 1 ? '' : 's'}, out of 5</p>
-            {[...summary.entries()].slice(0, 6).map(([label, values]) => { const avg = values.reduce((a, b) => a + b, 0) / values.length; return <div key={label} className="ev-bar">
-              <div><span>{label}</span><strong>{avg.toFixed(1)}</strong></div>
+            {[...summary.entries()].map(([label, values]) => { const avg = values.reduce((a, b) => a + b, 0) / values.length; return <div key={label} className="ev-bar">
+              <div><span title={label}>{label}</span><strong>{avg.toFixed(1)}</strong></div>
               <i><b style={{ width: `${(avg / 5) * 100}%` }} /></i></div>; })}
           </> : <p className="f48-muted">Scores appear here after supervisors answer.</p>}
         </div>

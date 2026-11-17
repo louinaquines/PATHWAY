@@ -260,7 +260,6 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   return (
     <div className="cl">
       {topHost ? createPortal(topActions, topHost) : <div className="cl-inline-actions">{topActions}</div>}
-      <p className="cl-sub">Clear a student once every step has a green tick.</p>
       {error && <div role="alert" className="cl-error">{error}</div>}
       <div className="cl-card">
         <div className="cl-toolbar">
@@ -293,7 +292,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
                   : state === 'ready' ? <button type="button" className="rq-btn rq-primary" disabled={busyId === row.id} onClick={async () => { setBusyId(row.id); await markCleared(row); setBusyId(null); }}><Icon name="check" size={14} /> {busyId === row.id ? 'Clearing…' : 'Clear student'}</button>
                   : <button type="button" className="rq-link" aria-expanded={open} onClick={() => setOpenId(open ? null : row.id)}>{open ? 'Hide' : 'See what’s missing'}</button>}</span>
               </div>
-              {open && <ul className="cl-missing">{missing(row).length ? missing(row).map(m => <li key={m}>{m}</li>) : <li>Everything is done. Refresh to update.</li>}</ul>}
+              {open && <div className="cl-missing"><span className="cl-missing-title">What’s left</span><ul>{missing(row).length ? missing(row).map(m => <li key={m}>{m}</li>) : <li>Everything is done. Refresh to update.</li>}</ul></div>}
             </div>;
           })}
           {!filteredRows.length && <div className="cl-empty">{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? (rows.length ? 'No students in this view.' : 'No students yet. Clearance progress will appear here once students join this section.') : 'Select a section to review clearance readiness.'}</div>}

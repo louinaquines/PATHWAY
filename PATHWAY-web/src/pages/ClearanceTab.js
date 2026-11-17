@@ -13,6 +13,7 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
 import Pager from '../components/Pager';
+import SectionPicker from '../components/SectionPicker';
 import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
@@ -38,7 +39,7 @@ const CLEARANCE_ICONS = {
   hours: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
 };
 
-export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all' }) {
+export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all', sections = [], onSectionChange }) {
   const loadVersion = useRef(0);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,6 +255,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   const topActions = <>
     <button type="button" className="rq-btn" onClick={printReport} disabled={!rows.length}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z" /></svg> Print report</button>
     <button type="button" className="rq-btn" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={14} /> Export list</button>
+    {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
   </>;
   return (
     <div className="cl">

@@ -33,3 +33,6 @@
 @media (max-width: 600px) {
   .evn-pop { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 80vh; }
 }
+.evn-item[data-kind="ready"] .evn-av { background: #eaf1fd; color: #0b5fd3; }
+.evn-item[data-kind="almost"] .evn-av { background: #fbf1d9; color: #9a6200; }
+.evn-item[data-kind="cleared"] .evn-av { background: #e6f4ec; color: #1f7a4d; }

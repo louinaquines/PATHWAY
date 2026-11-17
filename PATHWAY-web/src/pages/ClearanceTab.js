@@ -14,6 +14,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
 import Pager from '../components/Pager';
 import SectionPicker from '../components/SectionPicker';
+import EvaluationInbox from '../components/EvaluationInbox';
 import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
@@ -249,6 +250,18 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
     : <svg className="cl-tick" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#c9c4ba" strokeWidth="1.6" /></svg>;
   const initials = name => String(name || '?').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
 
+  const inboxItems = rows.flatMap(row => {
+    const state = stateOf(row); const name = row.student || 'Student';
+    if (state === 'cleared') return [{ id: `cleared:${row.id}`, kind: 'cleared', name, row, time: Date.parse(row.clearedAt) || 0, hint: row.clearedAt ? undefined : 'Certificate ready', text: <>You cleared <b>{name}</b>{row.clearedAt ? ` · ${short(row.clearedAt)}` : ''}</> }];
+    if (state === 'ready') return [{ id: `ready:${row.id}`, kind: 'ready', name, row, time: 0, hint: 'Ready for you to clear', text: <><b>{name}</b> is ready to clear</> }];
+    const left = missing(row);
+    if (left.length === 1) return [{ id: `almost:${row.id}:${left[0]}`, kind: 'almost', name, row, time: 0, hint: 'One step left', text: <><b>{name}</b> has 1 step left: {left[0].charAt(0).toLowerCase() + left[0].slice(1)}</> }];
+    return [];
+  });
+  const openNotification = n => {
+    setSummaryFilter('all'); setSearchQuery(n.row.student || ''); setPage(1);
+    setOpenId(n.kind === 'almost' ? n.row.id : null);
+  };
   if (loading) {
     return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
   }
@@ -267,7 +280,11 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             {[['all', 'All'], ['ready', 'Ready to clear'], ['working', 'Still working'], ['cleared', 'Cleared']].map(([v, l]) =>
               <button key={v} type="button" aria-pressed={view === v} onClick={() => { setSummaryFilter(v); setPage(1); }}>{l} {counts[v]}</button>)}
           </div>
-          <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setPage(1); }} label="Search clearance records" placeholder="Find a student" />
+          <div className="cl-tools-right">
+            <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setPage(1); }} label="Search clearance records" placeholder="Find a student" />
+            <EvaluationInbox items={inboxItems} onOpen={openNotification} storageKey="pathway.clearanceInbox.read" emptyText="Students ready to clear show up here."
+              tabs={[['all', 'All'], ['ready', 'Ready', ['ready']], ['almost', 'Almost there', ['almost']], ['cleared', 'Cleared', ['cleared']]]} />
+          </div>
         </div>
         <div className="cl-table" role="table" aria-label="Clearance">
           <div className="cl-row cl-headrow" role="row">

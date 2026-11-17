@@ -196,3 +196,4 @@ dialog.ans-dialog::backdrop { background: rgba(21,33,58,.45); }
 .ans-foot .rq-btn { height: 38px; padding: 0 18px; }
 .ans .rq-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
 @media (max-width: 560px) { .ans-grid { grid-template-columns: 1fr; } .ans-days { grid-template-columns: repeat(4, 1fr); } }
+.an-records > .an-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px !important; font-size: 12.5px; color: #7b8494; border-top: 0 !important; }

@@ -1,6 +1,7 @@
 import { PortalFormDialog } from '../components/PortalStates';
 import { compareStudents } from '../coordinatorStudentSort';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
+import { useRecordPage } from '../components/RecordPagination';
+import Pager from '../components/Pager';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AnalyticsTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -276,7 +277,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             </tbody>
           </table>
         </div>
-        <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
+        {recordsPage.total > 10 && <div className="an-foot"><span>{recordsPage.start + 1}–{recordsPage.start + recordsPage.items.length} of {recordsPage.total}</span><Pager page={recordsPage.page} pages={recordsPage.pageCount} onGo={recordsPage.onPageChange} label="Analytics students" /></div>}
       </div>
       {(() => { const st = panelId && (data?.students || []).find(x => x.id === panelId); if (!st) return null;
         return <AttendancePanel st={st} today={data.today} deadline={schedule?.deadline} sectionId={selectedSection?.id} editing={editing === st.id}

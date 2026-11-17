@@ -32,7 +32,7 @@ test('select all only prepares invitations for students assigned to the chosen c
   expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
   expect(screen.getByRole('textbox', { name: 'Supervisor email address' })).toHaveValue('supervisor@example.test');
-  fireEvent.submit(screen.getByRole('button', { name: 'Create evaluation links' }).closest('form'));
+  fireEvent.submit(screen.getByRole('button', { name: 'Next' }).closest('form'));
   await waitFor(() => expect(screen.getAllByRole('button', { name: /^(Amy|Ben) Ready to send$/ })).toHaveLength(2));
   const requests = fetch.mock.calls.filter(([url]) => url.endsWith('/create-evaluation-token'));
   expect(requests.map(([, options]) => JSON.parse(options.body).studentId)).toEqual(['amy', 'ben']);
@@ -62,7 +62,7 @@ test('changing company clears the previous students and supervisor', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
   fireEvent.change(company, { target: { value: 'id:elsewhere' } });
   expect(screen.getByRole('textbox', { name: 'Supervisor email address' })).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Create evaluation links' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   expect(screen.getAllByRole('checkbox')).toHaveLength(1);
   expect(screen.getByRole('checkbox')).not.toBeChecked();
@@ -81,7 +81,7 @@ test('a preparation failure retains the completed invitations so retry only prep
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-  const submit = screen.getByRole('button', { name: 'Create evaluation links' });
+  const submit = screen.getByRole('button', { name: 'Next' });
   fireEvent.submit(submit.closest('form'));
   await screen.findByText('Temporary failure');
   fireEvent.submit(submit.closest('form'));

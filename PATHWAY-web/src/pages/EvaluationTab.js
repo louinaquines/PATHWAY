@@ -257,6 +257,27 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     else Object.entries(item.ratings || {}).forEach(([k, v]) => { const n = rate(v); if (n == null) return; const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()); const s = summary.get(label) || []; s.push(n); summary.set(label, s); });
   });
   const answeredCount = counts.answered;
+  const unsent = preparedInvitations.filter(item => !item.sent);
+  const askStep = !preparedInvitations.length || remainingStudents.length ? 'who' : unsent.length ? 'review' : 'sent';
+  const startOver = () => {
+    setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectedStudentIds([]); setCompanyKey(''); setStatus(''); setEmailMessage('');
+    setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
+  };
+  const sendAll = async () => {
+    if (busy) return;
+    setBusy(true); setStatus('Sending invitations…');
+    let failed = 0;
+    for (const item of unsent) {
+      try {
+        await adminRequest('/coordinator/evaluations/' + encodeURIComponent(item.id) + '/email', { method: 'POST', body: JSON.stringify({ token: item.token, message: emailMessage }) });
+        setPreparedInvitations(previous => previous.map(x => x.id === item.id ? { ...x, sent: true, sendFailed: false } : x));
+        if (invitation?.id === item.id) setEmailSent(true);
+      } catch (error) { failed += 1; setPreparedInvitations(previous => previous.map(x => x.id === item.id ? { ...x, sendFailed: true } : x)); setStatus(error.message); }
+    }
+    if (!failed) setStatus('');
+    setBusy(false);
+    try { await loadEvaluations(); } catch (_) { /* keep results */ }
+  };
   const openAsk = student => {
     setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectionOpen(false);
     if (student) {
@@ -352,10 +373,12 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
       </aside>
 
       {askOpen && <PortalFormDialog className="ev-ask" label="Ask for an evaluation" closeOnBackdrop onCancel={() => { if (!busy) setAskOpen(false); }}>
-        <header className="ev-ask-head"><div><h2>Ask for an evaluation</h2><p>We’ll email the supervisor a private link. It works for 7 days.</p></div>
+        <header className="ev-ask-head"><div><h2>Ask for an evaluation</h2>
+          <p>{askStep === 'who' ? 'Step 1 of 2 · Who should answer?' : askStep === 'review' ? 'Step 2 of 2 · Check before sending' : 'All done'}</p></div>
           <button type="button" className="rq-icon" aria-label="Close" disabled={busy} onClick={() => setAskOpen(false)}><Icon name="x" size={16} /></button></header>
-        <div className="evaluation-panel ev-ask-body">
-        <form onSubmit={createLink} style={styles.form}>
+        {askStep !== 'sent' && <div className="ev-steps" aria-hidden="true"><i data-on /><i data-on={askStep === 'review' || undefined} /></div>}
+        {askStep === 'who' && <form onSubmit={createLink} className="evaluation-panel ev-ask-form">
+
           <div style={styles.formRow}>
             <div style={styles.field}>
               <label htmlFor="evaluation-company" style={styles.label}>Company</label>
@@ -421,56 +444,48 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
             </div>
           </div>
 
-          <div className="evaluation-form-actions">
-          <button type="submit" disabled={busy || mixedSupervisors || !remainingStudents.length} style={styles.generateBtn}>
-            {busy ? 'Please wait…' : 'Create evaluation links'}
-          </button>
+          {preparedInvitations.length > 0 && remainingStudents.length > 0 && !busy && <p className="ev-ask-error" role="alert"><Icon name="alert" size={14} /> <span>{remainingStudents.length} student{remainingStudents.length === 1 ? '' : 's'} couldn’t be prepared. Press Next to try again.{status && !/^Preparing/.test(status) && <> Reason: <span>{status}</span></>}</span></p>}
+          {status && !(preparedInvitations.length > 0 && remainingStudents.length > 0) && !/^Preparing/.test(status) && <p className="ev-ask-error" role="alert"><Icon name="alert" size={14} /> {status}</p>}
+          <div className="ev-ask-foot">
+            <button type="button" className="rq-btn" disabled={busy} onClick={() => setAskOpen(false)}>Cancel</button>
+            <button type="submit" className="rq-btn rq-primary" disabled={busy || mixedSupervisors || !remainingStudents.length}>{busy ? 'Preparing…' : 'Next'} <Icon name="chevronRight" size={14} /></button>
           </div>
-        </form>
-
-        {status && (
-          <div role="status" aria-live="polite" style={status.includes('Could not') || status.includes('Error') ? styles.errorBox : styles.infoBox}>
-            {status}
-          </div>
-        )}
-
-        {preparedInvitations.length > 0 && <section className="evaluation-prepared">
-          <div className="evaluation-prepared-heading">
-            <h3>{preparedInvitations.length === 1 ? 'Prepared invitation' : 'Prepared invitations'}</h3>
-            <button type="button" className="portal-secondary" disabled={busy} onClick={() => {
-              setPreparedInvitations([]); setInvitation(null); setLink(''); setSelectedStudentIds([]); setCompanyKey(''); setStatus('');
-              setForm({ studentId: '', companyName: '', supervisorName: '', supervisorEmail: '' });
-            }}>New request</button>
-          </div>
-          {preparedInvitations.length > 1 && <ul className="evaluation-invitation-list">
-            {preparedInvitations.map(item => <li key={item.id}>
-              <button type="button" aria-pressed={invitation?.id === item.id} disabled={busy} onClick={() => showInvitation(item)}>
-                <strong>{item.studentName}</strong><span>{item.sent ? 'Sent' : item.sendFailed ? 'Send failed' : 'Ready to send'}</span>
-              </button>
-            </li>)}
-          </ul>}
-          {link && invitation && <section key={invitation.id} className="evaluation-review-card" aria-label="Review invitation">
-            <h4>Review invitation</h4>
-            <dl>
-              <dt>Student</dt><dd>{invitation.studentName}{emailSent && <span className="evaluation-review-sent">Sent</span>}</dd>
-              <dt>To</dt><dd>{invitation.supervisorName} · {invitation.email}</dd>
-              <dt>Subject</dt><dd>PATHWAY supervisor evaluation request</dd>
-            </dl>
-            <div className="evaluation-review-link">
-              <small>Expires in 7 days</small>
-              <button type="button" className="portal-secondary" onClick={copyToClipboard}>{copied ? 'Link copied' : 'Copy link'}</button>
-              <button type="button" className="portal-secondary" aria-expanded={linkVisible} onClick={() => setLinkVisible(!linkVisible)}>{linkVisible ? 'Hide link' : 'Show link'}</button>
-            </div>
-            {linkVisible && <input aria-label="Evaluation link" readOnly value={link} style={styles.input} onFocus={event => event.target.select()} />}
-            <label htmlFor="evaluation-email-message">Additional message (optional)</label>
-            <textarea id="evaluation-email-message" maxLength={2000} rows={2} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} style={styles.input} placeholder="Add a note for the supervisor" />
-            <div className="evaluation-review-send">
-              <button type="button" disabled={busy || emailSent} onClick={sendEmail} style={styles.generateBtn}><Icon name="mail" size={16} /> {emailSent ? 'Invitation sent' : busy ? 'Sending…' : 'Send invitation'}</button>
-            </div>
+        </form>}
+        {askStep === 'review' && <div className="ev-ask-review">
+          {preparedInvitations.length > 1 && <div className="ev-tabs" role="group" aria-label="Invitations">
+            {preparedInvitations.map(item => <button key={item.id} type="button" aria-pressed={invitation?.id === item.id} disabled={busy} onClick={() => showInvitation(item)}>
+              <strong>{item.studentName}</strong> <span data-state={item.sent ? 'sent' : item.sendFailed ? 'failed' : 'ready'}>{item.sent ? 'Sent' : item.sendFailed ? 'Send failed' : 'Ready to send'}</span>
+            </button>)}
+          </div>}
+          {link && invitation && <section key={invitation.id} className="ev-review" aria-label="Review invitation">
+            <div><span>To</span><strong>{invitation.supervisorName}<em>{invitation.email}</em></strong></div>
+            <div><span>About</span><strong>{invitation.studentName}{emailSent && <b className="lb-chip" data-tone="green">Sent</b>}</strong></div>
+            <div><span>Subject</span><strong>PATHWAY supervisor evaluation request</strong></div>
+            <div><span>Link</span><strong className="ev-linkrow">Works for 7 days
+              <button type="button" className="rq-link" onClick={copyToClipboard}>{copied ? 'Link copied' : 'Copy link'}</button>
+              <button type="button" className="rq-link" aria-expanded={linkVisible} onClick={() => setLinkVisible(!linkVisible)}>{linkVisible ? 'Hide link' : 'Show link'}</button></strong></div>
+            {linkVisible && <input className="ev-linkfield" aria-label="Evaluation link" readOnly value={link} onFocus={event => event.target.select()} />}
           </section>}
-        </section>}
-
-        </div>
+          <label className="ev-note" htmlFor="evaluation-email-message">Add a note (optional)
+            <textarea id="evaluation-email-message" maxLength={2000} rows={3} value={emailMessage} disabled={busy || emailSent} onChange={event => setEmailMessage(event.target.value)} placeholder="e.g. Thank you for guiding Jose this semester." /></label>
+          {status && /could not|error|failed|not |invalid|denied|verify/i.test(status) && !/does not confirm/i.test(status) && <p className="ev-ask-error" role="alert"><Icon name="alert" size={14} /> {status}</p>}
+          <div className="ev-ask-foot">
+            <button type="button" className="rq-link" disabled={busy} onClick={startOver}>Start over</button>
+            <span className="f48-grow" />
+            {unsent.length > 1 && <button type="button" className="rq-btn" disabled={busy} onClick={sendAll}>Send all {unsent.length}</button>}
+            <button type="button" className="rq-btn rq-primary" disabled={busy || emailSent} onClick={sendEmail}><Icon name="mail" size={14} /> {emailSent ? 'Invitation sent' : busy ? 'Sending…' : 'Send invitation'}</button>
+          </div>
+        </div>}
+        {askStep === 'sent' && <div className="ev-ask-done">
+          <img src="/email/email-guide-thumbsup.gif" alt="" aria-hidden="true" onError={event => { event.currentTarget.src = '/guide-thinking.png'; }} />
+          <h3>{preparedInvitations.length === 1 ? `Invitation sent to ${preparedInvitations[0].supervisorName}` : `${preparedInvitations.length} invitations sent`}</h3>
+          <p>They’ll get an email with a private link. Their score shows up here once they answer. The link works for 7 days.</p>
+          <small>“Sent” means the email service accepted it, not that it was read.</small>
+          <div className="ev-ask-foot ev-ask-center">
+            <button type="button" className="rq-btn" onClick={startOver}>Ask for another</button>
+            <button type="button" className="rq-btn rq-primary" onClick={() => setAskOpen(false)}>Done</button>
+          </div>
+        </div>}
       </PortalFormDialog>}
       {builderOpen && <EvaluationBuilderDialog value={formDefinition} onSave={setFormDefinition} onClose={() => setBuilderOpen(false)} />}
       <AlertDialog open={Boolean(deleteTarget)} title="Delete this evaluation?"

@@ -86,3 +86,12 @@
 .an-records .analytics-status-sub { display: block; margin-top: 3px; font-size: 11.5px !important; color: #9aa1ad !important; }
 .an-records .an-none { text-align: center; padding: 32px !important; color: #7b8494 !important; }
 .an-records > :last-child:not(.an-head):not(.analytics-table-scroll) { padding: 12px 20px !important; margin: 0 !important; border-top: 0 !important; background: transparent !important; }
+.an-chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.an-expand { display: inline-flex; align-items: center; gap: 6px; height: 32px; font-size: 12.5px; }
+.an-rc { margin-top: 12px; }
+.an-avg { color: #7b8494; margin-left: auto; }
+.an-tip { display: grid; gap: 2px; padding: 8px 10px; background: #15213a; color: #fff; border-radius: 8px; font-size: 12px; box-shadow: 0 6px 20px rgba(21,33,58,.2); }
+.an-tip span { color: #c9d3e6; }
+.an-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(21,33,58,.45); display: grid; place-items: center; padding: 24px; }
+.an-modal { width: min(1200px, 100%); background: #fff; border-radius: 14px; padding: 20px 22px; box-shadow: 0 20px 60px rgba(21,33,58,.25); font-family: inherit; color: #15213a; }
+.an-chart .an-legend { margin-top: 8px; }

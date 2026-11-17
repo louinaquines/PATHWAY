@@ -18,6 +18,7 @@ import './CoordinatorRecords.css';
 import './AnalyticsRedesign.css';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid, ReferenceLine } from 'recharts';
 
 function csvEscape(v) {
   const text = String(v ?? '');
@@ -509,6 +510,8 @@ const s = {
 
 const TIER = { Low: 'on', Completed: 'on', Medium: 'mid', High: 'far' };
 function AnalyticsOverview({ data }) {
+  const [wide, setWide] = useState(false);
+  useEffect(() => { if (!wide) return undefined; const k = e => { if (e.key === 'Escape') setWide(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [wide]);
   const students = data.students || [];
   const total = students.length;
   const bars = [...students].filter(st => st.hoursRendered != null).sort((a, b) => (b.hoursRendered || 0) - (a.hoursRendered || 0));
@@ -526,14 +529,20 @@ function AnalyticsOverview({ data }) {
   return <>
     <div className="an-top">
       <section className="an-card an-chart" aria-label="Hours done so far">
-        <h3 className="an-title">Hours done so far</h3>
-        <p className="an-sub">Each bar is one student, tallest first.{data.averageHours != null ? ` Class average: ${data.averageHours} h.` : ''}</p>
-        {bars.length ? <div className="an-bars" role="img" aria-label={`Hours for ${bars.length} students`}>
-          {bars.map(st => <span key={st.id} className="an-bar" data-tier={TIER[st.riskTier ?? st.risk] || 'none'}
-            style={{ height: `${Math.max(3, Math.min(100, ((st.hoursRendered || 0) / max) * 100))}%` }} title={`${st.name}: ${st.hoursRendered} of ${st.hoursRequired ?? '—'} h`} />)}
-        </div> : <p className="an-empty">No hours logged yet.</p>}
-        <div className="an-legend"><span data-tier="on">On track {count('on')}</span><span data-tier="mid">A little behind {count('mid')}</span><span data-tier="far">Far behind {count('far')}</span></div>
+        <div className="an-chart-head"><div><h3 className="an-title">Hours done so far</h3>
+          <p className="an-sub">Each bar is one student, tallest first. Hover a bar to see who it is.</p></div>
+          {bars.length > 0 && <button type="button" className="rq-btn an-expand" aria-label="Expand hours chart" onClick={() => setWide(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>Expand</button>}</div>
+        {bars.length ? <HoursChart bars={bars} average={data.averageHours} height={190} /> : <p className="an-empty">No hours logged yet.</p>}
+        <div className="an-legend"><span data-tier="on">On track {count('on')}</span><span data-tier="mid">A little behind {count('mid')}</span><span data-tier="far">Far behind {count('far')}</span>{data.averageHours != null && <span className="an-avg">Class average: {data.averageHours} h.</span>}</div>
       </section>
+      {wide && createPortal(<div className="an-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setWide(false); }}>
+        <div className="an-modal" role="dialog" aria-modal="true" aria-label="Hours done so far, expanded">
+          <div className="an-chart-head"><div><h3 className="an-title">Hours done so far</h3><p className="an-sub">{bars.length} students · names under each bar</p></div>
+            <button type="button" className="plt-x" aria-label="Close expanded chart" autoFocus onClick={() => setWide(false)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></div>
+          <HoursChart bars={bars} average={data.averageHours} height={Math.min(520, window.innerHeight - 220)} wide />
+          <div className="an-legend"><span data-tier="on">On track {count('on')}</span><span data-tier="mid">A little behind {count('mid')}</span><span data-tier="far">Far behind {count('far')}</span></div>
+        </div></div>, document.body)}
       <section className="an-card an-where" aria-label="Where the class is">
         <h3 className="an-title">Where the class is</h3>
         {stats.map(([label, n]) => <div key={label} className="an-stat">
@@ -543,4 +552,29 @@ function AnalyticsOverview({ data }) {
       </section>
     </div>
   </>;
+}
+
+const TIER_COLOR = { on: '#0b5fd3', mid: '#b07a12', far: '#b3261e', none: '#c9ced8' };
+function HoursTip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return <div className="an-tip"><strong>{d.name}</strong><span>{d.hours} of {d.required ?? '—'} h</span></div>;
+}
+function HoursChart({ bars, average, height, wide = false }) {
+  const rows = bars.map(st => ({ id: st.id, name: st.name, short: String(st.name || '').split(',')[0], hours: st.hoursRendered || 0, required: st.hoursRequired, tier: TIER[st.riskTier ?? st.risk] || 'none' }));
+  const max = Math.max(1, ...rows.map(r => r.required || r.hours));
+  return <div className="an-rc" style={{ height }}>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={rows} margin={{ top: 10, right: 8, left: wide ? 0 : -18, bottom: wide ? 40 : 0 }} barCategoryGap="18%">
+        <CartesianGrid vertical={false} stroke="#efece5" />
+        <XAxis dataKey={wide ? 'short' : 'id'} tick={wide ? { fontSize: 11, fill: '#7b8494' } : false} tickLine={false} axisLine={{ stroke: '#e8e5de' }} interval={0} angle={wide ? -40 : 0} textAnchor={wide ? 'end' : 'middle'} height={wide ? 60 : 4} />
+        <YAxis domain={[0, max]} tick={{ fontSize: 11, fill: '#7b8494' }} tickLine={false} axisLine={false} width={44} />
+        <Tooltip cursor={{ fill: 'rgba(11,95,211,.06)' }} content={<HoursTip />} />
+        {average != null && <ReferenceLine y={average} stroke="#465066" strokeDasharray="4 4" label={{ value: `avg ${average} h`, position: 'insideTopRight', fontSize: 11, fill: '#465066' }} />}
+        <Bar dataKey="hours" radius={[3, 3, 0, 0]} maxBarSize={wide ? 34 : 22} isAnimationActive>
+          {rows.map(r => <Cell key={r.id} fill={TIER_COLOR[r.tier]} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  </div>;
 }

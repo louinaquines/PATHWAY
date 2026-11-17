@@ -1,0 +1,18 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const {createPlacementWorkspaceHandler,encodeCursor,decodeCursor,safeStudent}=require('../coordinatorPlacementWorkspace');
+function fixture(n){let reads=0;const datasets={users:[{id:'coord',role:'coordinator',department:'D'},...Array.from({length:n},(_,i)=>({id:'s'+String(i).padStart(6,'0'),role:'student',department:'D',sectionId:'section',firstName:'Name'+String(i).padStart(6,'0'),lastName:'Test',idNumber:String(i),password:'secret'}))],sections:[{id:'section',coordinatorId:'coord',department:'D'}]};const doc=r=>({id:r.id,exists:true,data:()=>r});class Q{constructor(name,filters=[],orders=[],max=Infinity,anchor){Object.assign(this,{name,filters,orders,max,anchor});}where(k,o,v){return new Q(this.name,[...this.filters,[k,v]],this.orders,this.max,this.anchor)}orderBy(k){return new Q(this.name,this.filters,[...this.orders,k],this.max,this.anchor)}limit(max){return new Q(this.name,this.filters,this.orders,max,this.anchor)}startAfter(d){return new Q(this.name,this.filters,this.orders,this.max,d.id)}rows(){let a=(datasets[this.name]||[]).filter(r=>this.filters.every(([k,v])=>r[k]===v)&&this.orders.every(k=>k==='__name__'||k in r));a.sort((x,y)=>String(x.firstName||x.id).localeCompare(String(y.firstName||y.id)));if(this.anchor)a=a.slice(a.findIndex(r=>r.id===this.anchor)+1);return a;}count(){return{get:async()=>({data:()=>({count:this.rows().length})})}}async get(){const a=this.rows().slice(0,this.max);reads+=a.length;return{docs:a.map(doc),size:a.length}}doc(id){return{get:async()=>{reads++;const r=(datasets[this.name]||[]).find(r=>r.id===id);return r?doc(r):{exists:false,data:()=>undefined}}}}}return{db:{collection:n=>new Q(n)},reads:()=>reads,datasets};}
+async function invoke(f,query,uid='coord'){let status=200,body;const res={set(){},status(s){status=s;return this},json(b){body=b;return this}};await createPlacementWorkspaceHandler({adminDb:f.db,allowRate:()=>true})({staff:{role:'coordinator',uid},query:{sectionId:'section',...query}},res);return{status,body};}
+for(const n of [1000,10000])test('bounded placement roster with '+n+' records',async()=>{const f=fixture(n),r=await invoke(f,{view:'students'});assert.equal(r.status,200);assert.equal(r.body.students.length,25);assert.ok(r.body.nextCursor);assert.ok(f.reads()<35);assert.equal(r.body.students[0].password,undefined);const next=await invoke(f,{view:'students',cursor:r.body.nextCursor});assert.equal(next.body.students[0].id,'s000025');});
+test('rejects unassigned section and invalid page size',async()=>{assert.equal((await invoke(fixture(1),{},'other')).status,403);assert.equal((await invoke(fixture(1),{pageSize:101})).status,400)});
+test('legacy names do not disappear silently',async()=>{const f=fixture(2);delete f.datasets.users[1].lastName;assert.equal((await invoke(f,{view:'students'})).body.students.length,2)});
+test('cursor binds to search scope and safe user fields exclude secrets',()=>{const c=encodeCursor('scope','student');assert.equal(decodeCursor(c,'scope'),'student');assert.throws(()=>decodeCursor(c,'other'));assert.equal(safeStudent({id:'s',data:()=>({password:'private'})}).password,undefined)});
+
+for (const size of [1000, 10000]) test('search crosses source pages with ' + size + ' records', async () => {
+ const f = fixture(size);
+ const match = await invoke(f, {search:'Name000060'});
+ assert.deepEqual(match.body.students.map(student => student.id), ['s000060']);
+ assert.ok(match.body.scanned <= 100);
+ const missing = await invoke(f, {search:'missing', cursor:undefined});
+ assert.deepEqual(missing.body.students, []);
+ assert.ok(missing.body.nextCursor);
+});

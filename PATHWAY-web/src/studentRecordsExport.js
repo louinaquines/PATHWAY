@@ -1,3 +1,4 @@
+import personName from './personName';
 const timestamp = value => {
   if (!value) return '';
   const date = value?.toDate ? value.toDate() : new Date(value);
@@ -10,7 +11,7 @@ export async function buildStudentRecordsWorkbook(student, section, attendance, 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'PATHWAY';
   workbook.created = new Date();
-  const name = [student.firstName, student.lastName].filter(Boolean).join(' ');
+  const name = personName(student);
   const identity = [String(student.idNumber || ''), name, section?.name || ''];
   const punches = workbook.addWorksheet('Attendance');
   punches.addRow(['Student ID', 'Student name', 'Section', 'Date', 'Time in (Philippine time)', 'Time out (Philippine time)', 'Recorded hours', 'Status']);

@@ -1,3 +1,4 @@
+import { PortalFormDialog } from '../components/PortalStates';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -34,6 +35,13 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const [progressFilter, setProgressFilter] = useState('all');
   const [exceptionDate, setExceptionDate] = useState('');
   const [schedule, setSchedule] = useState({ startDate: '', deadline: '', startTime: '08:00', workingDays: [1,2,3,4,5], exceptions: [] });
+  const [draft, setDraft] = useState(null);
+  const [scheduleError, setScheduleError] = useState('');
+  const editButton = useRef(null);
+  function closeSchedule() {
+    setDraft(null);
+    requestAnimationFrame(() => editButton.current?.focus({ preventScroll: true }));
+  }
   const [saving, setSaving] = useState(false);
   const requestRevision = useRef(0);
   const [editing, setEditing] = useState(null);
@@ -58,7 +66,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     return;
   }, [coordinatorId, selectedSection]); // Access lifetime is controlled by the keyed boundary.
 
-  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing, scope: selectedSection?.id || '', protectInputs: true });
+  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing && !draft, scope: selectedSection?.id || '', protectInputs: true });
 
 
   useEffect(() => {
@@ -69,12 +77,16 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     if (data && highlightStudentId) document.getElementById(`attendance-student-${highlightStudentId}`)?.scrollIntoView?.({ block: 'center' });
   }, [data, highlightStudentId]);
   const saveSchedule = async event => {
-    event.preventDefault(); if (saving) return; setSaving(true); setError('');
+    event.preventDefault(); if (saving) return; setSaving(true); setScheduleError('');
     const revision = requestRevision.current;
     try {
-      await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule }), deadlineMs: 15000 });
-      if (isCurrent() && revision === requestRevision.current) await loadData();
-    } catch (failure) { if (isCurrent() && revision === requestRevision.current) { setError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
+      const saved = await adminRequest(`/coordinator/sections/${encodeURIComponent(selectedSection.id)}/analytics/schedule`, { method: 'PUT', body: JSON.stringify({ schedule: draft }), deadlineMs: 15000 });
+      if (isCurrent()) {
+        setSchedule(saved?.schedule || draft);
+        closeSchedule();
+        await loadData({ silent: true });
+      }
+    } catch (failure) { if (isCurrent()) { setScheduleError(failure.message); if ([401,403].includes(failure.status)) onDenied(); } }
     finally { if (isCurrent()) setSaving(false); }
   };
 
@@ -90,7 +102,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       s.hoursRendered,
       s.hoursRequired,
       s.completionPercentage,
-      s.riskTier ?? 'Unavailable', s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
+      s.riskTier ?? (['Not deployed', 'Completed'].includes(s.risk) ? s.risk : 'Unavailable'), s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
     ]);
     const csvContent = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -122,50 +134,84 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   }
   return (
     <div className="coordinator-analytics-page" style={s.page}>
-      {/* Top Header */}
-      <div style={s.headerRow}>
-        <div>
-
-          <p style={s.sub}>Student hours, completion, and reported attendance for {selectedSection?.name || 'your assigned sections'}.</p>
-        </div>
+      <div className="analytics-toolbar">
         <div className="analytics-actions" style={s.actions}>
-          <button style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
-          <button style={s.primaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
-            <Icon name="download" size={15} /> Export analytics CSV
+          <button type="button" style={s.secondaryBtn} onClick={loadData}><Icon name="refresh" size={15} /> Refresh</button>
+          {selectedSection?.id && <button ref={editButton} type="button" style={s.secondaryBtn} onClick={() => {
+            setScheduleError('');
+            setExceptionDate('');
+            setDraft(schedule);
+          }}>Work schedule</button>}
+          <button type="button" style={s.secondaryBtn} onClick={exportCsv} disabled={!data?.students?.length}>
+            <Icon name="download" size={15} /> Export CSV
           </button>
         </div>
       </div>
 
-      <AttendanceCheckStatus actorId={coordinatorId} sectionId={selectedSection?.id} isCurrent={isCurrent} onDenied={onDenied} />
       {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {selectedSection?.id && <form className="analytics-schedule" onSubmit={saveSchedule} style={s.tableCard}>
-        <details className="analytics-schedule-edit" key={selectedSection.id}>
-          <summary>Work schedule · {schedule.startDate || 'Start date not set'} to {schedule.deadline || 'Deadline not set'} · {schedule.startTime} <strong>Edit</strong></summary>
-        <details><summary>How is this calculated?</summary><p>Section-wide schedule, Philippine time. Attendance uses the last 20 eligible completed scheduled days; projection uses the prior 28 calendar days. At least 5 eligible days are needed. Today, non-working days, exceptions and excused dates are excluded. Hours are server-credited, not coordinator-verified. Estimates are not guarantees; uncertain inputs may prevent a tier or recovery.</p></details>
-        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={schedule[field]} onChange={event => setSchedule(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
-        <div className="analytics-working-days">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, index) => <label key={day}><input type="checkbox" checked={schedule.workingDays.includes(index)} onChange={event => setSchedule(current => ({ ...current, workingDays: event.target.checked ? [...current.workingDays, index] : current.workingDays.filter(value => value !== index) }))} />{day}</label>)}</div>
+      {draft && <PortalFormDialog className="admin-term-dialog analytics-schedule-modal" label="Edit work schedule" closeOnBackdrop
+        onCancel={() => { if (!saving) closeSchedule(); }}>
+        <form onSubmit={saveSchedule}>
+          <header><h2>Edit work schedule</h2></header>
+          <div className="analytics-drawer-body">
+            <fieldset disabled={saving}>
+        <div className="analytics-schedule-fields">{['startDate', 'deadline', 'startTime'].map(field => <label key={field}>{field === 'startDate' ? 'Start date' : field === 'deadline' ? 'Deadline' : 'Start time'} <input required type={field === 'startTime' ? 'time' : 'date'} value={draft[field]} onChange={event => setDraft(current => ({ ...current, [field]: event.target.value }))} /></label>)}</div>
+              <fieldset className="analytics-working-days">
+                <legend>Working days</legend>
+                <div className="analytics-weekday-tiles">
+                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, index) => (
+                    <label key={day}>
+                      <input type="checkbox" aria-label={day} checked={draft.workingDays.includes(index)}
+                        onChange={event => setDraft(current => ({
+                          ...current,
+                          workingDays: event.target.checked
+                            ? [...current.workingDays, index]
+                            : current.workingDays.filter(value => value !== index),
+                        }))} />
+                      {day.slice(0, 3)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
         <div className="analytics-exceptions">
-          <label>Exception date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
-          <button type="button" className="portal-secondary" disabled={!exceptionDate || schedule.exceptions.includes(exceptionDate)} onClick={() => {
-            setSchedule(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
+          <label>Excluded date <input type="date" value={exceptionDate} onChange={event => setExceptionDate(event.target.value)} /></label>
+          <button type="button" className="portal-secondary" disabled={!exceptionDate || draft.exceptions.includes(exceptionDate)} onClick={() => {
+            setDraft(current => ({ ...current, exceptions: [...current.exceptions, exceptionDate] }));
             setExceptionDate('');
           }}>Add date</button>
-          {schedule.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
-            onClick={() => setSchedule(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
+          {draft.exceptions.map(date => <button type="button" className="portal-secondary" key={date} aria-label={'Remove excluded date ' + date}
+            onClick={() => setDraft(current => ({ ...current, exceptions: current.exceptions.filter(value => value !== date) }))}>{date} ×</button>)}
         </div>
-        <button disabled={saving} type="submit">{saving ? 'Saving…' : 'Save schedule'}</button>
-        </details>
-      </form>}
+
+            </fieldset>
+            {scheduleError && <p role="alert">{scheduleError}</p>}
+          </div>
+          <footer>
+            <button type="button" className="portal-secondary" disabled={saving} onClick={() => closeSchedule()}>Cancel</button>
+            <button type="submit" style={s.primaryBtn} disabled={saving}>{saving ? 'Saving…' : 'Save schedule'}</button>
+          </footer>
+        </form>
+      </PortalFormDialog>}
 
       {/* Metrics Summary Grid */}
       {data && (
-        <div className="analytics-metrics" style={s.metricsGrid}>
-          <MetricCard label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
-          <MetricCard label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
-          <MetricCard label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
-          <MetricCard label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
-          <MetricCard label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
+        <div className="analytics-metrics analytics-overview">
+          <section className="analytics-group" aria-label="Students">
+            <h3 className="analytics-group-title">Students</h3>
+            <div className="analytics-group-grid">
+              <MetricCard tone="blue" icon="users" label="Total Students" value={data.totalStudents ?? 'Unavailable'} />
+              <MetricCard tone="green" icon="active" label="Active Interns" value={data.activeInterns ?? 'Unavailable'} />
+              <MetricCard tone="indigo" icon="done" label="Completed OJT" value={data.countsAvailable?.completed === true ? data.completedInterns ?? 'Unavailable' : 'Unavailable'} />
+              <MetricCard tone="amber" icon="risk" label="Students at high risk of falling behind" value={data.countsAvailable?.highRisk === true ? data.atRiskStudents ?? 'Unavailable' : 'Unavailable'} />
+            </div>
+          </section>
+          <section className="analytics-group" aria-label="Hours">
+            <h3 className="analytics-group-title">Hours</h3>
+            <div className="analytics-group-grid">
+              <MetricCard tone="teal" icon="clock" label="Hours counted toward internship" value={data.countsAvailable?.totalHours === true && data.totalHoursLogged != null ? `${data.totalHoursLogged} hrs` : 'Unavailable'} />
+              <MetricCard tone="slate" icon="avg" label="Average hours" value={data.countsAvailable?.totalHours === true && data.averageHours != null ? `${data.averageHours} hrs` : 'Unavailable'} />
+            </div>
+          </section>
         </div>
       )}
 
@@ -174,26 +220,25 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         <div style={s.cardHeader}>
           <div>
             <h3 style={s.cardTitle}>Student progress</h3>
-            <p style={s.sub}>{data?.students?.length || 0} intern(s) loaded in this section. Search covers this loaded section only. As of {data?.today || 'unavailable'}.</p>
+            {data?.today && <p style={s.sub}>As of <time dateTime={data.today}>{data.today}</time></p>}
           </div>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" />
-          <label>Progress filter <select value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
+          <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" placeholder="Search by name or ID…" />
+          <select aria-label="Progress filter" value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
             <option value="all">All students</option>
             <option value="risk">At risk</option>
             <option value="complete">Target met</option>
             <option value="unavailable">Attendance unavailable</option>
-          </select></label>
+          </select></div>
         </div>
 
-        <RecordPagination pagination={recordsPage} label="Analytics students" />
-        <div style={s.tableWrap}>
+        <div className="analytics-table-scroll" style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
                 <th style={s.th}>Student ID</th>
                 <th style={s.th}>Student name</th>
                 {!selectedSection?.id && <th style={s.th}>Section</th>}
-                <th style={s.th}>Hours counted / Hours required</th>
+                <th style={s.th}>Hours</th>
                 <th style={s.th}>Progress</th>
                 <th style={s.th}>Attendance</th>
                 <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
@@ -203,7 +248,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               {recordsPage.items.map(st => {
                 const percent = st.completionPercentage;
                 return (
-                  <tr key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
+                  <tr data-risk={st.riskTier || undefined} key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
                     <td style={s.td}><span style={s.idCode}>{st.idNumber || '—'}</span></td>
                     <td style={s.td}><div style={s.studentName}>{st.name}</div></td>
                     {!selectedSection?.id && <td style={s.td}>{st.section}</td>}
@@ -220,7 +265,9 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                     </td>
                     <td style={s.td}>
                       <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
-                        <summary>Attendance details</summary>
+                        <summary><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span><span className="analytics-att-more">Attendance details</span></summary>
+                        <div className="analytics-att-panel">
+                        <span style={{ display: 'block' }}>Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')} · Data: {st.dataStatus ?? 'Unavailable'}</span>
                         <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
                         {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
                         {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
@@ -230,19 +277,18 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
                         {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
                         {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
+                        </div>
                       </details>
                     </td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
-                      <span style={{
-                        ...s.statusBadge,
-                        backgroundColor: st.riskTier === 'High' ? COLORS.rose50 : st.riskTier === 'Medium' ? COLORS.yellow100 : COLORS.sky50,
-                        color: '#000000',
-                        border: `1px solid ${COLORS.slate300}`,
-                      }}>
-                        Risk: {st.riskTier ?? 'Unavailable'}
-                      </span>
-                      <p>Progress: {st.progressStatus ?? 'Unavailable'}</p>
-                      <p>Data: {st.dataStatus ?? 'Unavailable'}</p>
+                    <td style={{ ...s.td, textAlign: 'right' }} className="analytics-status-cell">
+                      {(() => {
+                        const label = st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable');
+                        const tone = { High: 'high', Medium: 'medium', Low: 'low', Completed: 'done' }[label] || 'none';
+                        const text = { High: 'High risk', Medium: 'At risk', Low: 'On track' }[label] || label;
+                        return <span className="risk-badge" data-tone={tone}><i aria-hidden="true" />{text}</span>;
+                      })()}
+                      <small className="analytics-status-sub">Progress: {st.progressStatus ?? 'Unavailable'}</small>
+                      <small className="analytics-status-sub">Data: {st.dataStatus ?? 'Unavailable'}</small>
                     </td>
                   </tr>
                 );
@@ -257,16 +303,28 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             </tbody>
           </table>
         </div>
+        <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
       </div>
     </div>
   );
 }
 
-function MetricCard({ label, value }) {
+const METRIC_ICONS = {
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c-.4-2-1.4-3.5-2.9-4.5" /></>,
+  active: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
+  done: <><path d="m22 10-10-5-10 5 10 5 10-5z" /><path d="M6 12v5c3 2 9 2 12 0v-5" /></>,
+  risk: <><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></>,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  avg: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
+};
+
+function MetricCard({ label, value, icon, tone }) {
+  const unavailable = value === 'Unavailable';
   return (
-    <div className="analytics-metric-card" style={s.metricCard}>
-      <div style={s.metricLabel}>{label}</div>
-      <div className={value === 'Unavailable' ? 'analytics-metric-unavailable' : undefined} style={s.metricValue}>{value === 'Unavailable' ? '—' : value}</div>
+    <div className="analytics-metric-card" data-tone={tone}>
+      <span className="analytics-metric-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{METRIC_ICONS[icon]}</svg></span>
+      <div className={'analytics-metric-value' + (unavailable ? ' analytics-metric-unavailable' : '')}>{unavailable ? '—' : value}</div>
+      <div className="analytics-metric-label">{label}</div>
     </div>
   );
 }
@@ -393,7 +451,7 @@ const s = {
     verticalAlign: 'middle',
   },
   studentName: {
-    fontWeight: 800,
+    fontWeight: 600,
     color: '#000000',
     fontSize: 14,
   },

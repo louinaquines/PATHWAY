@@ -9,13 +9,14 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY server.js requestAuthentication.js firebaseAdmin.js cloudinaryUploads.js endorsementMail.js gmailMail.js studentAccounts.js evaluationMail.js evaluationEmailTemplate.js evaluationForm.js studentInbox.js geofence.js localCloudinaryQa.js productionPreflight.js ./
 COPY dtrReview.js dtrComparison.js coordinatorAnalytics.js attendanceAnalytics.js reviewAnalysis.js ./
-COPY companyProfileImport.js coordinatorAccounts.js coordinatorAssignmentPolicy.js coordinatorCompanyPage.js coordinatorPlacementHistory.js ./
+COPY companyProfileImport.js coordinatorAccounts.js coordinatorAssignmentPolicy.js coordinatorCompanyPage.js coordinatorPlacementHistory.js coordinatorPlacementWorkspace.js ./
 COPY anthropicAnalysis.js ./
 COPY studentUpdateNotifications.js journalAiReview.js departmentJournals.js studentJournalSubmission.js workplaceJournalConsent.js workplaceRealUsePolicy.js ./
 COPY attendanceAiReview.js ./
-COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js ./
-COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js ./
-COPY companyMailInbox.js ./
+COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js coordinatorInbox.js ./
+COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js nameMatch.js ./
+COPY companyMailInbox.js companyEmailRouter.js demoSeed.js ./
+COPY pathway-email-logo.png email-guide-writing.gif email-guide-thinking.gif email-guide-thumbsup.gif email-guide-pointing.gif email-guide-waving.gif ./
 COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./
 COPY localCompanyInbox.js ./
 COPY companyTestLink.js ./

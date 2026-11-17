@@ -1,3 +1,4 @@
+import personName from './personName';
 import { compareStudents } from './coordinatorStudentSort';
 import { requirementProgress } from './requirementProgress';
 
@@ -12,7 +13,7 @@ export function sectionExportRows(section, students, checklist) {
   });
   const details = sorted.flatMap(student => checklist.map(item => {
     const record = student.requirements?.[item.id] || {};
-    return [String(student.idNumber || ''), `${student.firstName || ''} ${student.lastName || ''}`.trim(), item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', record.submittedAt || '', record.reviewedAt || '', record.status === 'rejected' ? record.rejectionReason || '' : ''];
+    return [String(student.idNumber || ''), personName(student), item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', record.submittedAt || '', record.reviewedAt || '', record.status === 'rejected' ? record.rejectionReason || '' : ''];
   }));
   return { summary, details };
 }

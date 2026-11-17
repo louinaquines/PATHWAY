@@ -89,7 +89,7 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
         if (read) {
           const snapshot = await tx.get(notices.doc(req.params.id)); await noticeAccess(snapshot, uid, tx);
           if (!snapshot.data().read) {
-            tx.update(snapshot.ref, { read: true });
+            tx.update(snapshot.ref, { read: true, inboxRead: true });
             audit(tx, { actorId: uid, actorRole: 'coordinator', action: 'attendance.risk_notice_read', targetType: 'attendanceRiskNotices', targetId: snapshot.id });
           }
           return { records: [{ ...projectNotice(snapshot), read: true }], hasMore: false, cursor: null };
@@ -177,7 +177,7 @@ function installAttendanceRiskAlerts({ app, db, requireStaff, allowRate, audit, 
       details: { asOf: plan.state.asOf, ruleVersion: RULE, episode: plan.state.episode, sequence: plan.state.sequence, errorCode: plan.state.errorCode } });
     if (plan.notice) {
       const noticeId = crypto.createHash('sha256').update(`${plan.stateRef.id}:${plan.state.episode}:${plan.state.sequence}`).digest('hex');
-      tx.create(notices.doc(noticeId), plan.notice);
+      tx.create(notices.doc(noticeId), { ...plan.notice, ...require('./coordinatorInbox').inboxFields(plan.notice) });
     }
   }
   function failureCode(error) {

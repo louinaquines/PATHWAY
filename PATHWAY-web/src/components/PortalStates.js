@@ -9,11 +9,13 @@ export function PortalError({ message, onRetry, retryDisabled = false }) {
   </div>;
 }
 
-export function PortalEmpty({ title, description }) {
-  return <div className="portal-empty">
-    <Icon name="clipboard" size={22} />
+export function PortalEmpty({ title, description, icon = 'clipboard', steps, action, compact = false }) {
+  return <div className={'portal-empty' + (compact ? ' is-compact' : '')} role="status">
+    <span className="portal-empty-icon" aria-hidden="true"><Icon name={icon} size={compact ? 20 : 26} /></span>
     <strong>{title}</strong>
-    <p>{description}</p>
+    {description && <p>{description}</p>}
+    {steps?.length > 0 && <ol className="portal-empty-steps">{steps.map(step => <li key={step}>{step}</li>)}</ol>}
+    {action && <button type="button" className="portal-empty-action" onClick={action.onClick}>{action.label}</button>}
   </div>;
 }
 

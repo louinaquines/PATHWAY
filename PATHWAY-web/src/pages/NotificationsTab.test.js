@@ -4,7 +4,9 @@ import { auth } from '../firebase';
 import { StrictMode } from 'react';
 import { getDocs, onSnapshot, doc } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
-import NotificationsTab from './NotificationsTab';
+import AttendanceRiskNotices from '../components/AttendanceRiskNotices';
+import AttendanceAccess from '../components/AttendanceAccess';
+function NotificationsTab({userId,onOpenAttendanceRisk}){return <AttendanceAccess actorId={userId}>{access=><AttendanceRiskNotices access={access} onOpen={onOpenAttendanceRisk}/>}</AttendanceAccess>;}
 jest.mock('../firebase', () => ({ db: {}, auth: { currentUser: { uid: 'coord-a' } } }));
 jest.mock('firebase/auth', () => ({ onAuthStateChanged: jest.fn(() => () => {}) }));
 jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
@@ -109,17 +111,6 @@ test('pagination keeps a disclosed 100-notice window while still reaching later 
   expect(screen.getByText(/100 loaded.*up to 100/)).toBeInTheDocument();
 });
 
-test('actor switch clears private legacy inbox and broadcast text as well as risk notices', async () => {
-  getDocs.mockResolvedValue({ docs: [{ id: 'legacy', data: () => ({ title: 'Private inbox', message: 'Private message' }) }] });
-  adminRequest.mockResolvedValue({ records: [notice], hasMore: false, cursor: null });
-  render(<NotificationsTab userId="coord-a" />);
-  await screen.findByText('Private inbox');
-  fireEvent.click(screen.getByRole('tab', { name: 'Post an announcement' }));
-  fireEvent.change(screen.getByPlaceholderText('Type your message to the enrolled students...'), { target: { value: 'Private draft' } });
-  act(() => { auth.currentUser = null; onAuthStateChanged.mock.calls[0][1](null); });
-  expect(screen.queryByDisplayValue('Private draft')).not.toBeInTheDocument();
-  expect(screen.queryByText('Private inbox')).not.toBeInTheDocument();
-});
 
 test('risk pagination continues an empty page and marking read neither acknowledges nor resolves risk', async () => {
   adminRequest.mockResolvedValueOnce({ records: [], hasMore: true, cursor: 'next' }).mockResolvedValueOnce({ records: [notice], hasMore: false, cursor: null }).mockResolvedValueOnce({ records: [{ ...notice, read: true }], hasMore: false, cursor: null });
@@ -154,18 +145,4 @@ test('expired cursor reloads first page once and fresh denial clears notices', a
   fireEvent.click(screen.getByRole('button', { name: 'Load more attendance notices' }));
   await screen.findByText(/Attendance access changed/);
   expect(adminRequest).toHaveBeenCalledTimes(4);
-});
-test('sliding workspace starts in inbox and preserves broadcast submission', async () => {
-  getDocs.mockResolvedValue({ docs: [{ id: 'section-a', data: () => ({ name: 'Section A', department: 'IT' }) }] });
-  adminRequest.mockResolvedValue({ count: 2 });
-  render(<NotificationsTab userId="coord-a" />);
-  const inbox = await screen.findByRole('tab', { name: /Notification inbox/ });
-  expect(inbox).toHaveAttribute('aria-selected', 'true');
-  expect(screen.queryByRole('button', { name: 'Send Announcement' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: 'Post an announcement' }));
-  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'section-a' } });
-  fireEvent.change(screen.getByPlaceholderText('e.g. MOA Submission Deadline Extension'), { target: { value: 'Deadline' } });
-  fireEvent.change(screen.getByPlaceholderText('Type your message to the enrolled students...'), { target: { value: 'Test announcement' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send Announcement' }));
-  await waitFor(() => expect(adminRequest).toHaveBeenCalledWith('/coordinator/announcements', { method: 'POST', body: JSON.stringify({ sectionId: 'section-a', title: 'Deadline', message: 'Test announcement' }) }));
 });

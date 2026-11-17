@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
@@ -11,7 +12,15 @@ import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/Coord
 import { PageSkeleton, InlineSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
+import { PortalEmpty } from '../components/PortalStates';
+import RequirementAutoCheckDialog from '../components/RequirementAutoCheckDialog';
+import '../components/RequirementAutoCheckDialog.css';
 import './SectionsTab.css';
+import './RequirementsRedesign.css';
+import './LogbookRedesign.css';
+import './SectionsRedesign.css';
+import Pager from '../components/Pager';
+import { createPortal } from 'react-dom';
 
 function groupChatHref(value) {
   if (typeof value !== 'string' || !/^https:\/\//i.test(value.trim())) return '';
@@ -23,7 +32,7 @@ function groupChatHref(value) {
   }
 }
 
-export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, department }) {
+export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, sectionActions, department, onAddStudents, onManageAccounts }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
   const [selected, setSelected]         = useState(null);
@@ -35,19 +44,39 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [reqModal, setReqModal]         = useState(null); // null | 'add'
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm]                 = useState({ name: '', year: '', section: '', hoursRequired: '', messengerLink: '' });
+  const [autoCheckReq, setAutoCheckReq] = useState(null);
   const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
   const [searchQuery, setSearchQuery]   = useState('');
+  const [stuQuery, setStuQuery]         = useState('');
+  const [stuPage, setStuPage]           = useState(1);
+  const [addOpen, setAddOpen]           = useState(false);
+  const [reqStage, setReqStage]         = useState('Pre-OJT');
+  const [reqPage, setReqPage]           = useState(1);
+  const [topHost, setTopHost]           = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('sx-top-actions')); }, []);
 
+  // Section names always follow "PROGRAM - 4A". Typing the name fills the year and letter;
+  // picking a year or letter rewrites the name, so the three never disagree.
+  const parseSectionName = name => {
+    const match = String(name).trim().toUpperCase().match(/^([A-Z]+)?\s*-?\s*([1-4])?([A-Z])?$/);
+    return match ? { program: match[1] || '', year: match[2] || '', section: match[3] || '' } : null;
+  };
+  function updateSectionName(value) {
+    const parsed = parseSectionName(value);
+    setForm(previous => ({ ...previous, name: value, year: parsed ? parsed.year : '', section: parsed ? parsed.section : '' }));
+  }
   function updateSectionChoice(key, value) {
     setForm(previous => {
       const next = { ...previous, [key]: value };
-      const suffix = previous.year || previous.section ? ' - ' + previous.year + previous.section : '';
-      const base = suffix && previous.name.endsWith(suffix) ? previous.name.slice(0, -suffix.length)
-        : previous.name === previous.year + previous.section ? '' : previous.name;
-      next.name = base + (next.year || next.section ? (base ? ' - ' : '') + next.year + next.section : '');
+      const program = parseSectionName(previous.name)?.program || String(previous.name).trim().split(/[\s-]+/)[0].toUpperCase() || 'BSIT';
+      next.name = program + (next.year || next.section ? ' - ' + next.year + next.section : '');
       return next;
     });
   }
+  const formattedSectionName = () => {
+    const parsed = parseSectionName(form.name);
+    return parsed?.program && form.year && form.section ? `${parsed.program} - ${form.year}${form.section}` : form.name.trim();
+  };
 
   const [chatSave, setChatSave] = useState(null);
   const chatHref = groupChatHref(selected?.messengerLink);
@@ -71,7 +100,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
   const CATEGORIES = ['Pre-OJT', 'Ongoing', 'Post-OJT'];
   const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
-  const filteredStudents = students.filter(student => matchesCoordinatorSearch(searchQuery, student.firstName, student.lastName, student.idNumber, selected?.name));
+  const filteredStudents = students.filter(student => matchesCoordinatorSearch(stuQuery, student.firstName, student.lastName, student.idNumber, student.companyName || student.company));
 
   const fetchSections = useCallback(async () => {
     if (!coordinatorId) return;
@@ -155,7 +184,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       await adminRequest('/coordinator/sections', {
         method: 'POST',
         body: JSON.stringify({
-          name: form.name.trim(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
+          name: formattedSectionName(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
         }),
       });
       setModal(false);
@@ -196,6 +225,26 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     }
   };
 
+  const [bulk, setBulk] = useState({ date: '', scope: 'all', busy: false, msg: '' });
+  const applyDeadlineToAll = async (event) => {
+    event.preventDefault();
+    if (!bulk.date || !selected) return;
+    setBulk(b => ({ ...b, busy: true, msg: '' }));
+    try {
+      const snap = await getDocs(collection(db, 'sections', selected.id, 'requirements'));
+      const targets = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => bulk.scope === 'all' || r.category === bulk.scope);
+      await Promise.all(targets.map(r => adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(r.id)}`, {
+        method: 'PATCH', body: JSON.stringify({ deadline: bulk.date }),
+      })));
+      const ids = new Set(targets.map(r => r.id));
+      setRequirements(prev => prev.map(r => ids.has(r.id) ? { ...r, deadline: bulk.date } : r));
+      setBulk(b => ({ ...b, busy: false, msg: `Deadline set for ${targets.length} document${targets.length === 1 ? '' : 's'}.` }));
+    } catch (e) {
+      console.error(e);
+      setBulk(b => ({ ...b, busy: false, msg: 'Couldn’t update the deadlines. Try again.', bad: true }));
+    }
+  };
+
   const handleDeleteRequirement = async (reqId) => {
     setSaving(true);
     try {
@@ -218,214 +267,125 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   }
 
   return (
-    <div className="sections-workspace" style={t.page}>
-      {/* Left Column: Sections List */}
-      <div className="sections-panel" style={t.left}>
-        <div style={t.leftHeader}>
-          <div>
-            <h2 style={t.leftTitle}>Sections</h2>
-            <span style={t.leftCount}>{sections.length} {sections.length === 1 ? 'section' : 'sections'}</span>
-          </div>
-          <button style={t.addBtn} onClick={() => setModal(true)}>+ New Section</button>
-        </div>
-        <div style={t.searchWrap}>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections and students" placeholder="Search sections or students…" />
-        </div>
-
-        <div style={t.secList}>
-          {filteredSections.length === 0 && (
-            <div style={t.empty}>{searchQuery ? 'No matching sections.' : 'Create your first section to get started.'}</div>
-          )}
-          <RecordPagination pagination={sectionsPage} label="Sections" />
-          {sectionsPage.items.map(sec => (
-            <div
-              className="section-list-card"
-              data-selected={selected?.id === sec.id}
-              key={sec.id}
-              style={{ ...t.secCard, ...(selected?.id === sec.id ? t.secCardActive : {}) }}
-            >
-              <button type="button" className="section-select" aria-pressed={selected?.id === sec.id} onClick={() => fetchStudents(sec)} style={t.secMainClick}>
-                <div style={t.secName}>{sec.name}</div>
-                {(selected?.id === sec.id || Array.isArray(sec.studentIds)) && <div style={t.secInfo}>{selected?.id === sec.id ? students.length : sec.studentIds.length} students</div>}
-                <div style={t.secHoursBadge}>{sec.hoursRequired} hrs required</div>
-              </button>
-              <button
-                style={t.configBtn}
-                onClick={() => fetchRequirements(sec)}
-                title="Configure Requirements & Deadlines"
-              >
-                <Icon name="settings" size={15} label="Configure section" />
-              </button>
+    <div className="sx">
+      {(() => { const btn = <>{selected && <>
+          <button type="button" className="rq-btn sx-topbtn" onClick={() => onAddStudents ? onAddStudents() : setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
+          {onManageAccounts && <button type="button" className="rq-btn sx-topbtn" onClick={onManageAccounts}><Icon name="users" size={15} />Manage accounts</button>}</>}
+        <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button></>;
+        return topHost ? createPortal(btn, topHost) : <div className="sx-inline">{btn}</div>; })()}
+      <aside className="sx-list">
+        <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Search sections" />
+        {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
+          : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
+        {sectionsPage.items.map(sec => { const on = selected?.id === sec.id; const n = on ? students.length : Array.isArray(sec.studentIds) ? sec.studentIds.length : null;
+          return <button key={sec.id} type="button" className="section-select sx-card" aria-pressed={on} onClick={() => { setStuPage(1); setAddOpen(false); fetchStudents(sec); }}>
+            <strong>{sec.name}</strong><small>{[n != null ? `${n} student${n === 1 ? '' : 's'}` : null, sec.hoursRequired ? `${sec.hoursRequired} hrs` : null].filter(Boolean).join(' · ')}</small>
+          </button>; })}
+        <RecordPagination pagination={sectionsPage} label="Sections" />
+      </aside>
+      <section className="sx-detail">
+        {!selected ? (sections.length === 0
+          ? <PortalEmpty icon="section" title="Create your first section" description="A section groups your OJT students, their required hours and the documents they must submit."
+              steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']} action={{ label: '+ New Section', onClick: () => setModal(true) }} />
+          : <PortalEmpty icon="section" title="Select a section" description="Pick a section on the left to manage students, requirements and deadlines." />)
+        : (() => { const pending = students.filter(x => !x.accountApproved).length; const pages = Math.max(1, Math.ceil(filteredStudents.length / 10)); const cur = Math.min(stuPage, pages);
+          const rows = [...filteredStudents].sort(compareStudents).slice((cur - 1) * 10, cur * 10);
+          return <>
+            <header className="sx-head">
+              <div><h2>{selected.name}</h2>
+                <p>{[selected.hoursRequired ? `${selected.hoursRequired} hours required` : null, requirements.length && view === 'requirements' ? `${requirements.length} required documents` : null, selected.department].filter(Boolean).join(' · ')}
+                  </p></div>
+              {chatHref ? <a className="rq-btn sx-chatbtn" href={chatHref} target="_blank" rel="noreferrer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z" /></svg>Open Group Chat</a>
+                : <button type="button" className="rq-btn sx-chatbtn" onClick={() => setView('rules')}>Add a group chat</button>}
+            </header>
+            <div className="rq-stages sx-tabs" role="tablist" aria-label="Section view" style={{ '--count': 3, '--index': view === 'requirements' ? 1 : view === 'rules' ? 2 : 0 }}>
+              <span className="rq-stages-thumb" aria-hidden="true" />
+              <button type="button" role="tab" aria-selected={view === 'students'} onClick={() => fetchStudents(selected)}><i data-tone="mute" aria-hidden="true" /><strong>Students · {students.length}</strong></button>
+              <button type="button" role="tab" aria-selected={view === 'requirements'} onClick={() => fetchRequirements(selected)}><i data-tone="mute" aria-hidden="true" /><strong>Required documents{view === 'requirements' && requirements.length ? ` · ${requirements.length}` : ''}</strong></button>
+              <button type="button" role="tab" aria-selected={view === 'rules'} onClick={() => setView('rules')}><i data-tone="mute" aria-hidden="true" /><strong>Rules and deadlines</strong></button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Column: Detail Area */}
-      <div className="sections-detail" style={t.right}>
-        {!selected ? (
-          <div style={t.emptyDetail}>
-            <div style={t.emptyIcon}><Icon name="section" size={28} label="Sections" /></div>
-            <h3 style={t.emptyTitle}>Select a Section</h3>
-            <p style={t.emptySub}>Select a section on the left to manage enrolled students, assign newcomers, or configure requirement deadlines.</p>
-          </div>
-        ) : (
-          <>
-            {/* Section Header Card */}
-            <div className="section-overview" style={t.detailHeader}>
-              <div>
-                <h2 style={t.detailTitle}>{selected.name}</h2>
-                <div className="section-detail-meta" style={t.detailSubRow}>
-                  <span><Icon name="building" size={14} /> {selected.department}</span>
-                  <span><Icon name="clock" size={14} /> {selected.hoursRequired} Hours</span>
-                  {chatHref ? (
-                    <a href={chatHref} target="_blank" rel="noreferrer" style={t.gcLink}>
-                      <><Icon name="chat" size={14} /> Open Group Chat</>
-                    </a>
-                  ) : (
-                    <span style={{ color: '#697991' }}>No group chat linked</span>
-                  )}
-                </div>
+            <div hidden={view !== 'students'} className="sx-panel">
+              <div className="sx-tools">
+                <CoordinatorSearch value={stuQuery} onChange={v => { setStuQuery(v); setStuPage(1); }} label="Find a student" placeholder="Find a student" />
+                {pending > 0 && <b className="lb-chip sx-pending" data-tone="amber" title={`${pending} account${pending === 1 ? ' is' : 's are'} waiting for approval`}>{pending} waiting for approval</b>}
+                <span className="sx-grow" />
+                {sectionActions}
               </div>
-
-              <div className="section-management-actions">{journalSettings}<details className="section-chat-editor"><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
-                <label style={t.label}>Group chat link
-                  <input name="messengerLink" type="url" maxLength={500} style={t.input}
-                    defaultValue={chatHref} placeholder="https://m.me/j/…" />
-                </label>
-                <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
-                {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
-              </form></details></div>
-              <div className="section-view-toggle" style={t.viewToggle}>
-                <button
-                  aria-pressed={view === 'students'}
-                  style={{ ...t.toggleBtn, ...(view === 'students' ? t.toggleBtnActive : {}) }}
-                  onClick={() => fetchStudents(selected)}
-                >
-                  <Icon name="users" size={16} /> Students ({students.length})
-                </button>
-                <button
-                  aria-pressed={view === 'requirements'}
-                  style={{ ...t.toggleBtn, ...(view === 'requirements' ? t.toggleBtnActive : {}) }}
-                  onClick={() => fetchRequirements(selected)}
-                >
-                  <Icon name="clipboard" size={16} /> Requirements & deadlines
-                </button>
-              </div>
+              {addOpen && <div className="sx-add"><div className="sx-add-head"><strong>Add students</strong><span>Students in your department who haven’t joined a section.</span></div>
+                <UnassignedStudents sectionId={selected.id} department={selected.department} onAssign={() => fetchStudents(selected)} /></div>}
+              {filteredStudents.length === 0
+                ? <div className="sx-emptybox"><strong>{stuQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{stuQuery ? 'Try another name or student ID.' : 'Use Add students to put students in this section.'}</span></div>
+                : <div className="sx-table" role="table" aria-label="Section students">
+                    <div className="sx-row sx-rowhead" role="row"><span role="columnheader">Student ID</span><span role="columnheader">Name</span><span role="columnheader">Company</span><span role="columnheader">Account</span></div>
+                    {rows.map(student => <div key={student.id} className="sx-row" role="row">
+                      <span role="cell" className="sx-id">{student.idNumber || '—'}</span>
+                      <span role="cell" className="sx-name">{personName(student)}</span>
+                      <span role="cell" className="sx-co" data-none={!(student.companyName || student.company) || undefined}>{student.companyName || student.company || 'No company yet'}</span>
+                      <span role="cell"><b className="lb-chip" data-tone={student.accountApproved ? 'green' : 'amber'}>{student.accountApproved ? 'Active' : 'Pending approval'}</b></span>
+                    </div>)}
+                  </div>}
+              {filteredStudents.length > 10 && <div className="sx-foot"><span>{(cur - 1) * 10 + 1}–{Math.min(cur * 10, filteredStudents.length)} of {filteredStudents.length}</span><Pager page={cur} pages={pages} onGo={setStuPage} label="Section students" /></div>}
             </div>
-
-            {/* Students View */}
-            {view === 'students' && (
-              <div style={t.viewContent}>
-                <div style={t.subHeaderRow}>
-                  <h3 style={t.sectionLabel}>Students in this section</h3>
-
-                </div>
-
-                  {filteredStudents.length === 0 ? (
-                    <div className="section-empty" style={t.emptyCard}><Icon name="users" size={24} /><strong>{searchQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{searchQuery ? 'Try another name or student ID.' : 'Assign students below to build your class list.'}</span></div>
-                  ) : (
-                  <> <RecordPagination pagination={recordsPage} label="Section students" /><div className="coordinator-compact-table-wrap">
-                    <table className="coordinator-compact-table">
-                      <thead><tr><th>Student ID</th><th>Student name</th><th>Account</th></tr></thead>
-                      <tbody>{recordsPage.items.map(student => <tr key={student.id}>
-                        <td>{student.idNumber || '—'}</td><td>{student.firstName} {student.lastName}</td>
-                        <td><span className="coordinator-queue-status" data-status={student.accountApproved ? 'complete' : 'review'}>
-                          {student.accountApproved ? 'Active' : 'Pending approval'}
-                        </span></td>
-                      </tr>)}</tbody>
-                    </table>
-                  </div></>
-                )}
-
-                <div className="section-assignment" style={t.unassignedSection}>
-                  <h3 style={t.sectionLabel}>Assign students</h3>
-                  <p className="section-help">Students in your department who haven't joined a section.</p>
-                  <UnassignedStudents
-                    sectionId={selected.id}
-                    department={selected.department}
-                    onAssign={() => fetchStudents(selected)}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Requirements View */}
-            {view === 'requirements' && (
-              <div style={t.viewContent}>
-                <div style={t.reqHeader}>
-                  <div>
-                    <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
-                    <p style={t.reqSubText}>Set specific deadlines for each requirement. Overdue alerts are automatically shown to students.</p>
+            {view === 'requirements' && (() => {
+              const now = new Date(); const overdue = r => r.deadline && new Date(r.deadline + 'T23:59:59') < now;
+              const stages = [['Pre-OJT', 'Before OJT'], ['Ongoing', 'During OJT'], ['Post-OJT', 'After OJT']];
+              const list = requirements.filter(r => r.category === reqStage);
+              const pages = Math.max(1, Math.ceil(list.length / 8)); const cur = Math.min(reqPage, pages);
+              const rows = list.slice((cur - 1) * 8, cur * 8);
+              const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set a date';
+              return <div className="sx-panel sx-req">
+                {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
+                  onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
+                <div className="sx-req-tools">
+                  <div className="sx-stage" role="tablist" aria-label="OJT stage">
+                  {stages.map(([k, l]) => { const items = requirements.filter(r => r.category === k); const late = items.filter(overdue).length;
+                    return <button key={k} type="button" role="tab" aria-selected={reqStage === k} onClick={() => { setReqStage(k); setReqPage(1); }}>
+                      {l}<b>{items.length}</b></button>; })}
                   </div>
-                  <button
-                    style={t.addReqBtn}
-                    onClick={() => {
-                      setReqModal('add');
-                      setReqForm({ label: '', category: 'Pre-OJT', deadline: '' });
-                    }}
-                  >
-                    + Add requirement
-                  </button>
+                  <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
                 </div>
-
-                {CATEGORIES.map(cat => {
-                  const catReqs = requirements.filter(r => r.category === cat);
-                  if (catReqs.length === 0) return null;
-                  return (
-                    <div key={cat} style={t.catBlock}>
-                      <div style={t.catLabel}>{cat} requirements</div>
-                      <div style={t.reqList}>
-                        {catReqs.map(req => {
-                          const isOverdue = req.deadline && new Date(req.deadline) < new Date();
-                          return (
-                            <div key={req.id} style={t.reqRow}>
-                              <div style={t.reqLeft}>
-                                <div style={t.reqLabel}>{req.label}</div>
-                                <div style={t.deadlineRow}>
-                                  <span style={t.deadlineLabel}>Deadline:</span>
-                                  <input
-                                    type="date"
-                                    aria-label={`${req.label} deadline`}
-                                    style={t.dateInput}
-                                    value={req.deadline || ''}
-                                    onChange={e => handleUpdateDeadline(req.id, e.target.value)}
-                                  />
-                                  {req.deadline && (
-                                    <span style={{
-                                      ...t.deadlineBadge,
-                                      backgroundColor: isOverdue ? COLORS.rose50 : COLORS.emerald50,
-                                      color: '#000000',
-                                      border: `1px solid ${isOverdue ? COLORS.rose200 : COLORS.emerald200}`,
-                                    }}>
-                                      {isOverdue ? 'Overdue' : 'Active'}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <button
-                                style={t.deleteBtn}
-                                onClick={() => setDeleteConfirm(req)}
-                                title="Delete requirement"
-                              >
-                                <Icon name="trash" size={15} label="Delete requirement" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
+                {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
+                : <div className="sx-reqlist"><div className="sx-reqrow sx-reqhead" aria-hidden="true"><span>Document</span><span>Deadline</span><span>Status</span><span>Actions</span></div>{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
+                  return <div key={req.id} className="sx-reqrow" data-late={late || undefined}>
+                    <span className="sx-reqname" title={req.label}>{req.label}</span>
+                    <label className="sx-date" data-empty={!req.deadline || undefined}><span>{fmt(req.deadline)}</span>
+                      <input type="date" aria-label={`${req.label} deadline`} className="req-date" value={req.deadline || ''} onChange={e => handleUpdateDeadline(req.id, e.target.value)} /></label>
+                    <span className="sx-status"><b className="lb-chip" data-tone={!req.deadline ? 'mute' : late ? 'red' : 'green'}>{!req.deadline ? 'No deadline' : late ? 'Overdue' : 'Active'}</b></span>
+                    <span className="sx-acts"><button type="button" className="sx-icon sx-ref" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
+                      {ref ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg>}
+                      </button>
+                    <button type="button" className="sx-icon sx-del" onClick={() => setDeleteConfirm(req)} title="Delete requirement" aria-label="Delete requirement"><Icon name="trash" size={15} /></button></span>
+                  </div>; })}</div>}
+                {list.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setReqPage} label="Requirements" /></div>}
+              </div>; })()}
+            <div hidden={view !== 'rules'} className="sx-panel sx-rules">
+              <div className="sx-set"><div><h3>Required hours</h3><p>Every student in {selected.name} must render this.</p></div><b className="sx-val">{selected.hoursRequired || '—'} hours</b></div>
+              <div className="sx-set"><div><h3>Journals</h3><p>How often students write a journal.</p></div><div className="sx-journal">{journalSettings || <span className="sx-muted">Not available</span>}</div></div>
+              <div className="sx-set sx-set-col"><div><h3>Group chat</h3><p>Students see this link in their app.</p></div>
+                <form className="sx-chatform" key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+                  <label className="sx-sr" htmlFor="sx-chat">Group chat link</label>
+                  <input id="sx-chat" name="messengerLink" type="url" maxLength={500} defaultValue={chatHref} placeholder="https://m.me/j/…" aria-label="Group chat link" />
+                  <button type="submit" className="rq-btn rq-primary" disabled={chatSave?.busy}>Save group chat link</button>
+                  {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'} className="sx-chatmsg" data-bad={chatSave.failed || undefined}>{chatSave.message}</p>}
+                </form></div>
+              <div className="sx-set sx-set-col"><div className="sx-set-head"><div><h3>Deadlines</h3><p>Each required document has its own deadline.</p></div><button type="button" className="rq-btn" onClick={() => fetchRequirements(selected)}>Set deadlines</button></div>
+                <form className="sx-bulk" onSubmit={applyDeadlineToAll}>
+                  <p className="sx-bulk-title">Optional · Use one date for many documents</p>
+                  <div className="sx-bulk-row">
+                  <span className="sx-selwrap"><select aria-label="Apply to" value={bulk.scope} onChange={e => setBulk(b => ({ ...b, scope: e.target.value, msg: '' }))}>
+                    <option value="all">All documents</option><option value="Pre-OJT">Before OJT documents</option><option value="Ongoing">During OJT documents</option><option value="Post-OJT">After OJT documents</option>
+                  </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span>
+                  <input type="date" aria-label="Deadline for all" value={bulk.date} onChange={e => setBulk(b => ({ ...b, date: e.target.value, msg: '' }))} />
+                  <button type="submit" className="rq-btn" disabled={!bulk.date || bulk.busy}>{bulk.busy ? 'Saving…' : 'Apply to all'}</button>
+                  </div>
+                  {bulk.msg && <p role="status" className="sx-chatmsg" data-bad={bulk.bad || undefined}>{bulk.msg}</p>}
+                </form></div>
+            </div>
+          </>; })()}
+      </section>
       {/* Create Section Modal */}
-      {modal && (
-        <div style={t.overlay}>
+      {modal && createPortal(
+        <div style={t.overlay} className="sx-overlay">
           <div className="section-modal" style={t.modalCard}>
             <h2 style={t.modalTitle}>Create New Section</h2>
             <div style={t.field}>
@@ -434,7 +394,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 style={t.input}
                 id="new-section-name" placeholder="e.g. BSIT - 4A"
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onChange={e => updateSectionName(e.target.value)}
                 required
               />
             </div>
@@ -474,55 +434,33 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Add Requirement Modal */}
-      {reqModal === 'add' && (
-        <div style={t.overlay}>
-          <div className="section-modal" style={t.modalCard}>
-            <h2 style={t.modalTitle}>Add a requirement</h2>
-            <div style={t.field}>
-              <label style={t.label}>Requirement Name</label>
-              <input
-                style={t.input}
-                placeholder="e.g. Weekly Progress Presentation"
-                value={reqForm.label}
-                onChange={e => setReqForm(f => ({ ...f, label: e.target.value }))}
-                required
-              />
+      {reqModal === 'add' && createPortal(
+        <div style={t.overlay} className="sx-overlay" onClick={() => setReqModal(null)}>
+          <div className="arq" role="dialog" aria-modal="true" aria-label="Add a requirement" onClick={e => e.stopPropagation()}>
+            <div className="arq-head"><div><h2>Add a requirement</h2><p>{selected?.name}</p></div>
+              <button type="button" className="plt-x" aria-label="Close" onClick={() => setReqModal(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+            <div className="arq-body">
+              <label className="arq-field">Requirement name
+                <input placeholder="e.g. Weekly Progress Presentation" value={reqForm.label} onChange={e => setReqForm(f => ({ ...f, label: e.target.value }))} required autoFocus /></label>
+              <div className="arq-pair">
+                <label className="arq-field">Internship stage
+                  <span className="arq-select"><select value={reqForm.category} onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{({ 'Pre-OJT': 'Before OJT', Ongoing: 'During OJT', 'Post-OJT': 'After OJT' })[c] || c}</option>)}
+                  </select><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></label>
+                <label className="arq-field"><span>Deadline <em>(optional)</em></span>
+                  <input type="date" value={reqForm.deadline} onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))} /></label>
+              </div>
             </div>
-            <div style={t.field}>
-              <label style={t.label}>Internship stage</label>
-              <select
-                style={t.select}
-                value={reqForm.category}
-                onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))}
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div style={t.field}>
-              <label style={t.label}>Submission Deadline (Optional)</label>
-              <input
-                style={t.input}
-                type="date"
-                value={reqForm.deadline}
-                onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))}
-              />
-            </div>
-            <div style={t.modalBtns}>
-              <button style={t.cancelBtn} onClick={() => setReqModal(null)}>Cancel</button>
-              <button
-                style={{ ...t.confirmBtn, opacity: saving ? 0.6 : 1 }}
-                onClick={handleAddRequirement}
-                disabled={saving}
-              >
-                {saving ? 'Adding...' : 'Add Requirement'}
-              </button>
+            <div className="arq-foot">
+              <button type="button" className="arq-btn" onClick={() => setReqModal(null)}>Cancel</button>
+              <button type="button" className="arq-btn arq-primary" onClick={handleAddRequirement} disabled={saving || !reqForm.label.trim()}>{saving ? 'Adding…' : 'Add requirement'}</button>
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       <AlertDialog
         open={Boolean(deleteConfirm)}
@@ -537,7 +475,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   );
 }
 
-function UnassignedStudents({ sectionId, department, onAssign }) {
+export function UnassignedStudents({ sectionId, department, onAssign }) {
   const [unassigned, setUnassigned] = useState([]);
   const [loading, setLoading]       = useState(true);
 
@@ -578,7 +516,7 @@ function UnassignedStudents({ sectionId, department, onAssign }) {
       {unassignedPage.items.map(st => (
         <div key={st.id} style={t.unassignedRow}>
           <div>
-            <div style={t.studentName}>{st.firstName} {st.lastName}</div>
+            <div style={t.studentName}>{personName(st)}</div>
             <div style={t.studentInfo}>ID {st.idNumber || 'not provided'}</div>
           </div>
           <button style={t.assignBtn} onClick={() => assign(st.id)}>

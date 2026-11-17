@@ -1,3 +1,4 @@
+const indexedNotice = data => ({ ...data, ...require('./coordinatorInbox').inboxFields(data) });
 // pathway-backend/server.js
 if (process.env.NODE_ENV !== 'production' && process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
 // Fail before Firebase initialization or any local QA credential loading.
@@ -118,11 +119,18 @@ const defaultRequirementIds = new Set(['application_form', 'updated_resume', 'me
 const uploadIntents = adminDb.collection('cloudinaryUploadIntents');
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
+// Ongoing / post-deployment documents stay uploadable after internship tracking is approved (until clearance).
+const ONGOING_REQUIREMENT_IDS = new Set(['dtr', 'logbook', 'narrative', 'eval_sheet', 'coc']);
+function requirementLocked(data, requirementId) {
+  if (!data || !data.accountApproved || data.clearanceStatus === 'cleared') return true;
+  return data.preDeploymentStatus === 'approved' && !ONGOING_REQUIREMENT_IDS.has(requirementId);
+}
+
 async function getEditableRequirement(uid, requirementId) {
   const userRef = adminDb.collection('users').doc(uid);
   const profile = await userRef.get();
-  if (!profile.exists || !profile.data().accountApproved || profile.data().preDeploymentStatus === 'approved') {
-    throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+  if (!profile.exists || requirementLocked(profile.data(), requirementId)) {
+    throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
   }
   const student = profile.data();
   assertRecordsOpen(student);
@@ -202,7 +210,9 @@ async function verifyCloudinaryUpload({ req, intentId, publicId, version, respon
   if (!intentSnap.exists) throw Object.assign(new Error('Upload authorization was not found.'), { status: 403 });
   const intent = intentSnap.data();
   if (intent.uid !== req.user.uid || intent.kind !== kind || intent.status !== 'issued'
-    || intent.expiresAt < Date.now() || intent.publicId !== publicId) {
+    || intent.expiresAt < Date.now()
+    // Cloudinary appends the file extension to raw files (e.g. .xlsx/.docx) public IDs.
+    || !(publicId === intent.publicId || (kind !== 'profile' && new RegExp(`^${intent.publicId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.(pdf|docx?|xlsx?)$`, 'i').test(publicId)))) {
     throw Object.assign(new Error('Upload authorization is invalid or expired.'), { status: 403 });
   }
   const expectedSignature = signParams({ public_id: publicId, version }, config.apiSecret);
@@ -272,8 +282,8 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
         ]);
         if (!freshIntent.exists || freshIntent.data().status !== 'issued' || freshIntent.data().uid !== req.user.uid
           || freshIntent.data().expiresAt < Date.now()) throw Object.assign(new Error('Upload authorization was already used or expired.'), { status: 409 });
-        if (!freshUser.exists || !freshUser.data().accountApproved || freshUser.data().preDeploymentStatus === 'approved') {
-          throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+        if (!freshUser.exists || requirementLocked(freshUser.data(), requirementId)) {
+          throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
         }
         if (freshUser.data().requirements?.[requirementId]?.status === 'approved') {
           throw Object.assign(new Error('An approved document cannot be replaced.'), { status: 409 });
@@ -326,8 +336,8 @@ app.put('/requirements/:requirementId', requireUser, async (req, res) => {
 
     await adminDb.runTransaction(async transaction => {
       const profile = await transaction.get(userRef);
-      if (!profile.exists || !profile.data().accountApproved || profile.data().preDeploymentStatus === 'approved') {
-        throw Object.assign(new Error('This account cannot edit pre-deployment requirements.'), { status: 403 });
+      if (!profile.exists || requirementLocked(profile.data(), requirementId)) {
+        throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
       }
       const student = profile.data();
       const existing = student.requirements?.[requirementId] || {};
@@ -639,12 +649,12 @@ app.post('/student/placement-requests', requireUser, async (req, res) => {
       transaction.set(proposalRef, data);
       if (status === 'pending_review') {
         const isResubmission = existing && ['needs_revision', 'rejected'].includes(existing.status);
-        transaction.set(adminDb.collection('notifications').doc(), {
+        transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: coordinatorId, senderId: req.user.uid, senderRole: 'student',
           title: 'Company placement request',
           message: `${data.studentName} submitted a company placement for review.`,
           type: 'placement', read: false, createdAt: now,
-        });
+        }));
         writeAuditInTransaction(transaction, {
           actorId: req.user.uid, actorRole: 'student',
           action: isResubmission ? 'placement.resubmitted' : 'placement.submitted',
@@ -772,12 +782,12 @@ app.post('/student/final-reviews', requireUser, async (req, res) => {
         createdAt: existing?.createdAt || now, reviewedBy: null, reviewedAt: null,
       };
       transaction.set(requestRef, data);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: coordinatorId, senderId: req.user.uid, senderRole: 'student',
         title: existing ? 'Final review resubmitted' : 'Final review submitted',
         message: `${placementStudentName(student)} submitted a pre-deployment package for review.`,
         type: 'review', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.user.uid, actorRole: 'student',
         action: existing ? 'final_review.resubmitted' : 'final_review.submitted',
@@ -853,14 +863,14 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
       studentId = review.studentId;
       transaction.update(requestRef, { status, reviewReason: note, reviewedBy: req.staff.uid, reviewedAt: now, updatedAt: now });
       if (status === 'approved') transaction.update(studentRef, { preDeploymentStatus: 'approved' });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: studentId,
         senderId: req.staff.uid,
         senderRole: req.staff.role,
         title: `Final review ${status === 'needs_revision' ? 'needs changes' : status}`,
         message: status === 'approved' ? 'Your final review was approved.' : note,
         type: 'review', read: false, createdAt: now,
-      });
+      }));
     });
     return res.json({ success: true, status, studentId });
   } catch (error) {
@@ -873,8 +883,10 @@ app.post('/coordinator/final-reviews/:requestId/decision', requireStaff, async (
 app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 60, windowMs: 60 * 60_000, key: request => `logbook-review:${request.staff.uid}` })) return;
-  const { status } = req.body || {};
+  const { status, reason } = req.body || {};
   if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Invalid logbook decision.' });
+  const customReason = typeof reason === 'string' ? reason.trim().slice(0, 1000) : '';
+  if (status === 'rejected' && !customReason) return res.status(400).json({ error: 'Add a reason so the student knows what to change.' });
   if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.entryId)) return res.status(400).json({ error: 'Invalid logbook entry.' });
   const studentRef = adminDb.collection('users').doc(req.params.studentId);
   const coordinatorRef = adminDb.collection('users').doc(req.staff.uid);
@@ -898,14 +910,14 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
       assertRecordsOpen(student);
       if (!entrySnap.exists) throw Object.assign(new Error('Logbook entry not found.'), { status: 404 });
       if (entrySnap.data().status !== 'pending') throw Object.assign(new Error('This entry is no longer awaiting review.'), { status: 409 });
-      const reviewReason = status === 'rejected' ? `Please revise and resubmit this ${entrySnap.data().frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '';
+      const reviewReason = status === 'rejected' ? customReason : '';
       transaction.update(entryRef, { status, reviewedBy: req.staff.uid, reviewedAt: now, reviewReason });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Logbook approved' : 'Logbook rejected',
         message: status === 'approved' ? 'Your logbook entry was approved.' : reviewReason,
         type: 'logbook', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'logbook.reviewed',
         targetType: 'logbook', targetId: req.params.entryId,
@@ -919,6 +931,8 @@ app.post('/coordinator/students/:studentId/logbook/:entryId/decision', requireSt
     return res.status(500).json({ error: 'Could not process this logbook review.' });
   }
 });
+
+app.get('/coordinator/placement-workspace', requireStaff, require('./coordinatorPlacementWorkspace').createPlacementWorkspaceHandler({ adminDb, allowRate }));
 
 app.get('/coordinator/companies', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
@@ -1212,11 +1226,11 @@ app.post('/coordinator/endorsements/:proposalId/send', requireStaff, async (req,
           ...(accepted ? { sentAt: recordedAt, messageId: sentMessageId } : { failedAt: recordedAt }),
         } };
         transaction.update(endorsementRef, { deliveryRecipients: recipients });
-        if (accepted && kind === 'student') transaction.set(adminDb.collection('notifications').doc(), {
+        if (accepted && kind === 'student') transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: endorsement.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
           title: 'Signed endorsement sent', message: 'Your verified signed endorsement copy was emailed to you.',
           type: 'endorsement', read: false, createdAt: recordedAt,
-        });
+        }));
         writeAuditInTransaction(transaction, {
           actorId: req.staff.uid, actorRole: 'coordinator',
           action: accepted ? 'endorsement.email_accepted' : 'endorsement.email_failed',
@@ -1483,14 +1497,14 @@ async function decideCompanyPlacement(req, res) {
       }
       if (directAssignment) transaction.create(proposalRef, { ...proposal, ...decisionFields });
       else transaction.update(proposalRef, decisionFields);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: proposal.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: `Company placement ${status === 'needs_revision' ? 'needs changes' : status}`,
         message: status === 'approved'
           ? `Your company placement was approved. Endorsement paperwork is pending preparation; no letter has been issued or emailed yet.${needsFreshFinalReview ? ' Your previous final review was superseded. Update the endorsement letter and signed MOA, then submit a new review for this placement.' : ''}`
           : note,
         type: 'placement', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'placement.reviewed',
         targetType: 'companyProposals', targetId: proposalRef.id,
@@ -1599,11 +1613,11 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
       if (!Number.isFinite(hoursRequired) || hoursRequired <= 0) throw Object.assign(new Error('Section has an invalid required-hours setting.'), { status: 409 });
       transaction.update(studentRef, { sectionId, hoursRequired });
       markSupportAssignment(transaction, adminDb, studentId);
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: 'Section assignment updated', message: `You have been assigned to ${sectionSnap.data().name || 'your OJT section'}.`,
         type: 'registration', read: false, createdAt: now,
-      });
+      }));
     });
     await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'student.assigned', targetType: 'users', targetId: studentId, details: { sectionId } });
     return res.json({ success: true });
@@ -1611,6 +1625,81 @@ app.post('/coordinator/assign-student', requireStaff, async (req, res) => {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error(error);
     return res.status(500).json({ error: 'Could not assign student.' });
+  }
+});
+
+const registrationSnapshots = new Map();
+const registrationName = row => [row.lastName, row.firstName].filter(Boolean).join(', ').trim();
+const registrationOrder = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+app.get('/coordinator/registrations', requireStaff, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  const { sectionId, tab = 'pending', search = '', cursor = '', view = 'rows', refresh = '' } = req.query;
+  const tabs = ['pending', 'approved', 'rejected'];
+  if (typeof sectionId !== 'string' || (sectionId && !/^[A-Za-z0-9_-]{1,120}$/.test(sectionId))
+    || !tabs.includes(tab) || typeof search !== 'string' || search.length > 150
+    || typeof cursor !== 'string' || cursor.length > 1200 || !['rows', 'counts'].includes(view)) {
+    return res.status(400).json({ error: 'Invalid account query.' });
+  }
+  const department = req.staff.data.department;
+  if (!department) return res.status(403).json({ error: 'Department access required.' });
+  const key = JSON.stringify([req.staff.uid, department, sectionId]);
+  try {
+    if (sectionId) {
+      const section = (await adminDb.collection('sections').doc(sectionId).get()).data();
+      if (!section || section.coordinatorId !== req.staff.uid || section.department !== department) {
+        return res.status(403).json({ error: 'Choose one of your assigned sections.' });
+      }
+    }
+    if (refresh === '1') registrationSnapshots.delete(key);
+    let snapshot = registrationSnapshots.get(key);
+    if (!snapshot || snapshot.expires <= Date.now()) {
+      snapshot = {
+        expires: Date.now() + 30_000,
+        rows: (async () => {
+          const data = await adminDb.collection('users').where('role', '==', 'student')
+            .where('department', '==', department).where('sectionId', '==', sectionId)
+            .select('firstName', 'lastName', 'idNumber', 'username', 'createdAt', 'status', 'accountApproved')
+            .limit(20001).get();
+          if (data.size > 20000) throw new Error('Account scope exceeds the supported limit.');
+          return data.docs.map(doc => {
+            const fields = doc.data();
+            return { ...fields, id: doc.id, department, queue: fields.status === 'rejected_registration' || fields.status === 'inactive'
+              ? 'rejected' : fields.accountApproved === true ? 'approved' : 'pending' };
+          }).sort((a, b) => registrationOrder.compare(registrationName(a), registrationName(b))
+            || registrationOrder.compare(a.idNumber || '', b.idNumber || '') || a.id.localeCompare(b.id));
+        })(),
+      };
+      if (registrationSnapshots.size >= 8) registrationSnapshots.delete(registrationSnapshots.keys().next().value);
+      registrationSnapshots.set(key, snapshot);
+    }
+    const rows = await snapshot.rows;
+    if (view === 'counts') {
+      const counts = { pending: 0, approved: 0, rejected: 0 };
+      for (const row of rows) counts[row.queue]++;
+      return res.json({ counts });
+    }
+    const term = search.trim().toLowerCase();
+    const matches = rows.filter(row => row.queue === tab
+      && (!term || registrationName(row).toLowerCase().includes(term) || String(row.idNumber || '').includes(term)));
+    const scope = JSON.stringify([key, tab, term]);
+    let offset = 0;
+    if (cursor) {
+      try {
+        const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+        if (parsed.scope !== scope || !Number.isSafeInteger(parsed.offset) || parsed.offset < 0 || parsed.offset > 20000 || parsed.offset % 25) throw new Error();
+        offset = parsed.offset;
+      } catch {
+        return res.status(400).json({ error: 'Invalid account page cursor.' });
+      }
+    }
+    const nextOffset = offset + 25;
+    return res.json({ rows: matches.slice(offset, nextOffset), total: matches.length,
+      nextCursor: nextOffset < matches.length ? Buffer.from(JSON.stringify({ scope, offset: nextOffset })).toString('base64url') : null });
+  } catch {
+    registrationSnapshots.delete(key);
+    return res.status(503).json({ error: 'Student accounts could not load. Try again.' });
   }
 });
 
@@ -1645,13 +1734,14 @@ app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (
       } : {
         accountApproved: false, status: 'rejected_registration', rejectedBy: req.staff.uid, rejectedAt: now,
       });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Registration approved' : 'Registration needs attention',
         message: status === 'approved' ? 'Your student registration was approved by your OJT Coordinator.' : 'Your student registration was not approved. Please contact your OJT Coordinator.',
         type: 'registration', read: false, createdAt: now,
-      });
+      }));
     });
+    registrationSnapshots.clear();
     await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: status === 'approved' ? 'registration.approved' : 'registration.rejected', targetType: 'users', targetId: req.params.studentId, details: { department: req.staff.data.department } });
     return res.json({ success: true, status });
   } catch (error) {
@@ -1728,12 +1818,12 @@ app.post('/coordinator/students/:studentId/requirements/:requirementId/decision'
         [`requirements.${req.params.requirementId}`]: requirements[req.params.requirementId],
         ...(allPreDeploymentApproved ? { requirementsStatus: 'approved' } : {}),
       });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: status === 'approved' ? 'Requirement approved' : 'Requirement needs attention',
         message: status === 'approved' ? 'Your submitted requirement was approved.' : `Your document needs attention: ${note}`,
         type: 'requirement', read: false, createdAt: now,
-      });
+      }));
       if (status === 'approved' && req.params.requirementId === 'endorsement_letter' && matchesCurrentEndorsement) {
         transaction.update(endorsementRef, {
           status: 'signed_copy_verified',
@@ -1858,11 +1948,11 @@ app.post('/messages', requireUser, async (req, res) => {
         body: messageBody, message: messageBody, read: false, createdAt: now, type: 'direct_message',
       };
       transaction.create(messageRef, message);
-      transaction.create(notificationRef, {
+      transaction.create(notificationRef, indexedNotice({
         recipientId: recipientRef.id, senderId: senderRef.id, senderRole: sender.role,
         senderName, title: `New ${sender.role === 'student' ? 'student' : 'coordinator'} message`,
         message: messageBody, type: 'message', read: false, createdAt: now,
-      });
+      }));
       responseData = { messageId: messageRef.id, conversationId: message.conversationId, createdAt: now };
     });
     return res.status(201).json({ success: true, ...responseData });
@@ -1906,10 +1996,10 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
       transaction.create(announcementRef, { coordinatorId: req.staff.uid, sectionId, title: cleanTitle, message: cleanMessage,
         createdAt: now, emailRecipients: Object.fromEntries(students.map(student => [student.id, require('./announcementEmail').initialRecipient(student.data())])) });
       for (const student of students) {
-        transaction.create(adminDb.collection('notifications').doc(), {
+        transaction.create(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: student.id, senderId: req.staff.uid, senderRole: 'coordinator',
           title: cleanTitle, message: cleanMessage, type: 'announcement', read: false, createdAt: now,
-        });
+        }));
       }
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: 'coordinator', action: 'announcement.sent',
@@ -1969,7 +2059,7 @@ const AUDIT_ACTIONS = new Set([
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated', 'evaluation.email_accepted', 'evaluation.email_unknown',
+  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
@@ -2051,11 +2141,11 @@ app.post('/coordinator/students/:studentId/clearance', requireStaff, async (req,
       if (student.clearanceStatus === 'cleared') throw Object.assign(new Error('Clearance is already approved.'), { status: 409 });
       const now = new Date().toISOString();
       transaction.update(studentRef, { clearanceStatus: 'cleared', clearedBy: req.staff.uid, clearedAt: now });
-      transaction.set(adminDb.collection('notifications').doc(), {
+      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
         recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
         title: 'Clearance approved', message: 'Your OJT clearance has been approved by your coordinator.',
         type: 'clearance', read: false, createdAt: now,
-      });
+      }));
       writeAuditInTransaction(transaction, {
         actorId: req.staff.uid, actorRole: req.staff.role, action: 'clearance.updated',
         targetType: 'users', targetId: req.params.studentId, details: { clearanceStatus: 'cleared' },
@@ -2230,6 +2320,82 @@ app.patch('/coordinator/sections/:sectionId/requirements/:requirementId', requir
   }
 });
 
+// --- Requirement auto-check settings (see project-notes/REQUIREMENT-AUTO-CHECK-IMPLEMENTATION-2026-11-12.md)
+const REFERENCE_MAX_BYTES = 700 * 1024; // stored in Firestore; keep the doc under the 1 MiB limit
+app.get('/coordinator/sections/:sectionId/requirements/:requirementId/auto-check', requireStaff, async (req, res) => {
+  try {
+    await coordinatorSection(req, req.params.sectionId);
+    const snap = await adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(req.params.requirementId).get();
+    if (!snap.exists) return res.status(404).json({ error: 'Requirement not found.' });
+    return res.json({ autoCheck: snap.data().autoCheck || { enabled: false, autoApprove: false, nameMustMatch: true, requiredPhrases: [], notes: '' } });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not load auto-check settings.' });
+  }
+});
+app.put('/coordinator/sections/:sectionId/requirements/:requirementId/auto-check', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(req.params.requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  const { enabled, autoApprove, nameMustMatch = true, requiredPhrases = [], notes = '', reference, removeReference } = req.body || {};
+  if (typeof enabled !== 'boolean' || typeof autoApprove !== 'boolean' || typeof nameMustMatch !== 'boolean') return res.status(400).json({ error: 'Invalid settings.' });
+  if (!Array.isArray(requiredPhrases) || requiredPhrases.length > 20 || requiredPhrases.some(p => typeof p !== 'string' || !p.trim() || p.length > 120)) return res.status(400).json({ error: 'Required phrases: up to 20, each up to 120 characters.' });
+  if (typeof notes !== 'string' || notes.length > 1000) return res.status(400).json({ error: 'Notes must be under 1000 characters.' });
+  let refBytes = null;
+  if (reference) {
+    if (typeof reference.data !== 'string' || typeof reference.fileName !== 'string') return res.status(400).json({ error: 'Invalid reference file.' });
+    refBytes = Buffer.from(reference.data, 'base64');
+    if (refBytes.length > REFERENCE_MAX_BYTES) return res.status(413).json({ error: 'Reference file must be 700 KB or smaller.' });
+    try { require('./requirementCheckPolicy').sniff(refBytes); } catch { return res.status(400).json({ error: 'Reference must be a PDF, PNG or JPEG.' }); }
+  }
+  try {
+    await coordinatorSection(req, req.params.sectionId);
+    const ref = adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(req.params.requirementId);
+    const fileRef = adminDb.collection('requirementReferences').doc(`${req.params.sectionId}_${req.params.requirementId}`);
+    const auditRef = adminDb.collection('auditLogs').doc();
+    let saved;
+    await adminDb.runTransaction(async transaction => {
+      const existing = await transaction.get(ref);
+      if (!existing.exists) throw Object.assign(new Error('Requirement not found.'), { status: 404 });
+      const prev = existing.data().autoCheck || {};
+      const now = new Date().toISOString();
+      saved = { enabled, autoApprove: false, nameMustMatch, requiredPhrases: requiredPhrases.map(p => p.trim()), notes: notes.trim(),
+        referenceVersion: refBytes ? now : removeReference ? null : prev.referenceVersion || null,
+        referenceName: refBytes ? reference.fileName.slice(0, 200) : removeReference ? null : prev.referenceName || null,
+        updatedAt: now, updatedBy: req.staff.uid };
+      if (refBytes) transaction.set(fileRef, { data: refBytes.toString('base64'), fileName: saved.referenceName, uploadedAt: now, uploadedBy: req.staff.uid });
+      else if (removeReference) transaction.delete(fileRef);
+      transaction.update(ref, { autoCheck: saved });
+      transaction.set(auditRef, auditEntry({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.updated', targetType: 'sectionRequirements', targetId: req.params.requirementId, details: { sectionId: req.params.sectionId, action: 'auto_check_settings', enabled: saved.enabled, autoApprove: saved.autoApprove, reference: !!saved.referenceVersion } }));
+    });
+    return res.json({ success: true, autoCheck: saved });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not save auto-check settings.' });
+  }
+});
+app.post('/coordinator/students/:studentId/requirements/:requirementId/undo-auto-approval', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(req.params.requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  const studentRef = adminDb.collection('users').doc(req.params.studentId);
+  try {
+    await adminDb.runTransaction(async transaction => {
+      const snap = await transaction.get(studentRef), student = snap.data();
+      if (!snap.exists || student.role !== 'student') throw Object.assign(new Error('Student not found.'), { status: 404 });
+      if (!(await coordinatorOwnsStudent(req.staff.uid, student))) throw Object.assign(new Error('You can only review students in your assigned sections.'), { status: 403 });
+      assertRecordsOpen(student);
+      const current = student.requirements?.[req.params.requirementId];
+      if (!current || current.status !== 'approved' || current.autoApproved !== true) throw Object.assign(new Error('Only automatic approvals can be undone here.'), { status: 409 });
+      const key = `requirements.${req.params.requirementId}`;
+      transaction.update(studentRef, { [`${key}.status`]: 'submitted', [`${key}.autoApproved`]: false, [`${key}.reviewedBy`]: null, [`${key}.reviewedAt`]: null, [`${key}.autoApprovalUndoneBy`]: req.staff.uid, [`${key}.autoApprovalUndoneAt`]: new Date().toISOString() });
+      writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.updated', targetType: 'requirements', targetId: req.params.requirementId, details: { studentId: req.params.studentId, sectionId: student.sectionId, action: 'auto_approval_undone' } });
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error); return res.status(500).json({ error: 'Could not undo the automatic approval.' });
+  }
+});
+
 app.delete('/coordinator/sections/:sectionId/requirements/:requirementId', requireStaff, async (req, res) => {
   try {
     await coordinatorSection(req, req.params.sectionId);
@@ -2300,7 +2466,23 @@ function parseCompanyPayload(body = {}) {
     || !Number.isSafeInteger(capacity) || capacity < 1 || typeof active !== 'boolean') {
     throw Object.assign(new Error('Enter a company name, valid contact details, a positive whole-number capacity, and an active status.'), { status: 400 });
   }
+  let placementDefaults;
+  if (body.placementDefaults !== undefined) {
+    const limits = { supervisorName: 160, supervisorEmail: 254, internshipRole: 160, workArrangement: 80, startDate: 10, endDate: 10 };
+    placementDefaults = Object.fromEntries(Object.keys(limits).map(key => [
+      key, typeof body.placementDefaults?.[key] === 'string' ? body.placementDefaults[key].trim() : '',
+    ]));
+    const { supervisorEmail, workArrangement, startDate, endDate } = placementDefaults;
+    if (Object.keys(limits).some(key => placementDefaults[key].length > limits[key])
+      || (supervisorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supervisorEmail))
+      || (workArrangement && !['On-site', 'Remote', 'Hybrid'].includes(workArrangement))
+      || (startDate && !isIsoDate(startDate)) || (endDate && !isIsoDate(endDate))
+      || (startDate && endDate && endDate < startDate)) {
+      throw Object.assign(new Error('Enter valid placement defaults.'), { status: 400 });
+    }
+  }
   return { name, normalizedName: normalizedCompanyName(name), address, industry, email, phone,
+    ...(placementDefaults === undefined ? {} : { placementDefaults }),
     capacity, active, status: active ? 'active' : 'inactive',
     ...(body.geofence === undefined ? {} : { geofence: require('./geofence').parseGeofence(body.geofence) }) };
 }
@@ -2564,7 +2746,28 @@ app.post('/attendance/time-out', requireUser, async (req, res) => {
 });
 
 require('./evaluationMail').installEvaluationMail({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, writeAuditInTransaction });
+// Coordinators can remove evaluation history they created (the link stops working).
+app.delete('/coordinator/evaluations/:evaluationId', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(req.params.evaluationId)) return res.status(400).json({ error: 'Invalid evaluation.' });
+  const ref = adminDb.collection('evaluations').doc(req.params.evaluationId);
+  try {
+    await adminDb.runTransaction(async transaction => {
+      const snap = await transaction.get(ref);
+      if (!snap.exists) throw Object.assign(new Error('Evaluation not found.'), { status: 404 });
+      if (snap.data().createdBy !== req.staff.uid) throw Object.assign(new Error('You can only delete evaluations you created.'), { status: 403 });
+      transaction.delete(ref);
+      writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: 'coordinator', action: 'evaluation.deleted', targetType: 'evaluations', targetId: ref.id, details: { studentId: snap.data().studentId || null } });
+    });
+    return res.json({ deleted: true });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error('Evaluation delete failed:', error.code || 'unknown');
+    return res.status(500).json({ error: 'Could not delete this evaluation.' });
+  }
+});
 require('./dtrReview').installDtrReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, streamAuthenticatedRequirement, assertRecordsOpen, writeAuditInTransaction });
+require('./coordinatorInbox').installCoordinatorInbox({ app, db: adminDb, requireStaff, allowRate });
 require('./coordinatorAnalytics').installCoordinatorAnalytics({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, audit: writeAuditInTransaction });
 require('./attendanceExcusedDates').installAttendanceExcusedDates({ app, db: adminDb, requireStaff, allowRate, audit: writeAuditInTransaction });
 const { installAttendanceRiskAlerts, riskAlertsEnabled } = require('./attendanceRiskAlerts');
@@ -2604,6 +2807,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     const formDefinition = requestedForm === undefined ? null : require('./evaluationForm').validateForm(requestedForm);
     const studentSnap = await adminDb.collection('users').doc(studentId).get();
     if (!studentSnap.exists || studentSnap.data().role !== 'student') return res.status(404).json({ error: 'Student not found' });
+    if (studentSnap.data().preDeploymentStatus !== 'approved') return res.status(409).json({ error: 'This student has not been approved for internship tracking yet.' });
     const student = studentSnap.data();
     if (req.staff.role === 'coordinator' && !(await coordinatorOwnsStudent(req.staff.uid, student))) {
       return res.status(403).json({ error: 'You can only create evaluations for students in your assigned sections.' });
@@ -2616,7 +2820,7 @@ app.post('/create-evaluation-token', requireStaff, async (req, res) => {
     await adminDb.runTransaction(async transaction => {
       const freshStudent = await transaction.get(studentSnap.ref);
       assertRecordsOpen(freshStudent.data());
-      transaction.create(evaluation, { ...(formDefinition ? { formDefinition } : {}), studentId, studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim(), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
+      transaction.create(evaluation, { ...(formDefinition ? { formDefinition } : {}), studentId, studentName: [student.lastName, student.firstName].filter(Boolean).join(', '), sectionId: student.sectionId || '', department: student.department || '', supervisorName: cleanSupervisorName, supervisorEmail: cleanSupervisorEmail, companyName: cleanCompanyName, tokenHash, expiresAt, used: false, createdBy: req.staff.uid, createdAt: new Date().toISOString() });
     });
     res.set('Cache-Control', 'no-store').json({ id: evaluation.id, token: rawToken, expiresAt });
   } catch (e) { if (e.status) return res.status(e.status).json({ error: e.message }); console.error(e); res.status(500).json({ error: 'Could not create evaluation link' }); }
@@ -2683,7 +2887,7 @@ app.post('/evaluation/:token/submit', async (req, res) => {
         submission = { ratings, comments: comments.trim() };
       }
       transaction.update(ref, { ...submission, submittedAt, used: true });
-      transaction.create(notificationRef, { recipientId: data.studentId, title: 'Supervisor evaluation submitted', message: `Your supervisor submitted an evaluation for ${data.companyName}.`, type: 'evaluation', read: false, createdAt: submittedAt });
+      transaction.create(notificationRef, indexedNotice({ recipientId: data.studentId, title: 'Supervisor evaluation submitted', message: `Your supervisor submitted an evaluation for ${data.companyName}.`, type: 'evaluation', read: false, createdAt: submittedAt }));
     });
     res.json({ success: true });
   } catch (e) {
@@ -2696,6 +2900,10 @@ app.post('/evaluation/:token/submit', async (req, res) => {
 const anthropicAnalysis = require('./anthropicAnalysis').createAnthropicAnalysis();
 const requirementChecks = require('./requirementChecks').createRequirementChecks({
   db: adminDb, ai: anthropicAnalysis, audit: writeAuditInTransaction,
+  getReference: async ({ sectionId, requirementId }) => {
+    const snap = await adminDb.collection('requirementReferences').doc(`${sectionId}_${requirementId}`).get();
+    return snap.exists && snap.data().data ? { bytes: Buffer.from(snap.data().data, 'base64'), fileName: snap.data().fileName } : null;
+  },
   enabled: () => process.env.REQUIREMENT_AI_ENABLED !== '0' && process.env.ANTHROPIC_ENABLED === '1'
     && require('./anthropicAnalysis').configErrors(process.env).length === 0,
   getBytes: async ({ studentId, requirementId, requirement }) => {
@@ -2724,6 +2932,8 @@ if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATO
 require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
 require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
+require('./companyEmailRouter').installCompanyEmailRouter({ app, db: adminDb, requireStaff, allowRate, ai: anthropicAnalysis });
+require('./demoSeed').installDemoSeed({ app, db: adminDb, auth: adminAuth, requireAdmin });
 app.post('/refine-logbook', requireUser, async (req, res) => {
   const { notes } = req.body || {};
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required' });

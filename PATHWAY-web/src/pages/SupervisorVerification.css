@@ -10,3 +10,74 @@
 .supervisor-verification button:disabled { opacity:.55; cursor:default; }
 .supervisor-verification :is(input,button):focus-visible { outline:3px solid #93c5fd; outline-offset:3px; }
 .supervisor-verification small { color:#64748b; line-height:1.6; }
+
+/* Six-box verification code */
+.supervisor-verification { max-width: 460px; margin: 24px auto; padding: 28px !important; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px rgba(15,23,42,.08); text-align: center; }
+.verification-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 14px; font-weight: 800; letter-spacing: 2px; color: #075fc9; }
+.supervisor-verification h2 { margin: 0 0 6px; font-size: 22px; color: #0f172a; }
+.supervisor-verification > p { margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: #64748b; }
+.supervisor-verification form { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 18px; }
+.supervisor-verification form > label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+.otp-field { position: relative; width: max-content; }
+.otp-boxes { display: flex; gap: 8px; }
+.otp-box { width: 46px; height: 56px; display: grid; place-items: center; border: 1.5px solid #dbe3ee; border-radius: 12px; background: #f8fafc; font-size: 24px; font-weight: 700; color: #0f172a; font-variant-numeric: tabular-nums; transition: border-color .15s, box-shadow .15s, background .15s; }
+.otp-box.is-filled { background: #fff; border-color: #93c5fd; }
+.otp-input:focus ~ .otp-boxes .otp-box.is-active, .otp-field:focus-within .otp-box.is-active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.18); background: #fff; }
+.otp-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; font-size: 16px; cursor: text; }
+.supervisor-verification .verification-primary { min-width: 260px; height: 46px; border: 0; border-radius: 12px; background: linear-gradient(135deg,#2563eb,#1d4ed8); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+.supervisor-verification .verification-primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+.supervisor-verification .verification-secondary { height: 42px; padding: 0 18px; border: 1px solid #bfdbfe; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-weight: 600; cursor: pointer; }
+.supervisor-verification [role="status"] { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: #ecfdf5; color: #047857; font-size: 13px; }
+.supervisor-verification small { display: block; margin-top: 14px; font-size: 12px; color: #94a3b8; }
+@media (max-width: 400px) { .otp-box { width: 40px; height: 50px; font-size: 21px; } .otp-boxes { gap: 6px; } }
+
+/* Responsive fit (mobile/tablet/desktop) */
+.supervisor-verification { box-sizing: border-box; width: 100%; max-width: 460px; margin: 20px auto; padding: clamp(18px, 5vw, 28px) !important; }
+.supervisor-verification * { box-sizing: border-box; }
+.supervisor-verification .verification-secondary, .supervisor-verification .verification-primary { width: 100%; min-width: 0; max-width: 360px; }
+.supervisor-verification form { width: 100%; }
+.otp-field { width: 100%; max-width: 360px; }
+.otp-boxes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(5px, 1.6vw, 10px); width: 100%; }
+.otp-box { width: auto; height: auto; aspect-ratio: 5 / 6; min-height: 0; font-size: clamp(18px, 5.5vw, 26px); border-radius: clamp(8px, 2vw, 12px); }
+@media (max-width: 400px) { .otp-box { width: auto; height: auto; } }
+
+/* OTP microinteractions */
+@keyframes otp-pop { 0% { transform: scale(.92); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+.otp-box.is-filled { animation: otp-pop .16s cubic-bezier(.2,.7,.2,1); }
+.otp-field:has(.otp-box:nth-child(6).is-filled) .otp-box { border-color: hsl(152 60% 45%); background: hsl(152 76% 97%); }
+@media (prefers-reduced-motion: reduce) { .otp-box { animation: none !important; } }
+
+/* Match the new PATHWAY email look: blue hero with logo + thinking guide, white body */
+.supervisor-verification { padding: 0 !important; overflow: hidden; border: 0 !important; border-radius: 24px !important; box-shadow: 0 16px 40px rgba(13,51,128,.12) !important; text-align: left !important; }
+.verification-hero { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 22px 22px 0; min-height: 118px; background: linear-gradient(135deg,#0B4FB3,#1A73E8); }
+.verification-hero::after { content: ""; position: absolute; right: -40px; top: -50px; width: 140px; height: 140px; border-radius: 50%; background: rgba(249,200,14,.9); }
+.verification-hero-brand { align-self: flex-start; display: flex; align-items: center; gap: 10px; color: #fff; position: relative; z-index: 1; }
+.verification-hero-brand strong { display: block; font-size: 19px; letter-spacing: 1px; font-weight: 800; }
+.verification-hero-brand small { display: block; margin: 0 !important; font-size: 12px !important; color: #DCE8FF !important; white-space: nowrap; }
+.verification-hero-logo { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #fff; }
+.verification-guide { position: relative; z-index: 1; width: 96px; height: 96px; margin-bottom: -18px; border-radius: 50%; animation: guide-bob 2.4s ease-in-out infinite; }
+@keyframes guide-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.verification-body { display: grid; gap: 14px; padding: 30px clamp(18px, 5vw, 28px) clamp(18px, 5vw, 26px); text-align: left; }
+.verification-chip { justify-self: start; padding: 6px 12px; border-radius: 99px; background: #E8F0FE; color: #0B4FB3; font-size: 12px; font-weight: 700; }
+.verification-body h2 { margin: 0 !important; font-size: clamp(22px, 6vw, 26px) !important; font-weight: 800; color: #0F1B33 !important; }
+.verification-body > p { margin: 0 !important; font-size: 15px !important; color: #4A5873 !important; }
+.verification-body .verification-secondary, .verification-body .verification-primary { max-width: none !important; }
+.verification-body .verification-primary { height: 50px !important; border-radius: 14px !important; background: #0B5FD3 !important; font-size: 15px !important; box-shadow: 0 8px 18px rgba(11,95,211,.28); }
+.verification-body .verification-primary:disabled { background: #CBD5E1 !important; box-shadow: none; }
+.verification-body .verification-secondary { height: 46px !important; border-radius: 12px !important; }
+.verification-body form { align-items: stretch !important; padding: 18px 14px; border-radius: 16px; background: #F5F8FD; }
+.verification-body form > label { text-align: center; }
+.verification-body .otp-field { max-width: none; }
+.verification-body .otp-box { background: #fff; }
+.verification-body small { text-align: center; }
+@media (prefers-reduced-motion: reduce) { .verification-guide { animation: none; } }
+/* Keep everything inside the card on narrow phones */
+.supervisor-verification { grid-template-columns: minmax(0, 1fr); margin: 0 auto !important; }
+.verification-body, .verification-body form, .verification-hero-brand { min-width: 0; }
+.verification-hero-brand > span:last-child { min-width: 0; }
+.verification-hero-brand small { white-space: normal; }
+.verification-body > p, .verification-body small { overflow-wrap: anywhere; }
+.verification-body .otp-field, .verification-body .otp-boxes { width: 100%; max-width: 100%; }
+/* When only the verification step shows, drop the outer white card so it doesn't double up */
+.supervisor-shell-verify { padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; max-width: 460px !important; margin: 0 auto; }
+@media (max-width: 420px) { .verification-guide { width: 82px; height: 82px; } .verification-hero { padding: 18px 16px 0; min-height: 104px; } }

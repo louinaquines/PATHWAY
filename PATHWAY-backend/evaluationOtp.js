@@ -32,16 +32,17 @@ function installEvaluationOtp({ app, db, allowRate, mailerFactory }) {
           const recipient = await db.runTransaction(async tx => {
             const data = (await tx.get(ref)).data(); active(data);
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.supervisorEmail || '')) throw failure();
-            if ((data.otpSendCount || 0) >= 5 || Date.now() - (Date.parse(data.otpRequestedAt) || 0) < 60000)
-              throw Object.assign(new Error('Please wait before requesting another code. Maximum five codes per link.'), { status: 429 });
+            if ((data.otpSendCount || 0) >= 3 || Date.now() - (Date.parse(data.otpRequestedAt) || 0) < 60000)
+              throw Object.assign(new Error('Please wait before requesting another code. Maximum three codes per link.'), { status: 429 });
             tx.update(ref, { otpHash: hash(`${salt}:${code}`), otpSalt: salt, otpAttempts: 0,
               otpExpiresAt: new Date(Date.now() + 600000).toISOString(), otpRequestedAt: new Date().toISOString(),
               otpSendCount: (data.otpSendCount || 0) + 1, verifiedSessionHash: null, verifiedSessionExpiresAt: null });
             return data.supervisorEmail;
           });
           try {
-            const result = await mailer.transport.sendMail({ from: mailer.from, to: recipient, subject: 'PATHWAY evaluation verification code',
-              text: `Your verification code is ${code}. It expires in 10 minutes. Do not share this code.` });
+            const result = await mailer.transport.sendMail({ from: mailer.from, to: recipient, subject: `Your PATHWAY verification code: ${code}`,
+              text: `Your PATHWAY verification code: ${code}\n\nEnter it on the evaluation page. It expires in 10 minutes. Do not share this code.`,
+              html: require('./evaluationEmailTemplate').verificationCodeHtml(code), attachments: require('./evaluationEmailTemplate').logoAttachments('thinking') });
             if (!result.accepted?.some(address => address.toLowerCase() === recipient.toLowerCase())) throw new Error('MAIL_UNCONFIRMED');
           } catch (error) {
             await db.runTransaction(async tx => {

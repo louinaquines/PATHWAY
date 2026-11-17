@@ -1,8 +1,10 @@
+import personName from '../personName';
 import { readMatchingPortalPage, readPortalPage } from '../portalRecordPages';
-import { PortalFormDialog } from '../components/PortalStates';
+import { PortalEmpty, PortalFormDialog } from '../components/PortalStates';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/CoordinatorDashboard.js
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSidebarPrefs, SidebarIndicator, GroupTitle, SidebarTools } from '../sidebarV2';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -15,12 +17,15 @@ import AnalyticsTab from './AnalyticsTab';
 import NotificationsTab from './NotificationsTab';
 import EvaluationTab from './EvaluationTab';
 import ClearanceTab from './ClearanceTab';
-import CoordinatorOverview from './CoordinatorOverview';
+import CoordinatorOverview, { OverviewSkeleton } from './CoordinatorOverview';
 import CompanyPlacementsTab from './CompanyPlacementsTab';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import MessagesTab from './MessagesTab';
-import SubmissionNotifications, { receivedRequirements } from '../components/SubmissionNotifications';
-import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy } from 'firebase/firestore';
+import SubmissionNotifications, { receivedRequirements, submissionTime } from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
+import RequirementsInbox from '../components/RequirementsInbox';
+import Pager from '../components/Pager';
+import RequirementViewer from '../components/RequirementViewer';
+import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
 import { COLORS, THEME } from '../theme';
@@ -28,15 +33,23 @@ import Icon from '../components/Icons';
 import { COORDINATOR_PAGE_TITLES, setPageMetadata } from '../pageMetadata';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
+import { EvaluationSkeleton, LogbookSkeleton } from '../components/PageSkeletons';
 import AlertDialog from '../components/AlertDialog';
 import { PortalError } from '../components/PortalStates';
 import DocumentPreviewDialog from '../components/DocumentPreviewDialog';
 import RequirementCheckResult from '../components/RequirementCheckResult';
+import ServerWakeNotice from '../components/ServerWakeNotice';
+import '../components/RequirementAutoCheckDialog.css';
 import { requirementProgress } from '../requirementProgress';
 import { REQUIREMENT_CATEGORIES, requirementCategory } from '../requirementCategory';
 import { downloadSectionExcel } from '../sectionExport';
 import './RequirementsWorkspace.css';
 import './CoordinatorProfile.css';
+import './CoordinatorGlass.css';
+import './PortalPolish.css';
+import '../sidebarV2.css';
+import './RequirementsRedesign.css';
+import './Responsive.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -47,15 +60,18 @@ const STATUS_COLOR = {
   rejected: COLORS.rose100,
 };
 
-const STATUS_TEXT = {
-  not_submitted: 'Not Submitted',
-  submitted: 'Awaiting review',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
+const STAGE_LABEL = { 'Pre-OJT': 'Before OJT', Ongoing: 'During OJT', 'Post-OJT': 'After OJT', Other: 'Other' };
+function aiTone(review) {
+  if (!review || ['queued', 'checking'].includes(review.status)) return null;
+  if (['consent_required', 'ai_unavailable', 'policy_missing', 'unsupported_file', 'assignment_changed'].includes(review.reason)) return null;
+  if (review.tier === 'red') return 'red';
+  if (review.status === 'checks_passed' && review.tier !== 'yellow') return 'green';
+  return 'yellow';
+}
 
 const COORDINATOR_TABS = ['overview', 'requirements', 'sections', 'logbook', 'companies', 'placements', 'messages', 'classlist', 'registrations', 'analytics', 'notifications', 'evaluations', 'clearance', 'profile'];
 const SECTION_STORAGE_KEY = 'pathway.coordinator.sectionId';
+
 
 export default function CoordinatorDashboard() {
   const [sections, setSections] = useState([]);
@@ -66,13 +82,14 @@ export default function CoordinatorDashboard() {
   const [reviewSearch, setReviewSearch] = useState('');
   const [reviewPaging, setReviewPaging] = useState(null);
   const [reviewResult, setReviewResult] = useState(null);
+  const [reviewTotal, setReviewTotal] = useState(null);
   const [reviewRetry, setReviewRetry] = useState(0);
   const { page } = useParams();
   const location = useLocation();
   const overviewView = selectedSection && location.state?.sectionId === selectedSection.id ? location.state.view : undefined;
   const [loadedSectionId, setLoadedSectionId] = useState(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const activeTab = COORDINATOR_TABS.includes(page) ? page : 'requirements';
+  const activeTab = COORDINATOR_TABS.includes(page) ? page : 'overview';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -99,6 +116,8 @@ export default function CoordinatorDashboard() {
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterBusy, setRosterBusy] = useState(false);
   const attendanceNavigation = useRef(0);
+  const sidebarPrefs = useSidebarPrefs('coordinator');
+  const navRef = useRef(null);
   const sectionLoad = useRef(0);
   const requirementsActive = activeTab === 'requirements';
   const needsSectionRoster = ['overview', 'requirements', 'profile'].includes(activeTab);
@@ -235,6 +254,60 @@ export default function CoordinatorDashboard() {
     if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
+  const [bulkConfirm, setBulkConfirm] = useState(null);
+  // Coordinator-only AI results, live for the selected section.
+  const [aiReviews, setAiReviews] = useState({});
+  useEffect(() => {
+    if (!requirementsActive || !selectedSection?.id) { setAiReviews({}); return undefined; }
+    let stop = () => {};
+    try {
+      stop = onSnapshot(query(collection(db, 'requirementReviews'), where('sectionId', '==', selectedSection.id)),
+        snapshot => setAiReviews(Object.fromEntries(snapshot.docs.map(item => [item.id, item.data()]))),
+        () => setAiReviews({}));
+    } catch { setAiReviews({}); }
+    return () => stop();
+  }, [requirementsActive, selectedSection?.id]);
+  const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
+  const [rqDetailView, setRqDetailView] = useState(false);
+  useEffect(() => {
+    const id = location.state?.openStudentId;
+    if (activeTab !== 'requirements' || !id) return;
+    let on = true;
+    getDoc(doc(db, 'users', id)).then(snap => { if (on && snap.exists()) { setSelectedStudent({ id: snap.id, ...snap.data() }); setRqDetailView(true); } }).catch(() => {});
+    return () => { on = false; };
+  }, [activeTab, location.state]);
+  const [viewerId, setViewerId] = useState(null);
+  useEffect(() => { setViewerId(null); }, [selectedStudent?.id]);
+  const pendingStageRef = useRef(null);
+  const [newStudentIds, setNewStudentIds] = useState(() => new Set());
+  const newStudentIdsRef = useRef(newStudentIds);
+  newStudentIdsRef.current = newStudentIds;
+  useEffect(() => { setPhaseFilter(pendingStageRef.current || 'Pre-OJT'); pendingStageRef.current = null; }, [selectedStudent?.id]);
+  const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
+  const tierItems = (list, tier) => (list || []).flatMap(st => Object.entries(st.requirements || {})
+    .filter(([reqId, r]) => r?.status === 'submitted' && aiReviewFor(st.id, reqId, r?.autoReview)?.tier === tier).map(([reqId]) => ({ studentId: st.id, reqId })));
+  const runBulk = async () => {
+    if (!bulkConfirm) return;
+    const { items, status } = bulkConfirm;
+    setBulkBusy(true);
+    try { for (const item of items) await handleRequirement(item.studentId, item.reqId, status, status === 'rejected' ? bulkReason.trim() : ''); }
+    finally { setBulkBusy(false); setBulkConfirm(null); }
+  };
+
+  const handleUndoAutoApproval = async (studentId, reqId) => {
+    setSaving(true); setError('');
+    try {
+      await adminRequest(`/coordinator/students/${encodeURIComponent(studentId)}/requirements/${encodeURIComponent(reqId)}/undo-auto-approval`, { method: 'POST' });
+      const undo = st => st.id !== studentId ? st : { ...st, requirements: { ...st.requirements, [reqId]: { ...st.requirements[reqId], status: 'submitted', autoApproved: false } } };
+      setSelectedStudent(prev => prev ? undo(prev) : prev);
+      setStudents(prev => prev.map(undo));
+    } catch (e) { setError(e.message || 'Could not undo the automatic approval.'); }
+    finally { setSaving(false); }
+  };
+
   const handleRequirement = async (studentId, reqId, status, reason = '') => {
     const request = sectionLoad.current;
     setSaving(true);
@@ -300,7 +373,17 @@ export default function CoordinatorDashboard() {
   const reviewCursors = reviewPaging?.scope === reviewScope ? reviewPaging.cursors : [null];
   const reviewCursor = reviewCursors.at(-1);
   const currentReview = reviewResult?.scope === reviewScope && reviewResult.cursor === reviewCursor ? reviewResult : null;
-  const visibleReviewStudents = currentReview?.page?.records || [];
+  const visibleReviewStudents = (currentReview?.page?.records || []).slice(0, 10);
+  const [reviewJump, setReviewJump] = useState(null);
+  useEffect(() => {
+    if (!reviewJump || reviewJump.scope !== reviewScope || !currentReview?.page) return;
+    if (reviewCursors.length >= reviewJump.page || !currentReview.page.hasMore) { setReviewJump(null); return; }
+    setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] });
+  }, [reviewJump, currentReview]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goReviewPage = n => {
+    if (n < reviewCursors.length) { setReviewJump(null); setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, n) }); }
+    else if (n > reviewCursors.length) setReviewJump({ scope: reviewScope, page: n });
+  };
   const reviewReady = requirementsActive && selectedSection && loadedSectionId === selectedSection.id + ':requirements';
 
   useEffect(() => {
@@ -320,35 +403,47 @@ export default function CoordinatorDashboard() {
     const base = query(collection(db, 'users'), ...constraints, ...(exactId
       ? [where('idNumber', '==', reviewSearch)]
       : [orderBy('firstName'), orderBy('lastName')]));
-    const request = reviewFilter !== 'all' || (reviewSearch && !exactId)
-      ? readMatchingPortalPage(base, reviewCursor, 25, student => (
+    const requiresMatching = reviewFilter !== 'all' || (reviewSearch && !exactId);
+    if (!requiresMatching) {
+      getCountFromServer(base).then(snapshot => {
+        if (active) setReviewTotal({ scope: reviewScope, count: snapshot.data().count, pages: Math.max(1, Math.ceil(snapshot.data().count / 10)) });
+      }).catch(() => {});
+    }
+    const request = requiresMatching
+      ? readMatchingPortalPage(base, reviewCursor, 10, student => (
         matchesCoordinatorSearch(reviewSearch, student.firstName, student.lastName, student.idNumber, selectedSection.name)
-        && (reviewFilter === 'all' || (reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
+        && (reviewFilter === 'all' || (reviewFilter === 'new' ? newStudentIdsRef.current.has(student.id) : reviewFilter === 'review' ? needsReview(student) : reviewFilter === 'revision' ? needsChanges(student) : isComplete(student)))
       ))
-      : readPortalPage(base, reviewCursor, 25);
-    request.then(page => {
-      if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
-    }).catch(() => {
+      : readPortalPage(base, reviewCursor, 10);
+    const latestUpload = st => Math.max(0, ...Object.values(st.requirements || {}).map(r => submissionTime(r?.submittedAt)));
+    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => reviewFilter === 'new' ? latestUpload(b) - latestUpload(a) : String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
+      if (!active) return;
+      setReviewResult({ scope: reviewScope, cursor: reviewCursor, page });
+      if (!page.hasMore) setReviewTotal(prev => ({ ...(prev?.scope === reviewScope ? prev : {}), scope: reviewScope, pages: reviewCursors.length }));
+    }).catch(err => {
+      console.warn('Requirement students query failed:', err);
       if (active) setReviewResult({ scope: reviewScope, cursor: reviewCursor, error: 'Could not load requirement students.' });
     });
     return () => { active = false; };
   }, [reviewReady, reviewScope, reviewCursor, sectionRequirements]);
 
+  // Short sidebar labels; full names stay as page titles and accessible names.
+  const NAV_LABELS = { overview: 'Dashboard', requirements: 'Requirements', logbook: 'Attendance & Journals', evaluations: 'Evaluations', clearance: 'Clearance', placements: 'Placements', companies: 'Companies', sections: 'Sections', registrations: 'Accounts', analytics: 'Progress', messages: 'Messages', notifications: 'Announcements' };
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
-    { title: 'Student reviews', items: [
-        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true },
+    { title: 'Reviews', items: [
+        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true, hint: pendingCount > 0 ? `${pendingCount} to review` : 'All reviewed' },
         { id: 'logbook', icon: 'book' },
         { id: 'evaluations', icon: 'star' },
         { id: 'clearance', icon: 'cap' },
     ] },
-    { title: 'Internship placements', items: [
-        { id: 'placements', icon: 'building' },
+    { title: 'Placements', items: [
+        { id: 'placements', icon: 'briefcase' },
         { id: 'companies', icon: 'building' },
     ] },
     { title: 'Students', items: [
-        { id: 'sections', icon: 'section' },
-        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true },
+        { id: 'sections', icon: 'users', hint: selectedSection ? `${students.length} students` : null },
+        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true, hint: pendingRegistrations > 0 ? `${pendingRegistrations} to approve` : null },
         { id: 'analytics', icon: 'chart' },
         { id: 'messages', icon: 'chat' },
         { id: 'notifications', icon: 'bell' },
@@ -356,11 +451,13 @@ export default function CoordinatorDashboard() {
   ];
 
   return (
-    <div style={s.page} className={activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page'}>
+    <div style={s.page} className={(activeTab === 'overview' ? 'coordinator-page coordinator-dashboard-mode' : 'coordinator-page') + sidebarPrefs.rootClass}>
+      <ServerWakeNotice />
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
+          <button type="button" className="sidebar-home-link" onClick={() => setActiveTab('overview')} aria-label="Go to dashboard">
           <div className="sidebar-logo-box" style={s.logoWrap}>
             <PathwayLogo style={s.logoImg} />
           </div>
@@ -368,9 +465,21 @@ export default function CoordinatorDashboard() {
             <div className="sidebar-brand-title" style={s.appName}>PATHWAY</div>
             <div className="sidebar-brand-subtitle" style={s.appSub}>Coordinator Portal</div>
           </div>
+          </button>
         </div>
 
-        {coordDept && (
+        {sidebarPrefs.modern && sections.length > 0 && (
+          <label className="sidebar-section-card" title="Switch section">
+            <span className="sidebar-section-icon" aria-hidden="true"><Icon name="section" size={16} /></span>
+            <span className="sidebar-section-text"><small>{coordDept || 'Current section'}</small>
+              <strong>{selectedSection?.name || 'Choose a section'}</strong></span>
+            <select aria-label="Switch section" value={selectedSection?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
+              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+            <Icon name="chevronRight" size={14} className="sidebar-section-chevron" />
+          </label>
+        )}
+        {coordDept && !sidebarPrefs.modern && (
           <div className="coordinator-department" style={s.deptPill}>
             <span style={s.deptText}>{coordDept}</span>
           </div>
@@ -381,21 +490,26 @@ export default function CoordinatorDashboard() {
           onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? 'Close navigation' : 'Open navigation'}
         </button>
-        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
+        <nav ref={navRef} id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Coordinator navigation">
+          {sidebarPrefs.modern && <SidebarIndicator navRef={navRef} activeKey={activeTab} deps={[sidebarPrefs.collapsed, sidebarPrefs.isFolded('Reviews'), sidebarPrefs.isFolded('Placements'), sidebarPrefs.isFolded('Students')]} />}
           {coordNavGroups.map(group => (
-            <div key={group.title} className="sidebar-group">
-              {group.title && <div className="sidebar-group-title">{group.title}</div>}
-              {group.items.map(item => (
+            <div key={group.title} className="sidebar-group" data-folded={sidebarPrefs.isFolded(group.title)}>
+              <GroupTitle prefs={sidebarPrefs} title={group.title} />
+              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id).map(item => (
                 <button
                   type="button"
                   key={item.id}
                   className={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
                   onClick={() => setActiveTab(item.id)}
+                  aria-label={COORDINATOR_PAGE_TITLES[item.id]}
                   aria-current={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'page' : undefined}
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />
-                    <span className="sidebar-btn-text">{COORDINATOR_PAGE_TITLES[item.id]}</span>
+                    <span className="sidebar-btn-label">
+                      <span className="sidebar-btn-text" title={COORDINATOR_PAGE_TITLES[item.id]}>{NAV_LABELS[item.id] || COORDINATOR_PAGE_TITLES[item.id]}</span>
+                      {sidebarPrefs.modern && item.hint && <span className="sidebar-btn-hint">{item.hint}</span>}
+                    </span>
                   </span>
                   {item.badge > 0 && (
                     <span className={item.isWarning ? 'sidebar-badge sidebar-badge-warning' : 'sidebar-badge'}>
@@ -409,6 +523,7 @@ export default function CoordinatorDashboard() {
         </nav>
 
         <div className="sidebar-footer">
+          <SidebarTools prefs={sidebarPrefs} />
           <button
             type="button"
             className={activeTab === 'profile' ? 'sidebar-user-pill sidebar-user-pill-active' : 'sidebar-user-pill'}
@@ -444,7 +559,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements', 'companies', 'registrations'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -454,11 +569,16 @@ export default function CoordinatorDashboard() {
               </label>
             )}
           </div>
-          {['sections', 'classlist'].includes(activeTab) && <button type="button" className="portal-secondary"
-            onClick={() => activeTab === 'sections' ? setRosterOpen(true) : setActiveTab('sections')}>
-            {activeTab === 'sections' ? 'Class List & Accounts' : 'Back to sections'}
-          </button>}
-          {['requirements', 'sections'].includes(activeTab) && (
+          {activeTab === 'classlist' && <button type="button" className="portal-secondary" onClick={() => setActiveTab('sections')}>Back to sections</button>}
+          {activeTab === 'logbook' && <div className="rq-top-actions" id="lb-top-actions" />}
+          {activeTab === 'evaluations' && <div className="rq-top-actions" id="ev-top-actions" />}
+          {activeTab === 'clearance' && <div className="rq-top-actions" id="cl-top-actions" />}
+          {activeTab === 'placements' && <div className="rq-top-actions" id="pl-top-actions" />}
+          {activeTab === 'companies' && <div className="rq-top-actions" id="co-top-actions" />}
+          {activeTab === 'sections' && <div className="rq-top-actions" id="sx-top-actions" />}
+          {activeTab === 'registrations' && <div className="rq-top-actions" id="rg-top-actions" />}
+          {activeTab === 'requirements' && (
+            <div className="rq-top-actions">
             <button
               type="button"
               className="section-export-button"
@@ -468,15 +588,30 @@ export default function CoordinatorDashboard() {
               title={selectedSection ? `Download ${selectedSection.name} records as an Excel file` : 'Select a section to export'}
             >
               {exporting ? <span className="section-export-spinner" aria-hidden="true" /> : <Icon name="download" size={18} />}
-              <span aria-live="polite">{exporting ? 'Exporting…' : 'Download section records (Excel)'}</span>
+              <span aria-live="polite">{exporting ? 'Exporting…' : 'Download records'}</span>
             </button>
+            <div className="rq-section-pick" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setSectionMenuOpen(false); }}>
+              <button type="button" className="rq-section-face" aria-haspopup="listbox" aria-expanded={sectionMenuOpen} aria-label="Current section" disabled={!sections.length}
+                onClick={() => setSectionMenuOpen(open => !open)} onKeyDown={e => { if (e.key === 'Escape') setSectionMenuOpen(false); }}>
+                {selectedSection?.name || 'Choose section'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              {sectionMenuOpen && <ul className="rq-section-menu" role="listbox" aria-label="Sections">
+                {sections.map(section => <li key={section.id}><button type="button" role="option" aria-selected={section.id === selectedSection?.id}
+                  onClick={() => { setSectionMenuOpen(false); if (section.id !== selectedSection?.id) fetchStudents(section); }}>
+                  <span>{section.name}</span>
+                  {section.id === selectedSection?.id && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>}
+                </button></li>)}
+              </ul>}
+            </div>
+            </div>
           )}
         </header>
 
         {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
-          <PageSkeleton label="Loading coordinator data" variant="three-column" />
+          activeTab === 'overview' ? <OverviewSkeleton /> : activeTab === 'requirements' ? <RequirementsSkeleton /> : activeTab === 'logbook' ? <LogbookSkeleton /> : activeTab === 'evaluations' ? <EvaluationSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
             <CoordinatorProfileTab
@@ -489,242 +624,193 @@ export default function CoordinatorDashboard() {
         ) : (
           <div style={{ ...s.contentWrapper, ...(['requirements', 'logbook'].includes(activeTab) ? { flexDirection: 'column' } : {}) }}>
             {activeTab === 'overview' && (selectedSection && loadedSectionId !== selectedSection.id + ':roster'
-              ? !error && <PageSkeleton label="Loading section overview" />
+              ? !error && <OverviewSkeleton />
               : <CoordinatorOverview key={selectedSection?.id} section={selectedSection} students={students}
                   requirementsCount={reviewQueue.length} onOpen={(tab, view, pendingStudentIds) => navigate('/coordinator/' + tab, {
                     state: { sectionId: selectedSection.id, view, ...(view === 'journals' ? { pendingStudentIds } : {}) },
                   })} />)}
             {activeTab === 'requirements' && (
-              <div className="requirements-workspace" style={s.threeCol}>
-                {/* Column 2: Students */}
-                <div className="requirements-students" style={s.col2}>
-                  <div style={s.colHeader}>
-                    Students
-                    <select aria-label="Current section" className="requirements-queue-section" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
-                      {sections.length === 0 && <option value="">No sections assigned to you</option>}
-                      {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-                    </select>
+              <div className="rq" data-view={rqDetailView && selectedStudent ? 'detail' : 'list'}>
+                <div className="rq-list">
+                  <div className="rq-search-row">
+                    <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
+                    <RequirementsInbox coordinatorId={coordinatorId} section={selectedSection} requirements={sectionRequirements}
+                      toneFor={(studentId, reqId, item) => aiTone(aiReviewFor(studentId, reqId, item?.autoReview))}
+                      stageFor={reqId => requirementCategory(sectionRequirements.find(r => r.id === reqId)?.category)}
+                      onNewChange={setNewStudentIds}
+                      onOpen={(student, stage) => { setRqDetailView(true); pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
                   </div>
-                  <div style={s.columnSearch}><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search students…" /></div>
-                  <div className="coordinator-review-filters" role="group" aria-label="Requirement queue filter">
-                    {[['review', 'Awaiting review'], ['revision', 'Changes requested'], ['all', 'All students'], ['complete', 'Complete']].map(([value, label]) => (
-                      <button type="button" key={value} className="portal-secondary" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>
-                    ))}
+                  <div className="rq-pills" role="group" aria-label="Filter students">
+                    {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
+                      <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
                   </div>
-                  {!selectedSection && (
-                    <div style={s.empty}>Choose a section in the top bar.</div>
-                  )}
-                  {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
-                    <div style={s.empty}>{currentReview?.page?.hasMore ? 'No matches in this window. Choose Next to continue.' : 'No students match this view.'}</div>
-                  )}
-                  {selectedSection && !currentReview && <p role="status">Loading students…</p>}
-                  {currentReview?.error && <p role="alert">{currentReview.error} <button type="button" className="portal-secondary"
-                    onClick={() => setReviewRetry(value => value + 1)}>Retry</button></p>}
-                  {(reviewCursors.length > 1 || currentReview?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Requirement students pagination">
-                    <button type="button" className="portal-secondary" disabled={reviewCursors.length === 1 || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: reviewCursors.slice(0, -1) })}>Previous</button>
-                    <span>Page {reviewCursors.length}</span>
-                    <button type="button" className="portal-secondary" disabled={!currentReview?.page?.hasMore || saving}
-                      onClick={() => setReviewPaging({ scope: reviewScope, cursors: [...reviewCursors, currentReview.page.cursor] })}>Next</button>
-                  </nav>}
-                  {visibleReviewStudents.map(student => {
-                    const progress = requirementProgress(student.requirements, sectionRequirements);
-                    return (
-                    <button
-                      type="button"
-                      className="requirements-student-card"
-                      aria-pressed={selectedStudent?.id === student.id}
-                      key={student.id}
-                      onClick={() => setSelectedStudent(student)}
-                    >
-                      <div className="student-card-identity">
-                        <div className="student-card-name">
-                          <strong>{student.firstName} {student.lastName}</strong>
-                          <span>ID {student.idNumber || 'not provided'}</span>
-                          <span className="coordinator-queue-status" data-status={needsReview(student) ? 'review' : isComplete(student) ? 'complete' : 'neutral'}>
-                            {needsReview(student) ? 'Needs review' : isComplete(student) ? 'Complete' : 'In progress'}
-                          </span>
-                        </div>
-                        {selectedStudent?.id === student.id && (
-                          <strong className={`student-card-percentage${progress.percentage === 100 ? ' is-complete' : ''}`}>{progress.percentage}%</strong>
-                        )}
-                      </div>
-                      {selectedStudent?.id === student.id && (
-                      <div className="student-card-progress">
-                        <div className="student-card-progress-caption">{progress.total ? `${progress.approved} of ${progress.total} requirements approved` : 'No requirements added for this section'}</div>
-                      </div>
-                      )}
-                    </button>
-                    );
-                  })}
+                  <div className="rq-students">
+                    {!selectedSection && (sections.length === 0
+                      ? <PortalEmpty compact icon="section" title="No sections yet" description="Create a section to see students here." />
+                      : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section at the top right." />)}
+                    {selectedSection && currentReview?.page && visibleReviewStudents.length === 0 && (
+                      <div className="rq-empty">{currentReview?.page?.hasMore ? 'No matches on this page. Choose Next to continue.' : 'No students match this view.'}</div>
+                    )}
+                    {selectedSection && !currentReview && <div className="req-skel-list" role="status" aria-label="Loading students">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student"><span className="cdash-skel" style={{ width: 32, height: 32, borderRadius: '50%' }} /><div><span className="cdash-skel" style={{ width: '70%', height: 13 }} /><span className="cdash-skel" style={{ width: '45%', height: 10 }} /></div></div>)}</div>}
+                    {currentReview?.error && <div className="rq-empty" role="status">
+                      <strong>No students yet</strong>
+                      <span>Students will appear here once they join {selectedSection?.name || 'this section'}.</span>
+                      <button type="button" className="rq-link" onClick={() => setReviewRetry(value => value + 1)}>Check again</button>
+                    </div>}
+                    {visibleReviewStudents.map(student => {
+                      const reqs = sectionRequirements.map(r => student.requirements?.[r.id]?.status);
+                      const toCheck = reqs.filter(v => v === 'submitted').length, toFix = reqs.filter(v => v === 'rejected').length;
+                      const tag = toFix ? [`${toFix} need${toFix === 1 ? 's' : ''} fixing`, 'red'] : toCheck ? [`${toCheck} to check`, 'blue'] : isComplete(student) ? ['All approved', 'green'] : ['Nothing new', 'mute'];
+                      return <button type="button" className="rq-student" aria-pressed={selectedStudent?.id === student.id} key={student.id} onClick={() => { setSelectedStudent(student); setRqDetailView(true); }}>
+                        <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+                        <span className="rq-student-name"><strong>{personName(student)}</strong><small>{selectedSection?.name}</small></span>
+                        <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
+                      </button>;
+                    })}
+                  </div>
+                  {visibleReviewStudents.length > 0 && (() => {
+                    const first = (reviewCursors.length - 1) * 10 + 1, last = first + visibleReviewStudents.length - 1;
+                    const total = reviewTotal?.scope === reviewScope && reviewTotal.count != null ? reviewTotal.count : null;
+                    const pages = reviewTotal?.scope === reviewScope ? Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages) : reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore));
+                    return <div className="rq-pages">
+                      <span aria-live="polite">{first}–{last}{total != null ? ` of ${total}` : ''}</span>
+                      <Pager page={reviewCursors.length} pages={pages} busy={Boolean(reviewJump) || saving} onGo={goReviewPage} label="Student pages" />
+                    </div>;
+                  })()}
                 </div>
 
-                {/* Column 3: Requirements */}
-                <div className="requirements-detail" style={s.col3}>
-                  <div style={{ ...s.colHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                    <div>{selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'Review student documents'}
-                    <p>{selectedStudent ? `Student ID ${selectedStudent.idNumber || 'not provided'} — Review submitted requirements below.` : 'Attachments, decisions, and feedback in one place.'}</p>
-                    </div>
-                    <SubmissionNotifications kind="requirements" coordinatorId={coordinatorId} section={selectedSection} suppliedItems={visibleReviewStudents.flatMap(receivedRequirements)} onRefresh={() => setReviewRetry(value => value + 1)} onOpen={setSelectedStudent} />
-                  </div>
-                  {selectedProgress?.total > 0 && <div className="coordinator-review-progress">
-                    <progress aria-label="Requirements approved" value={selectedProgress.approved} max={selectedProgress.total} />
-                    <span>{selectedProgress.approved} of {selectedProgress.total} approved</span>
-                  </div>}
-                  {!selectedStudent ? (
-                    <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
-                      <div style={s.emptyStatePanel}>
-                        <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Requirements" /></div>
-                        <h3 style={s.emptyTitle}>Select a Student</h3>
-                        <p style={s.emptySub}>Choose a student from the list to review documents, attachments, and approvals.</p>
+                <div className="rq-detail">
+                  {!selectedStudent || sectionRequirements.length === 0 ? (
+                    sections.length === 0 ? (
+                      <PortalEmpty icon="section" title="Start by creating a section" description="Student documents appear here once a section has students and requirements."
+                        steps={['Create a section', 'Add requirements and deadlines', 'Students upload — you review here']} action={{ label: 'Go to Sections', onClick: () => setActiveTab('sections') }} />
+                    ) : sectionRequirements.length === 0 ? (
+                      <PortalEmpty title="No requirements yet" description="Add the documents students must submit for this section." action={{ label: 'Add requirements', onClick: () => setActiveTab('sections') }} />
+                    ) : (
+                      <PortalEmpty icon="user" title="Select a student" description="Choose a student on the left to see their documents." />
+                    )
+                  ) : (() => {
+                    const ordered = REQUIREMENT_CATEGORIES.flatMap(cat => sectionRequirements.filter(r => requirementCategory(r.category) === cat));
+                    const rows = ordered.map(requirement => {
+                      const req = selectedStudent.requirements?.[requirement.id];
+                      const status = req?.status || 'not_submitted';
+                      const review = (status === 'submitted' || req?.autoApproved || status === 'approved' || status === 'rejected') ? aiReviewFor(selectedStudent.id, requirement.id, req?.autoReview) : null;
+                      return { ...requirement, req, status, review, tone: aiTone(review), stage: requirementCategory(requirement.category) };
+                    });
+                    const stages = REQUIREMENT_CATEGORIES.filter(cat => cat !== 'Other' || rows.some(row => row.stage === 'Other'));
+                    const activeStage = stages.includes(phaseFilter) ? phaseFilter : stages[0];
+                    const stageSummary = cat => { // eslint-disable-line no-unused-vars
+                      const list = rows.filter(row => row.stage === cat);
+                      const ok = list.filter(row => row.status === 'approved').length, check = list.filter(row => row.status === 'submitted').length, fix = list.filter(row => row.status === 'rejected').length, none = list.filter(row => row.status === 'not_submitted').length;
+                      if (!list.length) return 'none';
+                      if (ok === list.length) return `${ok} of ${list.length} approved`;
+                      return [check && `${check} to check`, fix && `${fix} to fix`, none && `${none} not sent yet`, !check && !fix && !none && `${ok} of ${list.length} approved`].filter(Boolean).join(' · ');
+                    };
+                    const shown = rows.filter(row => row.stage === activeStage);
+                    const fmt = value => new Date(value).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+                    const greens = tierItems([selectedStudent], 'green');
+                    return <>
+                      <button type="button" className="rq-back" onClick={() => setRqDetailView(false)}><Icon name="chevronLeft" size={15} /> Students</button>
+                      <div className="rq-head">
+                        <div><h2>{personName(selectedStudent)}</h2>
+                          <p>{selectedProgress?.approved || 0} of {selectedProgress?.total || 0} documents approved · ID {selectedStudent.idNumber || 'not provided'}</p></div>
+                        {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
+                          Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
                       </div>
-                    </div>
-                  ) : (
-                    <div style={s.requirementsScroll}>
-                      {sectionRequirements.length === 0 && <div style={s.emptyStatePanel}><Icon name="clipboard" size={28} /><h3 style={s.emptyTitle}>No requirements added for this section</h3><p style={s.emptySub}>Add requirements under Sections & Students → Requirements & Deadlines.</p></div>}
-                      {REQUIREMENT_CATEGORIES.map(cat => {
-                        const catReqs = sectionRequirements.filter(r => requirementCategory(r.category) === cat);
-                        if (catReqs.length === 0) return null;
-                        return (
-                          <div key={cat} style={s.reqGroup}>
-                            <div style={s.reqGroupLabel} className="requirements-category">{cat} Requirements</div>
-                            <div style={s.reqCardsList}>
-                              {catReqs.map(({ id, label, deadline }) => {
-                                const req = selectedStudent.requirements?.[id];
-                                const status = req?.status || 'not_submitted';
-                                const isOverdue = deadline && new Date(deadline) < new Date() && status !== 'approved';
-                                return (
-                                  <div className="requirements-document" key={id} style={s.reqRow}>
-                                    <div style={s.reqLeft} className="requirements-document-main">
-                                      <div className="requirements-document-icon"><Icon name="clipboard" size={18} /></div>
-                                      <div>
-                                        <div style={s.reqLabel} className="requirements-document-title">{label}</div>
-                                        {status === 'submitted' && <RequirementCheckResult review={req?.autoReview} compact />}
-                                        {deadline && (
-                                          <div style={{ fontSize: 11, color: isOverdue ? COLORS.rose700 : '#000000', fontWeight: isOverdue ? 800 : 600, marginTop: 2 }}>
-                                            <><Icon name="calendar" size={12} /> Deadline: {new Date(deadline).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</>
-                                            {isOverdue ? ' (OVERDUE)' : ''}
-                                          </div>
-                                        )}
-                                        {req?.submittedAt && (
-                                          <div style={{ fontSize: 11, color: '#000000', marginTop: 3 }}>
-                                            Submitted: {new Date(req.submittedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                          </div>
-                                        )}
-                                        {req?.reviewedAt && (
-                                          <div style={{ fontSize: 11, color: '#000000' }}>
-                                            {status === 'approved' ? 'Approved' : 'Rejected'}: {new Date(req.reviewedAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                          </div>
-                                        )}
-                                        {status === 'rejected' && req?.rejectionReason && (
-                                          <div style={s.rejectionAlert}>
-                                            <strong style={{ color: '#000000' }}>Reason:</strong> <span style={{ color: '#000000' }}>{req.rejectionReason}</span>
-                                          </div>
-                                        )}
-                                        {req?.cloudinaryPublicId && req?.cloudinaryVersion ? (
-                                          <div className="requirement-file-actions"><button type="button" className="requirement-file-action"
-                                            onClick={() => setDocumentPreview({ path: `/coordinator/students/${encodeURIComponent(selectedStudent.id)}/requirements/${encodeURIComponent(id)}/download`, fileName: req.fileName, sectionId: selectedSection.id, requirementId: id, studentId: selectedStudent.id })}>
-                                            <Icon name="expand" size={16} /> View
-                                          </button><button
-                                            type="button"
-                                            disabled={downloadingRequirement === `${selectedStudent.id}:${id}`}
-                                            onClick={() => handleDownloadRequirement(selectedStudent.id, id, req.fileName)}
-                                            title={req.fileName || 'Signed endorsement letter'}
-                                            aria-label={`Download private copy: ${req.fileName || 'signed endorsement letter'}`}
-                                            className="requirement-file-action"
-                                          >
-                                            <Icon name="download" size={16} /> {downloadingRequirement === `${selectedStudent.id}:${id}` ? 'Downloading…' : 'Download'}
-                                          </button></div>
-                                        ) : req?.fileUrl && (
-                                          <span style={s.fileLink}>Please upload this document again to enable secure download.</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div style={s.reqRight} className="requirements-document-actions">
-                                      <span style={{
-                                        ...s.statusBadge,
-                                        backgroundColor: STATUS_COLOR[status],
-                                        color: '#000000',
-                                        border: `1px solid ${COLORS.slate300}`,
-                                      }} className="requirements-document-status" data-status={status}>
-                                        {Object.hasOwn(STATUS_TEXT, status) ? STATUS_TEXT[status] : 'Status unavailable'}
-                                      </span>
-                                      {status === 'submitted' && (
-                                        <div style={s.actionBtns}>
-                                          <button
-                                            style={s.approveBtn}
-                                            disabled={saving}
-                                            onClick={() => handleRequirement(selectedStudent.id, id, 'approved')}
-                                          >
-                                            <Icon name="check" size={14} />
-                                            Approve
-                                          </button>
-                                          <button
-                                            style={s.rejectBtn}
-                                            disabled={saving}
-                                            onClick={() => {
-                                              setRejectionModal({ studentId: selectedStudent.id, reqId: id });
-                                              setRejectionReason('');
-                                            }}
-                                          >
-                                            <Icon name="x" size={14} />
-                                            Request changes
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-
-                      <AlertDialog
-                        open={Boolean(rejectionModal)}
-                        title="Request changes to this document?"
-                        description="Specify the correction the student needs before resubmitting this requirement."
-                        confirmLabel="Request changes"
-                        busy={saving}
-                        confirmDisabled={!rejectionReason.trim()}
-                        onCancel={() => setRejectionModal(null)}
-                        onConfirm={async () => {
-                          const saved = await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
-                          if (saved) setRejectionModal(null);
-                        }}
-                      >
-                        <textarea
-                          autoFocus
-                          aria-label="Rejection reason"
-                          style={{ width: '100%', minHeight: 96, marginTop: 16, padding: 12, resize: 'vertical', border: `1px solid ${COLORS.slate300}`, borderRadius: 10, font: 'inherit', boxSizing: 'border-box' }}
-                          placeholder="e.g. Document is missing an official signature or notarization seal..."
-                          value={rejectionReason}
-                          onChange={e => setRejectionReason(e.target.value)}
-                          rows={4}
-                        />
-                      </AlertDialog>
-                    </div>
-                  )}
+                      <div className="rq-progress" role="progressbar" aria-label="Documents approved" aria-valuemin={0} aria-valuemax={selectedProgress?.total || 0} aria-valuenow={selectedProgress?.approved || 0}><i style={{ width: `${selectedProgress?.total ? Math.round(100 * (selectedProgress.approved || 0) / selectedProgress.total) : 0}%` }} /></div>
+                      <div className="rq-stages" role="tablist" aria-label="OJT stage" style={{ '--count': stages.length, '--index': Math.max(0, stages.indexOf(activeStage)) }}>
+                        <span className="rq-stages-thumb" aria-hidden="true" />
+                        {stages.map(cat => {
+                          const list = rows.filter(row => row.stage === cat);
+                          const tone = list.some(row => row.status === 'rejected') ? 'red' : list.some(row => row.status === 'submitted') ? 'blue' : list.length && list.every(row => row.status === 'approved') ? 'green' : 'mute';
+                          const hint = tone === 'red' ? 'needs fixing' : tone === 'blue' ? 'has documents to check' : tone === 'green' ? 'all approved' : 'waiting for the student';
+                          return <button key={cat} type="button" role="tab" aria-selected={cat === activeStage} onClick={() => setPhaseFilter(cat)} title={`${STAGE_LABEL[cat] || cat}: ${hint}`}>
+                            <i data-tone={tone} aria-hidden="true" /><strong>{STAGE_LABEL[cat] || cat}</strong><span className="sr-only">, {hint}</span></button>;
+                        })}
+                      </div>
+                      <div className="rq-table" role="table" aria-label={`${STAGE_LABEL[activeStage] || activeStage} documents`}>
+                        
+                        {shown.length === 0 && <div className="rq-empty">No documents in this stage.</div>}
+                        {shown.map(row => {
+                          const isOverdue = row.deadline && new Date(row.deadline) < new Date() && row.status !== 'approved';
+                          const finding = row.status === 'rejected' && row.req?.rejectionReason ? row.req.rejectionReason : (row.review?.findings || [])[0];
+                          const pct = Number.isFinite(row.review?.confidence) ? Math.round(row.review.confidence * 100) : null;
+                          const canOpen = row.req?.cloudinaryPublicId && row.req?.cloudinaryVersion;
+                          const pill = row.status === 'approved' ? ['Approved', 'green'] : row.status === 'rejected' ? ['Sent back', 'red'] : row.status === 'submitted' ? (row.tone === 'green' ? ['Looks good', 'green'] : row.tone === 'red' ? ['Looks wrong', 'red'] : row.tone === 'yellow' ? ['Check closely', 'amber'] : ['To check', 'blue']) : ['Waiting', 'mute'];
+                          const note = finding || (row.status === 'approved' ? (row.req?.autoApproved ? 'Approved by the AI check.' : row.req?.reviewedAt ? `Checked by you on ${fmt(row.req.reviewedAt)}.` : 'Approved.') : row.status === 'not_submitted' ? 'The student has not uploaded this yet.' : row.review && ['queued', 'checking'].includes(row.review.status) ? 'The AI is still checking this.' : '');
+                          return <div className="rq-row" role="row" key={row.id} data-status={row.status}>
+                            <span className="rq-doc" role="cell"><strong>{row.label}</strong>
+                              <small>{row.req?.submittedAt ? `Sent ${fmt(row.req.submittedAt)}` : 'Not sent yet'}{row.deadline && <em data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (late)' : ''}</em>}</small></span>
+                            <span className="rq-status" role="cell"><b data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' && ` · ${pct}% sure`}</b>
+                              {note && <small>{note}</small>}
+                              {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</span>
+                            <span className="rq-actions" role="cell">
+                              {row.status === 'submitted' && <>
+                                <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => handleRequirement(selectedStudent.id, row.id, 'approved')}>Approve</button>
+                                <button type="button" className="rq-btn" disabled={saving} onClick={() => { setRejectionModal({ studentId: selectedStudent.id, reqId: row.id }); setRejectionReason(''); }}>Ask to fix</button>
+                              </>}
+                              {canOpen && <button type="button" className="rq-link" onClick={() => setViewerId(row.id)}>View <Icon name="eye" size={14} /></button>}
+                              {canOpen && <button type="button" className="rq-icon" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`} onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={14} /></button>}
+                              {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="rq-link" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
+                              {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
+                            </span>
+                          </div>;
+                        })}
+                      </div>
+                      {viewerId && <RequirementViewer student={selectedStudent} studentName={personName(selectedStudent)} sectionId={selectedSection?.id}
+                        rows={rows.filter(r => r.req?.cloudinaryPublicId && r.req?.cloudinaryVersion)} startId={viewerId} saving={saving}
+                        stageLabel={cat => STAGE_LABEL[cat] || cat}
+                        onApprove={reqId => handleRequirement(selectedStudent.id, reqId, 'approved')}
+                        onFix={(reqId, why) => handleRequirement(selectedStudent.id, reqId, 'rejected', why)}
+                        onUndo={reqId => handleUndoAutoApproval(selectedStudent.id, reqId)}
+                        onClose={() => setViewerId(null)} />}
+                    </>;
+                  })()}
+                  <AlertDialog
+                    open={Boolean(bulkConfirm)}
+                    title={bulkConfirm ? `Approve ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'}?` : ''}
+                    description="These passed the AI check. You can still undo each one later."
+                    confirmLabel="Approve"
+                    busy={bulkBusy}
+                    onCancel={() => setBulkConfirm(null)}
+                    onConfirm={runBulk}
+                  />
+                  <AlertDialog
+                    open={Boolean(rejectionModal)}
+                    title="Ask the student to fix this?"
+                    description="Tell the student what to change before they upload it again."
+                    confirmLabel="Send back"
+                    busy={saving}
+                    confirmDisabled={!rejectionReason.trim()}
+                    onCancel={() => setRejectionModal(null)}
+                    onConfirm={async () => {
+                      const saved = await handleRequirement(rejectionModal.studentId, rejectionModal.reqId, 'rejected', rejectionReason);
+                      if (saved) setRejectionModal(null);
+                    }}
+                  >
+                    <textarea autoFocus aria-label="What to fix" className="rq-reason" placeholder="e.g. The form is missing the parent's signature." value={rejectionReason} onChange={e => setRejectionReason(e.target.value)} rows={4} />
+                  </AlertDialog>
                 </div>
               </div>
             )}
-            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />} />}
+            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} onAddStudents={() => setRosterOpen('add')} onManageAccounts={() => setRosterOpen(true)} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />}
+              sectionActions={<>
+                <button type="button" className="portal-secondary section-action-btn" onClick={exportSection} disabled={!selectedSection || exporting} aria-busy={exporting}><Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Download records (Excel)'}</button>
+              </>} />}
             {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Class List & Accounts" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>
-              <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2><p>Manage students and import your class list.</p></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
-              <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
+              <header className="roster-drawer-header"><div><h2>Class List & Accounts</h2></div><button type="button" className="portal-secondary" disabled={rosterBusy} onClick={() => setRosterOpen(false)}>Close</button></header>
+              <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} onClose={() => setRosterOpen(false)} initialTab={rosterOpen === 'add' ? 'add' : undefined} />
             </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} />}
-            {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
-            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} />}
-            {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}
+            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
+            {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
+            {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
+            {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'classlist' && <ClassListTab key={selectedSection?.id} coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} />}
             {activeTab === 'analytics' && <AnalyticsTab coordinatorId={coordinatorId} selectedSection={selectedSection} highlightStudentId={attendanceTarget && attendanceTarget.sectionId === selectedSection?.id ? attendanceTarget.studentId : null} />}
-            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} onOpenAttendanceRisk={openAttendanceRisk} />}
+            {activeTab === 'notifications' && <NotificationsTab userId={coordinatorId} section={selectedSection} sections={sections} onOpenAttendanceRisk={openAttendanceRisk} />}
             {activeTab === 'evaluations' && <EvaluationTab coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} />}
+            {activeTab === 'clearance' && <ClearanceTab key={selectedSection?.id} initialFilter={overviewView === 'ready' ? 'ready' : 'all'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
           </div>
         )}
       </main>
@@ -1531,3 +1617,20 @@ const s = {
     fontWeight: 800,
   },
 };
+
+// Loading state shaped like the Requirements page: student list on the left, review table on the right.
+function RequirementsSkeleton() {
+  const bar = (width, height = 12, extra = {}) => <span className="cdash-skel" style={{ width, height, ...extra }} />;
+  return <div className="req-skel" aria-busy="true" aria-label="Loading requirements">
+    <div className="req-skel-left">
+      {bar(90, 16)}{bar('100%', 40, { borderRadius: 10 })}{bar('100%', 40, { borderRadius: 10 })}
+      {bar('100%', 64, { borderRadius: 12 })}
+      <div className="req-skel-list">{[0, 1, 2, 3, 4].map(key => <div key={key} className="req-skel-student">{bar(40, 40, { borderRadius: '50%' })}<div>{bar('70%', 13)}{bar('45%', 10)}{bar(70, 18, { borderRadius: 99 })}</div></div>)}</div>
+    </div>
+    <div className="req-skel-right">
+      {bar(160, 18)}{bar(280, 12)}{bar('100%', 6, { borderRadius: 99 })}
+      <div className="req-skel-row">{[60, 80, 86, 70, 120].map((w, key) => <span key={key} className="cdash-skel" style={{ width: w, height: 30, borderRadius: 99 }} />)}</div>
+      <div className="req-skel-table">{[0, 1, 2, 3, 4, 5].map(key => <div key={key} className="req-skel-tr">{bar(14, 12)}{bar('80%', 14)}{bar('60%', 12)}{bar('70%', 12)}{bar(78, 22, { borderRadius: 99 })}</div>)}</div>
+    </div>
+  </div>;
+}

@@ -13,10 +13,14 @@ test('coordinator review displays the reason without claiming rejection',()=>{
  expect(screen.queryByText('Rejected')).not.toBeInTheDocument();
 });
 
-test('compact review keeps findings accessible behind an expandable summary',()=>{
- render(<RequirementCheckResult compact review={{status:'needs_review',findings:['Permission was not provided.'],checks:[]}}/>);
- const reason=screen.getByText('Permission was not provided.');
- expect(reason.closest('details')).not.toHaveAttribute('open');
- expect(screen.getByText('Coordinator review needed')).toBeInTheDocument();
- expect(screen.getByText(/You decide whether to approve the document/)).toBeInTheDocument();
+test('compact review shows a plain status and the top findings directly',()=>{
+ render(<RequirementCheckResult compact review={{status:'needs_review',tier:'yellow',findings:['End date is before start date.','No student name.','Address incomplete.','Notarial date later.'],checks:[{key:'readability',passed:true}]}}/>);
+ expect(screen.getByText('Needs a closer look')).toBeInTheDocument();
+ expect(screen.getByText('End date is before start date.').closest('details')).toBeNull();
+ expect(screen.getByText('Notarial date later.').closest('details')).not.toHaveAttribute('open');
+ expect(screen.getByText(/you decide/)).toBeInTheDocument();
+});
+test('compact review explains when a document was not auto-checked',()=>{
+ render(<RequirementCheckResult compact review={{status:'needs_review',reason:'consent_required',findings:[],checks:[]}}/>);
+ expect(screen.getByText('Not auto-checked — review manually')).toBeInTheDocument();
 });

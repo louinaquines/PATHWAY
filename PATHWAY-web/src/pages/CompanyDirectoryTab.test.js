@@ -23,7 +23,7 @@ test('preview requires explicit use and an independent reviewed save', async () 
   fireEvent.change(screen.getByLabelText('Address'), { target: { value: 'Verified address' } });
   expect(adminRequest.mock.calls.some(([path]) => path === '/coordinator/companies')).toBe(false);
   fireEvent.change(screen.getByLabelText('Company name'), { target: { value: 'Edited Company' } });
-  fireEvent.click(screen.getByText('Add to directory'));
+  fireEvent.click(screen.getByText('Add company'));
   await waitFor(() => expect(adminRequest.mock.calls.some(([path, options]) => path === '/coordinator/companies' && JSON.parse(options.body).name === 'Edited Company')).toBe(true));
 });
 test('preview failures offer manual entry and do not save', async () => {
@@ -36,7 +36,7 @@ test('preview failures offer manual entry and do not save', async () => {
   fireEvent.change(screen.getByLabelText('Company website'), { target: { value: 'https://example.com' } });
   fireEvent.click(screen.getByText('Preview details'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter company details manually.');
-  fireEvent.click(screen.getByRole('button', { name: '+ Add company' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add company' }));
   expect(screen.getByLabelText('Company name')).toBeEnabled();
   expect(screen.queryByText('Use suggestions in form')).not.toBeInTheDocument();
 });
@@ -44,7 +44,7 @@ test('read-only directory has no import or company mutation controls', async () 
   render(<CompanyDirectoryTab />);
   await screen.findByText('No companies yet');
   expect(screen.queryByLabelText('Company website')).not.toBeInTheDocument();
-  expect(screen.queryByText('Add to directory')).not.toBeInTheDocument();
+  expect(screen.queryByText('Add company')).not.toBeInTheDocument();
 });
 
 test('admin directory pages companies and searches the complete directory', async () => {
@@ -77,10 +77,10 @@ test('coordinator directory pages rows, searches later records and retains edit 
     return { companies: companies.slice(0, 25), nextCursor: '24' };
   });
   render(<CompanyDirectoryTab readOnly={false} />);
-  expect(await screen.findByText('Partner 01')).toBeInTheDocument();
+  expect((await screen.findAllByText('Partner 01')).length).toBeGreaterThan(0);
   expect(screen.queryByText('Partner 30')).not.toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox',{name:'Search companies'}),{target:{value:'Partner 30'}});
-  expect(await screen.findByText('Partner 30')).toBeInTheDocument();
+  expect((await screen.findAllByText('Partner 30')).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole('button',{name:'Edit Partner 30'}));
   expect(screen.getByLabelText('Company name')).toHaveValue('Partner 30');
   expect(screen.getByLabelText('Require location for attendance')).toBeChecked();

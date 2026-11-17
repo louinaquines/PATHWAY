@@ -126,11 +126,11 @@ export default function CompanyConversations({ sectionId }) {
   }, { enabled: !!sectionId && !busy && !sending && !linking && !attachmentBusy, scope: sectionId + ':' + selected, protectInputs: false });
 
   return <section className="company-conversations" aria-label="Company email conversations">
-    <header><div><h3>Company email</h3><p>Company replies for this section update automatically.</p></div>
+    <header><div><h3>Company email</h3><p>Emails from partner companies about your students show up here, so you can read and reply without leaving PATHWAY.</p></div>
       <button type="button" disabled={!selected || busy} onClick={() => setRevision(value => value + 1)}>{busy ? 'Refreshing…' : 'Refresh replies'}</button></header>
     {error && <p role="alert">{error}</p>}
     {!sectionId ? <p>Select a section to view company conversations.</p> : !list && !error ? <p role="status">Loading conversations…</p> : list?.connected === false ?
-      <p className="company-mail-empty">Inbox not connected. A coordinator must authorize a separate read-only mailbox connection. In-app messages and announcements remain available.</p> : list?.connected && <>
+      <div className="company-mail-empty"><strong>Not set up yet</strong><p>Once the PATHWAY mailbox is connected, company emails about students in this section appear here and you can reply from this page. Ask your system administrator to connect it.</p></div> : list?.connected && <>
       {list.discoveryEnabled && <form className="company-mail-discovery" onSubmit={discover}>
         <label>Student<select value={studentId} onChange={event => setStudentId(event.target.value)} disabled={linking}>
           <option value="">Select a student with an approved placement</option>

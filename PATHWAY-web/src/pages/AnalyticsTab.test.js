@@ -28,7 +28,7 @@ test('unavailable metrics stay unavailable and schedule saves through scoped API
   await screen.findByText('Test Student');
   expect(screen.getByText('Completion estimate unavailable')).toBeInTheDocument();
   expect(screen.queryByText('100%')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByText('Edit'));
+  fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
   const dates = container.querySelectorAll('input[type=date]');
   fireEvent.change(dates[0], { target: { value: '2026-10-01' } });
   fireEvent.change(dates[1], { target: { value: '2026-12-31' } });
@@ -49,12 +49,13 @@ test('explicit tiers, progress and data quality override compatibility status an
       status: 'On Track', risk: 'On Track', reasonCodes: [{ code: 'PROJECTED_SHORTFALL' }], observationCounts: { attendanceEligibleDays: 5, projectionEligibleDays: 9 } })) });
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Student 0');
-  for (const tier of ['Low','Medium','High']) expect(screen.getByText(`Risk: ${tier}`)).toBeInTheDocument();
+  for (const label of ['On track','At risk','High risk']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
   expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
-  expect(screen.getByText(/last 20 eligible/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
+  expect(screen.getByRole('dialog')).not.toHaveTextContent(/How is this calculated/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();
 });
 
@@ -131,6 +132,6 @@ test('available zero totals remain zero rather than being confused with unavaila
   await screen.findByText('Test Student');
   expect(screen.getAllByText('0 hrs')).toHaveLength(2);
   expect(screen.getAllByText('0%')).toHaveLength(2);
-  expect(screen.getByText('Risk: High')).toBeInTheDocument();
-  expect(screen.queryByText('Risk: Low')).not.toBeInTheDocument();
+  expect(screen.getByText('High risk')).toBeInTheDocument();
+  expect(screen.queryByText('On track')).not.toBeInTheDocument();
 });

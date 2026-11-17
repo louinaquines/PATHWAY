@@ -1,8 +1,11 @@
+import personName from '../personName';
 import { completedHoursSummary } from '../completedHoursSummary';
+import ServerWakeNotice from '../components/ServerWakeNotice';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
-import { useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
+import { useSidebarPrefs, SidebarIndicator, GroupTitle, SidebarTools } from '../sidebarV2';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
@@ -24,6 +27,9 @@ import './AdminStudents.css';
 import './AdminDirectories.css';
 import './CreateCoordinator.css';
 import './AdminProfileNavigation.css';
+import './AdminGlass.css';
+import './PortalPolish.css';
+import '../sidebarV2.css';
 import {
   BarChart, Bar, CartesianGrid, Cell, Legend, Pie, PieChart,
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -146,7 +152,7 @@ export default function AdminDashboard() {
     ...pending.slice(0, 3).map(student => ({
       key: `pending-${student.id}`,
       icon: 'user',
-      title: `New registration from ${`${student.firstName || ''} ${student.lastName || ''}`.trim() || 'a student'}`,
+      title: `New registration from ${personName(student) || 'a student'}`,
       detail: 'Student account needs approval',
       time: 'Needs review',
       action: () => { setNotificationOpen(false); setDepartmentFilter(student.department || ''); setSectionFilter(student.sectionId || 'all'); setActiveTab('students'); },
@@ -195,9 +201,9 @@ export default function AdminDashboard() {
         type: 'Student',
         targetTab: 'students',
         sectionId: student.sectionId || 'all',
-        title: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Unnamed student',
+        title: personName(student) || 'Unnamed student',
         detail: [student.idNumber, student.email].filter(Boolean).join(' · '),
-        value: `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.email || '',
+        value: personName(student) || student.idNumber || student.email || '',
         icon: 'user',
       })),
     ...departmentSections
@@ -225,7 +231,7 @@ export default function AdminDashboard() {
   const exportDashboard = () => {
     const header = ['Name', 'Student ID', 'Email', 'Department', 'Account Status', 'Registered'];
     const rows = filteredDashboardStudents.map(student => [
-      `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+      personName(student),
       student.idNumber || '',
       student.email || '',
       student.department || '',
@@ -241,6 +247,8 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const sidebarPrefs = useSidebarPrefs("admin");
+  const navRef = useRef(null);
   const adminNavGroups = [
     {
       title: 'Overview',
@@ -270,7 +278,8 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div style={s.page} className={`admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
+    <div style={s.page} className={sidebarPrefs.rootClass.trim() + ` admin-page${activeTab === 'overview' ? ' admin-overview-mode' : activeTab === 'students' ? ' admin-students-mode' : ['coordinators', 'companies', 'create', 'terms', 'settings', 'audit'].includes(activeTab) ? ' admin-directories-mode' : ''}`}>
+      <ServerWakeNotice />
       {/* Sidebar */}
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
@@ -288,11 +297,12 @@ export default function AdminDashboard() {
           onClick={() => setNavigationOpen(open => !open)}>
           {navigationOpen ? 'Close navigation' : 'Open navigation'}
         </button>
-        <nav id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
+        <nav ref={navRef} id="portal-navigation" data-mobile-open={navigationOpen} className="sidebar-nav-scroll" style={s.nav} aria-label="Admin navigation">
+          {sidebarPrefs.modern && <SidebarIndicator navRef={navRef} activeKey={activeTab} deps={[sidebarPrefs.collapsed, ...adminNavGroups.map(group => sidebarPrefs.isFolded(group.title))]} />}
           {adminNavGroups.map(group => (
-            <div key={group.title} className="sidebar-group">
-              {group.title && <div className="sidebar-group-title">{group.title}</div>}
-              {group.items.map(item => (
+            <div key={group.title} className="sidebar-group" data-folded={sidebarPrefs.isFolded(group.title)}>
+              <GroupTitle prefs={sidebarPrefs} title={group.title} />
+              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id).map(item => (
                 <button
                   type="button"
                   key={item.id}
@@ -314,6 +324,7 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="sidebar-footer">
+          <SidebarTools prefs={sidebarPrefs} />
           <button
             type="button"
             className={activeTab === 'profile' ? 'sidebar-user-pill sidebar-user-pill-active' : 'sidebar-user-pill'}
@@ -496,23 +507,30 @@ export default function AdminDashboard() {
             {/* OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="admin-system-overview" style={s.overviewGrid}>
-                <dl className="admin-compact-stats" aria-label="Overview statistics">
-                  <div><dt>Students</dt><dd>{departmentStudents.length}</dd></div>
-                  <div><dt>Sections</dt><dd>{departmentSections.length}</dd></div>
-                  <div><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd></div>
-                  <div><dt>Students who completed required hours</dt><dd>{hoursCompletion.completed}<span> of {hoursCompletion.total} students</span></dd><p className="hours-completion-note">{hoursCompletion.percent}% reached their hours target</p>{hoursCompletion.missingTargets > 0 && <p className="hours-completion-note">{hoursCompletion.missingTargets} missing a required-hours target</p>}</div>
+                <dl className="admin-stat-cards" aria-label="Overview statistics">
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={22} /></span><dt>Students</dt><dd>{departmentStudents.length}</dd><p>Enrolled OJT records</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={22} /></span><dt>Sections</dt><dd>{departmentSections.length}</dd><p>Active class sections</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="teal"><Icon name="users" size={22} /></span><dt>Coordinators</dt><dd>{coordinators.filter(inDepartment).length}</dd><p>Assigned faculty</p></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="clock" size={22} /></span><dt>Students who completed required hours</dt><dd>{hoursCompletion.completed}<span> of {hoursCompletion.total} students</span></dd>
+                    <div className="admin-stat-progress" role="progressbar" aria-label="Hours completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={hoursCompletion.percent}><span style={{ width: `${Math.min(100, hoursCompletion.percent || 0)}%` }} /></div>
+                    <p className="hours-completion-note">{hoursCompletion.percent}% reached their hours target</p>{hoursCompletion.missingTargets > 0 && <p className="hours-completion-note">{hoursCompletion.missingTargets} missing a required-hours target</p>}</div>
                 </dl>
                 <section className="admin-attention" aria-labelledby="admin-attention-heading">
-                  <h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2>
-                  <div className="admin-attention-grid">
-                    <button type="button" onClick={() => openStudents('pending')}>
-                      <span>Pending approvals</span><strong data-zero={scopedPending === 0}>{scopedPending}</strong><Icon name="chevronRight" size={14} />
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}>
-                      <span>Sections without a coordinator</span><strong data-zero={unassignedSections === 0}>{unassignedSections}</strong><Icon name="chevronRight" size={14} />
-                    </button>
-                    <button type="button" onClick={() => openStudents('all')}><span>Student hours</span><Icon name="chevronRight" size={14} /></button>
-                    <button type="button" onClick={() => setActiveTab('companies')}><span>Company capacity</span><Icon name="chevronRight" size={14} /></button>
+                  <div className="admin-section-head"><h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2><p>Items that may need an action from you.</p></div>
+                  <div className="admin-action-cards">
+                    {[
+                      { label: 'Pending approvals', hint: 'Student accounts waiting for review', icon: 'user', count: scopedPending, onClick: () => openStudents('pending') },
+                      { label: 'Sections without a coordinator', hint: 'Assign faculty to these sections', icon: 'section', count: unassignedSections, onClick: () => openStudents('all') },
+                      { label: 'Student hours', hint: 'Check rendered OJT hours', icon: 'clock', onClick: () => openStudents('all') },
+                      { label: 'Company capacity', hint: 'Partner slots and placements', icon: 'building', onClick: () => setActiveTab('companies') },
+                    ].map(item => (
+                      <button type="button" key={item.label} className="admin-action-card" data-alert={item.count > 0} onClick={item.onClick}>
+                        <span className="admin-action-icon"><Icon name={item.icon} size={20} /></span>
+                        <span className="admin-action-text"><span className="admin-action-label">{item.label}</span><span className="admin-action-hint">{item.hint}</span></span>
+                        {typeof item.count === 'number' && <strong data-zero={item.count === 0}>{item.count === 0 ? <Icon name="check" size={14} label="None" /> : item.count}</strong>}
+                        <Icon name="chevronRight" size={16} />
+                      </button>
+                    ))}
                   </div>
                 </section>
                 <AdminCharts
@@ -555,12 +573,12 @@ export default function AdminDashboard() {
                   {' · '}<span>{selectedSection.hoursRequired ?? '—'} hrs</span>
                   {' · Coordinator: '}{sectionCoordinator ? [sectionCoordinator.firstName, sectionCoordinator.lastName].filter(Boolean).join(' ') : 'Unassigned'}
                 </p>}
-                <div className="admin-student-summary admin-compact-student-stats">
-                  <div><span>Total students</span><strong>{directoryStudents.length}</strong></div>
-                  <div><span>Active accounts</span><strong>{directoryStudents.filter(student => student.accountApproved).length}</strong></div>
-                  <div><span>Pending accounts</span><strong data-zero={directoryStudents.every(student => student.accountApproved || student.status === 'rejected_registration')}>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</strong></div>
-                  <div><span>Sections</span><strong>{selectedSection ? 1 : departmentSections.length}</strong></div>
-                </div>
+                <dl className="admin-stat-cards admin-stat-cards-compact" aria-label="Student summary">
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={20} /></span><dt>Total students</dt><dd>{directoryStudents.length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="check" size={20} /></span><dt>Active accounts</dt><dd>{directoryStudents.filter(student => student.accountApproved).length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="amber"><Icon name="clock" size={20} /></span><dt>Pending accounts</dt><dd>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={20} /></span><dt>Sections</dt><dd>{selectedSection ? 1 : departmentSections.length}</dd></div>
+                </dl>
                 <UserTable
                   key={departmentFilter + ':' + sectionFilter}
                   users={directoryStudents}
@@ -592,15 +610,16 @@ export default function AdminDashboard() {
             {/* COORDINATORS */}
             {['coordinators', 'create'].includes(activeTab) && (
               <div style={s.tabContent} className="admin-directory-screen admin-coordinators-directory">
-                <div style={s.tabHeader}>
-                  <button style={s.addCoordinatorBtn} onClick={() => setActiveTab('create')}>
-                    + Create Coordinator
+                <div className="admin-directory-head">
+                  <dl className="admin-stat-cards admin-stat-cards-compact admin-stat-cards-3" aria-label="Coordinator summary">
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="teal"><Icon name="users" size={20} /></span><dt>Coordinators</dt><dd>{coordinators.length}</dd></div>
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="building" size={20} /></span><dt>Departments</dt><dd>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</dd></div>
+                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="section" size={20} /></span><dt>Assigned sections</dt><dd>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</dd></div>
+                  </dl>
+                  <button type="button" className="admin-primary-action" onClick={() => setActiveTab('create')}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                    Create Coordinator
                   </button>
-                </div>
-                <div className="admin-directory-summary">
-                  <div><span>Coordinators</span><strong>{coordinators.length}</strong></div>
-                  <div><span>Departments</span><strong>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</strong></div>
-                  <div><span>Assigned sections</span><strong>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</strong></div>
                 </div>
                 <UserTable
                   users={coordinators}
@@ -908,7 +927,7 @@ function CreateCoordinatorTab({ onCreated, onCancel }) {
 
       <div className="create-coordinator-layout">
       <form onSubmit={handleCreate} style={s.createForm} className="create-coordinator-form">
-        <div className="create-coordinator-form-heading"><Icon name="user" size={20} /><div><h3>Account details</h3><p>All fields are required.</p></div></div>
+        <div className="create-coordinator-form-heading"><span className="admin-stat-icon" data-tone="teal"><Icon name="user" size={20} /></span><div><h3>Account details</h3><p>All fields are required.</p></div></div>
         <div style={s.formRow} className="create-coordinator-name-row">
           <div style={s.formGroup}>
             <label style={s.label} htmlFor="coordinator-first-name">First name</label>
@@ -963,7 +982,7 @@ function CreateCoordinatorTab({ onCreated, onCancel }) {
             disabled={loading}
             required
           />
-          <button type="button" className="create-coordinator-password-toggle" disabled={loading} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Hide' : 'Show'}</button>
+          <button type="button" className="create-coordinator-password-toggle" disabled={loading} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>}</button>
           </div>
           <small id="coordinator-password-help">Use at least 6 characters. Share credentials securely.</small>
         </div>
@@ -1002,33 +1021,34 @@ function CreateCoordinatorTab({ onCreated, onCancel }) {
 
 function AdminNotificationsPage({ items, notificationsRead, onMarkAllRead }) {
   return (
-    <div style={s.notificationsPage}>
-      <div style={s.notificationsPageHeader}>
-        <div>
-          <h2 style={s.subTitle}>Recent Notifications</h2>
-          <p style={s.subText}>Review recent account and section activity across the admin workspace.</p>
-        </div>
-        <button type="button" style={s.markReadBtn} onClick={onMarkAllRead}>
-          <Icon name="check" size={15} />
+    <section className="admin-records-card admin-notifications-card" aria-labelledby="admin-notifications-title">
+      <header className="admin-records-head">
+        <div><h2 id="admin-notifications-title">Recent Notifications</h2><p>Review recent account and section activity across the admin workspace.</p></div>
+        <button type="button" className="admin-secondary-action" onClick={onMarkAllRead} disabled={notificationsRead || items.length === 0}>
+          <Icon name="check" size={16} />
           {notificationsRead ? 'All notifications read' : 'Mark all as read'}
         </button>
-      </div>
-      <div style={s.notificationsPageCard}>
-        {items.length > 0 ? items.map(item => (
-          <button type="button" key={item.key} style={s.notificationsPageItem} onClick={item.action}>
-            <span style={s.notificationIcon}><Icon name={item.icon} size={17} /></span>
-            <span style={s.notificationCopy}>
-              <strong>{item.title}</strong>
-              <span>{item.detail}</span>
-              <small>{item.time}</small>
-            </span>
-            <Icon name="chevronRight" size={16} className="sidebar-user-chevron" />
-          </button>
-        )) : (
-          <div style={s.notificationEmpty}>No recent notifications.</div>
-        )}
-      </div>
-    </div>
+      </header>
+      {items.length > 0 ? (
+        <ul className="admin-notification-list">
+          {items.map(item => (
+            <li key={item.key}>
+              <button type="button" className="admin-notification-row" data-unread={!notificationsRead} onClick={item.action}>
+                <span className="admin-stat-icon" data-tone="blue"><Icon name={item.icon} size={20} /></span>
+                <span className="admin-notification-text">
+                  <strong>{item.title}</strong>
+                  <span>{item.detail}</span>
+                </span>
+                <small>{item.time}</small>
+                <Icon name="chevronRight" size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <PortalEmpty icon="bell" compact title="You're all caught up" description="New account and section activity will appear here." />
+      )}
+    </section>
   );
 }
 
@@ -1252,7 +1272,7 @@ function ChartEmpty({ message }) {
 
 function CoordinatorActions({ user, saving, onToggle, onDelete }) {
   const menuId = 'coordinator-actions-' + user.id;
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  const name = personName(user);
 
   function positionMenu(event) {
     const trigger = event.currentTarget.getBoundingClientRect();
@@ -1304,7 +1324,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
       {removeError && <div role="alert">{removeError}</div>}
       <AlertDialog open={Boolean(remove)} title="Delete coordinator account?" description={remove ? `Delete sign-in access for ${[remove.firstName,remove.lastName].filter(Boolean).join(' ')}? This cannot be undone. Historical records remain. Reassign all sections first.` : ''} confirmLabel="Delete coordinator" busy={removing} onCancel={()=>setRemove(null)} onConfirm={async()=>{setRemoving(true);setRemoveError('');try{await onDelete(remove.id);setRemove(null);}catch(e){setRemoveError(e.message);}finally{setRemoving(false);}}} />
       <AlertDialog open={Boolean(deactivate)} title={deactivate?.accountApproved ? "Deactivate account?" : "Activate account?"}
-        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + ([deactivate.firstName, deactivate.lastName].filter(Boolean).join(' ') || deactivate.username || 'this student') + '?' : ''}
+        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + (personName(deactivate) || deactivate.username || 'this student') + '?' : ''}
         confirmLabel={deactivate?.accountApproved ? "Deactivate account" : "Activate account"} busy={saving} onCancel={() => setDeactivate(null)}
         onConfirm={async () => { await onToggle(deactivate.id, deactivate.accountApproved); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
@@ -1327,7 +1347,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
 
       {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
       <RecordPagination pagination={recordsPage} label="Accounts" />
-      <div style={s.tableWrap}>
+      <div style={s.tableWrap} className="admin-table-scroll">
         <table style={s.table}>
           <thead>
             <tr>
@@ -1344,8 +1364,11 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
             {recordsPage.items.map(user => (
               <tr key={user.id} style={s.tr}>
                 <td style={s.td}>
-                  <strong style={{ color: '#000000' }}>{user.firstName} {user.lastName}</strong>
-                  {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}
+                  <div className="admin-person">
+                    <span className="admin-avatar" aria-hidden="true">{((user.firstName || '?')[0] + (user.lastName || '')[0] || '').toUpperCase()}</span>
+                    <span className="admin-person-text"><strong style={{ color: '#000000' }}>{personName(user)}</strong>
+                    {studentDirectory && <small className="admin-student-id">{user.idNumber || '—'}</small>}</span>
+                  </div>
                 </td>
                 {showAccountId && <td style={s.td}><span style={s.idCode}>{user.idNumber || user.employeeId || '—'}</span></td>}
                 {showAccountContact && <td style={s.td}>{(studentDirectory ? user.username : user.email) || '—'}</td>}
@@ -1372,7 +1395,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                       />
                     ) : user.accountApproved ? (
                       <details className="portal-row-menu">
-                        <summary aria-label={'Actions for ' + [user.firstName, user.lastName].filter(Boolean).join(' ')}>…</summary>
+                        <summary aria-label={'Actions for ' + personName(user)}>…</summary>
                         <button type="button" disabled={saving} onClick={event => {
                           event.currentTarget.closest('details').open = false;
                           setDeactivate(user);

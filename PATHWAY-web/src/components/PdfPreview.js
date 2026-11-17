@@ -4,17 +4,18 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export default function PdfPreview({ url }) {
+export default function PdfPreview({ url, scale = 1.5, hideSinglePage = false, page: controlledPage, onPages }) {
   const canvas = useRef(null);
   const [pdf, setPdf] = useState(null);
-  const [page, setPage] = useState(1);
+  const [ownPage, setPage] = useState(1);
+  const page = controlledPage || ownPage;
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(true);
   useEffect(() => {
     let active = true;
     setPdf(null); setPage(1); setError(''); setBusy(true);
     const task = getDocument({ url, isEvalSupported: false });
-    task.promise.then(doc => { if (active) setPdf(doc); })
+    task.promise.then(doc => { if (active) { setPdf(doc); onPages?.(doc.numPages); } })
       .catch(() => { if (active) { setError('Could not preview this PDF. Download it to open it.'); setBusy(false); } });
     return () => { active = false; void task.destroy(); };
   }, [url]);
@@ -27,7 +28,7 @@ export default function PdfPreview({ url }) {
       try {
         const sheet = await pdf.getPage(page);
         if (!active) return;
-        const viewport = sheet.getViewport({ scale: 1.5 });
+        const viewport = sheet.getViewport({ scale });
         canvas.current.width = viewport.width;
         canvas.current.height = viewport.height;
         rendering = sheet.render({ canvasContext: canvas.current.getContext('2d'), viewport });
@@ -37,9 +38,9 @@ export default function PdfPreview({ url }) {
       } finally { if (active) setBusy(false); }
     })();
     return () => { active = false; rendering?.cancel(); };
-  }, [pdf, page]);
+  }, [pdf, page, scale]);
   return <section aria-label="PDF preview">
-    {pdf && <div className="pdf-page-controls">
+    {pdf && !controlledPage && !(hideSinglePage && pdf.numPages === 1) && <div className="pdf-page-controls">
       <button type="button" disabled={busy || page === 1} onClick={() => setPage(page - 1)}>Previous page</button>
       <span>Page {page} of {pdf.numPages}</span>
       <button type="button" disabled={busy || page === pdf.numPages} onClick={() => setPage(page + 1)}>Next page</button>

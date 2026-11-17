@@ -17,6 +17,13 @@ function formatDate(value) {
     : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
+function termState(term) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (term.startDate && term.startDate > today) return 'upcoming';
+  if (term.endDate && term.endDate < today) return 'ended';
+  return 'inactive';
+}
+
 export default function AcademicTermsTab() {
   const [formOpen, setFormOpen] = useState(false);
   const [terms, setTerms]     = useState([]);
@@ -78,11 +85,15 @@ export default function AcademicTermsTab() {
 
   return (
     <div style={s.page} className="admin-configuration admin-terms">
-      <div className="admin-term-toolbar">
-        <p>New sections use the term marked Active.</p>
-        <button type="button" className="admin-configuration-save" onClick={() => {
+      <div className="admin-directory-head">
+        <dl className="admin-stat-cards admin-stat-cards-compact admin-stat-cards-3" aria-label="Term summary">
+          <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="calendar" size={20} /></span><dt>Academic terms</dt><dd>{terms.length}</dd></div>
+          <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="check" size={20} /></span><dt>Active term</dt><dd className="admin-stat-text">{terms.find(term => term.isActive)?.name || 'None set'}</dd></div>
+          <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="clock" size={20} /></span><dt>Upcoming terms</dt><dd>{terms.filter(term => termState(term) === 'upcoming').length}</dd></div>
+        </dl>
+        <button type="button" className="admin-primary-action" onClick={() => {
           setForm(EMPTY); setEditing(null); setError(''); setFormOpen(true);
-        }}>+ New term</button>
+        }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New term</button>
       </div>
       {error && !formOpen && <PortalError message={error} onRetry={load} />}
 
@@ -153,33 +164,36 @@ export default function AcademicTermsTab() {
         </div>
       </form></PortalFormDialog>}
 
-      <div style={s.listSection} className="admin-term-records">
-        <h3 style={s.listTitle}>{terms.length} {terms.length === 1 ? 'academic term' : 'academic terms'}</h3>
+      <section className="admin-records-card admin-term-records-card" aria-labelledby="admin-term-list-title">
+        <header className="admin-records-head">
+          <div><h2 id="admin-term-list-title">All terms</h2><p>New sections use the term marked Active.</p></div>
+          <span className="admin-count-pill">{terms.length} {terms.length === 1 ? 'academic term' : 'academic terms'}</span>
+        </header>
         <RecordPagination pagination={termsPage} label="Academic terms" />
-        <div style={s.termsGrid} className="admin-term-list">
-          {termsPage.items.map(term => (
-            <div className="admin-term-card" key={term.id} style={{ ...s.card, ...(term.isActive ? s.cardActive : {}) }}>
-              <div style={s.cardLeft}>
-                <div style={s.termName}>{term.name}</div>
-                <div style={s.meta}>
-                  <Icon name="calendar" size={14} /> {formatDate(term.startDate)} to {formatDate(term.endDate)}
+        {terms.length === 0 ? (
+          <PortalEmpty icon="calendar" compact title="No academic terms yet" description="Create a term to define the dates for new section rosters." />
+        ) : (
+          <ul className="admin-term-rows">
+            {termsPage.items.map(term => {
+              const state = term.isActive ? 'active' : termState(term);
+              return <li key={term.id} className="admin-term-row" data-state={state}>
+                <span className="admin-stat-icon" data-tone={term.isActive ? 'green' : 'blue'}><Icon name="calendar" size={20} /></span>
+                <div className="admin-term-main">
+                  <strong title={term.name}>{term.name}</strong>
+                  <span>{formatDate(term.startDate)} – {formatDate(term.endDate)}</span>
                 </div>
-              </div>
-              <div style={s.actions} className="admin-term-actions">
-                {term.isActive && (
-                  <span style={s.activeBadge}><Icon name="check" size={13} /> Active Term</span>
-                )}
-                <button style={s.editBtn} onClick={() => edit(term)}>
+                <span className={`admin-student-status ${state === 'active' ? 'is-active' : state === 'upcoming' ? 'is-pending' : 'is-inactive'}`}>
+                  {state === 'active' ? 'Active term' : state === 'upcoming' ? 'Upcoming' : state === 'ended' ? 'Ended' : 'Inactive'}
+                </span>
+                <button type="button" className="admin-secondary-action" onClick={() => edit(term)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
                   Edit Term
                 </button>
-              </div>
-            </div>
-          ))}
-          {terms.length === 0 && (
-            <PortalEmpty title="No academic terms yet" description="Create a term to define the dates for new section rosters." />
-          )}
-        </div>
-      </div>
+              </li>;
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

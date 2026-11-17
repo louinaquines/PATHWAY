@@ -118,9 +118,23 @@
 .logbook-drawer-tabs button[aria-pressed='true'] { color: #0759ba; border-bottom-color: #0759ba; font-weight: 600; }
 .logbook-drawer-tabs button span { margin-left: 4px; color: #526174; font-size: 13px; }
 .logbook-drawer-download { display: inline-flex; align-items: center; gap: 6px; margin-block: 4px; }
-.logbook-attendance-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.logbook-detail-content .logbook-attendance-heading p { margin: 0; }
 .logbook-record-empty { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 12px 16px; border: 1px solid #dce2e9; border-radius: 8px; background: #fff; color: #526174; }
 .logbook-detail-content .logbook-record-empty p { margin: 0; font-size: 14px; }
 @media (max-width: 460px) { .logbook-drawer-title-row, .logbook-drawer-toolbar { padding-inline: 16px; } }
 .logbook-roster td button svg { flex-shrink: 0; }
+
+.logbook-table-page > .logbook-roster { display:flex; flex-direction:column; height:100%; min-height:0; }
+.logbook-roster-scroll { flex:1 1 auto; min-height:0; overflow:auto; }
+.logbook-roster thead { position:sticky; top:0; z-index:1; }
+.logbook-roster-footer { flex:none; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; padding:8px 16px; border-top:1px solid #dce2e9; background:#fff; color:#526174; font-size:13px; }
+.logbook-roster-footer nav { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.logbook-roster-footer nav button { display:grid; place-items:center; width:36px; height:36px; padding:0; }
+.logbook-roster-footer nav button:disabled { opacity:.45; cursor:default; }
+
+.logbook-drawer-title-row .logbook-drawer-close { display:grid; place-items:center; flex:0 0 36px; width:36px; min-height:36px; padding:0; }
+.logbook-record-controls { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.logbook-record-controls > label { display:grid; gap:4px; color:#526174; font-size:13px; }
+.logbook-record-drawer .logbook-record-controls :is(input,select) { box-sizing:border-box; min-height:38px; border:1px solid #c8d4e3; border-radius:8px; padding:6px 10px; background-color:#fff; color:#243448; font:inherit; }
+.logbook-record-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin-left:auto; }
+.logbook-record-drawer .logbook-record-actions button { margin:0; min-height:38px; padding:6px 10px; font-size:13px; }
+.logbook-detail-content .logbook-time-note { margin:0 0 8px; color:#526174; font-size:12px; }

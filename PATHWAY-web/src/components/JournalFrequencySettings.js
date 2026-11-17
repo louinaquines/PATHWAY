@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { adminRequest } from '../adminApi';
 import './JournalFrequencySettings.css';
 export default function JournalFrequencySettings() {
@@ -26,7 +27,7 @@ export default function JournalFrequencySettings() {
   }
   return <>
     <button ref={trigger} type="button" className="journal-frequency-trigger" onClick={() => { setOpen(true); load(); }}>Journal schedule{settings ? ` · ${settings.frequency === 'daily' ? 'Daily' : 'Weekly'}` : ''}</button>
-    {open && <div className="journal-frequency-backdrop" onKeyDown={event => {
+    {open && createPortal(<div className="journal-frequency-backdrop" onKeyDown={event => {
       if (event.key === 'Escape') close();
       if (event.key === 'Tab') {
         const controls = [...event.currentTarget.querySelectorAll('button:not(:disabled),input:not(:disabled)')];
@@ -42,6 +43,6 @@ export default function JournalFrequencySettings() {
       {busy && <p role="status">{settings ? 'Saving…' : 'Loading…'}</p>}
       {error && <p role="alert">{error} <button type="button" disabled={busy} onClick={load}>Refresh</button></p>}
       <footer><button type="button" disabled={busy} onClick={close}>Cancel</button><button type="button" disabled={busy || !settings} onClick={save}>Save</button></footer>
-    </section></div>}
+    </section></div>, document.body)}
   </>;
 }

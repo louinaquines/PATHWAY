@@ -79,7 +79,7 @@ function validateAssetMetadata(asset, { cloudName, expectedPublicId, expectedVer
   const format = String(asset.format || rawExtension || '').toLowerCase();
   const validFormat = kind === 'profile'
     ? asset.resource_type === 'image' && ['jpg', 'jpeg', 'png', 'webp'].includes(format)
-    : ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'].includes(format);
+    : ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'webp'].includes(format);
   if (!validFormat) return false;
   try {
     const url = new URL(asset.secure_url);

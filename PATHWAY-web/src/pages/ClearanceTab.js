@@ -1,5 +1,5 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
-import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/ClearanceTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -12,6 +12,13 @@ import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
 import { PageSkeleton } from '../components/LoadingSkeleton';
 import './CoordinatorOperations.css';
+import Pager from '../components/Pager';
+import SectionPicker from '../components/SectionPicker';
+import EvaluationInbox from '../components/EvaluationInbox';
+import { createPortal } from 'react-dom';
+import './RequirementsRedesign.css';
+import './LogbookRedesign.css';
+import './ClearanceRedesign.css';
 
 export function csvCell(value) {
   const text = String(value ?? '');
@@ -25,13 +32,26 @@ export function escapeReportText(value) {
   }[character]));
 }
 
-export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all' }) {
+const CLEARANCE_ICONS = {
+  all: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20c-.4-2-1.4-3.5-2.9-4.5" /></>,
+  cleared: <><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></>,
+  ready: <><path d="M4 21V4h11l-1.5 4L15 12H4" /></>,
+  requirements: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
+  hours: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+};
+
+export default function ClearanceTab({ coordinatorId, selectedSection, initialFilter = 'all', sections = [], onSectionChange }) {
   const loadVersion = useRef(0);
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [summaryFilter, setSummaryFilter] = useState(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [openId, setOpenId] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('cl-top-actions')); }, []);
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     const version = ++loadVersion.current;
@@ -47,8 +67,18 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       const evaluationResult = await adminRequest('/coordinator-evaluations');
       if (!isRefreshCurrent() || version !== loadVersion.current) return;
       const evaluatedStudents = new Set((evaluationResult.evaluations || []).filter(item => item.submitted).map(item => item.studentId));
+      const evalState = new Map();
+      (evaluationResult.evaluations || []).forEach(item => {
+        const state = item.submitted ? 'answered' : Date.parse(item.expiresAt) < Date.now() ? 'expired' : 'waiting';
+        const rank = { answered: 3, waiting: 2, expired: 1 };
+        if (!evalState.has(item.studentId) || rank[state] > rank[evalState.get(item.studentId)]) evalState.set(item.studentId, state);
+      });
       const groups = await Promise.all(scopedSections.map(async section => {
-        const studentSnap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id)));
+        const [studentSnap, reqSnap] = await Promise.all([
+          getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', section.id))),
+          getDocs(collection(db, 'sections', section.id, 'requirements')).catch(() => ({ docs: [] })),
+        ]);
+        const reqIds = reqSnap.docs.map(d => d.id);
       if (!isRefreshCurrent()) return;
         return studentSnap.docs.map(d => {
           const student = d.data();
@@ -59,7 +89,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
           return {
             id: d.id,
             section: section.name || section.id,
-            student: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+            student: personName(student),
             idNumber: student.idNumber || '',
             requirements: requirements ? 'Approved' : (student.requirementsStatus || 'Not submitted'),
             rendered,
@@ -68,6 +98,16 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
             account: student.accountApproved ? 'Approved' : 'Pending',
             ready: isReadyForClearance({ ...student, id: d.id }, section, evaluatedStudents),
             clearanceStatus: student.clearanceStatus || 'not_cleared',
+            clearedAt: student.clearedAt?.toDate ? student.clearedAt.toDate().toISOString() : student.clearedAt || '',
+            company: student.companyName || student.company || '',
+            docsTotal: reqIds.length,
+            docsApproved: reqIds.filter(id => student.requirements?.[id]?.status === 'approved').length,
+            evaluation: evalState.get(d.id) || 'none',
+            checks: {
+              account: !!student.accountApproved,
+              placement: student.placementStatus === 'approved',
+              preDeployment: student.preDeploymentStatus === 'approved',
+            },
           };
         });
       }));
@@ -97,7 +137,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       await adminRequest(`/coordinator/students/${encodeURIComponent(row.id)}/clearance`, {
         method: 'POST',
       });
-      setRows(previous => previous.map(item => item.id === row.id ? { ...item, clearanceStatus: 'cleared' } : item));
+      setRows(previous => previous.map(item => item.id === row.id ? { ...item, clearanceStatus: 'cleared', clearedAt: new Date().toISOString() } : item));
     } catch (e) {
       console.error(e);
       setError('Could not approve clearance. Check your permissions and try again.');
@@ -186,116 +226,95 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
 
 
 
-  const readyCount = rows.filter(row => row.ready && row.clearanceStatus !== 'cleared').length;
-  const clearedCount = rows.filter(row => row.clearanceStatus === 'cleared').length;
-  const needsReqs = rows.filter(row => row.requirements !== 'Approved').length;
-  const needsHours = rows.filter(row => row.hours !== 'Complete').length;
-  const summaries = [
-    ['all', 'Total Students', rows.length, () => true],
-    ['cleared', 'Cleared', clearedCount, row => row.clearanceStatus === 'cleared'],
-    ['ready', 'Ready for clearance', readyCount, row => row.ready && row.clearanceStatus !== 'cleared'],
-    ['requirements', 'Requirements still pending', needsReqs, row => row.requirements !== 'Approved'],
-    ['hours', 'Internship hours still needed', needsHours, row => row.hours !== 'Complete'],
-  ];
-  const matchesSummary = summaries.find(([id]) => id === summaryFilter)[3];
-  const filteredRows = rows.filter(row => matchesSummary(row) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.section));
+  const stateOf = row => row.clearanceStatus === 'cleared' ? 'cleared' : row.ready ? 'ready' : 'working';
+  const counts = { all: rows.length, ready: 0, working: 0, cleared: 0 };
+  rows.forEach(row => { counts[stateOf(row)] += 1; });
+  const view = ['all', 'ready', 'working', 'cleared'].includes(summaryFilter) ? summaryFilter : 'all';
+  const filteredRows = rows.filter(row => (view === 'all' || stateOf(row) === view) && matchesCoordinatorSearch(searchQuery, row.student, row.idNumber, row.company))
+    .sort(compareStudents);
+  const pages = Math.max(1, Math.ceil(filteredRows.length / 10));
+  const current = Math.min(page, pages);
+  const pageRows = filteredRows.slice((current - 1) * 10, current * 10);
+  const short = value => { const t = Date.parse(value); return t ? new Date(t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''; };
+  const evalLabel = { answered: 'Answered', waiting: 'Waiting', expired: 'Link expired', none: 'Not asked' };
+  const missing = row => [
+    row.docsTotal && row.docsApproved < row.docsTotal && `${row.docsTotal - row.docsApproved} document${row.docsTotal - row.docsApproved === 1 ? '' : 's'} not approved yet`,
+    row.rendered < row.required && `${Math.max(0, row.required - row.rendered)} more hours to render`,
+    row.evaluation !== 'answered' && (row.evaluation === 'none' ? 'Supervisor evaluation not asked yet' : row.evaluation === 'expired' ? 'Evaluation link expired' : 'Waiting for the supervisor’s evaluation'),
+    !row.checks.placement && 'Placement not approved',
+    !row.checks.preDeployment && 'Pre-deployment not approved',
+    !row.checks.account && 'Account not approved',
+  ].filter(Boolean);
+  const Tick = ({ ok }) => ok
+    ? <svg className="cl-tick" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1f7a4d" /><path d="m7 12.5 3.2 3L17 9" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    : <svg className="cl-tick" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#c9c4ba" strokeWidth="1.6" /></svg>;
+  const initials = name => String(name || '?').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
 
-  const recordsPage = useRecordPage(filteredRows.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + summaryFilter);
+  const inboxItems = rows.flatMap(row => {
+    const state = stateOf(row); const name = row.student || 'Student';
+    if (state === 'cleared') return [{ id: `cleared:${row.id}`, kind: 'cleared', name, row, time: Date.parse(row.clearedAt) || 0, hint: row.clearedAt ? undefined : 'Certificate ready', text: <>You cleared <b>{name}</b>{row.clearedAt ? ` · ${short(row.clearedAt)}` : ''}</> }];
+    if (state === 'ready') return [{ id: `ready:${row.id}`, kind: 'ready', name, row, time: 0, hint: 'Ready for you to clear', text: <><b>{name}</b> is ready to clear</> }];
+    const left = missing(row);
+    if (left.length === 1) return [{ id: `almost:${row.id}:${left[0]}`, kind: 'almost', name, row, time: 0, hint: 'One step left', text: <><b>{name}</b> has 1 step left: {left[0].charAt(0).toLowerCase() + left[0].slice(1)}</> }];
+    return [];
+  });
+  const openNotification = n => {
+    setSummaryFilter('all'); setSearchQuery(n.row.student || ''); setPage(1);
+    setOpenId(n.kind === 'almost' ? n.row.id : null);
+  };
   if (loading) {
     return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
   }
+  const topActions = <>
+    <button type="button" className="rq-btn" onClick={printReport} disabled={!rows.length}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z" /></svg> Print report</button>
+    <button type="button" className="rq-btn" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={14} /> Export list</button>
+    {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
+  </>;
   return (
-    <div style={s.page} className="clearance-page">
-<p className="clearance-section-scope"><strong>{selectedSection?.name || 'Select a section'}</strong><span>Clearance records, counts, and reports are limited to this section.</span></p>
-      {/* Top Toolbar */}
-      <div style={s.toolbar} className="clearance-toolbar">
-        <div>
-          <details className="clearance-help"><summary>What is required for clearance?</summary><p style={s.sub}>Approve the requirements and placement, confirm final internship approval, and check that the student has completed the required hours and received a supervisor evaluation.</p></details>
+    <div className="cl">
+      {topHost ? createPortal(topActions, topHost) : <div className="cl-inline-actions">{topActions}</div>}
+      {error && <div role="alert" className="cl-error">{error}</div>}
+      <div className="cl-card">
+        <div className="cl-toolbar">
+          <div className="rq-pills" role="group" aria-label="Filter clearance">
+            {[['all', 'All'], ['ready', 'Ready to clear'], ['working', 'Still working'], ['cleared', 'Cleared']].map(([v, l]) =>
+              <button key={v} type="button" aria-pressed={view === v} onClick={() => { setSummaryFilter(v); setPage(1); }}>{l} {counts[v]}</button>)}
+          </div>
+          <div className="cl-tools-right">
+            <CoordinatorSearch value={searchQuery} onChange={value => { setSearchQuery(value); setPage(1); }} label="Search clearance records" placeholder="Find a student" />
+            <EvaluationInbox items={inboxItems} onOpen={openNotification} storageKey="pathway.clearanceInbox.read" emptyText="Students ready to clear show up here."
+              tabs={[['all', 'All'], ['ready', 'Ready', ['ready']], ['almost', 'Almost there', ['almost']], ['cleared', 'Cleared', ['cleared']]]} />
+          </div>
         </div>
-        <div style={s.actions}>
-          <button style={s.secondaryBtn} onClick={load}>Refresh</button>
-          <button style={s.secondaryBtn} onClick={printReport} disabled={!rows.length}><Icon name="download" size={15} /> Print Report</button>
-          <button style={s.primaryBtn} onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={15} /> Export clearance CSV</button>
+        <div className="cl-table" role="table" aria-label="Clearance">
+          <div className="cl-row cl-headrow" role="row">
+            <span role="columnheader">Student</span><span role="columnheader">Documents</span><span role="columnheader">Hours</span>
+            <span role="columnheader">Evaluation</span><span role="columnheader">Status</span><span role="columnheader" aria-label="Action" />
+          </div>
+          {pageRows.map(row => {
+            const state = stateOf(row);
+            const docsOk = row.docsTotal > 0 && row.docsApproved >= row.docsTotal;
+            const hoursOk = row.rendered >= row.required;
+            const evalOk = row.evaluation === 'answered';
+            const open = openId === row.id;
+            return <div key={row.id} className="cl-item" data-open={open || undefined}>
+              <div className="cl-row" role="row">
+                <span className="cl-student" role="cell"><i className="cl-av">{initials(row.student)}</i><span><strong>{row.student || 'Unnamed student'}</strong><small>{row.company || 'No company yet'}</small></span></span>
+                <span className="cl-check" data-ok={docsOk || undefined} role="cell"><Tick ok={docsOk} />{row.docsTotal ? `${row.docsApproved} of ${row.docsTotal}` : '—'}</span>
+                <span className="cl-check" data-ok={hoursOk || undefined} role="cell"><Tick ok={hoursOk} />{Math.round(row.rendered)} of {row.required} h</span>
+                <span className="cl-check" data-ok={evalOk || undefined} role="cell"><Tick ok={evalOk} />{evalLabel[row.evaluation]}</span>
+                <span role="cell">{state === 'cleared' ? <b className="lb-chip" data-tone="green">Cleared{row.clearedAt ? ` ${short(row.clearedAt)}` : ''}</b>
+                  : state === 'ready' ? <b className="lb-chip" data-tone="blue">Ready to clear</b> : <b className="lb-chip" data-tone="mute">Still working</b>}</span>
+                <span className="cl-act" role="cell">{state === 'cleared' ? <em>Certificate ready</em>
+                  : state === 'ready' ? <button type="button" className="rq-btn rq-primary" disabled={busyId === row.id} onClick={async () => { setBusyId(row.id); await markCleared(row); setBusyId(null); }}><Icon name="check" size={14} /> {busyId === row.id ? 'Clearing…' : 'Clear student'}</button>
+                  : <button type="button" className="rq-link" aria-expanded={open} onClick={() => setOpenId(open ? null : row.id)}>{open ? 'Hide' : 'See what’s missing'}</button>}</span>
+              </div>
+              {open && <div className="cl-missing"><span className="cl-missing-title">What’s left</span><ul>{missing(row).length ? missing(row).map(m => <li key={m}>{m}</li>) : <li>Everything is done. Refresh to update.</li>}</ul></div>}
+            </div>;
+          })}
+          {!filteredRows.length && <div className="cl-empty">{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? (rows.length ? 'No students in this view.' : 'No students yet. Clearance progress will appear here once students join this section.') : 'Select a section to review clearance readiness.'}</div>}
         </div>
-      </div>
-
-      {error && <div role="alert" style={s.errorBox}>{error}</div>}
-
-      {/* Metrics Grid */}
-      <div className="clearance-metrics" style={s.metrics}>
-        {summaries.map(([id, label, value]) => <button type="button" key={id} className="portal-secondary clearance-filter"
-          aria-pressed={summaryFilter === id} onClick={() => setSummaryFilter(id)}><span>{label}</span> <strong data-zero={value === 0}>{error && !rows.length ? '—' : value}</strong></button>)}
-      </div>
-
-      {/* Table Card */}
-      <div className="clearance-records" style={s.card}>
-        <div style={s.searchRow}>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search clearance records" placeholder="Search students…" />
-          <span style={s.searchCount}>{error && !rows.length ? 'Records unavailable' : filteredRows.length + ' of ' + rows.length + ' students'}</span>
-        </div>
-        <RecordPagination pagination={recordsPage} label="Clearance students" />
-        <div style={s.tableWrap}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Student ID</th>
-                <th style={s.th}>Student name</th>
-                {!selectedSection && <th style={s.th}>Section</th>}
-                <th style={s.th}>Requirements</th>
-                <th style={s.th}>Internship hours completed</th>
-                <th style={s.th}>Account status</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Clearance Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recordsPage.items.map(row => (
-                <tr key={row.id} style={s.tr}>
-                  <td style={s.td}><span style={s.idCode}>{row.idNumber || '—'}</span></td>
-                  <td style={s.td}><div style={s.studentName}>{row.student || 'Unnamed student'}</div></td>
-                  {!selectedSection && <td style={s.td}>{row.section}</td>}
-                  <td style={s.td}>
-                    <span style={{
-                      ...s.pill,
-                      backgroundColor: row.requirements === 'Approved' ? COLORS.emerald50 : COLORS.yellow100,
-                      color: '#000000',
-                      border: `1px solid ${row.requirements === 'Approved' ? COLORS.emerald200 : COLORS.yellow300}`,
-                    }} className="clearance-status" data-state={row.requirements === 'Approved' ? 'complete' : ['not_submitted', 'Not submitted'].includes(row.requirements) ? 'neutral' : 'review'}>
-                      {String(row.requirements || 'Not submitted').replace(/_/g, ' ').replace(/^./, letter => letter.toUpperCase())}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    <strong>{row.rendered}</strong> / {row.required} hrs
-                    <progress className="coordinator-capacity-progress" aria-label="Internship hours completed" value={row.rendered} max={Math.max(1, row.required)} />
-                  </td>
-                  <td style={s.td}>
-                    <span style={{
-                      ...s.pill,
-                      backgroundColor: row.account === 'Approved' ? COLORS.sky50 : COLORS.slate100,
-                      color: '#000000',
-                      border: `1px solid ${row.account === 'Approved' ? COLORS.sky200 : COLORS.slate300}`,
-                    }}>
-                      {row.account}
-                    </span>
-                  </td>
-                  <td style={{ ...s.td, textAlign: 'right' }}>
-                    {row.clearanceStatus === 'cleared' ? (
-                      <span style={s.clearedPill}><Icon name="check" size={13} /> Cleared</span>
-                    ) : row.ready ? (
-                      <button style={s.clearBtn} onClick={() => markCleared(row)}>
-                        Approve Clearance
-                      </button>
-                    ) : (
-                      <span style={s.notReadyPill} className="clearance-status" data-state="neutral">In progress</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!filteredRows.length && (
-            <div style={s.empty}>{error ? 'Records could not load. Use Refresh to try again.' : searchQuery ? 'No matching students. Try another name or ID.' : selectedSection ? 'No students in this section yet.' : 'Select a section to review clearance readiness.'}</div>
-          )}
-        </div>
+        {filteredRows.length > 0 && <footer className="cl-foot"><span>{(current - 1) * 10 + 1}–{Math.min(current * 10, filteredRows.length)} of {filteredRows.length}</span><Pager page={current} pages={pages} onGo={setPage} label="Clearance pages" /></footer>}
       </div>
     </div>
   );
@@ -423,8 +442,9 @@ const s = {
     verticalAlign: 'middle',
   },
   studentName: {
-    fontWeight: 800,
-    color: '#000000',
+    fontWeight: 500,
+    fontFamily: "inherit",
+    color: "inherit",
     fontSize: 14,
   },
   idCode: {

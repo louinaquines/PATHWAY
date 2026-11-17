@@ -1,3 +1,4 @@
+import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import { readPortalPage, mergePortalRecords } from '../portalRecordPages';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
@@ -10,7 +11,7 @@ import './MessagesTab.css';
 
 const formatDate = value => value ? new Date(value).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
 
-export default function MessagesTab({ selectedSection }) {
+export default function MessagesTab({ selectedSection, sections = [], onSectionChange }) {
   const coordinatorId = auth.currentUser?.uid;
   const historyCursor = useRef(null);
   const historyBusy = useRef(false);
@@ -65,7 +66,7 @@ export default function MessagesTab({ selectedSection }) {
       if (!silent) setItems([]);
       setError(loadError.code === 'permission-denied'
         ? 'Messages are unavailable because the deployed Firestore rules do not yet allow this coordinator conversation scope.'
-        : 'Could not load messages. Check your connection and try again.');
+        : 'No conversations yet. Messages will appear here once students join this section.');
     } finally { if (version === loadVersion.current) setLoading(false); }
   }, [coordinatorId, selectedSection]);
 
@@ -91,7 +92,7 @@ export default function MessagesTab({ selectedSection }) {
     return Array.from(grouped.entries()).map(([id, messages]) => {
       const studentId = messages[0].studentId;
       const student = students.find(item => item.id === studentId);
-      return { id, studentId, name: student ? `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id : messages[0].senderRole === 'student' ? messages[0].senderName || studentId : 'Student', messages };
+      return { id, studentId, name: student ? personName(student) || student.idNumber || student.id : messages[0].senderRole === 'student' ? messages[0].senderName || studentId : 'Student', messages };
     });
   }, [items, students, allowedStudentIds, selectedSection]);
 
@@ -150,7 +151,7 @@ export default function MessagesTab({ selectedSection }) {
   const threadPage = useRecordPage([...(selected?.messages || [])].reverse(), selected?.id, 50);
   return <div className="messages-workspace">
     <dialog ref={alertsDialog} className="messages-alert-dialog" aria-labelledby="message-alert-title" onCancel={() => setAlertsOpen(false)} onClose={() => setAlertsOpen(false)} onClick={event => { if (event.target === event.currentTarget) setAlertsOpen(false); }}>
-      <header className="messages-alert-dialog-header"><div className="notification-hero"><span className="notification-hero-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z" /><path d="M7 10h10M7 14h6" /></svg></span><div><span className="notification-eyebrow">STUDENT MESSAGES</span><h2 id="message-alert-title">Unread messages</h2><p>{selectedSection?.name || 'Current section'}</p></div></div><button type="button" className="messages-close" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}>✕</button></header>
+      <header className="messages-alert-dialog-header"><div className="notification-hero"><span className="notification-hero-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z" /><path d="M7 10h10M7 14h6" /></svg></span><div><span className="notification-eyebrow">STUDENT MESSAGES</span><h2 id="message-alert-title">Unread messages</h2><p>{selectedSection?.name || 'Current section'}</p></div></div><button type="button" className="messages-close" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></header>
       <div className="messages-alert-dialog-body">
       <div className="messages-alert-summary"><strong><span className="notification-total">{messageAlerts.length}</span><span>Unread messages<small>Newest first</small></span></strong><button className="messages-alert-refresh" type="button" aria-label="Refresh messages" title="Refresh messages" onClick={load} disabled={loading}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg></button></div>
       <p>{error ? 'Message alerts are unavailable until messages can load.' : loading ? 'Checking messages…' : messageAlerts.length ? `${messageAlerts.length} unread message(s) in ${selectedSection?.name || 'this section'}` : 'No unread messages in this section.'}</p>
@@ -170,23 +171,28 @@ export default function MessagesTab({ selectedSection }) {
       </div>
     </dialog>
     <section className="messages-students">
-      <header><div><h2>Students</h2><p>{selectedSection?.name || 'Choose a section first'}</p></div>    <div className="messages-alert-toolbar">
-      <button className="messages-alert-trigger" type="button" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> Unread messages
+      <header><div><h2>Students</h2><select className="messages-section-picker" aria-label="Current section" value={selectedSection?.id || ''} disabled={!sections.length} onChange={event => {
+        const section = sections.find(item => item.id === event.target.value);
+        if (section) onSectionChange?.(section);
+      }}>
+        {!sections.length && <option value="">No sections assigned to you</option>}
+        {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
+      </select></div>    <div className="messages-alert-toolbar">
+      <button className="messages-alert-trigger" type="button" aria-label="Unread messages" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
         {messageAlerts.length > 0 && <span className="messages-alert-count">{messageAlerts.length}</span>}
       </button>
     </div>
 </header>
       <input type="search" aria-label="Search students and conversations" placeholder="Search name, ID, or message..." value={search} onChange={event => setSearch(event.target.value)} />
-      {error && <div className="messages-error" role="alert">{error}<button type="button" onClick={load}>Try again</button></div>}
+      {error && <div className="messages-error" role="status">{error}<button type="button" onClick={load}>Check again</button></div>}
 
       {hasOlder && <button type="button" onClick={loadOlder} disabled={olderBusy}>{olderBusy ? 'Loading older messages…' : 'Load older messages'}</button>}
-      <RecordPagination pagination={studentsPage} label="Conversations" />
       <div className="messages-panel-list" aria-busy={loading}>
         {loading ? <p className="messages-empty-copy">Loading students and messages...</p> : !selectedSection ? <p className="messages-empty-copy">Select a section to see its students.</p> : <>
           {studentsPage.items.map(student => {
             const thread = conversations.find(item => item.studentId === student.id);
-            const name = `${student.firstName || ''} ${student.lastName || ''}`.trim() || student.idNumber || student.id;
+            const name = personName(student) || student.idNumber || student.id;
             const unread = thread?.messages.filter(message => message.recipientId === coordinatorId && !message.read).length || 0;
             return <button key={student.id} type="button" aria-label={name} aria-pressed={selected?.studentId === student.id} className="messages-choice" onClick={() => openConversation(thread || { id: [coordinatorId, student.id].sort().join('__'), studentId: student.id, name, messages: [] })}>
               <div className="messages-student-title"><strong>{name}</strong>{unread > 0 && <span className="messages-unread">{unread} unread</span>}</div>
@@ -198,6 +204,7 @@ export default function MessagesTab({ selectedSection }) {
           {students.length > 0 && search && !students.some(student => `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${conversations.find(item => item.studentId === student.id)?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase())) && <p className="messages-empty-copy">No matching students or messages.</p>}
         </>}
       </div>
+      {selectedSection && !loading && <RecordPagination pagination={studentsPage} label="Conversations" compact />}
     </section>
     <section className="messages-conversation">
       {selected ? <>

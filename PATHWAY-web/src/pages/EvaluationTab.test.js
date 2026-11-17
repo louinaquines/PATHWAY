@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { getDocs } from 'firebase/firestore';
 import EvaluationTab from './EvaluationTab';
 
@@ -10,9 +10,9 @@ jest.mock('firebase/firestore', () => ({
 jest.mock('./EvaluationBuilderDialog', () => () => null);
 const section = { id: 'section', name: 'Section A' };
 const roster = [
-  { id: 'amy', firstName: 'Amy', companyId: 'host', company: 'Host Company', placementStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
-  { id: 'ben', firstName: 'Ben', companyId: 'host', company: 'Host Company', placementStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
-  { id: 'other', firstName: 'Other', companyId: 'elsewhere', company: 'Elsewhere', placementStatus: 'approved' },
+  { id: 'amy', firstName: 'Amy', companyId: 'host', company: 'Host Company', placementStatus: 'approved', preDeploymentStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
+  { id: 'ben', firstName: 'Ben', companyId: 'host', company: 'Host Company', placementStatus: 'approved', preDeploymentStatus: 'approved', supervisorName: 'Supervisor', supervisorEmail: 'supervisor@example.test' },
+  { id: 'other', firstName: 'Other', companyId: 'elsewhere', company: 'Elsewhere', placementStatus: 'approved', preDeploymentStatus: 'approved' },
   { id: 'waiting', firstName: 'Waiting', company: 'Host Company', placementStatus: 'pending_review' },
 ];
 const snapshot = records => ({ docs: records.map(record => ({ id: record.id, data: () => record })) });
@@ -26,27 +26,34 @@ beforeEach(() => {
 });
 test('select all only prepares invitations for students assigned to the chosen company', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
   expect(screen.getByRole('textbox', { name: 'Supervisor email address' })).toHaveValue('supervisor@example.test');
-  fireEvent.submit(screen.getByRole('button', { name: 'Create evaluation links' }).closest('form'));
-  await waitFor(() => expect(screen.getAllByRole('button', { name: /^(Amy|Ben)$/ })).toHaveLength(2));
+  fireEvent.submit(screen.getByRole('button', { name: 'Next' }).closest('form'));
+  await waitFor(() => expect(screen.getAllByRole('button', { name: /^(Amy|Ben) Ready to send$/ })).toHaveLength(2));
   const requests = fetch.mock.calls.filter(([url]) => url.endsWith('/create-evaluation-token'));
   expect(requests.map(([, options]) => JSON.parse(options.body).studentId)).toEqual(['amy', 'ben']);
   expect(fetch.mock.calls.some(([url]) => url.endsWith('/email'))).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Amy Ready to send' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ben Ready to send' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+  await screen.findByRole('button', { name: 'Ben Sent' });
+  expect(fetch.mock.calls.filter(([url]) => url.endsWith('/email')).map(([url]) => url.split('/').slice(-2).join('/'))).toEqual(['ben/email']);
 });
 
 test('changing company clears the previous students and supervisor', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   const company = await screen.findByRole('combobox', { name: 'Company' });
   fireEvent.change(company, { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
   fireEvent.change(company, { target: { value: 'id:elsewhere' } });
   expect(screen.getByRole('textbox', { name: 'Supervisor email address' })).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Create evaluation links' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   expect(screen.getAllByRole('checkbox')).toHaveLength(1);
   expect(screen.getByRole('checkbox')).not.toBeChecked();
@@ -61,14 +68,15 @@ test('a preparation failure retains the completed invitations so retry only prep
     return Promise.resolve({ ok: true, json: async () => ({ id, token: id + '-token' }) });
   });
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   fireEvent.click(screen.getByRole('button', { name: 'Select all' }));
-  const submit = screen.getByRole('button', { name: 'Create evaluation links' });
+  const submit = screen.getByRole('button', { name: 'Next' });
   fireEvent.submit(submit.closest('form'));
   await screen.findByText('Temporary failure');
   fireEvent.submit(submit.closest('form'));
-  await screen.findByRole('button', { name: 'Ben' });
+  await screen.findByRole('button', { name: 'Ben Ready to send' });
   const requests = fetch.mock.calls.filter(([url]) => url.endsWith('/create-evaluation-token'));
   expect(requests.map(([, options]) => JSON.parse(options.body).studentId)).toEqual(['amy', 'ben', 'ben']);
 });
@@ -80,6 +88,7 @@ test('evaluation-history failure does not hide the assigned-company roster', asy
     throw new Error('Unexpected request');
   });
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   const company = await screen.findByRole('combobox', { name: 'Company' });
   expect(screen.getByRole('option', { name: 'Host Company' })).toBeInTheDocument();
   fireEvent.change(company, { target: { value: 'id:host' } });
@@ -90,6 +99,7 @@ test('evaluation-history failure does not hide the assigned-company roster', asy
 
 test('student dropdown dismisses outside and with Escape while preserving selections', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   const trigger = screen.getByRole('button', { name: 'Students' });
   fireEvent.click(trigger);
@@ -107,11 +117,12 @@ test('selection summary shows names, overflow count and all-students state', asy
   const expanded = [roster[0], roster[1], ...['Cara','Dina'].map(name => ({ ...roster[0], id: name.toLowerCase(), firstName: name }))];
   getDocs.mockImplementation(path => Promise.resolve(snapshot(path === 'sections' ? [section] : expanded)));
   const { container } = render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   const boxes = screen.getAllByRole('checkbox');
   const summary = () => container.querySelector('.evaluation-selection-desktop').textContent;
-  fireEvent.click(boxes[0]); expect(summary()).toBe('Amy');
+  fireEvent.click(boxes[0].closest('.evaluation-student-row').querySelector('span')); expect(summary()).toBe('Amy');
   fireEvent.click(boxes[1]); expect(summary()).toBe('Amy, Ben');
   fireEvent.click(boxes[2]); expect(summary()).toBe('Amy, Ben +1 more');
   fireEvent.click(boxes[3]); expect(summary()).toBe('All 4 students selected');
@@ -121,11 +132,12 @@ test('selection summary shows names, overflow count and all-students state', asy
 
 test('clicking a student name toggles its checkbox without dismissing the dropdown', async () => {
   render(<EvaluationTab coordinatorId="coordinator" selectedSection={section} sections={[section]} />);
+  fireEvent.click(await screen.findByRole('button', { name: /Ask for an evaluation/ }));
   fireEvent.change(await screen.findByRole('combobox', { name: 'Company' }), { target: { value: 'id:host' } });
   const trigger = screen.getByRole('button', { name: 'Students' });
   fireEvent.click(trigger);
   fireEvent.blur(trigger, { relatedTarget: null });
-  fireEvent.click(screen.getByText('Amy'));
+  fireEvent.click(within(screen.getByRole('dialog')).getByText('Amy'));
   expect(screen.getByRole('checkbox', { name: /Amy/ })).toBeChecked();
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
   fireEvent.click(screen.getByText('Amy', { selector: '.evaluation-student-options span' }));

@@ -118,8 +118,6 @@
   .requirements-document > div:last-child { margin-left: 0 !important; }
 }
 
-.coordinator-review-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
-.coordinator-review-filters button[aria-pressed="true"] { background: #e8f1ff; border-color: #7497bd; }
 .coordinator-queue-status { display: inline-block; border-radius: 8px; padding: 4px 8px; background: #eef2f7; color: #475569 !important; }
 .coordinator-queue-status[data-status="review"] { background: #fef3c7; color: #92400e !important; }
 .coordinator-queue-status[data-status="complete"] { background: #dcfce7; color: #166534 !important; }
@@ -140,9 +138,6 @@
 .requirements-workspace p { font-size:13px; color:#526174; line-height:1.5; }
 .requirements-count { font-size:13px; color:#526174; background:#f0f3f6; }
 .requirements-workspace input { min-height:44px; font:inherit; font-size:14px !important; border-radius:8px !important; }
-.requirements-workspace .coordinator-review-filters { display:grid; grid-template-columns:1.4fr .65fr 1fr; padding:0 12px 12px; gap:6px; }
-.requirements-workspace .coordinator-review-filters button { min-width:0; min-height:44px; padding:8px 5px; font:inherit; font-size:13px; border-radius:8px; white-space:nowrap; color:#526174; background:#fff; border-color:#dce2e9; }
-.requirements-workspace .coordinator-review-filters button[aria-pressed='true'] { color:#0752ad; border-color:#9bbde8; background:#edf4ff; }
 .requirements-workspace .requirements-student-card { gap:8px; padding:12px; margin:6px 10px; border-radius:8px; }
 .requirements-workspace .requirements-student-card[aria-pressed='true'] { border-color:#9bbde8 !important; background:#edf4ff !important; }
 .student-card-name strong { font-size:14px; font-weight:600; }
@@ -196,10 +191,6 @@
 .requirements-workspace .coordinator-search { height:44px; min-height:44px; box-sizing:border-box; border-radius:8px; }
 .requirements-workspace .coordinator-search input { height:100%; min-height:0 !important; padding-block:0; }
 .requirements-workspace .requirements-category { font-size:13px !important; font-weight:600 !important; text-transform:none !important; letter-spacing:normal !important; color:#526174 !important; }
-.requirements-students .portal-record-pagination { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px; }
-.requirements-students .portal-record-pagination > span:first-child { grid-row:1; grid-column:1; margin:0; }
-.requirements-students .portal-record-pagination > span:nth-child(3) { grid-row:1; grid-column:2; text-align:right; }
-.requirements-students .portal-record-pagination button { grid-row:2; }
 .coordinator-page:has(.requirements-workspace) .section-export-button { background:#fff !important; color:#243448 !important; border:1px solid #ccd5df !important; box-shadow:none !important; }
 @media(max-width:1450px) {
  .requirements-workspace .requirements-document { grid-template-columns:minmax(0,1fr); }
@@ -219,3 +210,15 @@
  border:0 !important; background-color:transparent !important; border-radius:4px !important;
  padding:0 24px 0 0 !important; font-size:13px !important; font-weight:400; color:#526174 !important;
 }
+
+.requirements-workspace .requirements-students { display:flex; flex-direction:column; overflow:hidden !important; min-height:0; }
+.requirements-search-row { display:grid; grid-template-columns:minmax(0,1fr) 44px; gap:6px; align-items:center; flex-shrink:0; }
+.requirements-filter-icon { position:relative; display:grid; place-items:center; height:44px; border:1px solid #c8d4e3; border-radius:8px; color:#526174; background:#fff; }
+.requirements-filter-icon[data-active=true] { background:#edf4ff; color:#0752ad; border-color:#9bbde8; }
+.requirements-filter-icon:focus-within { outline:2px solid #0752ad; outline-offset:2px; }
+.requirements-filter-icon select { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.requirements-filter-chip { padding:0 12px 6px; flex-shrink:0; }
+.requirements-filter-chip button { display:inline-flex; align-items:center; gap:6px; min-height:28px; padding:3px 8px; border:1px solid #9bbde8; border-radius:999px; background:#edf4ff; color:#0752ad; font:inherit; font-size:12px; cursor:pointer; }
+.requirements-student-list { flex:1; min-height:0; overflow:auto; }
+.requirements-students .portal-record-pagination { display:flex; flex-wrap:nowrap; justify-content:center; gap:8px; padding:5px 12px; border-top:1px solid #e5e9ef; border-bottom:0; flex-shrink:0; }
+.requirements-students .portal-record-pagination button { flex:0 0 36px; min-height:34px; padding:0; display:grid; place-items:center; }

@@ -99,3 +99,5 @@
 @media(max-width:640px) { .clearance-page .clearance-metrics { grid-template-columns:repeat(2,minmax(0,1fr)) !important; } }
 .clearance-section-scope { margin:0 0 16px; color:#243448; font-size:16px; }
 .clearance-section-scope span { display:block; margin-top:6px; color:#526174; font-size:13px; line-height:1.5; }
+
+.clearance-list-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid #e2e8f0;font-size:13px;color:#52647d}.clearance-list-footer nav{display:flex;align-items:center;gap:10px}.clearance-list-footer button{display:inline-flex;align-items:center;justify-content:center;min-width:34px!important;min-height:34px!important;padding:7px!important}.clearance-list-footer svg{flex-shrink:0}@media(max-width:600px){.clearance-list-footer{flex-wrap:wrap;justify-content:center}}

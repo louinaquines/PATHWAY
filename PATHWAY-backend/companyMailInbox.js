@@ -164,7 +164,7 @@ function installCompanyInbox({ app, db, requireStaff, coordinatorSection, allowR
     if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(contact))
       throw Object.assign(new Error('The approved placement needs a valid company contact email.'), { status: 409 });
     return { contact, proposalId: student.placementProposalId, companyName: proposal.companyName || 'Company',
-      studentName: `${student.firstName || ''} ${student.lastName || ''}`.trim() || 'Student' };
+      studentName: [student.lastName, student.firstName].filter(Boolean).join(', ') || 'Student' };
   }
   app.post('/coordinator/sections/:sectionId/company-conversations/discover', requireStaff, async (req, res) => {
     try {
@@ -220,7 +220,7 @@ function installCompanyInbox({ app, db, requireStaff, coordinatorSection, allowR
       const students = discoveryEnabled ? await db.collection('users').where('sectionId', '==', req.params.sectionId).limit(101).get() : null;
       return res.json({ connected: true, discoveryEnabled, eligibleStudents: (students?.docs || []).filter(doc => doc.data().role === 'student'
         && doc.data().department === req.staff.data.department && doc.data().placementStatus === 'approved').slice(0, 100)
-        .map(doc => ({ id: doc.id, name: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Student' })),
+        .map(doc => ({ id: doc.id, name: [doc.data().lastName, doc.data().firstName].filter(Boolean).join(', ') || 'Student' })),
         truncated: records.size > 100, conversations: records.docs.slice(0, 100)
         .filter(doc => doc.data().coordinatorId === req.staff.uid && doc.data().sectionId === req.params.sectionId)
         .map(doc => ({ id: doc.id, companyName: doc.data().companyName || 'Company', studentId: doc.data().studentId,

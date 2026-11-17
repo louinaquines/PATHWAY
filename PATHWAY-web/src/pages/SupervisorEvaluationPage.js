@@ -115,8 +115,8 @@ export default function SupervisorEvaluationPage() {
 
   return (
     <main style={s.page}>
-      <div style={s.card}>
-        <div style={s.header}>
+      <div style={s.card} className={verificationRequired && !info ? 'supervisor-shell-verify' : undefined}>
+        {!(verificationRequired && !info) && <div style={s.header}>
           <div style={s.logoWrap}>
             <PathwayLogo style={s.logoImg} />
           </div>
@@ -124,7 +124,7 @@ export default function SupervisorEvaluationPage() {
             <h1 style={s.title}>{info?.formDefinition?.title || 'PATHWAY Supervisor Evaluation'}</h1>
             <p style={s.sub}>OJT Industry Partner Performance Review</p>
           </div>
-        </div>
+        </div>}
 
         {message && (
           <div role="alert" style={message.includes('Loading') ? s.infoBox : s.errorBox}>
@@ -133,17 +133,31 @@ export default function SupervisorEvaluationPage() {
         )}
 
         {verificationRequired && <section className="supervisor-verification" aria-label="Verify supervisor email">
+          <div className="verification-hero">
+            <div className="verification-hero-brand"><span className="verification-hero-logo"><PathwayLogo size={34} decorative /></span><span><strong>PATHWAY</strong><small>OJT Management System</small></span></div>
+            <img className="verification-guide" src="/guide-thinking.png" alt="" />
+          </div>
+          <div className="verification-body">
+          <span className="verification-chip">Verify it’s you</span>
           <h2>Verify your email</h2>
-          <p>Request a code at the supervisor email assigned to this evaluation. The form stays private until verification.</p>
+          <p>We’ll send a 6-digit code to the supervisor email for this evaluation. The form stays private until you enter it.</p>
           <button className="verification-secondary" type="button" disabled={verificationBusy} onClick={() => verifyEmail('request-code')}>Send verification code</button>
           {verificationStatus && <p role="status">{verificationStatus}</p>}
           <form onSubmit={event => { event.preventDefault(); verifyEmail('verify-code'); }}>
             <label htmlFor="supervisor-otp">Six-digit code</label>
-            <input id="supervisor-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
-              onChange={event => setCode(event.target.value.replace(/\D/g, ''))} disabled={verificationBusy} />
+            <div className="otp-field">
+              <div className="otp-boxes" aria-hidden="true">
+                {[0, 1, 2, 3, 4, 5].map(index => <span key={index} className={'otp-box' + (code[index] ? ' is-filled' : '') + (index === Math.min(code.length, 5) ? ' is-active' : '')}>{code[index] || ''}</span>)}
+              </div>
+              <input id="supervisor-otp" className="otp-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                onPaste={event => { event.preventDefault(); setCode((event.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6)); }}
+                disabled={verificationBusy} autoFocus />
+            </div>
             <button className="verification-primary" type="submit" disabled={verificationBusy || code.length !== 6}>{verificationBusy ? 'Verifying…' : 'Verify and open evaluation'}</button>
           </form>
-          <small>Wait at least one minute before requesting another code. Five attempts are allowed per code.</small>
+          <small>You can request up to 3 codes, one minute apart. Each code allows five tries.</small>
+          </div>
         </section>}
         {info && (
           <>

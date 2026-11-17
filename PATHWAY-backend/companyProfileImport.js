@@ -61,5 +61,30 @@ function installCompanyProfileImport({ app, requireStaff, allowRate }) {
     try { return res.json({ preview: await fetchPublicProfile(req.body.url) }); }
     catch { return res.status(422).json({ error: 'Could not preview this public website. It may be restricted, unsupported or unavailable. Enter company details manually.' }); }
   });
+  // Company name suggestions from OpenStreetMap (free, no key). Returns name, address,
+  // industry hint and coordinates so the coordinator can fill the form in one pick.
+  app.get('/coordinator/company-search', requireStaff, async (req, res) => {
+    if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (q.length < 3 || q.length > 120) return res.json({ results: [] });
+    if (!allowRate(req, res, { limit: 30, windowMs: 60000, key: r => `company-search:${r.staff.uid}` })) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const params = new URLSearchParams({ q, format: 'jsonv2', addressdetails: '1', limit: '6', countrycodes: 'ph' });
+      const response = await fetch('https://nominatim.openstreetmap.org/search?' + params, {
+        signal: controller.signal, headers: { 'User-Agent': 'PATHWAY-OJT/1.0 (pathwaysystem2@gmail.com)', 'Accept-Language': 'en' } });
+      if (!response.ok) throw new Error('lookup failed');
+      const rows = await response.json();
+      const label = value => String(value || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      return res.json({ results: (Array.isArray(rows) ? rows : []).map(row => ({
+        name: String(row.name || row.display_name.split(',')[0]).slice(0, 160),
+        address: String(row.display_name || '').split(',').slice(row.name ? 1 : 0).map(part => part.trim()).filter(Boolean).join(', ').slice(0, 300),
+        industry: label(row.type && row.type !== 'yes' ? row.type : row.category).slice(0, 120),
+        latitude: Number(row.lat), longitude: Number(row.lon),
+      })).filter(row => row.name) });
+    } catch { return res.status(502).json({ error: 'Company suggestions are unavailable right now. Enter details manually.' }); }
+    finally { clearTimeout(timer); }
+  });
 }
 module.exports = { publicIPv4, publicUrl, extractProfile, fetchPublicProfile, installCompanyProfileImport };

@@ -1,0 +1,81 @@
+/* Responsive: Requirements + Attendance & Journals (tablet and phone) */
+.rq-back { display: none; }
+
+/* Tablet landscape / small laptops */
+@media (max-width: 1180px) {
+  .coordinator-page main:has(.rq) > header.requirements-topbar { padding: 24px 24px 16px !important; }
+  .rq { margin: 0 24px 24px; }
+  .rq-list { width: 300px; }
+  .rq-student { flex-shrink: 0; }
+  .rq-detail { padding: 22px 24px; }
+  .lb-cal-wrap { gap: 20px; }
+}
+
+/* Narrow content (tablets, small laptops with the sidebar open) + phones: one pane at a time */
+@media (max-width: 1100px) {
+  .coordinator-page main:has(.rq) { overflow-y: auto !important; }
+  .coordinator-page main:has(.rq) > header.requirements-topbar { flex-wrap: wrap; gap: 12px; padding: 18px 16px 12px !important; }
+  .coordinator-page main:has(.rq) > header h1 { font-size: 24px !important; }
+  .rq-top-actions { width: 100%; }
+  .rq-top-actions > :first-child { flex: 1; }
+  .rq-top-actions .section-export-button { justify-content: center; }
+  .lb-month { flex: 1; justify-content: space-between; }
+  .rq { flex: none; flex-direction: column; margin: 0 16px 16px; min-height: calc(100vh - 170px); }
+  .rq[data-view="list"] .rq-detail, .rq[data-view="detail"] .rq-list { display: none; }
+  .rq-list { width: auto; flex: 1; border-right: 0; padding: 14px; }
+  .rq-students { overflow: visible; }
+  .rq-detail { flex: 1; padding: 16px; overflow: visible !important; }
+  .coordinator-page .rq .rq-back { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; height: 32px !important; min-height: 32px !important; padding: 0 10px 0 6px !important; margin: -4px 0 0 -6px; border: 0 !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; color: #0b5fd3 !important; font-family: inherit; font-size: 13.5px !important; font-weight: 600 !important; cursor: pointer; }
+  .rq-back:hover { background: #f4f2ec !important; }
+  .rq-table, .lb-body, .f48-times, .f48-scan { max-height: none !important; overflow: visible !important; margin-right: 0; padding-right: 0; }
+  .rq-head { flex-wrap: wrap; }
+  .rqi-pop { position: fixed; left: 12px; right: 12px; top: 80px; width: auto; max-height: 75vh; }
+}
+
+/* Phones */
+@media (max-width: 600px) {
+  .rq { margin: 0 10px 12px; border-radius: 10px; }
+  .rq-pills { flex-wrap: wrap !important; }
+  .rq-head h2 { font-size: 19px; }
+  .rq-head > .rq-btn { width: 100%; justify-content: center; }
+  .rq-stages strong { font-size: 11px !important; letter-spacing: .02em; }
+  .coordinator-page .rq .rq-stages button { padding: 0 6px !important; gap: 5px; height: 36px !important; min-height: 36px !important; }
+  .rq-stages i { width: 6px; height: 6px; }
+  /* document rows stack */
+  .rq-table { display: flex !important; flex-direction: column; }
+  .rq-row { display: grid !important; grid-template-columns: 1fr !important; gap: 8px !important; padding: 14px 0; }
+  .rq-actions { justify-self: start !important; justify-content: flex-start !important; flex-wrap: wrap !important; }
+  .rq-actions .rq-btn { flex: 1; justify-content: center; }
+  /* attendance */
+  .lb-cal-wrap { flex-direction: column; gap: 14px; }
+  .lb-cal { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; width: 100%; }
+  .coordinator-page .lb-cal button.lb-cal-day { width: 100%; height: 38px; }
+  .lb-legend { margin: 0; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .lb-legend div { grid-template-columns: 1fr auto; }
+  .lb-cal-month { width: 100%; }
+  .lb-tr { grid-template-columns: 1.3fr 1fr 1fr .5fr; gap: 8px; font-size: 12px; }
+  .lb-daynav { flex-wrap: wrap; }
+  /* journals */
+  .lb-days { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+  .lb-entry header { gap: 8px; }
+  .lb-entry-nav { margin-left: 0; width: 100%; justify-content: space-between; }
+  .lb-actions { flex-wrap: wrap; }
+  .lb-note-input { flex: 1 1 100%; }
+  .lb-actions .rq-btn { flex: 1; justify-content: center; }
+  /* time record */
+  .f48-bar { flex-direction: column; align-items: flex-start; }
+  .f48-res .lb-tr { grid-template-columns: 1fr 1fr; row-gap: 4px; }
+  .f48-res .lb-tr .f48-tag { grid-column: 1 / -1; justify-self: start; }
+  .f48-gr { grid-template-columns: 26px repeat(4, minmax(0, 1fr)); gap: 3px; }
+  .coordinator-page .f48 .f48-gr input { padding: 0 4px !important; font-size: 12px !important; }
+  .f48-confirm { flex: 1 1 100%; }
+  .f48-focus { width: 100vw; height: 100vh; border-radius: 0; }
+  .f48-tools { gap: 0; }
+  .f48-tools > span:not(.f48-sep), .f48-tools .f48-sep { display: none; }
+  .f48-focus-bar strong { font-size: 12.5px; }
+  .rq-section-menu { right: 0; }
+}
+
+/* never squash student rows */
+.rq-student { flex-shrink: 0; }
+.rq-students > * { flex-shrink: 0; }

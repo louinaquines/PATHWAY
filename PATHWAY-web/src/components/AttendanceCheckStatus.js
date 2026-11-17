@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import { COLORS } from '../theme';
 
-export default function AttendanceCheckStatus({ actorId, sectionId, isCurrent, onDenied }) {
+export default function AttendanceCheckStatus({ actorId, sectionId, isCurrent, onDenied, compact = false }) {
   const [result, setResult] = useState(null);
   useEffect(() => {
     let active = true;
@@ -23,9 +23,9 @@ export default function AttendanceCheckStatus({ actorId, sectionId, isCurrent, o
     const last = result.lastSuccessfulCheckAt && Number.isFinite(date.getTime())
       ? `Last successful check: ${date.toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })} (Philippine time).`
       : 'No successful check yet.';
-    message = result.status === 'complete' ? last
+    message = result.status === 'complete' ? (compact && last.startsWith('Last successful check: ') ? last.replace('Last successful check: ', 'Attendance checked ').replace('(Philippine time).', '(PHT)') : last)
       : result.status === 'pending' ? `${last} Automatic check pending; hourly catch-up will retry. Free-hosting delays are possible.`
         : 'Automatic check status unavailable. Completion cannot be confirmed.';
   }
-  return <p role="status" style={{ color: COLORS.textMuted, fontSize: 14, margin: '0 0 20px', lineHeight: 1.6 }}>{message}</p>;
+  return <p role="status" style={{ color: COLORS.textMuted, fontSize: 14, margin: compact ? 0 : '0 0 20px', lineHeight: 1.6 }}>{message}</p>;
 }

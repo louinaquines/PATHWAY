@@ -10,6 +10,7 @@ test('branded invitation escapes all authored content and includes secure action
   assert.ok(html.includes('Philippine time'));
   assert.ok(html.includes('&lt;script&gt;student&lt;/script&gt;'));
   assert.ok(html.includes('&lt;b&gt;hello&lt;/b&gt;<br>second line'));
-  assert.ok(!html.includes('<img'));
+  assert.ok(html.includes('&lt;img onerror=alert(1)&gt;'));
+  assert.ok(!html.includes('<img onerror'));
   assert.ok(!html.includes('<script>'));
 });

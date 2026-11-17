@@ -72,6 +72,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/companies/$(companyId)).data.get('status', '') != 'inactive';
     }
 
+    // AI requirement-check results: coordinator/admin only (students see status on their profile).
+    match /requirementReviews/{reviewId} {
+      allow read: if isAdmin() || (resource.data.sectionId is string && resource.data.sectionId != '' && isCoordinatorForSection(resource.data.sectionId));
+      allow write: if false;
+    }
+
     match /users/{userId} {
       // Users need to read their own profile for role-based routing.
       // Coordinators need to read student profiles for their dashboard queries.

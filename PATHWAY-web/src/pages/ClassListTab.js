@@ -12,8 +12,16 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import AlertDialog from '../components/AlertDialog';
 import { adminRequest } from '../adminApi';
 import './CoordinatorRecords.css';
+import './RequirementsRedesign.css';
+import './ClassListRedesign.css';
+import Pager from '../components/Pager';
+import { UnassignedStudents } from './SectionsTab';
 
-export default function ClassListTab({ department, coordinatorId, selectedSection, onBusyChange }) {
+export default function ClassListTab({ department, coordinatorId, selectedSection, onBusyChange, onClose, initialTab }) {
+  const [tab, setTab] = useState(initialTab || null);
+  const [page, setPage] = useState(1);
+  const [menuId, setMenuId] = useState('');
+  const [drag, setDrag] = useState(false);
   const [sections, setSections] = useState([]);
   const confirmHost = useRef(null);
   const loadVersion = useRef(0);
@@ -128,136 +136,82 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
     return <PageSkeleton label="Loading authorized roster" variant="table" />;
   }
 
+  const activeTab = tab || (ids.length ? 'students' : 'add');
+  const pages = Math.max(1, Math.ceil(filteredIds.length / 10)); const cur = Math.min(page, pages);
+  const rows = filteredIds.slice((cur - 1) * 10, cur * 10);
+  const sectionName = sections.find(x => x.id === sectionId)?.name || selectedSection?.name || '';
+  const readFile = async file => {
+    if (!file) return;
+    if (file.size > 100000) { setMessage('Class list must be under 100 KB.'); return; }
+    try { setInput((await file.text()).replace(/^﻿/, '')); setMessage(''); } catch { setMessage('Could not read the class list.'); }
+  };
+  const csvRows = input.trim() ? input.trim().split(/\r?\n/).filter(Boolean).filter(l => !/^\s*studentid/i.test(l)) : [];
+  const existing = new Set(ids.map(x => String(x.id)));
+  const csvNew = csvRows.filter(l => !existing.has(l.split(',')[0].trim())).length;
+  const template = 'data:text/csv;charset=utf-8,' + encodeURIComponent('StudentID,FirstName,LastName\n24228132,Juan,Dela Cruz\n');
   return (
-    <div className="authorized-roster-page" style={s.page}>
-      <div className="roster-section-filter"><label>Section<select aria-label="Assigned section" value={sectionId} onChange={e => { setSectionId(e.target.value); setIds([]); setFilterQuery(''); setOutcomes([]); setResetResult(null); }} disabled={saving}><option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label></div>
-      {/* Top Banner / Card */}
-      <div className="roster-import-card" style={s.card}>
-        <div style={s.cardHeader}>
-          <div>
-            <h2 style={s.title}>Import class list</h2>
-            <p style={s.help}>
-              Create accounts from your authorized class list. Students must change their initial password before accessing PATHWAY. Reimporting does not reset existing passwords.
-            </p>
-          </div>
-          <span style={s.deptBadge}>{department}</span>
+    <div className="cls" onClick={() => menuId && setMenuId('')}>
+      <header className="cls-head">
+        <div className="cls-title"><div><h2>Class list & accounts</h2>{sectionName && <span className="cls-chip">{sectionName}</span>}</div>
+          {onClose && <button type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>}</div>
+        {(sections.length > 1 || !selectedSection) && <div className="roster-section-filter"><label>Section<select aria-label="Assigned section" value={sectionId} onChange={e => { setSectionId(e.target.value); setIds([]); setFilterQuery(''); setOutcomes([]); setResetResult(null); }} disabled={saving}><option value="">Select section</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label></div>}
+        <div className="cls-tabs" role="tablist" aria-label="Class list">
+          <button type="button" role="tab" aria-selected={activeTab === 'students'} onClick={() => setTab('students')}>Students <b>{ids.length}</b></button>
+          <button type="button" role="tab" aria-selected={activeTab === 'add'} onClick={() => setTab('add')}>Add students</button>
         </div>
-
-        <div style={s.inputSection}>
-          {[
-            ['idNumber', 'Student ID', 'e.g. 24228132'],
-            ['firstName', 'First name', 'Enter first name'],
-            ['lastName', 'Last name', 'Enter last name'],
-          ].map(([key, label, placeholder]) => (
-            <label key={key} style={s.label}>
-              {label}
-              <input type="text" style={{ ...s.textarea, fontFamily: THEME.fonts.main, marginTop: 8 }}
-                value={student[key]} placeholder={placeholder} disabled={saving}
-                onChange={e => setStudent(previous => ({ ...previous, [key]: e.target.value }))} />
+      </header>
+      <div className="cls-body">
+        {message && <p role="status" className="cls-msg" data-bad={/could not|enter|must|select/i.test(message) || undefined}>{message}</p>}
+        {resetResult && <div role="status" className="cls-pass"><span>Temporary password for <b>{resetResult.id}</b>: <code>{resetResult.password}</code><small>Give it privately after checking their identity.</small></span><button type="button" className="rq-btn" onClick={() => setResetResult(null)}>Done</button></div>}
+        <section hidden={activeTab !== 'students'} className="cls-panel">
+          {ids.length > 0 && <CoordinatorSearch value={filterQuery} onChange={v => { setFilterQuery(v); setPage(1); }} placeholder="Find a student" label="Search authorized students" />}
+          {ids.length === 0 ? <div className="cls-empty"><strong>No students yet</strong><span>{sectionId ? 'Use Add students to create their accounts.' : 'Choose a section first.'}</span>{sectionId && <button type="button" className="rq-btn rq-primary" onClick={() => setTab('add')}>Add students</button>}</div>
+          : <div className="cls-table" role="table" aria-label="Authorized students">
+              <div className="cls-row cls-rowhead" role="row"><span role="columnheader">Student ID</span><span role="columnheader">Name</span><span role="columnheader">Username</span><span role="columnheader">Added</span><span role="columnheader" aria-label="Actions" /></div>
+              {filteredIds.length === 0 && <p className="cls-none">No matching students.</p>}
+              {rows.map(item => <div key={item.id} className="cls-row" role="row">
+                <span role="cell" className="cls-id">{item.id}</span>
+                <span role="cell" className="cls-name">{studentName(item) || '—'}</span>
+                <span role="cell" className="cls-user">{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Not signed up yet'}</span>
+                <span role="cell" className="cls-date">{item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>
+                <span role="cell" className="cls-menuwrap" onClick={e => e.stopPropagation()}>
+                  <button type="button" className="cls-more" aria-label={`Actions for ${item.id}`} aria-expanded={menuId === item.id} onClick={() => setMenuId(menuId === item.id ? '' : item.id)}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg></button>
+                  {menuId === item.id && <span className="cls-menu" role="menu">
+                    {item.claimedBy && <button type="button" role="menuitem" disabled={saving} onClick={() => { setMenuId(''); setResetResult(null); setResetConfirm(item); }}>Reset password</button>}
+                    <button type="button" role="menuitem" className="cls-danger" disabled={saving} onClick={() => { setMenuId(''); setRemoveConfirm(item); }}>Remove from list</button>
+                  </span>}
+                </span>
+              </div>)}
+            </div>}
+          {filteredIds.length > 10 && <div className="cls-foot"><span>{(cur - 1) * 10 + 1}–{Math.min(cur * 10, filteredIds.length)} of {filteredIds.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Roster students" /></div>}
+        </section>
+        <section hidden={activeTab !== 'add'} className="cls-panel">
+          <div className="cls-card">
+            <h3>Add one student</h3>
+            <div className="cls-fields">
+              {[['idNumber', 'Student ID', 'e.g. 24228132'], ['firstName', 'First name', 'Juan'], ['lastName', 'Last name', 'Dela Cruz']].map(([key, label, placeholder]) =>
+                <label key={key}>{label}<input type="text" value={student[key]} placeholder={placeholder} disabled={saving} onChange={e => setStudent(previous => ({ ...previous, [key]: e.target.value }))} /></label>)}
+            </div>
+            <div className="cls-cardfoot"><small>Their first password is <code>UC@</code> + their student ID. They change it when they first sign in.</small>
+              <button type="button" className="rq-btn rq-primary" onClick={() => addIds(true)} disabled={saving || !sectionId || Object.values(student).some(value => !value.trim())}>{saving ? 'Creating…' : 'Create student account'}</button></div>
+          </div>
+          <div className="cls-card">
+            <h2 className="cls-h">Import class list</h2>
+            <label className="cls-drop" data-drag={drag || undefined} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); readFile(e.dataTransfer.files?.[0]); }}>
+              <input type="file" title="" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={e => readFile(e.target.files?.[0])} />
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
+              <span>{input ? <><b>{csvRows.length} students in this file</b> · {csvNew} new, {csvRows.length - csvNew} already on the list</> : <>Drop your CSV here, or <u>choose a file</u></>}</span>
+              <small>Columns: StudentID, FirstName, LastName</small>
             </label>
-          ))}
-          <button style={s.addButton} onClick={() => addIds(true)}
-            disabled={saving || !sectionId || Object.values(student).some(value => !value.trim())}>
-            {saving ? 'Creating student accounts…' : 'Create student account'}
-          </button>
-          <label style={{ ...s.label, marginTop: 16 }}>Upload a class list (CSV)</label>
-          <p className="roster-format-help">Use these column names in your CSV: StudentID, FirstName, LastName. Email is optional.</p>
-          <input type="file" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={async e => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            if (file.size > 100000) { setMessage('Class list must be under 100 KB.'); return; }
-            try { setInput((await file.text()).replace(/^\uFEFF/, '')); } catch { setMessage('Could not read the class list.'); }
-          }} />
-          {input && <p className="roster-format-help">CSV loaded. Review the selected file before importing.</p>}
-          <div style={s.formActions}>
-            <button
-              style={s.addButton}
-              onClick={() => addIds(false)}
-              disabled={saving || !sectionId || !input.trim()}
-            >
-              {saving ? 'Creating student accounts…' : 'Import CSV'}
-            </button>
-            {message && (
-              <span role="status" style={message.includes('Could not') || message.includes('Enter') ? s.errorText : s.successText}>
-                {message}
-              </span>
-            )}
+            <div className="cls-cardfoot"><a href={template} download="pathway-class-list-template.csv">Download template</a>
+              {input && <button type="button" className="rq-btn" disabled={saving} onClick={() => setInput('')}>Clear</button>}
+              <button type="button" className="rq-btn rq-primary" onClick={() => addIds(false)} disabled={saving || !sectionId || !input.trim()}>{saving ? 'Creating…' : csvNew ? `Create ${csvNew} account${csvNew === 1 ? '' : 's'}` : 'Import CSV'}</button></div>
+            {outcomes.some(row => row.status === 'created') && <p className="cls-note" role="status">New accounts sign in with <code>UC@</code> + their student ID, then must change it.</p>}
+            {outcomes.length > 0 && <ul className="cls-results" aria-label="Import results">{outcomes.map(row => <li key={row.idNumber} data-status={row.status}><b>{row.idNumber}</b><span>{row.status}</span><small>{row.error || row.username}</small></li>)}</ul>}
           </div>
-        </div>
-        {outcomes.some(row => row.status === 'created') && <p role="status">
-          <strong>Temporary password for new accounts:</strong> <code>UC@</code> followed by the Student ID from the CSV.
-          Share sign-in details privately. Students must change this password on first sign-in.
-        </p>}
-        {outcomes.length > 0 && <ul aria-label="Import results">{outcomes.map(row => <li key={row.idNumber}>{row.idNumber}: {row.status}{row.error ? ` — ${row.error}` : ` — ${row.username}`}</li>)}</ul>}
-        {resetResult && <div role="status">Temporary password for {resetResult.id}: <code>{resetResult.password}</code>. Deliver privately after verifying identity. <button onClick={() => setResetResult(null)}>Dismiss</button></div>}
-      </div>
-
-      {/* Roster List Card */}
-      <div className="roster-records-card" style={s.card}>
-        <RecordPagination pagination={recordsPage} label="Roster students" />
-        <div style={s.listHeader}>
-          <div>
-            <h3 style={s.subtitle}>Authorized students</h3>
-            <span style={s.countText}>{filteredIds.length} of {ids.length} students</span>
-          </div>
-          {ids.length > 0 && (
-            <CoordinatorSearch value={filterQuery} onChange={setFilterQuery} placeholder="Search name or ID…" label="Search authorized students" />
-          )}
-        </div>
-
-        {ids.length === 0 ? (
-          <div style={s.emptyState}>
-            <div style={s.emptyIcon}><Icon name="clipboard" size={28} label="Authorized roster" /></div>
-            <p style={s.empty}>{sectionId ? 'No student IDs have been authorized for this section yet.' : 'Select a section to view its authorized students.'}</p>
-          </div>
-        ) : (
-          <div style={s.tableContainer}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Student ID</th>
-                  <th style={s.th}>Student name</th>
-                  <th style={s.th}>Username</th>
-                  <th style={s.th}>Department</th>
-                  <th style={s.th}>Date Added</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredIds.length === 0 && <tr><td colSpan={6} style={s.td}>No matching students.</td></tr>}
-                {recordsPage.items.map(item => (
-                  <tr key={item.id} style={s.tr}>
-                    <td style={s.td}>
-                      <span style={s.idCode}>{item.id}</span>
-                    </td>
-                    <td style={s.td}>{studentName(item) || '—'}</td>
-                    <td style={s.td}>{item.claimedBy?.startsWith('roster-') ? `uclm-${item.id.toLowerCase()}` : 'Username unavailable'}</td>
-                    <td style={s.td}>{item.department}</td>
-                    <td style={s.td}>
-                      {item.createdAt
-                        ? new Date(item.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : '—'}
-                    </td>
-                    <td style={{ ...s.td, textAlign: 'right' }}>
-                      <details className="portal-row-menu">
-                        <summary aria-label={'Actions for student ' + item.id}>…</summary>
-                        <button type="button" disabled={saving} onClick={event => {
-                          event.currentTarget.closest('details').open = false;
-                          setRemoveConfirm(item);
-                        }}>Remove from roster</button>
-                        {item.claimedBy && <button type="button" disabled={saving} onClick={event => {
-                          event.currentTarget.closest('details').open = false;
-                          setResetResult(null);
-                          setResetConfirm(item);
-                        }}>Reset password</button>}
-                      </details>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+          {sectionId && <div className="cls-card"><h3>Students already in your department</h3><p className="cls-sub">They have an account but no section yet.</p>
+            <UnassignedStudents sectionId={sectionId} department={department} onAssign={() => loadIds()} /></div>}
+        </section>
       </div>
       <div ref={confirmHost} />
       <AlertDialog portalTarget={confirmHost.current || undefined}

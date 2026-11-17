@@ -1,29 +1,43 @@
+import personName from '../personName';
+import { PortalEmpty } from '../components/PortalStates';
 import { readPortalPage, readMatchingPortalPage } from '../portalRecordPages';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/LogbookTab.js
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
-import DtrReviewDialog from '../components/DtrReviewDialog';
-import { collection, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, where } from 'firebase/firestore';
+import DtrReviewDialog from '../components/DtrReviewDialog'; // eslint-disable-line no-unused-vars
+import Form48Check from '../components/Form48Check';
+import { collection, count, getAggregateFromServer, getCountFromServer, getDocs, getDocsFromServer, limit, onSnapshot, orderBy, query, startAfter, sum, where } from 'firebase/firestore';
+import { createPortal } from 'react-dom';
+import SectionPicker from '../components/SectionPicker';
+import Pager from '../components/Pager';
 import { db } from '../firebase';
 import { adminRequest } from '../adminApi';
 import { COLORS, THEME } from '../theme';
 import Icon from '../components/Icons';
 import CoordinatorSearch, { matchesCoordinatorSearch } from '../components/CoordinatorSearch';
-import { PageSkeleton } from '../components/LoadingSkeleton';
+import { JournalEntriesSkeleton, LogbookRows } from '../components/PageSkeletons';
 import AlertDialog from '../components/AlertDialog';
-import SubmissionNotifications from '../components/SubmissionNotifications';
+import SubmissionNotifications from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
+import JournalsInbox from '../components/JournalsInbox';
 import JournalKeywordSettings from '../components/JournalKeywordSettings';
 import JournalAiAnalysis from '../components/JournalAiAnalysis';
 import './LogbookTab.css';
+import './LogbookRedesign.css';
 import { downloadStudentRecordsExcel } from '../studentRecordsExport';
 
-const studentDisplayName = student => [student.firstName, student.lastName].filter(Boolean).join(' ').trim();
+const studentDisplayName = student => personName(student);
 
 const rosterDateFormat = new Intl.DateTimeFormat('en-US', {
   timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric',
 });
 const submittedJournalStatuses = new Set(['pending', 'submitted', 'approved', 'rejected']);
+
+const manilaMonth = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
+const manilaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+const shiftMonth = (month, delta) => { const [y, m] = month.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + delta, 1)); return d.toISOString().slice(0, 7); };
+const monthLabel = month => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }); };
+const entryMonth = entry => { if (entry?.periodStart) return String(entry.periodStart).slice(0, 7); const raw = entry?.createdAt; const d = raw?.toDate ? raw.toDate() : raw ? new Date(raw) : null; return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d).slice(0, 7) : ''; };
 
 function recordDate(value) {
   if (!value) return null;
@@ -42,7 +56,7 @@ async function latestJournalDate(records, field, isCurrent) {
       const data = item.data();
       if (!submittedJournalStatuses.has(data.status)) continue;
       const date = recordDate(data[field]);
-      if (date) return date;
+      if (date) return { date, frequency: data.frequency === 'daily' ? 'daily' : data.frequency === 'weekly' ? 'weekly' : '' };
     }
     if (page.docs.length < pageSize) break;
     cursor = page.docs[page.docs.length - 1];
@@ -61,17 +75,37 @@ async function latestRosterRecords(studentId, isCurrent) {
     Promise.all([
       latestJournalDate(journals, 'submittedAt', isCurrent),
       latestJournalDate(journals, 'createdAt', isCurrent),
-    ]).then(([submitted, created]) => submitted && (!created || submitted > created) ? submitted : created),
+    ]).then(([submitted, created]) => submitted && (!created || submitted.date > created.date) ? submitted : created),
   ]);
-  return { attendance: dateLabel(punch, 'No attendance'), journals: dateLabel(journal, 'No journal') };
+  return { attendance: attendanceLabel(punch), journals: journalLabel(journal) };
 }
 
-function dateLabel(result, empty) {
+// Show where each student stands for the current period instead of a raw date.
+const manilaDay = date => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
+function weekStart(date) {
+  const day = new Date(manilaDay(date) + 'T00:00:00');
+  day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+  return day.getTime();
+}
+function attendanceLabel(result) {
   if (result.status === 'rejected') return { text: 'Unavailable' };
-  return result.value ? { text: rosterDateFormat.format(result.value), dated: true } : { text: empty };
+  if (!result.value) return { text: 'No attendance yet' };
+  if (manilaDay(result.value) === manilaDay(new Date())) return { text: 'Present today', dated: true, tone: 'good' };
+  return { text: 'Last: ' + rosterDateFormat.format(result.value).replace(/, \d{4}$/, ''), dated: true, tone: 'warn' };
+}
+function journalLabel(result) {
+  if (result.status === 'rejected') return { text: 'Unavailable' };
+  if (!result.value) return { text: 'No journal yet' };
+  const { date, frequency } = result.value;
+  if (frequency === 'daily') return manilaDay(date) === manilaDay(new Date())
+    ? { text: 'Daily · Submitted today', dated: true, tone: 'good' }
+    : { text: 'Daily · Last ' + rosterDateFormat.format(date).replace(/, \d{4}$/, ''), dated: true, tone: 'warn' };
+  return weekStart(date) === weekStart(new Date())
+    ? { text: 'Weekly · Submitted this week', dated: true, tone: 'good' }
+    : { text: 'Weekly · Missing this week', dated: true, tone: 'warn' };
 }
 
-const RECORD_PAGE_SIZE = 25;
+const RECORD_PAGE_SIZE = 10;
 
 export default function LogbookTab({ coordinatorId, selectedSection: sharedSection, sections = [], onSectionChange, pendingStudentIds, openJournals = false }) {
   const [rosterPage, setRosterPage] = useState(null);
@@ -101,6 +135,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   const [nextAttendanceCursor, setNextAttendanceCursor] = useState(null);
   const [attendanceRetry, setAttendanceRetry] = useState(0);
   const [attendanceDate, setAttendanceDate] = useState('');
+  const [recordMonth, setRecordMonth] = useState(manilaMonth);
   const attendanceCursor = attendanceCursors.at(-1);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState('');
@@ -127,7 +162,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         getDocs(collection(db, 'users', student.id, 'attendance')),
         getDocs(collection(db, 'users', student.id, 'logbook')),
       ]);
-      await downloadStudentRecordsExcel(student, section, punches.docs.map(item => item.data()), journals.docs.map(item => item.data()));
+      await downloadStudentRecordsExcel(student, section, punches.docs.map(item => item.data()).filter(item => String(item.date || '').startsWith(recordMonth)), journals.docs.map(item => item.data()).filter(item => entryMonth(item) === recordMonth));
     } catch (_) { setExportError('Could not export student records. Check your connection and try again.'); }
     finally { setExporting(false); }
   };
@@ -137,30 +172,76 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     setAttendanceError('');
     setNextAttendanceCursor(null);
     const records = collection(db, 'users', selectedStudent.id, 'attendance');
-    const pageQuery = query(records, orderBy('date', 'desc'),
-      ...(attendanceDate ? [where('date', '==', attendanceDate)] : []),
-      ...(attendanceCursor ? [startAfter(attendanceCursor)] : []), limit(RECORD_PAGE_SIZE + 1));
+    const pageQuery = query(records, where('date', '>=', recordMonth + '-01'), where('date', '<=', recordMonth + '-31'), orderBy('date', 'desc'), limit(62));
     return onSnapshot(pageQuery, snapshot => {
-      const page = snapshot.docs.slice(0, RECORD_PAGE_SIZE);
-      setAttendance(page.map(item => ({ ...item.data(), id: item.id })));
-      setNextAttendanceCursor(snapshot.docs.length > RECORD_PAGE_SIZE ? page.at(-1) : null);
+      setAttendance(snapshot.docs.map(item => ({ ...item.data(), id: item.id })));
+      setNextAttendanceCursor(null);
       setAttendanceLoading(false);
     }, () => {
       setAttendanceError('Could not load attendance records.');
       setAttendanceLoading(false);
     });
-  }, [selectedStudent?.id, recordView, attendanceCursor, attendanceDate, attendanceRetry]);
+  }, [selectedStudent?.id, recordView, recordMonth, attendanceRetry]);
   const formatPunch = value => {
     if (!value) return 'Not recorded';
     const date = value?.toDate ? value.toDate() : new Date(value);
     return Number.isNaN(date.getTime()) ? 'Unavailable' : date.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', second: '2-digit' });
   };
 
+  const formatDay = value => { const d = new Date(`${value}T00:00:00Z`); return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }); };
+  const today = manilaToday();
+  const attendanceStats = attendance.reduce((acc, record) => {
+    acc.days += 1;
+    if (record.timeOut) acc.hours += Number(record.hoursToday || 0);
+    else if ((record.date || '') < today) acc.missing += 1;
+    return acc;
+  }, { days: 0, hours: 0, missing: 0 });
+  const pendingCount = entries.filter(entry => entry.status === 'pending').length;
+  const visibleEntries = journalStatus ? entries.filter(entry => entry.status === journalStatus) : entries;
   const rosterScopeKey = (selectedSection?.id || '') + ':' + pendingOnly + ':' + rosterSearch + ':' + rosterRetry;
   const rosterCursors = rosterPaging?.scope === rosterScopeKey ? rosterPaging.cursors : [null];
   const rosterCursor = rosterCursors.at(-1);
   const currentRoster = rosterPage?.scope === rosterScopeKey && rosterPage.cursor === rosterCursor ? rosterPage : null;
+  const [rosterTotal, setRosterTotal] = useState(null);
+  const studentCount = rosterTotal?.scope === rosterScopeKey ? rosterTotal.count : null;
+  const pageNumber = rosterCursors.length;
+  const hasMoreStudents = Boolean(currentRoster?.page?.hasMore);
+  const pageTotal = studentCount != null ? Math.max(1, Math.ceil(studentCount / RECORD_PAGE_SIZE)) : null;
+  const pageLabel = pageTotal != null
+    ? 'Page ' + pageNumber + ' of ' + Math.max(pageTotal, pageNumber + Number(hasMoreStudents))
+    : 'Page ' + pageNumber + (hasMoreStudents ? ' of at least ' + (pageNumber + 1) : currentRoster?.page ? ' of ' + pageNumber : '');
   const loading = !!selectedSection && !currentRoster;
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('lb-top-actions')); }, []);
+  const [entryIndex, setEntryIndex] = useState(0);
+  const [showAllDays, setShowAllDays] = useState(false);
+  const [pickedDay, setPickedDay] = useState('');
+  const [mobileDetail, setMobileDetail] = useState(false);
+  const [rosterJump, setRosterJump] = useState(null);
+  useEffect(() => { setEntryIndex(-1); setShowAllDays(false); setPickedDay(''); }, [selectedStudent?.id, recordMonth]);
+  // Unread journals for every student in the section (one count per student).
+  const [pendingMap, setPendingMap] = useState({ scope: '', map: {} });
+  useEffect(() => {
+    const sectionId = selectedSection?.id;
+    if (!sectionId) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('sectionId', '==', sectionId)));
+        const ids = snap.docs.map(item => item.id); const map = {};
+        for (let i = 0; i < ids.length && active; i += 6) {
+          await Promise.all(ids.slice(i, i + 6).map(async id => {
+            try { map[id] = (await getCountFromServer(query(collection(db, 'users', id, 'logbook'), where('status', '==', 'pending')))).data().count; } catch (_) { map[id] = 0; }
+          }));
+        }
+        if (active) setPendingMap({ scope: sectionId, map });
+      } catch (_) { if (active) setPendingMap({ scope: sectionId, map: {} }); }
+    })();
+    return () => { active = false; };
+  }, [selectedSection?.id, decisionRevision]);
+  const pendingCounts = pendingMap.scope === selectedSection?.id ? pendingMap.map : {};
+  const toReadIds = Array.isArray(pendingStudentIds) ? pendingStudentIds : Object.keys(pendingCounts).filter(id => pendingCounts[id] > 0);
+  const toReadKey = [...toReadIds].sort().join(',');
 
   useEffect(() => {
     const timer = setTimeout(() => setRosterSearch(searchQuery.trim()), 300);
@@ -177,20 +258,27 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     const base = exactId
       ? query(students, ...scope, where('idNumber', '==', rosterSearch))
       : query(students, ...scope, orderBy('firstName'), orderBy('lastName'));
-    const pendingIds = new Set(pendingStudentIds);
-    const request = pendingOnly || (rosterSearch && !exactId)
+    const pendingIds = new Set(toReadIds);
+    const requiresMatching = pendingOnly || (rosterSearch && !exactId);
+    if (!requiresMatching && !rosterCursor) {
+      getCountFromServer(base).then(snapshot => {
+        if (active) setRosterTotal({ scope: rosterScopeKey, count: snapshot.data().count });
+      }).catch(() => {});
+    }
+    const request = requiresMatching
       ? readMatchingPortalPage(base, rosterCursor, RECORD_PAGE_SIZE, student => (
         (!pendingOnly || pendingIds.has(student.id))
         && matchesCoordinatorSearch(rosterSearch, studentDisplayName(student), student.idNumber, selectedSection.name)
       ))
       : readPortalPage(base, rosterCursor, RECORD_PAGE_SIZE);
-    request.then(page => {
+    request.then(page => ({ ...page, records: [...(page.records || [])].sort((a, b) => String(a.lastName || '').localeCompare(String(b.lastName || '')) || String(a.firstName || '').localeCompare(String(b.firstName || ''))) })).then(page => {
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, page });
     }).catch(() => {
+      console.warn('Logbook roster query failed');
       if (active) setRosterPage({ scope: rosterScopeKey, cursor: rosterCursor, error: 'Could not load students.' });
     });
     return () => { active = false; };
-  }, [selectedSection?.id, selectedSection?.name, rosterScopeKey, rosterCursor, rosterSearch, pendingOnly, pendingStudentIds]);
+  }, [selectedSection?.id, selectedSection?.name, rosterScopeKey, rosterCursor, rosterSearch, pendingOnly, toReadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setSelectedStudent(null);
@@ -206,13 +294,10 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     }
     try {
       const records = collection(db, 'users', student.id, 'logbook');
-      const snap = await getDocs(query(records, orderBy('createdAt', 'desc'),
-        ...(journalStatus ? [where('status', '==', journalStatus)] : []),
-        ...(journalCursor ? [startAfter(journalCursor)] : []), limit(RECORD_PAGE_SIZE + 1)));
+      const snap = await getDocs(query(records, where('periodStart', '>=', recordMonth + '-01'), where('periodStart', '<=', recordMonth + '-31'), orderBy('periodStart', 'desc'), limit(62)));
       if (!current()) return;
-      const page = snap.docs.slice(0, RECORD_PAGE_SIZE);
-      setEntries(page.map(item => ({ ...item.data(), id: item.id })));
-      setNextJournalCursor(snap.docs.length > RECORD_PAGE_SIZE ? page.at(-1) : null);
+      setEntries(snap.docs.map(item => ({ ...item.data(), id: item.id })));
+      setNextJournalCursor(null);
       setEntriesError('');
     } catch (e) {
       if (current()) setEntriesError('Could not load journal entries.');
@@ -225,12 +310,13 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     if (!selectedStudent || recordView !== 'journals') return;
     fetchEntries(selectedStudent);
     return () => { entryRequest.current++; };
-  }, [selectedStudent, recordView, journalStatus, journalCursor]);
+  }, [selectedStudent, recordView, recordMonth]);
 
   const openRecords = (student, view) => {
     setAttendance([]);
     setAttendanceCursors([null]);
     setAttendanceDate('');
+    setRecordMonth(manilaMonth());
     setNextAttendanceCursor(null);
     setAttendanceError('');
     setAttendanceLoading(view === 'attendance');
@@ -257,22 +343,25 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
     if (options.isCurrent() && selectedStudent && recordView === 'journals') await fetchEntries(selectedStudent, options);
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
-  const handleAction = async (entryId, status) => {
-    setSaving(true);
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionError, setActionError] = useState('');
+  useEffect(() => { setActionError(''); }, [selectedStudent?.id, entryIndex]);
+  const handleAction = async (entryId, status, reason = '') => {
+    setSaving(true); setActionError('');
     try {
       await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/logbook/${encodeURIComponent(entryId)}/decision`, {
         method: 'POST',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(status === 'rejected' ? { reason } : {}) }),
       });
       setEntries(prev => prev.map(e => e.id === entryId ? {
-        ...e, status, reviewReason: status === 'rejected' ? `Please revise and resubmit this ${e.frequency === 'daily' ? 'daily' : 'weekly'} entry.` : '',
+        ...e, status, reviewReason: status === 'rejected' ? reason : '',
       } : e));
       if (journalStatus && journalStatus !== status) await fetchEntries(selectedStudent);
       setDecisionRevision(value => value + 1);
       return true;
     } catch (e) {
       console.error(e);
-      window.alert(e.message || 'Could not process this logbook review.');
+      setActionError(/failed to fetch|network/i.test(e.message || '') ? 'Couldn’t reach the server. Check your connection and try again.' : (e.message || 'Could not save this review.'));
       return false;
     } finally {
       setSaving(false);
@@ -321,193 +410,291 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
 
 
 
+  useEffect(() => {
+    if (!rosterJump || rosterJump.scope !== rosterScopeKey || !currentRoster?.page) return;
+    if (rosterCursors.length >= rosterJump.page || !currentRoster.page.hasMore) { setRosterJump(null); return; }
+    setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] });
+  }, [rosterJump, currentRoster]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Days and hours this month for the students on this page (two cheap aggregate reads each).
+  const [monthStats, setMonthStats] = useState({});
+  useEffect(() => {
+    const ids = JSON.parse(visibleStudentIds);
+    if (!ids.length) return undefined;
+    let active = true;
+    (async () => {
+      const next = {};
+      for (let i = 0; i < ids.length && active; i += 4) {
+        await Promise.all(ids.slice(i, i + 4).map(async id => {
+          try {
+            const agg = await getAggregateFromServer(query(collection(db, 'users', id, 'attendance'), where('date', '>=', recordMonth + '-01'), where('date', '<=', recordMonth + '-31')), { days: count(), hours: sum('hoursToday') });
+            next[id] = { days: agg.data().days || 0, hours: Number(agg.data().hours || 0) };
+          } catch (_) { next[id] = null; }
+        }));
+      }
+      if (active) setMonthStats(prev => ({ ...prev, ...Object.fromEntries(Object.entries(next).map(([id, v]) => [id + ':' + recordMonth, v])) }));
+    })();
+    return () => { active = false; };
+  }, [visibleStudentIds, recordMonth]);
+  useEffect(() => {
+    if (!selectedStudent && visibleStudents.length && !loading) setSelectedStudent(visibleStudents[0]);
+  }, [visibleStudentIds, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const LATE_AFTER = '08:15';
+  const punchHHMM = value => { const d = value?.toDate ? value.toDate() : value ? new Date(value) : null; return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) : ''; };
+  const shortPunch = value => { const d = value?.toDate ? value.toDate() : value ? new Date(value) : null; return d && !Number.isNaN(d.getTime()) ? d.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' }) : '—'; };
+  const byDate = Object.fromEntries(attendance.map(record => [record.date || record.id, record]));
+  const dayState = iso => {
+    const record = byDate[iso];
+    if (!record) return iso < today ? 'absent' : iso === today ? 'today' : 'future';
+    if (!record.timeOut) return iso === today ? 'today' : 'missing';
+    return punchHHMM(record.timeIn) > LATE_AFTER ? 'late' : 'ontime';
+  };
+  const [cy, cm] = recordMonth.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(cy, cm, 0)).getUTCDate();
+  const firstWeekday = (new Date(Date.UTC(cy, cm - 1, 1)).getUTCDay() + 6) % 7; // Mon = 0
+  const firstRecord = attendance.map(r => r.date || r.id).sort()[0] || '';
+  const calendarCells = [];
+  if (firstWeekday <= 4) for (let i = 0; i < firstWeekday; i++) calendarCells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const wd = (firstWeekday + d - 1) % 7;
+    if (wd > 4) continue;
+    const iso = `${recordMonth}-${String(d).padStart(2, '0')}`;
+    let state = dayState(iso);
+    if (state === 'absent' && (!firstRecord || iso < firstRecord)) state = 'none';
+    calendarCells.push({ d, iso, state });
+  }
+  const legend = { ontime: 0, late: 0, missing: 0, absent: 0 };
+  calendarCells.forEach(cell => { if (cell && legend[cell.state] != null) legend[cell.state] += 1; });
+  const atWorkNow = byDate[today] && !byDate[today].timeOut;
+  const monthDays = calendarCells.filter(Boolean).map(cell => cell.iso);
+  const fallbackDay = monthDays.includes(today) ? today : (attendance.map(r => r.date || r.id).sort().at(-1) || monthDays.filter(iso => iso <= today).at(-1) || monthDays[0]);
+  const activeDay = monthDays.includes(pickedDay) ? pickedDay : fallbackDay;
+  const dayPos = monthDays.indexOf(activeDay);
+  const stepDay = delta => { // eslint-disable-line no-unused-vars
+    const next = monthDays[dayPos + delta];
+    if (next) { setPickedDay(next); return; }
+    if (delta < 0) setRecordMonth(month => shiftMonth(month, -1));
+    else if (recordMonth < manilaMonth()) setRecordMonth(month => shiftMonth(month, 1));
+  };
+  const dayRecord = activeDay ? byDate[activeDay] : null;
+  const sortedEntries = [...visibleEntries].sort((a, b) => String(a.periodStart || '').localeCompare(String(b.periodStart || '')));
+  const defaultEntry = Math.max(0, sortedEntries.findIndex(entry => entry.status === 'pending'));
+  const activeEntryIndex = entryIndex >= 0 && entryIndex < sortedEntries.length ? entryIndex : defaultEntry;
+  const activeEntry = sortedEntries[activeEntryIndex];
+  const entryDay = entry => { const d = new Date(`${entry.periodStart}T00:00:00Z`); return Number.isNaN(d.getTime()) ? { w: '', n: entry.periodStart || '—' } : { w: d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }), n: d.getUTCDate() }; };
+  const studentPending = selectedStudent ? (pendingCounts[selectedStudent.id] ?? pendingCount) : 0;
+  const rows = showAllDays ? attendance : attendance.slice(0, 4);
+  const goNextPending = () => { const next = sortedEntries.findIndex((entry, i) => i > activeEntryIndex && entry.status === 'pending'); if (next >= 0) setEntryIndex(next); };
+  const pageFirst = (pageNumber - 1) * RECORD_PAGE_SIZE + 1;
+  const goRosterPage = n => {
+    if (n < pageNumber) { setRosterJump(null); setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, n) }); }
+    else if (n > pageNumber) setRosterJump({ scope: rosterScopeKey, page: n });
+  };
+  const pageCount = studentCount != null ? Math.max(1, Math.ceil(studentCount / RECORD_PAGE_SIZE)) : pageNumber + Number(hasMoreStudents);
+
+  const topControls = <>
+    <div className="lb-month" role="group" aria-label="Month">
+      <button type="button" aria-label="Previous month" disabled={saving} onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={15} /></button>
+      <span aria-live="polite">{monthLabel(recordMonth)}</span>
+      <button type="button" aria-label="Next month" disabled={saving || recordMonth >= manilaMonth()} onClick={() => setRecordMonth(month => shiftMonth(month, 1))}><Icon name="chevronRight" size={15} /></button>
+    </div>
+    <SectionPicker sections={sections} selected={sharedSection} onChange={section => onSectionChange?.(section)} />
+  </>;
+
   return (
-    <div className="logbook-workspace logbook-table-page">
-      <section className="logbook-roster" aria-label="Student roster">
-        <div className="logbook-roster-toolbar">
-          <label className="logbook-section-field"><span>Section</span>
-            <select aria-label="Current section" disabled={!sections.length} value={sharedSection?.id || ''}
-              onChange={event => { const section = sections.find(item => item.id === event.target.value); if (section) onSectionChange?.(section); }}>
-              {!sections.length && <option value="">No sections assigned to you</option>}
-              {sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}
-            </select>
-          </label>
-          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Search name or ID" />
-          <SubmissionNotifications kind="logbook" coordinatorId={coordinatorId} section={selectedSection}
-            onOpen={student => openRecords(student, 'journals')} />
+    <div className="rq lb" data-view={mobileDetail && selectedStudent ? 'detail' : 'list'}>
+      {topHost && createPortal(topControls, topHost)}
+      <div className="rq-list">
+        <div className="rq-search-row">
+          <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
+          <JournalsInbox section={selectedSection} coordinatorId={coordinatorId} pendingCounts={pendingCounts} onOpen={student => { openRecords(student, 'journals'); setJournalStatus('pending'); setMobileDetail(true); }}
+            onChanged={() => { setDecisionRevision(value => value + 1); if (selectedStudent && recordView === 'journals') fetchEntries(selectedStudent); }} />
         </div>
-        {pendingOnly && <div className="logbook-pending-filter"><span>Journals awaiting review</span>
-          <button type="button" className="portal-secondary" onClick={() => setPendingOnly(false)}>Show all students</button>
+        <div className="rq-pills" role="group" aria-label="Filter students">
+          <button type="button" aria-pressed={!pendingOnly} onClick={() => setPendingOnly(false)}>All{studentCount != null ? ` ${studentCount}` : ''}</button>
+          <button type="button" aria-pressed={pendingOnly} onClick={() => { setPendingOnly(true); setRecordView('journals'); }}>Journals to read{toReadIds.length ? ` ${toReadIds.length}` : ''}</button>
+        </div>
+        <div className="rq-students">
+          {!selectedSection && (sections.length === 0
+            ? <PortalEmpty compact icon="section" title="No sections yet" description="Attendance and journals appear here once you have a section with students." />
+            : <PortalEmpty compact icon="section" title="Choose a section" description="Pick a section at the top right." />)}
+          {selectedSection && loading && <div className="logbook-skel" role="status" aria-label="Loading students"><LogbookRows /></div>}
+          {currentRoster?.error && <div className="rq-empty" role="status"><strong>No students yet</strong>
+            <span>Attendance and journals will appear here once students join {selectedSection?.name || 'this section'}.</span>
+            <button type="button" className="rq-link" onClick={() => setRosterRetry(value => value + 1)}>Check again</button></div>}
+          {!loading && !currentRoster?.error && selectedSection && !visibleStudents.length && <div className="rq-empty">{currentRoster?.page?.hasMore ? 'No matches on this page. Choose Next to continue.' : pendingOnly ? 'No journals waiting. You’re all caught up.' : 'No students match this view.'}</div>}
+          {visibleStudents.map(student => {
+            const name = studentDisplayName(student) || 'Student';
+            const stats = monthStats[student.id + ':' + recordMonth];
+            const toRead = pendingCounts[student.id] || 0;
+            const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
+            const sub = stats ? `${stats.days} day${stats.days === 1 ? '' : 's'} · ${Math.round(stats.hours * 10) / 10} hours` : selectedSection?.name;
+            const tag = toRead ? [`${toRead} to read`, 'blue'] : summary?.attendance?.tone === 'good' ? ['At work today', 'green'] : stats && stats.days === 0 ? ['No attendance', 'mute'] : ['Up to date', 'mute'];
+            return <button type="button" className="rq-student" key={student.id} aria-pressed={selectedStudent?.id === student.id} onClick={() => { openRecords(student, recordView); setMobileDetail(true); }}>
+              <span className="rq-avatar" aria-hidden="true">{((student.firstName || name)[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+              <span className="rq-student-name"><strong>{name}</strong><small>{sub}</small></span>
+              <span className="rq-student-tag" data-tone={tag[1]}>{tag[0]}</span>
+            </button>;
+          })}
+        </div>
+        {visibleStudents.length > 0 && <div className="rq-pages">
+          <span aria-live="polite">{pageFirst}–{pageFirst + visibleStudents.length - 1}{studentCount != null ? ` of ${studentCount}` : ''}</span>
+          <Pager page={pageNumber} pages={pageCount} busy={Boolean(rosterJump)} onGo={goRosterPage} label="Student pages" />
         </div>}
-        {!selectedSection ? <p className="logbook-table-empty">Choose a section to see its students.</p> : <>
-          {loading && <p role="status">Loading students…</p>}
-          {currentRoster?.error && <p role="alert">{currentRoster.error} <button type="button" className="portal-secondary"
-            onClick={() => setRosterRetry(value => value + 1)}>Retry</button></p>}
-          {(rosterCursors.length > 1 || currentRoster?.page?.hasMore) && <nav className="portal-record-pagination" aria-label="Students pagination">
-            <button type="button" className="portal-secondary" disabled={rosterCursors.length === 1}
-              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: rosterCursors.slice(0, -1) })}>Previous</button>
-            <span>Page {rosterCursors.length}</span>
-            <button type="button" className="portal-secondary" disabled={!currentRoster?.page?.hasMore}
-              onClick={() => setRosterPaging({ scope: rosterScopeKey, cursors: [...rosterCursors, currentRoster.page.cursor] })}>Next</button>
-          </nav>}
-          <div className="logbook-roster-scroll">
-            <table aria-label={'Students in ' + (selectedSection.name || 'this section')}>
-              <thead><tr><th scope="col">Student ID</th><th scope="col">Student name</th><th scope="col">Attendance</th><th scope="col">Journals</th></tr></thead>
-              <tbody>{visibleStudents.map(student => {
-                const name = studentDisplayName(student) || 'Student';
-                const summary = rosterSummary?.scope === rosterScope ? rosterSummary.summaries[student.id] : null;
-                return <tr key={student.id}>
-                  <td>{student.idNumber || '—'}</td>
-                  <th scope="row">{name}</th>
-                  <td><button type="button" aria-label={'View attendance for ' + name + (summary?.attendance.dated ? ', ' + summary.attendance.text : '')} onClick={() => openRecords(student, 'attendance')}><span>{summary?.attendance.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
-                  <td><button type="button" aria-label={'View journal for ' + name + (summary?.journals.dated ? ', ' + summary.journals.text : '')} onClick={() => openRecords(student, 'journals')}><span>{summary?.journals.text || 'Loading…'}</span><Icon name="chevronRight" size={14} /></button></td>
-                </tr>;
-              })}</tbody>
-            </table>
-          </div>
-          {!loading && !currentRoster?.error && !visibleStudents.length && <p className="logbook-table-empty">{currentRoster?.page?.hasMore ? 'No matches in this window. Choose Next to continue searching.' : 'No students match this view.'}</p>}
-        </>}
-      </section>
-      {selectedStudent && <PortalFormDialog className="logbook-record-drawer" label={`Records for ${[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'student'}`} onCancel={closeRecords} closeOnBackdrop>
-        <header className="logbook-drawer-heading">
-          <div className="logbook-drawer-title-row">
-            <div><h2>{[selectedStudent.firstName, selectedStudent.lastName].filter(Boolean).join(' ') || 'Student'}</h2>
-              <p>{[selectedStudent.idNumber, selectedSection?.name].filter(Boolean).join(' · ')}</p></div>
-            <button type="button" className="portal-secondary" aria-label="Close records" disabled={saving} onClick={closeRecords}>Close</button>
-          </div>
-          <div className="logbook-drawer-toolbar">
-            <div className="logbook-drawer-tabs" role="group" aria-label="Student record type">
-              <button type="button" aria-pressed={recordView === 'attendance'} onClick={() => setRecordView('attendance')}>Attendance</button>
-              <button type="button" aria-pressed={recordView === 'journals'} onClick={() => setRecordView('journals')}>Journals</button>
-            </div>
-            <button type="button" className="portal-secondary logbook-drawer-download" aria-label="Export student records (Excel)"
-              disabled={exporting} onClick={exportStudentRecords} aria-busy={exporting}>
-              <Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}
-            </button>
-          </div>
-        </header>
-        <div className="logbook-detail-content" style={t.entriesScroll}>
-          {exportError && <p role="alert">{exportError}</p>}
-          {selectedStudent && recordView === 'attendance' && <section className="coordinator-attendance" aria-label="Attendance records">
-            <div className="logbook-attendance-heading">
-              <p>Times shown in Philippine time.</p>
-              <label>Attendance date <input type="date" value={attendanceDate} onChange={event => {
-                setAttendanceLoading(true);
-                setAttendanceDate(event.target.value);
-                setAttendanceCursors([null]);
-              }} /></label>
-              <button type="button" className="portal-secondary" onClick={() => setDtrStudent(selectedStudent)}>Compare Form 48</button>
-            </div>
-            {dtrStudent && <DtrReviewDialog key={dtrStudent.id} student={dtrStudent} onClose={() => setDtrStudent(null)} />}
-            {attendanceLoading && <p role="status">Loading attendance…</p>}
-            {attendanceError && <p role="alert">{attendanceError} <button type="button" className="portal-secondary" onClick={() => setAttendanceRetry(value => value + 1)}>Retry</button></p>}
-            {!attendanceLoading && !attendanceError && attendance.length === 0 && attendanceCursors.length === 1 && <div className="logbook-record-empty"><Icon name="clock" size={18} /><p>{attendanceDate ? 'No attendance records for this date.' : 'No attendance records yet.'}</p></div>}
-            {!attendanceLoading && !attendanceError && (attendance.length > 0 || attendanceCursors.length > 1) && <div className="attendance-table-wrap">{(attendanceCursors.length > 1 || nextAttendanceCursor) && <nav className="portal-record-pagination" aria-label="Attendance records pagination">
-              <button type="button" className="portal-secondary" disabled={attendanceCursors.length === 1} onClick={() => { setAttendanceLoading(true); setAttendanceCursors(cursors => cursors.slice(0, -1)); }}>Previous</button>
-              <span>Page {attendanceCursors.length}</span>
-              <button type="button" className="portal-secondary" disabled={!nextAttendanceCursor} onClick={() => { setAttendanceLoading(true); setAttendanceCursors(cursors => [...cursors, nextAttendanceCursor]); }}>Next</button>
-            </nav>}<table><thead><tr><th>Date</th><th>Time in</th><th>Time out</th><th>Hours</th></tr></thead><tbody>{attendance.map(record => <tr key={record.id}><td>{record.date || record.id}</td><td>{formatPunch(record.timeIn)}</td><td>{formatPunch(record.timeOut)}</td><td>{record.timeOut ? Number(record.hoursToday || 0).toFixed(2) : 'In progress'}</td></tr>)}</tbody></table></div>}
-          </section>}
-          {selectedStudent && recordView === 'journals' && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
-            try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); }
-            catch (failure) { setAnalysisError(failure.message); }
-          }} />}
-          {selectedStudent && recordView === 'journals' && analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="journal-check-settings"><strong>Weeks without a journal entry</strong><p>No entry found between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}. Confirm the reporting schedule before requesting revisions.</p>{analysis.truncated && <p>Only the latest 100 entries were checked.</p>}</aside>}
-          {recordView === 'journals' && <label>Journal status <select value={journalStatus} disabled={saving} onChange={event => {
-            setEntriesLoading(true);
-            setJournalStatus(event.target.value);
-            setJournalCursors([null]);
-          }}>
-            <option value="">All statuses</option>
-            <option value="pending">Awaiting review</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Changes requested</option>
-          </select></label>}
-          {recordView === 'journals' && entriesLoading && <PageSkeleton label="Loading journal entries" />}
-          {recordView === 'journals' && entriesError && <p role="alert">{entriesError} <button type="button" className="portal-secondary" onClick={() => fetchEntries(selectedStudent)}>Retry</button></p>}
-          {recordView === 'journals' && !entriesLoading && !entriesError && entries.length === 0 && (
-            <div className="logbook-record-empty">
-              <Icon name="book" size={18} />
-              <p>{journalStatus ? 'No journals match this status.' : 'No journals submitted yet.'}</p>
-            </div>
-          )}
+      </div>
 
-          <div style={t.entriesList} hidden={recordView !== 'journals' || entriesLoading || !!entriesError}>
-            {(journalCursors.length > 1 || nextJournalCursor) && <nav className="portal-record-pagination" aria-label="Journal entries pagination">
-              <button type="button" className="portal-secondary" disabled={saving || journalCursors.length === 1} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => cursors.slice(0, -1)); }}>Previous</button>
-              <span>Page {journalCursors.length}</span>
-              <button type="button" className="portal-secondary" disabled={saving || !nextJournalCursor} onClick={() => { setEntriesLoading(true); setJournalCursors(cursors => [...cursors, nextJournalCursor]); }}>Next</button>
-            </nav>}
-            {entries.map(entry => (
-            <div className="logbook-entry-card" key={entry.id} style={t.entryCard}>
-              <div style={t.entryTop}>
-                <div>
-                  <div style={t.entryWeek}>{entry.frequency === 'daily' ? `Daily journal · ${entry.periodStart}` : entry.frequency === 'weekly' ? 'Weekly journal' : `Week ${entry.weekNum}`}</div>
-                  <div style={t.entrySub}>
-                    <span><Icon name="calendar" size={14} /> {entry.frequency === 'daily' ? entry.periodStart : entry.weekRange || 'Weekly period'}</span><span><strong>{entry.hours} hrs rendered</strong></span>
-                  </div>
-                </div>
-                <span style={{
-                  ...t.badge,
-                  backgroundColor: STATUS_BG[entry.status] || COLORS.slate100,
-                  color: '#000000',
-                  border: `1px solid ${STATUS_BORDER[entry.status] || COLORS.slate300}`,
-                }}>
-                  {Object.hasOwn(STATUS_TEXT, entry.status) ? STATUS_TEXT[entry.status] : 'Status unavailable'}
-                </span>
+      <div className="rq-detail lb-detail">
+        {!selectedStudent ? <PortalEmpty icon="user" title="Select a student" description="Choose a student on the left to see their attendance and journals." /> : <>
+          <button type="button" className="rq-back" onClick={() => setMobileDetail(false)}><Icon name="chevronLeft" size={15} /> Students</button>
+          <div className="rq-head">
+            <div><h2>{personName(selectedStudent) || 'Student'}</h2>
+              <p>{[selectedStudent.companyName || selectedStudent.company ? `Training at ${selectedStudent.companyName || selectedStudent.company}` : 'No company yet',
+                selectedStudent.hoursRequired ? `${Math.round(Number(selectedStudent.hoursRendered || 0))} of ${selectedStudent.hoursRequired} hours` : null].filter(Boolean).join(' · ')}</p></div>
+            {recordView !== 'form48' && <button type="button" className="rq-btn" disabled={exporting} aria-busy={exporting} onClick={exportStudentRecords}><Icon name="download" size={14} /> {exporting ? 'Exporting…' : 'Export this month'}</button>}
+          </div>
+          <div className="rq-stages" role="tablist" aria-label="Record type" style={{ '--count': 3, '--index': recordView === 'journals' ? 1 : recordView === 'form48' ? 2 : 0 }}>
+            <span className="rq-stages-thumb" aria-hidden="true" />
+            <button type="button" role="tab" aria-selected={recordView === 'attendance'} onClick={() => setRecordView('attendance')}><i data-tone={attendanceStats.missing ? 'red' : 'mute'} aria-hidden="true" /><strong>Attendance</strong></button>
+            <button type="button" role="tab" aria-selected={recordView === 'journals'} onClick={() => setRecordView('journals')}><i data-tone={studentPending ? 'blue' : 'mute'} aria-hidden="true" /><strong>Journals{studentPending ? ` · ${studentPending} to read` : ''}</strong></button>
+            <button type="button" role="tab" aria-selected={recordView === 'form48'} onClick={() => setRecordView('form48')}><i data-tone="mute" aria-hidden="true" /><strong>Time record</strong></button>
+          </div>
+          {exportError && <p role="alert" className="lb-alert">{exportError}</p>}
+
+          <div className="lb-body">
+          {recordView === 'form48' && <Form48Check key={selectedStudent.id} student={selectedStudent} />}
+          {recordView === 'attendance' && <>
+            {attendanceLoading && <div className="logbook-skel logbook-skel-att" role="status" aria-label="Loading attendance">{[0, 1, 2, 3, 4].map(key => <div key={key} className="logbook-skel-row"><span className="cdash-skel" style={{ width: 84, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /><span className="cdash-skel" style={{ width: 70, height: 12, borderRadius: 6 }} /></div>)}</div>}
+            {attendanceError && <p role="alert" className="lb-alert">{attendanceError} <button type="button" className="rq-link" onClick={() => setAttendanceRetry(value => value + 1)}>Try again</button></p>}
+            {!attendanceLoading && !attendanceError && <>
+              <p className="lb-summary">{attendanceStats.days
+                ? <>Came {attendanceStats.days} day{attendanceStats.days === 1 ? '' : 's'} this month and worked {attendanceStats.hours.toFixed(1)} hours.{attendanceStats.missing > 0 && <> {attendanceStats.missing} day{attendanceStats.missing === 1 ? ' has' : 's have'} no time-out.</>}</>
+                : `No attendance in ${monthLabel(recordMonth)}.`}</p>
+              <div className="lb-cal-month" role="group" aria-label="Calendar month">
+                <button type="button" className="rq-icon" aria-label="Previous month" disabled={saving} onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={15} /></button>
+                <strong aria-live="polite">{monthLabel(recordMonth)}</strong>
+                <button type="button" className="rq-icon" aria-label="Next month" disabled={saving || recordMonth >= manilaMonth()} onClick={() => setRecordMonth(month => shiftMonth(month, 1))}><Icon name="chevronRight" size={15} /></button>
               </div>
-
-              <div style={t.entryLabel}>{entry.frequency === 'daily' ? 'Daily report' : 'Weekly report'}</div>
-              <div style={t.entryText}>{entry.refined || entry.rawNotes || 'No journal text.'}</div>
-              <JournalAiAnalysis key={`${selectedStudent.id}:${entry.id}`} studentId={selectedStudent.id} entryId={entry.id} sourceText={entry.rawNotes || entry.refined} hours={entry.hours} weekRange={entry.weekRange} />
-              {analysisError && <p role="alert">Review checks unavailable: {analysisError}</p>}
-              {analysis?.journals?.filter(item => item.id === entry.id).map(item => <details key={item.id}><summary>Automatic journal checks</summary>
-                {item.findings.map(finding => <p key={finding}>{finding}</p>)}
-                {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
-                {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
-                {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
-                <p>{item.limitation}</p>{analysis.truncated && <p>Checks cover the latest 100 entries only.</p>}
-              </details>)}
-
-              {entry.status === 'rejected' && entry.reviewReason && <p className="logbook-feedback"><strong>Changes requested</strong><span>{entry.reviewReason}</span></p>}
-
-              {entry.status === 'pending' && (
-                <div style={t.actionRow}>
-                  <button
-                    style={t.approveBtn}
-                    disabled={saving}
-                    onClick={() => handleAction(entry.id, 'approved')}
-                  >
-                    Approve Entry
-                  </button>
-                  <button
-                    style={t.rejectBtn}
-                    disabled={saving}
-                    onClick={() => setRejectConfirm(entry)}
-                  >
-                    Reject Entry
-                  </button>
+              <div className="lb-cal-wrap">
+                <div className="lb-cal" role="grid" aria-label={`${monthLabel(recordMonth)} attendance`}>
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => <span key={day} className="lb-cal-head" role="columnheader">{day}</span>)}
+                  {calendarCells.map((cell, i) => cell
+                    ? <button type="button" key={cell.iso} role="gridcell" className="lb-cal-day" data-state={cell.state} aria-selected={cell.iso === activeDay} disabled={cell.state === 'future'} onClick={() => setPickedDay(cell.iso)}
+                        title={{ ontime: 'Came on time', late: 'Came late', missing: 'No time-out', absent: 'Absent', today: 'Today', none: 'Before training', future: '' }[cell.state]}>{cell.d}</button>
+                    : <span key={'e' + i} className="lb-cal-blank" />)}
                 </div>
-              )}
-            </div>
-            ))}
+                <dl className="lb-legend">
+                  <div><dt><i data-state="ontime" />Came on time</dt><dd>{legend.ontime} day{legend.ontime === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="late" />Came late</dt><dd>{legend.late} day{legend.late === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="missing" />No time-out</dt><dd>{legend.missing} day{legend.missing === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="absent" />Absent</dt><dd>{legend.absent} day{legend.absent === 1 ? '' : 's'}</dd></div>
+                  <div><dt><i data-state="today" />Today</dt><dd>{atWorkNow ? 'At work now' : byDate[today] ? 'Done' : recordMonth === manilaMonth() ? 'Not in yet' : '—'}</dd></div>
+                </dl>
+              </div>
+              {activeDay && <div className="lb-dayview">
+                <div className="lb-daynav">
+                  <strong aria-live="polite">{formatDay(activeDay)}{activeDay === today ? ' · today' : ''}</strong>
+                  {attendance.length > 0 && <button type="button" className="rq-link lb-more" onClick={() => setShowAllDays(value => !value)}>{showAllDays ? 'Hide the month' : 'See the whole month'}</button>}
+                </div>
+                <div className="lb-table" role="table" aria-label="Attendance">
+                  <div className="lb-tr lb-th" role="row"><span role="columnheader">Day</span><span role="columnheader">Time in</span><span role="columnheader">Time out</span><span role="columnheader">Hours</span></div>
+                  {(showAllDays ? attendance : [dayRecord || { id: activeDay, date: activeDay, empty: true }]).map(record => {
+                    const iso = record.date || record.id; const missing = !record.empty && !record.timeOut && iso < today; const now = !record.empty && !record.timeOut && iso === today;
+                    return <div className="lb-tr" role="row" key={record.id} data-active={iso === activeDay || undefined}>
+                      <span role="cell" className="lb-day">{formatDay(iso)}{iso === today ? ' · today' : ''}</span>
+                      <span role="cell">{record.empty ? '—' : shortPunch(record.timeIn)}</span>
+                      <span role="cell">{record.empty ? <b className="lb-chip" data-tone={iso < today && dayState(iso) === 'absent' ? 'red' : 'mute'}>{iso > today ? 'Not yet' : iso === today ? 'Not in yet' : 'No record'}</b> : missing ? <b className="lb-chip" data-tone="red">No time-out</b> : now ? 'At work now' : shortPunch(record.timeOut)}</span>
+                      <span role="cell">{!record.empty && record.timeOut ? Number(record.hoursToday || 0).toFixed(1) : '—'}</span>
+                    </div>;
+                  })}
+                </div>
+              </div>}
+            </>}
+          </>}
+
+          {recordView === 'journals' && <>
+            {entriesLoading && <JournalEntriesSkeleton />}
+            {entriesError && <p role="alert" className="lb-alert">{entriesError} <button type="button" className="rq-link" onClick={() => fetchEntries(selectedStudent)}>Try again</button></p>}
+            {!entriesLoading && !entriesError && <>
+              <div className="lb-journal-top">
+                {!entries.length && <div className="lb-empty">
+                  <img src="/guide-thinking.png" alt="" aria-hidden="true" />
+                  <h3>No journals in {monthLabel(recordMonth)}</h3>
+                  <p>{personName(selectedStudent)?.split(',').reverse().join(' ').trim() || 'This student'} hasn’t sent a journal this month yet. New journals will show up here for you to read.</p>
+                  <div>
+                    <button type="button" className="rq-btn" onClick={() => setRecordMonth(month => shiftMonth(month, -1))}><Icon name="chevronLeft" size={14} /> Check {monthLabel(shiftMonth(recordMonth, -1)).split(' ')[0]}</button>
+                    <button type="button" className="rq-btn" onClick={() => setRecordView('attendance')}>See attendance</button>
+                  </div>
+                </div>}
+                {entries.length > 0 && <div className="lb-mini-pills" role="group" aria-label="Journal status">
+                  <button type="button" aria-pressed={!journalStatus} onClick={() => { setJournalStatus(''); setEntryIndex(-1); }}>All</button>
+                  <button type="button" aria-pressed={journalStatus === 'pending'} onClick={() => { setJournalStatus('pending'); setEntryIndex(-1); }}>To read{pendingCount ? ` ${pendingCount}` : ''}</button>
+                </div>}
+              </div>
+              {sortedEntries.length > 0 && <>
+                <div className="lb-days" role="tablist" aria-label="Journal days">
+                  {sortedEntries.map((entry, i) => { const day = entryDay(entry); return <button key={entry.id} type="button" role="tab" aria-selected={i === activeEntryIndex} data-status={entry.status} onClick={() => setEntryIndex(i)}>
+                    <small>{day.w}</small><strong>{day.n}</strong></button>; })}
+                </div>
+                <div className="lb-legend-inline"><span><i data-status="approved" />Read</span><span><i data-status="pending" />Waiting for you</span><span><i data-status="rejected" />Sent back</span></div>
+              </>}
+              {analysis && <details className="lb-details"><summary>Journal check settings</summary><JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
+                try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); } catch (failure) { setAnalysisError(failure.message); }
+              }} /></details>}
+              {analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="lb-note"><strong>Weeks without a journal</strong> No entry between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}.{analysis.truncated && ' Only the latest 100 entries were checked.'}</aside>}
+              {activeEntry && <article className="lb-entry">
+                <header>
+                  <h3>{activeEntry.frequency === 'weekly' && activeEntry.weekRange ? `Week of ${activeEntry.weekRange}` : formatDay(activeEntry.periodStart || '') || 'Journal'}</h3>
+                  <span className="lb-entry-meta">{activeEntry.hours ? `${activeEntry.hours} hrs` : ''}</span>
+                  <b className="lb-chip" data-tone={activeEntry.status === 'approved' ? 'green' : activeEntry.status === 'rejected' ? 'red' : 'amber'}>{activeEntry.status === 'approved' ? 'Read' : activeEntry.status === 'rejected' ? 'Sent back' : 'Waiting for you'}</b>
+                  <span className="lb-entry-nav">Journal {activeEntryIndex + 1} of {sortedEntries.length}
+                    <button type="button" className="rq-icon" aria-label="Previous journal" disabled={activeEntryIndex === 0} onClick={() => setEntryIndex(activeEntryIndex - 1)}><Icon name="chevronLeft" size={14} /></button>
+                    <button type="button" className="rq-icon" aria-label="Next journal" disabled={activeEntryIndex >= sortedEntries.length - 1} onClick={() => setEntryIndex(activeEntryIndex + 1)}><Icon name="chevronRight" size={14} /></button>
+                  </span>
+                </header>
+                <section><h4>{activeEntry.frequency === 'weekly' ? 'What I did this week' : 'What I did today'}</h4><p>{activeEntry.refined || activeEntry.rawNotes || 'No journal text.'}</p></section>
+                {activeEntry.status === 'rejected' && activeEntry.reviewReason && <section className="lb-feedback"><h4>What you asked them to fix</h4><p>{activeEntry.reviewReason}</p></section>}
+                <JournalAiAnalysis key={`${selectedStudent.id}:${activeEntry.id}`} studentId={selectedStudent.id} entryId={activeEntry.id} sourceText={activeEntry.rawNotes || activeEntry.refined} hours={activeEntry.hours} weekRange={activeEntry.weekRange} />
+                {analysisError && <p className="lb-alert">Review checks unavailable: {analysisError}</p>}
+                {analysis?.journals?.filter(item => item.id === activeEntry.id).map(item => <details key={item.id} className="lb-details"><summary>Automatic journal checks</summary>
+                  {item.findings.map(finding => <p key={finding}>{finding}</p>)}
+                  {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
+                  {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
+                  {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
+                  <p>{item.limitation}</p>
+                </details>)}
+              </article>}
+            </>}
+          </>}
           </div>
-        </div>
-        <div ref={confirmHost} />
-        <AlertDialog
+          {recordView === 'journals' && actionError && <p className="lb-action-error" role="alert"><Icon name="alert" size={14} /> {actionError}</p>}
+          {recordView === 'journals' && activeEntry?.status === 'pending' && <div className="lb-actions">
+            <input className="lb-note-input" aria-label={`Note for ${selectedStudent.firstName || 'the student'}`} placeholder={`Add a note for ${selectedStudent.firstName || 'the student'} (needed to ask for a redo)`} value={rejectReason} maxLength={1000} onChange={event => setRejectReason(event.target.value)} />
+            <button type="button" className="rq-btn" disabled={saving} onClick={() => setRejectConfirm(activeEntry)}><Icon name="refresh" size={14} /> Ask to redo</button>
+            <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={async () => { if (await handleAction(activeEntry.id, 'approved')) goNextPending(); }}><Icon name="check" size={14} /> Mark as read</button>
+          </div>}
+        </>}
+      </div>
+      <div ref={confirmHost} />
+      <AlertDialog
         portalTarget={confirmHost.current || undefined}
         open={Boolean(rejectConfirm)}
-        title="Reject this logbook entry?"
-        description="The student will be notified and can revise and resubmit this journal entry."
-        confirmLabel="Reject entry"
+        title="Ask the student to redo this journal?"
+        description="They will see your note and must edit the journal before sending it again."
+        confirmLabel="Send back"
         busy={saving}
+        confirmDisabled={!rejectReason.trim()}
         onCancel={() => setRejectConfirm(null)}
         onConfirm={async () => {
-          const saved = await handleAction(rejectConfirm.id, 'rejected');
-          if (saved) setRejectConfirm(null);
+          const saved = await handleAction(rejectConfirm.id, 'rejected', rejectReason.trim());
+          if (saved) { setRejectConfirm(null); setRejectReason(''); }
         }}
-        />
-      </PortalFormDialog>}
+      >
+        <label className="logbook-reject-reason">
+          <span>Note for the student</span>
+          <textarea rows={4} maxLength={1000} value={rejectReason} onChange={event => setRejectReason(event.target.value)}
+            placeholder="e.g. Add what you did each day and your supervisor's name." autoFocus />
+        </label>
+      </AlertDialog>
     </div>
   );
 }

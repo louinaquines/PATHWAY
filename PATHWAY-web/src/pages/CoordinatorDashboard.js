@@ -792,9 +792,8 @@ export default function CoordinatorDashboard() {
                 </div>
               </div>
             )}
-            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} onAddStudents={() => setRosterOpen('add')} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />}
+            {activeTab === 'sections' && <SectionsTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onSectionChange={fetchStudents} onAddStudents={() => setRosterOpen('add')} onManageAccounts={() => setRosterOpen(true)} journalSettings={<JournalFrequencySettings key={auth.currentUser?.uid} />}
               sectionActions={<>
-                <button type="button" className="portal-secondary section-action-btn" onClick={() => setRosterOpen(true)}><Icon name="users" size={16} /> Manage accounts</button>
                 <button type="button" className="portal-secondary section-action-btn" onClick={exportSection} disabled={!selectedSection || exporting} aria-busy={exporting}><Icon name="download" size={16} /> {exporting ? 'Exporting…' : 'Download records (Excel)'}</button>
               </>} />}
             {rosterOpen && <PortalFormDialog className="authorized-roster-drawer" label="Class List & Accounts" closeOnBackdrop onCancel={() => { if (!rosterBusy) setRosterOpen(false); }}>

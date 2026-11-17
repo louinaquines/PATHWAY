@@ -406,47 +406,25 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
       {/* Add Requirement Modal */}
       {reqModal === 'add' && (
-        <div style={t.overlay}>
-          <div className="section-modal" style={t.modalCard}>
-            <h2 style={t.modalTitle}>Add a requirement</h2>
-            <div style={t.field}>
-              <label style={t.label}>Requirement Name</label>
-              <input
-                style={t.input}
-                placeholder="e.g. Weekly Progress Presentation"
-                value={reqForm.label}
-                onChange={e => setReqForm(f => ({ ...f, label: e.target.value }))}
-                required
-              />
+        <div style={t.overlay} onClick={() => setReqModal(null)}>
+          <div className="arq" role="dialog" aria-modal="true" aria-label="Add a requirement" onClick={e => e.stopPropagation()}>
+            <div className="arq-head"><div><h2>Add a requirement</h2><p>{selected?.name}</p></div>
+              <button type="button" className="plt-x" aria-label="Close" onClick={() => setReqModal(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+            <div className="arq-body">
+              <label className="arq-field">Requirement name
+                <input placeholder="e.g. Weekly Progress Presentation" value={reqForm.label} onChange={e => setReqForm(f => ({ ...f, label: e.target.value }))} required autoFocus /></label>
+              <div className="arq-pair">
+                <label className="arq-field">Internship stage
+                  <span className="arq-select"><select value={reqForm.category} onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))}>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{({ 'Pre-OJT': 'Before OJT', Ongoing: 'During OJT', 'Post-OJT': 'After OJT' })[c] || c}</option>)}
+                  </select><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></label>
+                <label className="arq-field">Deadline <em>optional</em>
+                  <input type="date" value={reqForm.deadline} onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))} /></label>
+              </div>
             </div>
-            <div style={t.field}>
-              <label style={t.label}>Internship stage</label>
-              <select
-                style={t.select}
-                value={reqForm.category}
-                onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))}
-              >
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div style={t.field}>
-              <label style={t.label}>Submission Deadline (Optional)</label>
-              <input
-                style={t.input}
-                type="date"
-                value={reqForm.deadline}
-                onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))}
-              />
-            </div>
-            <div style={t.modalBtns}>
-              <button style={t.cancelBtn} onClick={() => setReqModal(null)}>Cancel</button>
-              <button
-                style={{ ...t.confirmBtn, opacity: saving ? 0.6 : 1 }}
-                onClick={handleAddRequirement}
-                disabled={saving}
-              >
-                {saving ? 'Adding...' : 'Add Requirement'}
-              </button>
+            <div className="arq-foot">
+              <button type="button" className="arq-btn" onClick={() => setReqModal(null)}>Cancel</button>
+              <button type="button" className="arq-btn arq-primary" onClick={handleAddRequirement} disabled={saving || !reqForm.label.trim()}>{saving ? 'Adding…' : 'Add requirement'}</button>
             </div>
           </div>
         </div>

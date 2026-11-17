@@ -169,3 +169,6 @@
 .coordinator-page .ev-ask .evaluation-select-all { height: auto !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; outline-offset: 2px; color: #0b5fd3 !important; font-family: inherit !important; font-size: 12.5px !important; font-weight: 400 !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .coordinator-page .ev-ask .evaluation-select-all:hover:not(:disabled) { color: #0a52b6 !important; }
 .coordinator-page .ev-ask .evaluation-select-all:disabled { color: #9aa1ad !important; cursor: default; }
+.evaluation-student-options > label { width: 100%; box-sizing: border-box; cursor: pointer; user-select: none; }
+.evaluation-student-options > label > span { flex: 1; cursor: pointer; }
+.ev-ask-form .evaluation-student-options input[type="checkbox"] { width: 18px !important; height: 18px !important; min-height: 18px !important; cursor: pointer; }

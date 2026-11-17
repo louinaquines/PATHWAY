@@ -51,6 +51,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
   const [saving, setSaving] = useState(false);
   const requestRevision = useRef(0);
   const [editing, setEditing] = useState(null);
+  const [panelId, setPanelId] = useState(null);
 
   const loadData = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     const revision = ++requestRevision.current;
@@ -72,7 +73,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     return;
   }, [coordinatorId, selectedSection]); // Access lifetime is controlled by the keyed boundary.
 
-  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing && !draft, scope: selectedSection?.id || '', protectInputs: true });
+  usePortalAutoRefresh(loadData, { enabled: !loading && !saving && !editing && !draft && !panelId, scope: selectedSection?.id || '', protectInputs: true });
 
 
   useEffect(() => {
@@ -80,7 +81,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     return () => { requestRevision.current++; };
   }, [loadData]);
   useEffect(() => {
-    if (data && highlightStudentId) document.getElementById(`attendance-student-${highlightStudentId}`)?.scrollIntoView?.({ block: 'center' });
+    if (data && highlightStudentId) { document.getElementById(`attendance-student-${highlightStudentId}`)?.scrollIntoView?.({ block: 'center' }); setPanelId(highlightStudentId); }
   }, [data, highlightStudentId]);
   const saveSchedule = async event => {
     event.preventDefault(); if (saving) return; setSaving(true); setScheduleError('');
@@ -248,21 +249,8 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                       </div>
                     </td>
                     <td>
-                      <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics">
-                        <summary><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span><span className="analytics-att-more">Attendance details</span></summary>
-                        <div className="analytics-att-panel">
-                        <span style={{ display: 'block' }}>Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')} · Data: {st.dataStatus ?? 'Unavailable'}</span>
-                        <span>Attendance rate: <strong>{st.attendanceRate == null ? 'Unavailable' : `${st.attendanceRate}%`}</strong></span>
-                        {st.lateRate > 0 && <span style={{ display: 'block' }}>{st.lateRate}% late</span>}
-                        {st.missedShifts > 0 && <span style={{ display: 'block' }}>{st.missedShifts} missed</span>}
-                        <span>{st.projectedCompletion ? `Estimated completion: ${st.projectedCompletion}` : 'Completion estimate unavailable'}</span>
-                        {(st.reasonCodes || []).map((reason, index) => <small key={`${reason.code}:${index}`} style={{ display: 'block' }}>{attendanceReasonLabels[reason.code] || reason.code}</small>)}
-                        <small>Scheduled days used in the calculation: attendance {st.observationCounts?.attendanceEligibleDays ?? 'Unavailable'}; projection {st.observationCounts?.projectionEligibleDays ?? 'Unavailable'}</small>
-                        <button type="button" aria-label={`Edit excused dates for ${st.name}`} onClick={() => setEditing(editing === st.id ? null : st.id)}>Edit excused dates</button>
-                        {editing === st.id && <AttendanceExcusedEditor key={`excused:${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />}
-                        {selectedSection?.id && <AttendanceAiExplanation key={`${selectedSection.id}:${st.id}`} sectionId={selectedSection.id} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, data.today])} />}
-                        </div>
-                      </details>
+                      <div className="an-att"><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span>
+                        <button type="button" className="an-att-link" onClick={() => { setPanelId(st.id); setEditing(null); }}>Attendance details</button></div>
                     </td>
                     <td className="an-r analytics-status-cell">
                       {(() => {
@@ -289,6 +277,10 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         </div>
         <RecordPagination pagination={recordsPage} label="Analytics students" compact showSinglePage />
       </div>
+      {(() => { const st = panelId && (data?.students || []).find(x => x.id === panelId); if (!st) return null;
+        return <AttendancePanel st={st} today={data.today} sectionId={selectedSection?.id} editing={editing === st.id}
+          onEdit={() => setEditing(editing === st.id ? null : st.id)} onClose={() => { setPanelId(null); setEditing(null); }}
+          isCurrent={isCurrent} onDenied={onDenied} />; })()}
     </div>
   );
 }
@@ -577,4 +569,46 @@ function HoursChart({ bars, average, height, wide = false }) {
       </BarChart>
     </ResponsiveContainer>
   </div>;
+}
+
+const shortDate = d => { if (!d) return null; const t = new Date(String(d).length === 10 ? d + 'T00:00:00' : d); return isNaN(t) ? String(d) : t.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }); };
+function AttendancePanel({ st, today, sectionId, editing, onEdit, onClose, isCurrent, onDenied }) {
+  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  const label = st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable');
+  const tone = { High: 'red', Medium: 'amber', Low: 'green', Completed: 'green' }[label] || 'mute';
+  const text = { High: 'High risk', Medium: 'At risk', Low: 'On track' }[label] || label;
+  const reasons = (st.reasonCodes || []).map(r => attendanceReasonLabels[r.code] || r.code);
+  const initials = String(st.name || '?').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const tiles = [
+    ['Attendance', st.attendanceRate == null ? '—' : `${st.attendanceRate}%`],
+    ['Missed days', st.missedShifts ?? 0],
+    ['Late', st.lateRate ? `${st.lateRate}%` : '0%'],
+    ['Estimated finish', st.projectedCompletion ? shortDate(st.projectedCompletion) : 'Not enough data'],
+  ];
+  return createPortal(<div className="anp-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <aside className="anp" role="dialog" aria-modal="true" aria-label={`Attendance for ${st.name}`}>
+      <header className="anp-head">
+        <span className="an-av" aria-hidden="true">{initials}</span>
+        <div><h2>{st.name}</h2><small>{st.idNumber}</small></div>
+        <button type="button" className="plt-x" aria-label="Close" autoFocus onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+      </header>
+      <div className="anp-body">
+        <div className="anp-status"><b className="lb-chip" data-tone={tone}>{text}</b><span>Progress: {st.progressStatus ?? 'Unavailable'} · Data: {st.dataStatus ?? 'Unavailable'}</span></div>
+        <div className="anp-tiles">{tiles.map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}</div>
+        {!st.projectedCompletion && <p className="anp-note">Completion estimate unavailable</p>}
+        <section className="anp-sec"><h3>Why they’re flagged</h3>
+          {reasons.length ? <ul className="anp-why">{reasons.map((r, i) => <li key={i}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>{r}</li>)}</ul>
+            : <p className="anp-note">Nothing flagged right now.</p>}
+          <p className="anp-note">Based on {st.observationCounts?.attendanceEligibleDays ?? '—'} scheduled days{today ? ` · as of ${shortDate(today)}` : ''}.</p>
+        </section>
+        <section className="anp-sec anp-fold"><div className="anp-fold-head"><h3>Excused dates</h3>
+          <button type="button" className="an-att-link" aria-label={`Edit excused dates for ${st.name}`} aria-expanded={editing} onClick={onEdit}>{editing ? 'Close' : 'Edit'}</button></div>
+          {editing ? sectionId && <AttendanceExcusedEditor key={`excused:${sectionId}:${st.id}`} sectionId={sectionId} studentId={st.id} isCurrent={isCurrent} onDenied={onDenied} />
+            : <p className="anp-note">Excused days don’t count against attendance. Hours aren’t changed.</p>}
+        </section>
+        {sectionId && <section className="anp-sec anp-ai"><AttendanceAiExplanation key={`${sectionId}:${st.id}`} sectionId={sectionId} studentId={st.id} onDenied={onDenied} isCurrent={isCurrent} metricsVersion={JSON.stringify([st.creditedHours, st.riskTier, st.progressStatus, st.dataStatus, st.reasonCodes, st.observationCounts, st.projectedCompletion, st.attendanceRate, st.onTimeRate, st.missedShifts, today])} /></section>}
+      </div>
+      <footer className="anp-foot"><button type="button" className="rq-btn" onClick={onClose}>Close</button></footer>
+    </aside>
+  </div>, document.body);
 }

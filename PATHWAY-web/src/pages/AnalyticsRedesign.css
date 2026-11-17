@@ -95,3 +95,49 @@
 .an-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(21,33,58,.45); display: grid; place-items: center; padding: 24px; }
 .an-modal { width: min(1200px, 100%); background: #fff; border-radius: 14px; padding: 20px 22px; box-shadow: 0 20px 60px rgba(21,33,58,.25); font-family: inherit; color: #15213a; }
 .an-chart .an-legend { margin-top: 8px; }
+/* attendance cell + side panel */
+.an-att { display: grid; gap: 2px; justify-items: start; }
+.an-att-link { background: none; border: 0; padding: 0; color: #0b5fd3; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.an-att-link:hover { text-decoration: underline; } .an-att-link:disabled { opacity: .5; cursor: default; }
+.anp-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(21,33,58,.35); display: flex; justify-content: flex-end; }
+.anp { width: min(420px, 100vw); height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(21,33,58,.18); font-family: inherit; color: #15213a; animation: anp-in .18s ease-out; }
+@keyframes anp-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.anp-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid #efece5; }
+.anp-head > div { flex: 1; min-width: 0; display: grid; } .anp-head h2 { margin: 0; font-size: 16px; } .anp-head small { color: #7b8494; font-size: 12px; }
+.anp-head .an-av { width: 40px; height: 40px; }
+.anp-body { flex: 1; overflow-y: auto; padding: 18px 20px; display: grid; gap: 16px; align-content: start; }
+.anp-status { display: grid; gap: 6px; justify-items: start; } .anp-status span { font-size: 12px; color: #7b8494; }
+.anp-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.anp-tiles > div { display: grid; gap: 4px; padding: 12px; border: 1px solid #efece5; border-radius: 10px; background: #faf9f6; }
+.anp-tiles span { font-size: 11.5px; color: #7b8494; } .anp-tiles b { font-size: 16px; color: #15213a; }
+.anp-sec { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid #efece5; }
+.anp-sec h3 { margin: 0; font-size: 13px; font-weight: 700; }
+.anp-note { margin: 0; font-size: 12px; color: #7b8494; }
+.anp-why { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.anp-why li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #465066; } .anp-why svg { color: #b3261e; flex: none; }
+.anp-fold-head { display: flex; justify-content: space-between; align-items: center; }
+.anp-fold > div:not(.anp-fold-head), .anp-fold section { display: grid; gap: 8px; padding: 0 !important; border: 0 !important; background: none !important; }
+.anp-fold label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: #465066; }
+.anp-fold textarea { min-height: 80px; padding: 10px 12px; border: 1px solid #e8e5de; border-radius: 8px; font-family: inherit; font-size: 13px; resize: vertical; }
+.coordinator-page .anp textarea:focus, .anp textarea:focus { outline: 0 !important; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.anx-help { margin: 0; font-size: 12px; color: #7b8494; }
+.anx-acts { display: flex; align-items: center; gap: 14px; }
+.anx-acts .rq-btn { height: 34px; padding: 0 14px; }
+.anp .rq-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
+.anp [role="alert"] { margin: 0; color: #b3261e; font-size: 12px; }
+.anp-ai .journal-ai { border: 0 !important; background: none !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; }
+.anp-ai .journal-ai summary { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: #15213a; cursor: pointer; list-style: none; padding: 0 !important; }
+.anp-ai .journal-ai summary::-webkit-details-marker { display: none; }
+.anp-ai .journal-ai summary span { font-size: 11.5px; font-weight: 500; color: #7b8494; }
+.anp-ai .journal-ai__body { display: grid; gap: 10px; margin-top: 10px; padding: 0 !important; border: 0 !important; background: none !important; font-size: 12.5px; color: #465066; }
+.anp-ai .journal-ai__body > p:first-child { display: none; }
+.anp-ai .journal-ai__body label { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; }
+.anp-ai .journal-ai__body input { accent-color: #0b5fd3; margin-top: 2px; }
+.anp-ai .journal-ai__actions { display: flex; gap: 8px; }
+.anp-ai .journal-ai__actions button { height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid #0b5fd3; background: #0b5fd3; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.anp-ai .journal-ai__actions button:disabled { opacity: .45; cursor: default; }
+.anp-ai .journal-ai__actions button + button { background: #fff; color: #15213a; border-color: #e8e5de; }
+.anp-ai .journal-ai__body > div:last-child:has(section) { padding: 12px; border-radius: 10px; background: #faf9f6; border: 1px solid #efece5; }
+.anp-ai h4 { margin: 8px 0 2px; font-size: 12.5px; }
+.anp-foot { padding: 14px 20px; border-top: 1px solid #efece5; display: flex; justify-content: flex-end; }
+.anp-foot .rq-btn { height: 36px; padding: 0 18px; }

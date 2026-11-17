@@ -26,7 +26,9 @@ test('unavailable metrics stay unavailable and schedule saves through scoped API
   adminRequest.mockResolvedValue(payload);
   const { container } = render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Test Student');
+  fireEvent.click(screen.getByText('Attendance details'));
   expect(screen.getByText('Completion estimate unavailable')).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
   expect(screen.queryByText('100%')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
   const dates = container.querySelectorAll('input[type=date]');
@@ -53,7 +55,7 @@ test('explicit tiers, progress and data quality override compatibility status an
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
-  expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
+  expect(screen.queryAllByText(/Projected shortfall/)).toHaveLength(0); // reasons live in the attendance panel
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
   expect(screen.getByRole('dialog')).not.toHaveTextContent(/How is this calculated/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();
@@ -131,7 +133,7 @@ test('available zero totals remain zero rather than being confused with unavaila
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findAllByText('Test Student');
   expect(screen.getByText(/Class average: 0 h\./)).toBeInTheDocument();
-  expect(screen.getAllByText('0%')).toHaveLength(2);
+  expect(screen.getAllByText('0%')).toHaveLength(1);
   expect(screen.getByText('High risk')).toBeInTheDocument();
   expect(screen.queryByText('On track')).not.toBeInTheDocument();
 });

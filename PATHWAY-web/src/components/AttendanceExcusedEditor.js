@@ -39,10 +39,10 @@ export default function AttendanceExcusedEditor({ sectionId, studentId, onDenied
     return () => { alive.current = false; revision.current++; pending.current = false; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="attendance-excused-editor">
-    <p>Coordinator excused dates exclude scheduled days from attendance and projection. This does not approve leave or change credited hours. Reload replaces the draft; review current dates before saving.</p>
+    <p className="anx-help">One date per line or comma-separated. Excused days don’t count against attendance; hours aren’t changed.</p>
     <label>Excused dates (YYYY-MM-DD)<textarea value={text} disabled={busy} onChange={event => setText(event.target.value)} /></label>
-    <button type="button" disabled={busy || version === null} onClick={() => request(true)}>Save excused dates</button>
-    <button type="button" disabled={busy} onClick={() => request(false)}>Reload excused dates for review</button>
+    <div className="anx-acts"><button type="button" className="rq-btn rq-primary" disabled={busy || version === null} onClick={() => request(true)}>Save excused dates</button>
+    <button type="button" className="an-att-link" disabled={busy} onClick={() => request(false)}>Reload excused dates for review</button></div>
     {busy && <p role="status">Loading excused dates…</p>}{error && <p role="alert">{error}</p>}
   </div>;
 }

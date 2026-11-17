@@ -1,0 +1,48 @@
+.cl { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 40px 28px; color: #15213a; font-size: 14px; }
+.cl-sub { margin: -6px 0 14px; font-size: 13.5px; color: #7b8494; }
+.cl-inline-actions { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 10px; }
+.cl-error { margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; background: #fbe9e7; color: #b3261e; font-size: 13px; }
+.cl-card { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 18px 22px; background: #fff; border: 1px solid #e8e5de; border-radius: 12px; }
+.cl-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cl-toolbar .coordinator-search { width: 240px; height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; }
+.coordinator-page .cl-toolbar .coordinator-search input { flex: 1; min-width: 0; height: 36px !important; min-height: 0 !important; border: 0 !important; box-shadow: none !important; outline: 0 !important; padding: 0 !important; background: transparent !important; font-size: 13.5px !important; }
+.cl-table { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
+.cl-row { display: grid; grid-template-columns: minmax(200px, 2.2fr) minmax(90px, 1fr) minmax(110px, 1.1fr) minmax(110px, 1.1fr) minmax(130px, 1.2fr) minmax(150px, 1.3fr); align-items: center; gap: 12px; min-height: 64px; }
+.cl-headrow { min-height: 34px; position: sticky; top: 0; z-index: 1; background: #fff; border-bottom: 1px solid #e8e5de; font-size: 12px; font-weight: 600; color: #7b8494; }
+.cl-item { border-bottom: 1px solid #efece5; }
+.cl-item[data-open] { background: #faf9f6; }
+.cl-student { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.cl-av { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; background: #f1efe9; color: #465066; font-style: normal; font-size: 12px; font-weight: 700; }
+.cl-student > span { min-width: 0; display: grid; gap: 1px; }
+.cl-student strong { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-student small { font-size: 12px; color: #7b8494; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: #9aa1ad; white-space: nowrap; }
+.cl-check[data-ok] { color: #15213a; }
+.cl-tick { flex: none; }
+.cl-act { display: flex; justify-content: flex-end; }
+.cl-act em { font-style: normal; font-size: 12.5px; color: #7b8494; }
+.cl-act .rq-link { padding: 0; border: 0; background: none; color: #0b5fd3; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cl-act .rq-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cl-missing { margin: -4px 0 12px 47px; padding: 10px 14px 10px 30px; border-radius: 10px; background: #fff; border: 1px solid #efece5; display: grid; gap: 4px; font-size: 13px; color: #465066; }
+.cl-missing li::marker { color: #9a6200; }
+.cl-empty { padding: 48px 20px; text-align: center; color: #7b8494; font-size: 13.5px; }
+.cl-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid #e8e5de; font-size: 13px; color: #7b8494; }
+.cl-table::-webkit-scrollbar { width: 6px; } .cl-table::-webkit-scrollbar-button { display: none; } .cl-table::-webkit-scrollbar-thumb { background: #d6d1c7; border-radius: 99px; } .cl-table::-webkit-scrollbar-track { background: transparent; }
+@supports not selector(::-webkit-scrollbar) { .cl-table { scrollbar-width: thin; scrollbar-color: #d6d1c7 transparent; } }
+@media (max-width: 1100px) {
+  .cl { margin: 0 24px 24px; }
+  .cl-headrow { display: none; }
+  .cl-row { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 12px 0; }
+  .cl-student { grid-column: 1 / -1; }
+  .cl-check { font-size: 12.5px; }
+  .cl-row > .cl-check { grid-column: auto; }
+  .cl-act { grid-column: 1 / -1; justify-content: flex-start; }
+  .cl-missing { margin-left: 0; }
+}
+@media (max-width: 600px) {
+  .cl { margin: 0 12px 16px; flex: none; }
+  .cl-card { padding: 14px; }
+  .cl-table { overflow: visible; }
+  .cl-toolbar .coordinator-search { width: 100%; }
+  .cl-foot { flex-direction: column; gap: 10px; }
+}

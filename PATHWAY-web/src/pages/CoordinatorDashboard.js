@@ -565,6 +565,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'classlist' && <button type="button" className="portal-secondary" onClick={() => setActiveTab('sections')}>Back to sections</button>}
           {activeTab === 'logbook' && <div className="rq-top-actions" id="lb-top-actions" />}
           {activeTab === 'evaluations' && <div className="rq-top-actions" id="ev-top-actions" />}
+          {activeTab === 'clearance' && <div className="rq-top-actions" id="cl-top-actions" />}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button

@@ -196,3 +196,7 @@
 .sx-bulk-row .rq-btn { padding: 0 16px; font-size: 13px; }
 .sx-bulk-row .rq-btn:disabled { opacity: .5; cursor: not-allowed; }
 .sx-bulk .sx-chatmsg { margin: 0 !important; }
+.sx .sx-bulk-row .sx-selwrap { height: 38px !important; }
+.sx .sx-bulk-row .sx-selwrap select, .sx .sx-bulk-row input[type="date"] { height: 38px !important; min-height: 38px !important; margin: 0 !important; padding: 0 34px 0 12px !important; font-size: 13px !important; line-height: 36px !important; border-radius: 8px !important; box-sizing: border-box !important; }
+.sx .sx-bulk-row input[type="date"] { padding: 0 12px !important; }
+.sx .sx-bulk-row .rq-btn { height: 38px !important; min-height: 38px !important; margin: 0 !important; }

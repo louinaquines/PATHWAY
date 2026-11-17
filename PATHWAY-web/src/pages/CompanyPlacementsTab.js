@@ -34,6 +34,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [doneCompany, setDoneCompany] = useState('');
   const [doneCompanies, setDoneCompanies] = useState([]);
   const [collapsed, setCollapsed] = useState({});
+  const [matchCompanies, setMatchCompanies] = useState([]);
   useEffect(() => { setTopHost(document.getElementById('pl-top-actions')); }, []);
   const [items, setItems] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -148,6 +149,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   useEffect(() => { if (queueFilter !== 'completed' || !selectedSection?.id) return; let on = true;
     adminRequest('/coordinator/placement-workspace?sectionId=' + encodeURIComponent(selectedSection.id) + '&view=companies&availability=active').then(d => { if (on) setDoneCompanies(d.companies || []); }).catch(() => {});
     return () => { on = false; }; }, [queueFilter, selectedSection?.id]);
+  useEffect(() => { if (!selectedQueueStudent || !selectedSection?.id) return; let on = true;
+    adminRequest('/coordinator/placement-workspace?sectionId=' + encodeURIComponent(selectedSection.id) + '&view=companies&availability=active').then(d => { if (on) setMatchCompanies(d.companies || []); }).catch(() => {});
+    return () => { on = false; }; }, [selectedQueueStudent, selectedSection?.id]);
   const historyOpen = queueFilter === 'history' || (selectedQueueStudent && reviewStage === 'history');
   const sectionId = selectedSection?.id;
   useEffect(() => {
@@ -461,10 +465,20 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         <span className="plo-body"><strong>{nm}</strong><small>{[row.company && row.company !== '—' ? row.company : null, queueFilter === 'history' ? 'Previous decisions' : row.current.step, row.tasks.filter(task => task.needsAction).length > 1 ? `${row.tasks.filter(task => task.needsAction).length} tasks` : null].filter(Boolean).join(' · ')}</small></span>
         <button type="button" className="rq-btn" onClick={() => openStudent(row)}>{label}<span className="sr-only"> for {row.name}</span></button>
       </div>; })}{loading && !filteredQueue.length && <div className="placement-skeleton-rows" aria-hidden="true">{[0,1,2].map(i => <div key={i}><span /><span /><span /><span /></div>)}</div>}{!loading && !filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'No placement records yet. They will appear here once students submit placement requests.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'All caught up. Placement tasks will appear here when students submit requests.' : 'No students in this view yet.'}</div>}</div>
-    {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} closeOnBackdrop onCancel={() => setSelectedQueueStudent(null)}>
-      <header><div><h2>{selectedQueue.name}</h2><p>{studentIdsByUid.get(selectedQueue.id) || openedStudent?.idNumber} · {selectedSection?.name}</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
-      <div className="placement-task-overview"><small>Current task</small><strong>{selectedQueue.current.step}</strong></div>
-      <div className="placement-detail-tabs" role="group" aria-label="Student placement details"><button type="button" aria-pressed={reviewStage==='all'} onClick={()=>setReviewStage('all')}>Tasks & decisions</button><button type="button" aria-pressed={reviewStage==='history'} onClick={()=>setReviewStage('history')}>History</button></div>
+    {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail pl-detail" label={'Placement details for ' + selectedQueue.name} closeOnBackdrop onCancel={() => setSelectedQueueStudent(null)}>
+      {(() => { const steps = [['placement', 'Request'], ['final', 'Final check'], ['endorsement', 'Letter draft'], ['verified', 'Signed copy'], ['sent', 'Emailed']];
+        const cur = selectedQueue.current?.stage === 'verified' && selectedQueue.current?.record?.deliveryStatus === 'sent' ? 'sent' : (selectedQueue.current?.stage || 'placement');
+        const idx = Math.max(0, steps.findIndex(([k]) => k === cur));
+        const nm = selectedQueue.name || 'Student';
+        return <header className="pld-head">
+          <div className="pld-who"><i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
+            <div><h2>{nm}</h2><p>{studentIdsByUid.get(selectedQueue.id) || openedStudent?.idNumber} · {selectedSection?.name}</p></div>
+            <span className="pl-grow" />
+            <button type="button" className="plt-link" aria-pressed={reviewStage === 'history'} onClick={() => setReviewStage(reviewStage === 'history' ? 'all' : 'history')}>{reviewStage === 'history' ? 'Back to tasks' : 'History'}</button>
+            <button type="button" className="plt-x" aria-label="Close" onClick={() => setSelectedQueueStudent(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+          <ol className="pld-steps" aria-label={'Current step: ' + selectedQueue.current.step}>{steps.map(([k, l], i) => <li key={k} data-state={i < idx ? 'done' : i === idx ? 'now' : 'next'}><i aria-hidden="true" />{l}</li>)}</ol>
+          <p className="pld-now">{selectedQueue.current.step}</p>
+        </header>; })()}
       <div className="placement-detail-body">
 
     <details className="placement-stage-section" open={selectedQueue?.current.stage === "placement" || (false)} style={{order:selectedQueue?.current.stage === "placement" ? 0 : 1}} hidden={reviewStage !== 'all' || !items.some(item=>item.studentId===selectedQueueStudent)}><summary>Placement details</summary>
@@ -473,11 +487,19 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {recordCursors.placement && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("placement")}>Load older records</button>}<RecordPagination pagination={placementPage} label="Company requests" />
     {placementPage.items.map(item => <article className="review-card" key={item.id}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}><div><h3 style={{ margin: 0 }}>{item.companyName || 'Unnamed company'}</h3><div style={{ color: '#64748B', marginTop: 4 }}>{item.studentName || item.studentId} · {item.internshipRole || 'Role not specified'}</div></div><strong>{placementStatusLabel(item.status)}</strong></div>
-      <p><b>Address:</b> {item.companyAddress || '—'}<br /><b>Supervisor:</b> {item.supervisorName || '—'} ({item.supervisorEmail || '—'})<br /><b>Schedule:</b> {item.startDate || '—'} to {item.endDate || '—'} · {item.workArrangement || '—'}</p>
+      <dl className="pld-facts"><div><dt>Address</dt><dd>{item.companyAddress || '—'}</dd></div><div><dt>Supervisor</dt><dd>{item.supervisorName || '—'}{item.supervisorEmail ? ` · ${item.supervisorEmail}` : ''}</dd></div><div><dt>Dates</dt><dd>{item.startDate || '—'} – {item.endDate || '—'}{item.workArrangement ? ` · ${item.workArrangement}` : ''}</dd></div></dl>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
       {item.status === 'pending_review' && <>
-        <PlacementPicker sectionId={selectedSection.id} view="companies" availability="active" label={`Official company assignment for ${item.studentName || item.studentId}`} initialSelection={item.companyId ? {id:item.companyId,name:item.companyName}:null} onSelect={companyId=>setCompanySelections(previous=>({...previous,[item.id]:companyId}))} />
-        <div className="review-decision"><label>Feedback for this student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>Approve</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Reject</button></div></div>
+        {(() => { const chosen = companySelections[item.id] || item.companyId || ''; const co = matchCompanies.find(c => c.id === chosen);
+          return <label className="pld-match">Match to company
+            <select aria-label={`Official company assignment for ${item.studentName || item.studentId}`} value={chosen} onChange={e => setCompanySelections(previous => ({ ...previous, [item.id]: e.target.value }))}>
+              <option value="">Pick the company from your list</option>
+              {item.companyId && !matchCompanies.some(c => c.id === item.companyId) && <option value={item.companyId}>{item.companyName}</option>}
+              {matchCompanies.map(c => <option key={c.id} value={c.id}>{c.name}{c.availableSlots != null ? ` · ${c.availableSlots} open` : ''}</option>)}
+            </select>
+            {chosen ? <small data-ok>{co ? `✓ ${co.availableSlots == null ? 'No slot limit' : `${co.availableSlots} open slot${co.availableSlots === 1 ? '' : 's'}`}` : '✓ Matched'}</small> : <small>“{item.companyName || 'This company'}” isn’t matched yet. Pick it from your list to approve.</small>}
+          </label>; })()}
+        <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>✓ Approve</button></div></div>
       </>}
     </article>)}
     </details>
@@ -486,11 +508,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {sortedReviews(finalItems).length === 0 && <div className="review-empty">No final review requests match this view.</div>}
     {recordCursors.final && <button type="button" disabled={recordsBusy} onClick={()=>loadMoreRecords("final")}>Load older records</button>}<RecordPagination pagination={finalPage} label="Final approvals" />
     {finalPage.items.map(item => <article className="review-card" key={item.id}>
-      <h3 style={{ margin: 0 }}>Final placement review</h3><p><b>Student:</b> {reviewStudentName(item)}<br /><b>Company:</b> {item.companySnapshot?.companyName || '—'}<br /><b>Supervisor:</b> {item.companySnapshot?.supervisorName || '—'}<br /><b>Requirements:</b> {item.requirementSnapshot?.filter(docItem => ['submitted', 'approved'].includes(docItem.status)).length || 0} submitted</p>
+      <h3 style={{ margin: 0 }}>{item.companySnapshot?.companyName || 'Final check'}</h3><dl className="pld-facts"><div><dt>Supervisor</dt><dd>{item.companySnapshot?.supervisorName || '—'}</dd></div><div><dt>Documents</dt><dd>✓ {item.requirementSnapshot?.filter(docItem => ['submitted', 'approved'].includes(docItem.status)).length || 0} of {item.requirementSnapshot?.length || 0} in</dd></div></dl>
       <strong>{placementStatusLabel(item.status)}</strong>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
-      <details className="review-documents"><summary>View requirement statuses</summary>{(item.requirementSnapshot || []).map((requirement, index) => <div key={requirement.id || index}><span>{requirement.name || requirement.title || requirement.id || 'Requirement'}</span><strong>{requirement.status || 'Not submitted'}</strong></div>)}</details>
-      {item.status === 'pending_review' && <div className="review-decision"><label>Feedback for this student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>Approve internship tracking</button><button disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Reject</button></div></div>}
+      <details className="review-documents"><summary>Show documents</summary>{(item.requirementSnapshot || []).map((requirement, index) => <div key={requirement.id || index}><span>{requirement.name || requirement.title || requirement.id || 'Requirement'}</span><strong>{requirement.status || 'Not submitted'}</strong></div>)}</details>
+      {item.status === 'pending_review' && <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>✓ Approve tracking</button></div></div>}
     </article>)}
     </details>
     <details className="placement-stage-section" open={selectedQueue?.current.stage === "endorsement" || (selectedQueue?.current.stage === "verified")} style={{order:["endorsement","verified"].includes(selectedQueue?.current.stage) ? 0 : 1}} hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}><summary>Endorsement letter</summary>

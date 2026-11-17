@@ -344,18 +344,16 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
       onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}
       onAssigned={() => load({ silent: true })} onOpenAssign={() => { setAssignmentError(''); setAssignmentOpen(true); }} />}
-    <h3 className="pl-section-title">All placement work</h3>
-    <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
-      <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>By company</button>
-      <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Students</button>
-    </div>
-    {workspace === 'reviews' && <div className="placement-review-top-toolbar"><label className="placement-stage-filter">Stage<select aria-label="Filter placement stage" value={stageFilter} onChange={e=>setStageFilter(e.target.value)}>{[["all","All stages"],["placement","Placement request"],["final","Final approval"],["endorsement","Endorsement draft"],["verified","Signed letter"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
-      <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch}
-        label="Search placement reviews by student or company" placeholder="Search student name or company…" />
-      <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
-        suppliedItems={error ? [] : placementNotices} onRefresh={load}
-        onOpen={(student, item) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />
-    </div>}
+    {(() => { const isReq = row => row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1;
+      const n = queueFilter === 'action' ? queueRows.filter(r => !isReq(r)).length : queueRows.length;
+      return <div className="pl-work-head">
+        <h3 className="pl-section-title">{workspace === 'companies' ? 'Students by company' : queueFilter === 'history' ? 'Placement history' : queueFilter === 'completed' ? 'Finished placements' : n ? `${n} letter${n === 1 ? '' : 's'} and approval${n === 1 ? '' : 's'} to finish` : 'Letters and approvals'}</h3>
+        <span className="pl-grow" />
+        {workspace === 'reviews' && queueFilter !== 'action' && <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch} label="Search placement reviews by student or company" placeholder="Find a student" />}
+        <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
+          suppliedItems={error ? [] : placementNotices} onRefresh={load}
+          onOpen={(student) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />
+      </div>; })()}
 
     {error && items.length > 0 && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
     {workspace === 'companies' && selectedSection && <PlacementCompanies key={selectedSection.id} selectedSection={selectedSection} onOpenStudent={student => {setWorkspace("reviews");setSelectedQueueStudent(student.id);}} />}
@@ -407,7 +405,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </form>
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
-    <div className="placement-queue-filters" role="group" aria-label="Placement queue">
+    <div className="placement-queue-filters" role="group" aria-label="Placement queue" hidden>
       {[['action','Needs action'],['completed','Completed'],['history','History']].map(([value,label]) => <button type="button" key={value} aria-pressed={queueFilter === value} onClick={() => { setRequestsOnly(false); setQueueFilter(value); setSelectedQueueStudent(null); }}>
         {label}
       </button>)}
@@ -422,9 +420,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         onClick={() => setHistoryPaging({ scope: historyScope, cursors: [...historyCursors, currentHistory.nextCursor] })}>Next</button>
     </nav>}
 
-    {loading && <div role="status" className="placement-loading-banner"><span className="placement-spinner" aria-hidden="true" /><div><strong>Loading placements…</strong>{slowLoad && <span>The server is waking up. The first load can take up to a minute.</span>}</div></div>}<div className="placement-queue-table"><table><thead><tr><th>ID</th><th>Name</th><th>Company</th><th>Status</th><th>Action</th></tr></thead><tbody>
-      {queuePage.items.map(row => <tr key={row.id}><td>{studentIdsByUid.get(row.id) || '—'}</td><td><strong>{row.name}</strong>{row.tasks.filter(task=>task.needsAction).length > 1 && <small>{row.tasks.filter(task=>task.needsAction).length} tasks</small>}</td><td>{row.company}</td><td>{queueFilter === 'history' ? 'Previous decisions' : row.current.step}</td><td><button type="button" className="portal-secondary" onClick={() => openStudent(row)}>{queueFilter === 'history' ? 'View history' : row.current.action}<span className="sr-only"> for {row.name}</span></button></td></tr>)}
-    </tbody></table>{loading && !filteredQueue.length && <div className="placement-skeleton-rows" aria-hidden="true">{[0,1,2].map(i => <div key={i}><span /><span /><span /><span /></div>)}</div>}{!loading && !filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'No placement records yet. They will appear here once students submit placement requests.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'All caught up. Placement tasks will appear here when students submit requests.' : 'No students in this view yet.'}</div>}</div>
+    {loading && <div role="status" className="placement-loading-banner"><span className="placement-spinner" aria-hidden="true" /><div><strong>Loading placements…</strong>{slowLoad && <span>The server is waking up. The first load can take up to a minute.</span>}</div></div>}<div className="placement-queue-table pl-list">
+      {queuePage.items.filter(row => queueFilter !== 'action' || !(row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1)).map(row => { const label = queueFilter === 'history' ? 'View history' : ({ 'Draft needed': 'Prepare draft', 'Waiting for signed copy': 'View letter', 'Signed copy verified': 'Email letter', 'Final approval awaiting review': 'Review' }[row.current.step] || row.current.action);
+        const nm = row.name || 'Student'; return <div key={row.id} className="pl-row">
+        <i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
+        <span className="plo-body"><strong>{nm}</strong><small>{[row.company && row.company !== '—' ? row.company : null, queueFilter === 'history' ? 'Previous decisions' : row.current.step, row.tasks.filter(task => task.needsAction).length > 1 ? `${row.tasks.filter(task => task.needsAction).length} tasks` : null].filter(Boolean).join(' · ')}</small></span>
+        <button type="button" className="rq-btn" onClick={() => openStudent(row)}>{label}<span className="sr-only"> for {row.name}</span></button>
+      </div>; })}{loading && !filteredQueue.length && <div className="placement-skeleton-rows" aria-hidden="true">{[0,1,2].map(i => <div key={i}><span /><span /><span /><span /></div>)}</div>}{!loading && !filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'No placement records yet. They will appear here once students submit placement requests.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'All caught up. Placement tasks will appear here when students submit requests.' : 'No students in this view yet.'}</div>}</div>
     {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail" label={'Placement details for ' + selectedQueue.name} closeOnBackdrop onCancel={() => setSelectedQueueStudent(null)}>
       <header><div><h2>{selectedQueue.name}</h2><p>{studentIdsByUid.get(selectedQueue.id) || openedStudent?.idNumber} · {selectedSection?.name}</p></div><button type="button" className="portal-secondary" onClick={() => setSelectedQueueStudent(null)}>Close</button></header>
       <div className="placement-task-overview"><small>Current task</small><strong>{selectedQueue.current.step}</strong></div>
@@ -536,7 +538,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       </div>
     </PortalFormDialog>}
     </div>
-    {workspace === 'reviews' && <footer className="placement-list-footer"><span>{queueRows.length} students on this page</span><nav aria-label="Placement students pagination"><button className="portal-secondary" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button className="portal-secondary" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav></footer>}
+    <footer className="pl-foot">
+      <span className="pl-links">
+        {[['action', 'To finish'], ['completed', 'Finished'], ['history', 'History']].map(([v, l]) => <button key={v} type="button" className="rq-link" aria-pressed={workspace === 'reviews' && queueFilter === v} onClick={() => { setWorkspace('reviews'); setRequestsOnly(false); setQueueFilter(v); setSelectedQueueStudent(null); }}>{l}</button>)}
+        <button type="button" className="rq-link" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>By company</button>
+      </span>
+      {workspace === 'reviews' && (queueCursors.length > 1 || nextQueueCursor) && <nav aria-label="Placement students pagination"><button type="button" className="rq-btn" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button type="button" className="rq-btn" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav>}
+    </footer>
     {emailOpen && <PortalFormDialog className="placement-student-detail" label="Company email" closeOnBackdrop onCancel={()=>setEmailOpen(false)}><header><h2>Company email</h2><button type="button" onClick={()=>setEmailOpen(false)}>Close</button></header><div className="placement-detail-body"><CompanyEmailInbox /></div></PortalFormDialog>}
     <AlertDialog
       open={Boolean(reviewConfirm)}

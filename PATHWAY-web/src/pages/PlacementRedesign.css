@@ -58,3 +58,22 @@
   .plo-req .plo-body { flex-basis: calc(100% - 50px); }
   .plo-bulk .plo-place { width: 100%; } .plo-place select { flex: 1; max-width: none; }
 }
+.pl-work-head { display: flex; align-items: center; gap: 10px; margin: 28px 0 10px; }
+.pl-work-head .pl-section-title { margin: 0; }
+.pl-grow { flex: 1; }
+.pl-work-head .coordinator-search { width: 220px; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; }
+.coordinator-page .pl-work-head .coordinator-search input { flex: 1; min-width: 0; height: 34px !important; min-height: 0 !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; background: transparent !important; font-size: 13px !important; }
+.pl-page .placement-reviews { margin: 0; }
+.pl-list { background: #fff; border: 1px solid #e8e5de; border-radius: 12px; overflow: hidden; padding: 0 !important; box-shadow: none !important; }
+.pl-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.pl-row + .pl-row { border-top: 1px solid #efece5; }
+.pl-row .rq-btn { height: 32px; font-size: 12.5px; }
+.pl-list .review-empty { padding: 28px 16px; text-align: center; color: #7b8494; font-size: 13px; background: none; border: 0; }
+.pl-list:not(:has(.pl-row)):not(:has(.review-empty))::after { content: "Nothing else to finish. New letters and approvals show up here."; display: block; padding: 28px 16px; text-align: center; color: #7b8494; font-size: 13px; }
+.pl-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.pl-links { display: flex; gap: 18px; }
+.pl-links .rq-link { padding: 0; border: 0; background: none; color: #7b8494; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.pl-links .rq-link[aria-pressed="true"] { color: #0b5fd3; text-decoration: underline; text-underline-offset: 4px; }
+.pl-links .rq-link:hover { color: #0b5fd3; }
+.pl-foot nav { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #7b8494; }
+.pl-foot nav .rq-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }

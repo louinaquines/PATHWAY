@@ -334,7 +334,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
             </div>;
           })}
         </div>
-        {shownRows.length > 10 && <div className="rq-pages ev-pages"><span>{(evPage - 1) * 10 + 1}–{Math.min(evPage * 10, shownRows.length)} of {shownRows.length}</span><Pager page={evPage} pages={evPages} onGo={setCurrentPage} label="Evaluation pages" /></div>}
+        {shownRows.length > 0 && <div className="rq-pages ev-pages"><span>{(evPage - 1) * 10 + 1}–{Math.min(evPage * 10, shownRows.length)} of {shownRows.length}</span><Pager page={evPage} pages={evPages} onGo={setCurrentPage} label="Evaluation pages" /></div>}
       </div>
 
       <aside className="ev-side">

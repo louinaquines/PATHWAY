@@ -1,5 +1,7 @@
 import personName from '../personName';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import SectionPicker from '../components/SectionPicker';
 import { adminRequest } from '../adminApi';
 import CoordinatorSearch from '../components/CoordinatorSearch';
 import { PortalFormDialog } from '../components/PortalStates';
@@ -13,7 +15,9 @@ const nameOf = student => personName(student);
 
 const usernameOf = student => student.username || (student.idNumber ? 'uclm-' + student.idNumber : '—');
 
-export default function RegistrationsTab({ selectedSection }) {
+export default function RegistrationsTab({ selectedSection, sections = [], onSectionChange }) {
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('rg-top-actions')); }, []);
   const [unassigned, setUnassigned] = useState(false);
   const [tab, setTab] = useState('pending');
   const [search, setSearch] = useState('');
@@ -93,6 +97,7 @@ export default function RegistrationsTab({ selectedSection }) {
   const countOf = key => counts?.sectionId === sectionId && counts?.revision === revision ? counts.values[key] : 0;
   const total = data?.total || 0;
   return <div ref={workspace} tabIndex={-1} className="rgx">
+    {topHost && sections.length > 0 && createPortal(<SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />, topHost)}
     <div className="rgx-tools">
       <div className="rq-pills rgx-pills" role="group" aria-label="Account status">
         {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}

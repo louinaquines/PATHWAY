@@ -52,8 +52,6 @@ test('explicit tiers, progress and data quality override compatibility status an
   render(<AnalyticsTab coordinatorId="staff" selectedSection={section} />);
   await screen.findByText('Student 0');
   for (const label of ['On track','At risk','High risk']) expect(screen.getAllByText(label).length).toBeGreaterThan(0);
-  expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
-  expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
   expect(screen.queryAllByText(/Projected shortfall/)).toHaveLength(0); // reasons live in the attendance panel
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));

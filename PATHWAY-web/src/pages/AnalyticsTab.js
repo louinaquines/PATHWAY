@@ -208,12 +208,12 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             {data?.today && <p className="an-sub">As of <time dateTime={data.today}>{data.today}</time></p>}
           </div>
           <div className="analytics-table-controls"><CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search analytics records" placeholder="Search by name or ID…" />
-          <select aria-label="Progress filter" value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
+          <span className="an-sel"><select aria-label="Progress filter" value={progressFilter} onChange={event => setProgressFilter(event.target.value)}>
             <option value="all">All students</option>
             <option value="risk">At risk</option>
             <option value="complete">Target met</option>
             <option value="unavailable">Attendance unavailable</option>
-          </select></div>
+          </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></div>
         </div>
 
         <div className="analytics-table-scroll">
@@ -259,8 +259,6 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         const text = { High: 'High risk', Medium: 'At risk', Low: 'On track' }[label] || label;
                         return <span className="risk-badge" data-tone={tone}><i aria-hidden="true" />{text}</span>;
                       })()}
-                      <small className="analytics-status-sub">Progress: {st.progressStatus ?? 'Unavailable'}</small>
-                      <small className="analytics-status-sub">Data: {st.dataStatus ?? 'Unavailable'}</small>
                     </td>
                   </tr>
                 );

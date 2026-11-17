@@ -428,7 +428,7 @@ export default function CoordinatorDashboard() {
   }, [reviewReady, reviewScope, reviewCursor, sectionRequirements]);
 
   // Short sidebar labels; full names stay as page titles and accessible names.
-  const NAV_LABELS = { overview: 'Dashboard', requirements: 'Requirements', logbook: 'Attendance & Journals', evaluations: 'Evaluations', clearance: 'Clearance', placements: 'Placements', companies: 'Companies', sections: 'Sections', registrations: 'Accounts', analytics: 'Progress', messages: 'Messages', notifications: 'Announcements' };
+  const NAV_LABELS = { overview: 'Dashboard', requirements: 'Requirements', logbook: 'Attendance & Journals', evaluations: 'Evaluations', clearance: 'Clearance', placements: 'Placements', companies: 'Companies', sections: 'Sections', registrations: 'Accounts', analytics: 'Progress', messages: 'Messages & Announcements', notifications: 'Announcements' };
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
     { title: 'Reviews', items: [
@@ -446,7 +446,6 @@ export default function CoordinatorDashboard() {
         { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true, hint: pendingRegistrations > 0 ? `${pendingRegistrations} to approve` : null },
         { id: 'analytics', icon: 'chart' },
         { id: 'messages', icon: 'chat' },
-        { id: 'notifications', icon: 'bell' },
     ] },
   ];
 
@@ -495,14 +494,14 @@ export default function CoordinatorDashboard() {
           {coordNavGroups.map(group => (
             <div key={group.title} className="sidebar-group" data-folded={sidebarPrefs.isFolded(group.title)}>
               <GroupTitle prefs={sidebarPrefs} title={group.title} />
-              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id).map(item => (
+              {group.items.filter(item => !sidebarPrefs.isFolded(group.title) || activeTab === item.id || (activeTab === 'notifications' && item.id === 'messages')).map(item => (
                 <button
                   type="button"
                   key={item.id}
-                  className={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
+                  className={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections' || activeTab === 'notifications' && item.id === 'messages') ? 'sidebar-nav-btn sidebar-nav-btn-active' : 'sidebar-nav-btn'}
                   onClick={() => setActiveTab(item.id)}
                   aria-label={COORDINATOR_PAGE_TITLES[item.id]}
-                  aria-current={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections') ? 'page' : undefined}
+                  aria-current={(activeTab === item.id || activeTab === 'classlist' && item.id === 'sections' || activeTab === 'notifications' && item.id === 'messages') ? 'page' : undefined}
                 >
                   <span className="sidebar-btn-left">
                     <Icon name={item.icon} size={16} />

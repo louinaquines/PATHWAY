@@ -150,7 +150,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
   const csvNew = csvRows.filter(l => !existing.has(l.split(',')[0].trim())).length;
   const template = 'data:text/csv;charset=utf-8,' + encodeURIComponent('StudentID,FirstName,LastName\n24228132,Juan,Dela Cruz\n');
   return (
-    <div className="authorized-roster-page cls" onClick={() => menuId && setMenuId('')}>
+    <div className="cls" onClick={() => menuId && setMenuId('')}>
       <header className="cls-head">
         <div className="cls-title"><div><h2>Class list & accounts</h2>{sectionName && <span className="cls-chip">{sectionName}</span>}</div>
           {onClose && <button type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button>}</div>
@@ -163,7 +163,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
       <div className="cls-body">
         {message && <p role="status" className="cls-msg" data-bad={/could not|enter|must|select/i.test(message) || undefined}>{message}</p>}
         {resetResult && <div role="status" className="cls-pass"><span>Temporary password for <b>{resetResult.id}</b>: <code>{resetResult.password}</code><small>Give it privately after checking their identity.</small></span><button type="button" className="rq-btn" onClick={() => setResetResult(null)}>Done</button></div>}
-        <section hidden={activeTab !== 'students'} className="cls-panel roster-records-card">
+        <section hidden={activeTab !== 'students'} className="cls-panel">
           {ids.length > 0 && <CoordinatorSearch value={filterQuery} onChange={v => { setFilterQuery(v); setPage(1); }} placeholder="Find a student" label="Search authorized students" />}
           {ids.length === 0 ? <div className="cls-empty"><strong>No students yet</strong><span>{sectionId ? 'Use Add students to create their accounts.' : 'Choose a section first.'}</span>{sectionId && <button type="button" className="rq-btn rq-primary" onClick={() => setTab('add')}>Add students</button>}</div>
           : <div className="cls-table" role="table" aria-label="Authorized students">
@@ -185,7 +185,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
             </div>}
           {filteredIds.length > 8 && <div className="cls-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, filteredIds.length)} of {filteredIds.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Roster students" /></div>}
         </section>
-        <section hidden={activeTab !== 'add'} className="cls-panel roster-import-card">
+        <section hidden={activeTab !== 'add'} className="cls-panel">
           <div className="cls-card">
             <h3>Add one student</h3>
             <div className="cls-fields">

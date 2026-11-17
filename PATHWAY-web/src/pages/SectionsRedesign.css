@@ -177,3 +177,10 @@
 .sx .rq-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
 .sx-set .rq-btn { height: 34px; font-size: 12.5px; white-space: nowrap; }
 .sx-chatbtn { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; color: #0b5fd3 !important; }
+.sx-set-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sx-set-head .rq-link { background: none; border: 0; padding: 0; color: #0b5fd3; font: 600 12.5px inherit; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.sx-selwrap { position: relative; display: inline-flex; }
+.sx-selwrap select { appearance: none; height: 36px; padding: 0 34px 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; font-family: inherit; font-size: 13px; color: #15213a; cursor: pointer; }
+.sx-selwrap svg { position: absolute; right: 11px; top: 11px; pointer-events: none; color: #7b8494; }
+.sx-chatform input[type="date"] { flex: 0 1 180px; }
+.coordinator-page .sx-selwrap select:is(:focus, :focus-visible) { outline: 0 !important; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }

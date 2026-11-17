@@ -225,6 +225,26 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     }
   };
 
+  const [bulk, setBulk] = useState({ date: '', scope: 'all', busy: false, msg: '' });
+  const applyDeadlineToAll = async (event) => {
+    event.preventDefault();
+    if (!bulk.date || !selected) return;
+    setBulk(b => ({ ...b, busy: true, msg: '' }));
+    try {
+      const snap = await getDocs(collection(db, 'sections', selected.id, 'requirements'));
+      const targets = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(r => bulk.scope === 'all' || r.category === bulk.scope);
+      await Promise.all(targets.map(r => adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(r.id)}`, {
+        method: 'PATCH', body: JSON.stringify({ deadline: bulk.date }),
+      })));
+      const ids = new Set(targets.map(r => r.id));
+      setRequirements(prev => prev.map(r => ids.has(r.id) ? { ...r, deadline: bulk.date } : r));
+      setBulk(b => ({ ...b, busy: false, msg: `Deadline set for ${targets.length} document${targets.length === 1 ? '' : 's'}.` }));
+    } catch (e) {
+      console.error(e);
+      setBulk(b => ({ ...b, busy: false, msg: 'Couldn’t update the deadlines. Try again.', bad: true }));
+    }
+  };
+
   const handleDeleteRequirement = async (reqId) => {
     setSaving(true);
     try {
@@ -348,7 +368,15 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   <button type="submit" className="rq-btn rq-primary" disabled={chatSave?.busy}>Save group chat link</button>
                   {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'} className="sx-chatmsg" data-bad={chatSave.failed || undefined}>{chatSave.message}</p>}
                 </form></div>
-              <div className="sx-set"><div><h3>Deadlines</h3><p>Each required document has its own deadline.</p></div><button type="button" className="rq-btn" onClick={() => fetchRequirements(selected)}>Set deadlines</button></div>
+              <div className="sx-set sx-set-col"><div className="sx-set-head"><div><h3>Deadlines</h3><p>Set one deadline for many documents at once, or adjust each one in Required documents.</p></div><button type="button" className="rq-link" onClick={() => fetchRequirements(selected)}>Set one by one</button></div>
+                <form className="sx-chatform" onSubmit={applyDeadlineToAll}>
+                  <span className="sx-selwrap"><select aria-label="Apply to" value={bulk.scope} onChange={e => setBulk(b => ({ ...b, scope: e.target.value, msg: '' }))}>
+                    <option value="all">All documents</option><option value="Pre-OJT">Before OJT documents</option><option value="Ongoing">During OJT documents</option><option value="Post-OJT">After OJT documents</option>
+                  </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span>
+                  <input type="date" aria-label="Deadline for all" value={bulk.date} onChange={e => setBulk(b => ({ ...b, date: e.target.value, msg: '' }))} />
+                  <button type="submit" className="rq-btn rq-primary" disabled={!bulk.date || bulk.busy}>{bulk.busy ? 'Saving…' : 'Apply deadline'}</button>
+                  {bulk.msg && <p role="status" className="sx-chatmsg" data-bad={bulk.bad || undefined}>{bulk.msg}</p>}
+                </form></div>
             </div>
           </>; })()}
       </section>

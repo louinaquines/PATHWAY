@@ -321,7 +321,6 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   </div>
                   <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
                 </div>
-                <p className="sx-hint">{list.filter(overdue).length ? <><em>{list.filter(overdue).length} overdue</em> · </> : null}Add a reference file to let AI flag each submission green, yellow or red. Overdue alerts reach students automatically.</p>
                 {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
                 : <div className="sx-reqlist"><div className="sx-reqrow sx-reqhead" aria-hidden="true"><span>Document</span><span>Deadline</span><span>Status</span><span>Actions</span></div>{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
                   return <div key={req.id} className="sx-reqrow" data-late={late || undefined}>

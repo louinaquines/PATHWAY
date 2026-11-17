@@ -122,7 +122,7 @@ test('selection summary shows names, overflow count and all-students state', asy
   fireEvent.click(screen.getByRole('button', { name: 'Students' }));
   const boxes = screen.getAllByRole('checkbox');
   const summary = () => container.querySelector('.evaluation-selection-desktop').textContent;
-  fireEvent.click(boxes[0].closest('label').querySelector('span')); expect(summary()).toBe('Amy');
+  fireEvent.click(boxes[0].closest('.evaluation-student-row').querySelector('span')); expect(summary()).toBe('Amy');
   fireEvent.click(boxes[1]); expect(summary()).toBe('Amy, Ben');
   fireEvent.click(boxes[2]); expect(summary()).toBe('Amy, Ben +1 more');
   fireEvent.click(boxes[3]); expect(summary()).toBe('All 4 students selected');

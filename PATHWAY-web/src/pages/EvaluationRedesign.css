@@ -172,3 +172,10 @@
 .evaluation-student-options > label { width: 100%; box-sizing: border-box; cursor: pointer; user-select: none; }
 .evaluation-student-options > label > span { flex: 1; cursor: pointer; }
 .ev-ask-form .evaluation-student-options input[type="checkbox"] { width: 18px !important; height: 18px !important; min-height: 18px !important; cursor: pointer; }
+.evaluation-student-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 10px; border-radius: 6px; cursor: pointer; user-select: none; font-size: 14px; }
+.evaluation-student-row:hover { background: #f3f6fa; }
+.evaluation-student-row[data-on] { background: #eef5ff; }
+.evaluation-student-row[data-locked] { cursor: default; opacity: .7; }
+.evaluation-student-row > span { flex: 1; }
+.evaluation-student-row small { display: block; color: #526174; font-size: 13px; }
+.ev-ask-form .evaluation-student-row input[type="checkbox"] { width: 18px !important; height: 18px !important; min-height: 18px !important; flex: none; cursor: pointer; }

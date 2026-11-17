@@ -406,15 +406,16 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 <div className="evaluation-selection-toolbar"><span aria-live="polite">{selectedStudentIds.length} of {companyStudents.length} selected</span><button type="button" className="evaluation-select-all" disabled={busy || preparedInvitations.length > 0} onClick={() => updateSelection(selectedStudentIds.length === companyStudents.length ? [] : companyStudents.map(student => student.id))}>
                   {selectedStudentIds.length === companyStudents.length ? 'Clear selection' : 'Select all'}
                 </button></div>
-                {companyStudents.map(student => <label key={student.id} htmlFor={`evaluation-student-${student.id}`} onClick={event => {
-                  if (event.target.tagName === 'INPUT' || busy || preparedInvitations.length > 0) return;
-                  event.preventDefault();
-                  updateSelection(selectedStudentIds.includes(student.id) ? selectedStudentIds.filter(id => id !== student.id) : [...selectedStudentIds, student.id]);
-                }}>
-                  <input id={`evaluation-student-${student.id}`} type="checkbox" disabled={busy || preparedInvitations.length > 0} checked={selectedStudentIds.includes(student.id)} onChange={event =>
-                    updateSelection(event.target.checked ? [...selectedStudentIds, student.id] : selectedStudentIds.filter(id => id !== student.id))} />
-                  <span>{personName(student)}<small>{student.idNumber || student.id}</small></span>
-                </label>)}
+                {companyStudents.map(student => {
+                  const locked = busy || preparedInvitations.length > 0;
+                  const on = selectedStudentIds.includes(student.id);
+                  const toggle = () => { if (!locked) updateSelection(on ? selectedStudentIds.filter(id => id !== student.id) : [...selectedStudentIds, student.id]); };
+                  return <div key={student.id} className="evaluation-student-row" data-on={on || undefined} data-locked={locked || undefined} onClick={toggle}>
+                    <input id={`evaluation-student-${student.id}`} type="checkbox" aria-label={`${personName(student)} ${student.idNumber || student.id}`} disabled={locked} checked={on}
+                      onClick={event => event.stopPropagation()} onChange={toggle} />
+                    <span>{personName(student)}<small>{student.idNumber || student.id}</small></span>
+                  </div>;
+                })}
               </div>}
             </div>
           </div>

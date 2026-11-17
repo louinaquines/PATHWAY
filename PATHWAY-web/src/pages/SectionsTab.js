@@ -274,8 +274,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             <header className="sx-head">
               <div><h2>{selected.name}</h2>
                 <p>{[selected.hoursRequired ? `${selected.hoursRequired} hours required` : null, requirements.length && view === 'requirements' ? `${requirements.length} required documents` : null, selected.department].filter(Boolean).join(' · ')}
-                  {chatHref && <> · <a href={chatHref} target="_blank" rel="noreferrer">Open Group Chat</a></>}</p></div>
-              <button type="button" className="rq-btn" onClick={() => setView('rules')}>Change the rules</button>
+                  </p></div>
+              {chatHref ? <a className="rq-btn sx-chatbtn" href={chatHref} target="_blank" rel="noreferrer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z" /></svg>Open Group Chat</a>
+                : <button type="button" className="rq-btn sx-chatbtn" onClick={() => setView('rules')}>Add a group chat</button>}
             </header>
             <div className="rq-stages sx-tabs" role="tablist" aria-label="Section view" style={{ '--count': 3, '--index': view === 'requirements' ? 1 : view === 'rules' ? 2 : 0 }}>
               <span className="rq-stages-thumb" aria-hidden="true" />
@@ -338,18 +339,16 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 {list.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setReqPage} label="Requirements" /></div>}
               </div>; })()}
             <div hidden={view !== 'rules'} className="sx-panel sx-rules">
-              <div className="sx-rule"><h3>Required hours</h3><p><b>{selected.hoursRequired || '—'} hours</b> for every student in {selected.name}.</p></div>
-              <div className="sx-rule"><h3>Journals</h3>{journalSettings || <p>Journal settings aren’t available here.</p>}</div>
-              <div className="sx-rule"><h3>Group chat</h3>{chatHref ? <p><a href={chatHref} target="_blank" rel="noreferrer">Open the group chat</a></p> : <p>No group chat linked yet.</p>}
-                <div className="section-management-actions"><details className="section-chat-editor" open><summary>Edit group chat link</summary><form key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
-                <label style={t.label}>Group chat link
-                  <input name="messengerLink" type="url" maxLength={500} style={t.input}
-                    defaultValue={chatHref} placeholder="https://m.me/j/…" />
-                </label>
-                <button type="submit" style={t.confirmBtn} disabled={chatSave?.busy}>Save group chat link</button>
-                {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'}>{chatSave.message}</p>}
-              </form></details></div></div>
-              <div className="sx-rule"><h3>Deadlines</h3><p>Each required document has its own deadline. <button type="button" className="rq-link" onClick={() => fetchRequirements(selected)}>Set them in Required documents</button></p></div>
+              <div className="sx-set"><div><h3>Required hours</h3><p>Every student in {selected.name} must render this.</p></div><b className="sx-val">{selected.hoursRequired || '—'} hours</b></div>
+              <div className="sx-set"><div><h3>Journals</h3><p>How often students write a journal.</p></div><div className="sx-journal">{journalSettings || <span className="sx-muted">Not available</span>}</div></div>
+              <div className="sx-set sx-set-col"><div><h3>Group chat</h3><p>Students see this link in their app.</p></div>
+                <form className="sx-chatform" key={selected.id + ':' + chatHref} onSubmit={event => saveGroupChat(event, selected)}>
+                  <label className="sx-sr" htmlFor="sx-chat">Group chat link</label>
+                  <input id="sx-chat" name="messengerLink" type="url" maxLength={500} defaultValue={chatHref} placeholder="https://m.me/j/…" aria-label="Group chat link" />
+                  <button type="submit" className="rq-btn rq-primary" disabled={chatSave?.busy}>Save group chat link</button>
+                  {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'} className="sx-chatmsg" data-bad={chatSave.failed || undefined}>{chatSave.message}</p>}
+                </form></div>
+              <div className="sx-set"><div><h3>Deadlines</h3><p>Each required document has its own deadline.</p></div><button type="button" className="rq-btn" onClick={() => fetchRequirements(selected)}>Set deadlines</button></div>
             </div>
           </>; })()}
       </section>

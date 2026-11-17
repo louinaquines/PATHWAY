@@ -1998,7 +1998,7 @@ app.post('/coordinator/announcements', requireStaff, async (req, res) => {
       for (const student of students) {
         transaction.create(adminDb.collection('notifications').doc(), indexedNotice({
           recipientId: student.id, senderId: req.staff.uid, senderRole: 'coordinator',
-          title: cleanTitle, message: cleanMessage, type: 'announcement', read: false, createdAt: now,
+          title: cleanTitle, message: cleanMessage, type: 'announcement', announcementId: announcementRef.id, read: false, createdAt: now,
         }));
       }
       writeAuditInTransaction(transaction, {
@@ -2784,6 +2784,7 @@ const { createCompanyInbox, installCompanyInbox } = require('./companyMailInbox'
 const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocalCompanyInbox(process.env));
 const companySender = require('./companyMailSender').createCompanySender(process.env);
 require('./announcementEmail').installAnnouncementEmail({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
+require('./announcementList').installAnnouncementList({ app, db: adminDb, requireStaff, coordinatorSection, allowRate });
 installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender,
   discoveryEnabled: process.env.COMPANY_INBOX_PLACEMENT_DISCOVERY_ENABLED === '1' });
 require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });

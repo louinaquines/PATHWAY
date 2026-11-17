@@ -8,6 +8,7 @@ import "./NotificationsTab.css";
 import "./AnnouncementsRedesign.css";
 import { createPortal } from "react-dom";
 import SectionPicker from "../components/SectionPicker";
+import PostedAnnouncements from "../components/PostedAnnouncements";
 const rowIcon = (kind, row) => kind === "attendance" ? "clock"
   : /placement|company/i.test(row?.title || "") ? "briefcase"
   : /announce/i.test(row?.title || "") ? "megaphone"
@@ -66,7 +67,7 @@ export function NotificationWorkspace({
       saved.current = {};
     }
   }
-  const [kind, setKind] = useState(saved.current.kind || "activity"),
+  const [kind, setKind] = useState(saved.current.kind || (onStudents ? "posted" : "activity")),
     [search, setSearch] = useState(saved.current.search || ""),
     [query, setQuery] = useState(search),
     [filter, setFilter] = useState(saved.current.filter || "all");
@@ -88,6 +89,7 @@ export function NotificationWorkspace({
     [saving, setSaving] = useState(false),
     [formError, setFormError] = useState(""),
     [announcement, setAnnouncement] = useState(null);
+  const [postedKey, setPostedKey] = useState(0);
   const version = useRef(0),
     list = useRef(null),
     opener = useRef(null),
@@ -137,7 +139,7 @@ export function NotificationWorkspace({
       restoreScroll.current = 0;
       return;
     }
-    if (!section?.id) return;
+    if (!section?.id || kind === "posted") return;
     const request = ++version.current;
     setBusy(true);
     setError("");
@@ -175,7 +177,7 @@ export function NotificationWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, index, cursors, retry]);
   useEffect(() => {
-    if (!section?.id) return;
+    if (!section?.id || kind === "posted") return;
     let current = true;
     setCounts({});
     adminRequest(
@@ -255,7 +257,7 @@ export function NotificationWorkspace({
           message: draft.message.trim(),
         }),
       });
-      if (access.isCurrent()) setAnnouncement(result);
+      if (access.isCurrent()) { setAnnouncement(result); setPostedKey((v) => v + 1); }
     } catch {
       setFormError(
         "Could not post the announcement. Your draft is still here.",
@@ -264,6 +266,13 @@ export function NotificationWorkspace({
       setSaving(false);
     }
   }
+  const switcher = (
+        <div className="ann-switch" role="tablist" aria-label="Inbox">
+          {onStudents && <button role="tab" aria-selected={kind === "posted"} onClick={() => setKind("posted")}>Posted</button>}
+          <button role="tab" aria-selected={kind === "activity"} onClick={() => setKind("activity")}>Activity{kind === "activity" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
+          <button role="tab" aria-selected={kind === "attendance"} onClick={() => setKind("attendance")}>Attendance alerts{kind === "attendance" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
+        </div>
+  );
   return (
     <div className="ann notifications-workspace">
       {(acts => topHost ? createPortal(acts, topHost) : <div className="ann-inline-actions">{acts}</div>)(<>
@@ -285,17 +294,14 @@ export function NotificationWorkspace({
         </button>
         {sections.length > 0 && onSectionChange && <SectionPicker sections={sections} selected={section} onChange={(sec) => onSectionChange(sec)} />}
       </>)}
-      <div className="ann-card">
+      {kind === "posted" ? <PostedAnnouncements section={section} refreshKey={postedKey} switcher={switcher} /> : <div className="ann-card">
       <section
         className="inbox-panel"
         aria-label={
           kind === "activity" ? "Activity inbox" : "Attendance alerts"
         }
       >
-        <div className="ann-switch" role="tablist" aria-label="Inbox">
-          <button role="tab" aria-selected={kind === "activity"} onClick={() => setKind("activity")}>Activity{kind === "activity" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
-          <button role="tab" aria-selected={kind === "attendance"} onClick={() => setKind("attendance")}>Attendance alerts{kind === "attendance" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
-        </div>
+        {switcher}
         <div className="inbox-toolbar">
           <label className="inbox-search">
             <Icon name="search" size={18} />
@@ -438,7 +444,7 @@ export function NotificationWorkspace({
           </footer>
         </> : <div className="ann-pick"><Icon name="bell" size={30} /><strong>Pick a notification</strong><span>Its details will show here.</span></div>}
       </section>
-      </div>
+      </div>}
       {draft && (
         <PortalFormDialog
           label="Post announcement"

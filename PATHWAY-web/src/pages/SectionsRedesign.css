@@ -153,3 +153,4 @@
 .arq-field > span:first-child { display: block; }
 .arq-pair { align-items: end; }
 .sx-overlay { z-index: 1500 !important; display: flex; align-items: center; justify-content: center; background: rgba(21,33,58,.42) !important; backdrop-filter: blur(2px); }
+.sx-pending { font-size: 11.5px; white-space: nowrap; }

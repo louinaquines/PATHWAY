@@ -283,13 +283,13 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
             <div hidden={view !== 'students'} className="sx-panel">
               <div className="sx-tools">
                 <CoordinatorSearch value={stuQuery} onChange={v => { setStuQuery(v); setStuPage(1); }} label="Find a student" placeholder="Find a student" />
+                {pending > 0 && <b className="lb-chip sx-pending" data-tone="amber" title={`${pending} account${pending === 1 ? ' is' : 's are'} waiting for approval`}>{pending} waiting for approval</b>}
                 <span className="sx-grow" />
                 <button type="button" className="rq-btn" aria-expanded={addOpen} onClick={() => onAddStudents ? onAddStudents() : setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
                 {sectionActions}
               </div>
               {addOpen && <div className="sx-add"><div className="sx-add-head"><strong>Add students</strong><span>Students in your department who haven’t joined a section.</span></div>
                 <UnassignedStudents sectionId={selected.id} department={selected.department} onAssign={() => fetchStudents(selected)} /></div>}
-              {pending > 0 && <p className="sx-banner">{pending} student{pending === 1 ? '’s account is' : 's’ accounts are'} still waiting for approval.</p>}
               {filteredStudents.length === 0
                 ? <div className="sx-emptybox"><strong>{stuQuery ? 'No matching students' : 'No enrolled students yet'}</strong><span>{stuQuery ? 'Try another name or student ID.' : 'Use Add students to put students in this section.'}</span></div>
                 : <div className="sx-table" role="table" aria-label="Section students">

@@ -59,3 +59,11 @@
   .co { grid-template-columns: 1fr; } .co-detail { position: static; }
 }
 @media (max-width: 600px) { .co-cap { width: auto; } .co-search { max-width: none; } }
+.co-list { padding: 16px !important; box-sizing: border-box; }
+.co-tools { padding: 0 2px 4px; }
+.co-search { height: 34px; flex: 1 1 200px; }
+.co-tools .rq-pills button { height: 30px; }
+.co-facts > div { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; }
+.co-facts dd { font-weight: 500; }
+.co-detail { padding: 20px !important; }
+.co-note-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

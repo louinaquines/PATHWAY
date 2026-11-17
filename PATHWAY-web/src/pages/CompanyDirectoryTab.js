@@ -192,7 +192,7 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
           {topHost ? createPortal(top, topHost) : null}
           <p className="co-sub">The places where your students train.</p>
           <div className="co">
-            <section className="co-list company-directory-records" aria-label="Company records">
+            <section className="co-list" aria-label="Company records">
               <div className="co-tools">
                 <label className="co-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
                   <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a company" aria-label="Search companies" /></label>

@@ -310,15 +310,24 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 {state === 'none' && <button type="button" className="rq-btn" disabled={!placedIds.has(student.id)} onClick={() => openAsk(student)}>Ask now</button>}
               </span>
               {open && item && <div className="ev-detail">
-                <dl className="rqv-facts">
-                  <div><dt>Supervisor</dt><dd>{item.supervisorName} · {item.supervisorEmail}</dd></div>
-                  <div><dt>Email</dt><dd>{({ sent: 'Sent. The email service accepted it.', sending: 'Sending…', authorization_failed: 'Not sent. Reconnect the email account, then ask again.', delivery_unknown: 'Unknown. Check the email service before asking again.', not_sent: 'Not sent' })[item.emailStatus || 'not_sent'] || '—'}</dd></div>
-                  <div><dt>Link</dt><dd>{item.submitted ? 'Used' : `Works until ${short(item.expiresAt)}`}</dd></div>
-                </dl>
-                {item.submitted && item.formDefinition && <div className="ev-answers">{item.formDefinition.questions.map(q => <div key={q.id}><span>{q.label}</span><strong>{item.answers?.[q.id] !== undefined ? `${item.answers[q.id]}${q.type === 'rating' ? ' / 5' : ''}` : 'Not answered'}</strong></div>)}</div>}
-                {item.submitted && !item.formDefinition && <div className="ev-answers">{Object.entries(item.ratings || {}).map(([k, v]) => <div key={k}><span>{k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())}</span><strong>{v} / 5</strong></div>)}
-                  {item.comments && <div className="ev-comment"><span>Comments</span><p>{item.comments}</p></div>}</div>}
-                <button type="button" className="rq-link ev-delete" onClick={() => setDeleteTarget(item)}>Delete this evaluation</button>
+                <div className="ev-meta">
+                  <span><small>Supervisor</small>{item.supervisorName}<em>{item.supervisorEmail}</em></span>
+                  <span><small>Email</small>{({ sent: 'Sent', sending: 'Sending…', authorization_failed: 'Not sent', delivery_unknown: 'Unknown', not_sent: 'Not sent' })[item.emailStatus] || 'Not recorded'}</span>
+                  <span><small>Link</small>{item.submitted ? `Answered ${short(item.submittedAt || item.expiresAt)}` : `Works until ${short(item.expiresAt)}`}</span>
+                </div>
+                {item.submitted && (() => {
+                  const list = item.formDefinition
+                    ? item.formDefinition.questions.map(q => ({ id: q.id, label: q.label, rating: q.type === 'rating', value: item.answers?.[q.id] }))
+                    : Object.entries(item.ratings || {}).map(([k, v]) => ({ id: k, label: k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()), rating: true, value: v }));
+                  const ratings = list.filter(x => x.rating), texts = list.filter(x => !x.rating);
+                  return <>
+                    {ratings.length > 0 && <div className="ev-ratings">{ratings.map(x => <div key={x.id} className="ev-rating">
+                      <span>{x.label}</span>{x.value !== undefined ? <>{dots(Number(x.value))}<strong>{x.value}<small> / 5</small></strong></> : <small className="f48-muted">Not answered</small>}</div>)}</div>}
+                    {texts.filter(x => x.value).map(x => <blockquote key={x.id} className="ev-quote"><small>{x.label}</small><p>{x.value}</p></blockquote>)}
+                    {!item.formDefinition && item.comments && <blockquote className="ev-quote"><small>Comments</small><p>{item.comments}</p></blockquote>}
+                  </>;
+                })()}
+                <div className="ev-detail-foot"><button type="button" className="rq-link ev-delete" onClick={() => setDeleteTarget(item)}><Icon name="trash" size={13} /> Delete this evaluation</button></div>
               </div>}
               {open && !item && <div className="ev-detail"><p className="f48-muted">No evaluation yet. Use Ask now to send the supervisor a link.</p></div>}
             </div>;

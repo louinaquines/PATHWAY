@@ -77,3 +77,29 @@
   .rq-top-actions .ev-top-btn { flex: 1; }
 }
 .ev-inline-actions { grid-column: 1 / -1; justify-content: flex-end; }
+
+/* v2: details panel + scrollbar */
+.ev-detail { gap: 14px; padding: 16px 18px; }
+.ev-meta { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid #ebe8e1; }
+.ev-meta span { display: grid; gap: 2px; min-width: 0; font-size: 13.5px; font-weight: 600; color: #15213a; }
+.ev-meta small { font-size: 11.5px; font-weight: 500; color: #7b8494; }
+.ev-meta em { font-style: normal; font-size: 12.5px; font-weight: 400; color: #465066; overflow-wrap: anywhere; }
+.ev-ratings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; }
+.ev-rating { display: grid; grid-template-columns: minmax(0, 1fr) auto 52px; align-items: center; gap: 10px; font-size: 13px; color: #465066; }
+.ev-rating strong { text-align: right; font-size: 13.5px; color: #15213a; font-variant-numeric: tabular-nums; }
+.ev-rating strong small { font-weight: 500; color: #9aa1ad; }
+.ev-quote { margin: 0; padding: 12px 14px; border-left: 3px solid #cfe0f7; border-radius: 0 8px 8px 0; background: #fff; }
+.ev-quote small { font-size: 11.5px; color: #7b8494; }
+.ev-quote p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.55; color: #15213a; white-space: pre-wrap; }
+.ev-detail-foot { display: flex; justify-content: flex-end; }
+.coordinator-page .ev .ev-delete { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px !important; }
+@media (max-width: 700px) { .ev-meta { grid-template-columns: 1fr 1fr; } .ev-meta span:first-child { grid-column: 1 / -1; } .ev-ratings { grid-template-columns: 1fr; } }
+/* thin scrollbar like the other screens */
+.ev *::-webkit-scrollbar { width: 6px !important; height: 6px !important; background: transparent !important; }
+.ev *::-webkit-scrollbar-button { display: none !important; width: 0 !important; height: 0 !important; }
+.ev *::-webkit-scrollbar-track { background: transparent !important; margin: 4px 0; }
+.ev *::-webkit-scrollbar-thumb { background: transparent !important; border-radius: 99px !important; }
+.ev *:hover::-webkit-scrollbar-thumb { background-color: #d6d1c7 !important; }
+.ev *::-webkit-scrollbar-thumb:hover { background-color: #b9b3a7 !important; }
+@supports not selector(::-webkit-scrollbar) { .ev .ev-list { scrollbar-width: thin; scrollbar-color: #d6d1c7 transparent; } }
+.ev .ev-list { scrollbar-gutter: stable; }

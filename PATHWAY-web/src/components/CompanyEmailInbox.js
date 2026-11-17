@@ -87,7 +87,7 @@ export default function CompanyEmailInbox({ onClose }) {
                   <div><dt>Received</dt><dd>{when(email.receivedAt)}</dd></div>
                   {email.attachments?.length > 0 && <div><dt>Attachments</dt><dd>{email.attachments.join(', ')} (open them in the mailbox)</dd></div>}</dl>
                 <pre>{email.text}</pre>
-                <div className="cei-actions"><a className="cei-btn cei-primary" href={`mailto:${email.fromEmail}?subject=${encodeURIComponent('Re: ' + (email.subject || ''))}`}>Reply by email</a></div>
+                <div className="cei-actions"><a className="cei-btn cei-primary" target="_blank" rel="noopener noreferrer" href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email.fromEmail || '')}${data?.mailbox ? `&authuser=${encodeURIComponent(data.mailbox)}` : ''}`}>Reply in Gmail</a></div>
               </div>}
             </li>; })}
         </ul>}

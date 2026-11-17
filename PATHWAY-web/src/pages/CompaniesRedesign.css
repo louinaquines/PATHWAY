@@ -31,7 +31,7 @@
 .co-cap small[data-full] { color: #7b8494; }
 .co-empty { margin: 0; padding: 24px; text-align: center; color: #7b8494; font-size: 13px; }
 .co-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #efece5; font-size: 12.5px; color: #7b8494; }
-.co-pg { display: flex; gap: 6px; } .co-pg .rq-btn { width: 32px; height: 32px; padding: 0; justify-content: center; }
+.co-pg { display: flex; gap: 6px; } .co-pg { align-items: center; } .co-pg .rq-btn { height: 32px; padding: 0 10px; }
 .co-detail { position: sticky; top: 0; display: grid; gap: 14px; padding: 18px; background: #fff; border: 1px solid #e8e5de; border-radius: 12px; font-size: 13px; color: #465066; }
 .co-dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .co-dhead h2 { margin: 0; font-size: 16px; font-weight: 700; color: #15213a; }

@@ -10,11 +10,13 @@ import './CompaniesRedesign.css';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
 import EvaluationInbox from '../components/EvaluationInbox';
+import Pager from '../components/Pager';
 
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
 export default function CompanyDirectoryTab({ readOnly = true, selectedSection = null, sections = [], onSectionChange }) {
   const [selectedId, setSelectedId] = useState('');
+  const [lp, setLp] = useState(1);
   const [fullOnly, setFullOnly] = useState(false);
   const [roster, setRoster] = useState({ id: '', items: null });
   const [topHost, setTopHost] = useState(null);
@@ -190,8 +192,10 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
       </form></PortalFormDialog>}
 
       {(() => {
-        const shown = fullOnly ? companies.filter(c => c.availableSlots === 0) : companies;
-        const sel = shown.find(c => c.id === selectedId) || shown[0] || null;
+        const all = fullOnly ? companies.filter(c => c.availableSlots === 0) : companies;
+        const lPages = Math.max(1, Math.ceil(all.length / 8)); const lCur = Math.min(lp, lPages);
+        const shown = all.slice((lCur - 1) * 8, lCur * 8);
+        const sel = all.find(c => c.id === selectedId) || shown[0] || null;
         const top = <>
           <button type="button" className="rq-btn co-add" disabled={loading || loadFailed} onClick={() => { resetForm(); setError(''); setFormOpen(true); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add company</button>
           {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
@@ -203,11 +207,11 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
               <div className="co-tools">
                 <div className="rq-pills" role="group" aria-label="Filter companies">
                   {[['all', 'All', false], ['slots', 'Has open slots', false], ['full', 'Full', true]].map(([v, l, full]) => { const on = full ? fullOnly : !fullOnly && availability === v;
-                    return <button key={v} type="button" aria-pressed={on} onClick={() => { setFullOnly(full); if (!full) setAvailability(v); else setAvailability('all'); }}>{l}</button>; })}
+                    return <button key={v} type="button" aria-pressed={on} onClick={() => { setLp(1); setFullOnly(full); if (!full) setAvailability(v); else setAvailability('all'); }}>{l}</button>; })}
                 </div>
                 <span className="co-right">
                   <label className="co-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a company" aria-label="Search companies" /></label>
+                  <input type="search" value={search} onChange={event => { setSearch(event.target.value); setLp(1); }} placeholder="Find a company" aria-label="Search companies" /></label>
                   <EvaluationInbox items={companies.flatMap(c => { const out = []; const d = c.placementDefaults || {}; const nm = c.name || 'Company';
                     if (c.availableSlots === 0) out.push({ id: `full:${c.id}:${c.capacity}`, kind: 'full', name: nm, company: c, time: 0, hint: `${c.occupiedSlots || 0} of ${c.capacity} slots filled`, text: <><b>{nm}</b> is full</> });
                     else if (c.availableSlots === 1) out.push({ id: `almost:${c.id}:${c.capacity}`, kind: 'almost', name: nm, company: c, time: 0, hint: 'One slot left', text: <><b>{nm}</b> has 1 open slot left</> });
@@ -231,9 +235,10 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
                     <span className="co-cap">{cap ? (cap <= 10 ? <span className="plo-slots" aria-hidden="true">{Array.from({ length: cap }, (_, i) => <i key={i} data-on={i < used || undefined} />)}</span> : <span className="plo-bar" aria-hidden="true"><b style={{ width: `${Math.min(100, used / cap * 100)}%` }} /></span>) : null}
                       <small data-full={open === 0 || undefined}>{cap ? `${used} student${used === 1 ? '' : 's'} · ${open === 0 ? 'full' : `${open} open`}` : 'Capacity not set'}</small></span>
                   </button></li>; })}</ul>}
-              {!loading && !loadFailed && (cursors.length > 1 || nextCursor) && <footer className="co-foot"><span>Page {cursors.length}</span><span className="co-pg">
-                <button type="button" className="rq-btn" aria-label="Previous" disabled={loading || cursors.length === 1} onClick={() => setPaging({ scope, cursors: cursors.slice(0, -1) })}>‹</button>
-                <button type="button" className="rq-btn" aria-label="Next" disabled={loading || !nextCursor} onClick={() => setPaging({ scope, cursors: [...cursors, nextCursor] })}>›</button></span></footer>}
+              {!loading && !loadFailed && (all.length > 8 || cursors.length > 1 || nextCursor) && <footer className="co-foot"><span>{all.length ? `${(lCur - 1) * 8 + 1}–${Math.min(lCur * 8, all.length)} of ${all.length}${nextCursor ? '+' : ''}` : ''}</span><span className="co-pg">
+                {cursors.length > 1 && <button type="button" className="rq-btn" aria-label="Previous" disabled={loading} onClick={() => { setLp(1); setPaging({ scope, cursors: cursors.slice(0, -1) }); }}>‹ Earlier</button>}
+                {lPages > 1 && <Pager page={lCur} pages={lPages} onGo={setLp} label="Companies" />}
+                {nextCursor && <button type="button" className="rq-btn" aria-label="Next" disabled={loading} onClick={() => { setLp(1); setPaging({ scope, cursors: [...cursors, nextCursor] }); }}>More ›</button>}</span></footer>}
             </section>
             {sel && <CompanyDetail company={sel} section={selectedSection} roster={roster} setRoster={setRoster} onEdit={() => editCompany(sel)} />}
           </div>

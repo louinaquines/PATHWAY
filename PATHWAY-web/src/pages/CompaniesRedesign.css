@@ -67,3 +67,12 @@
 .co-facts dd { font-weight: 500; }
 .co-detail { padding: 20px !important; }
 .co-note-box { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.co-tools { justify-content: space-between; }
+.co-right { display: flex; align-items: center; gap: 8px; flex: 0 1 300px; }
+.co-right .co-search { flex: 1; max-width: none; }
+.co-search input:focus, .co-search input:focus-visible { outline: 0 !important; border: 0 !important; box-shadow: none !important; }
+.co-right .evn-pop { right: 0; }
+.evn-item[data-kind="full"] .evn-av { background: #edeae3; color: #465066; }
+.evn-item[data-kind="missing"] .evn-av { background: #fbe9e7; color: #b3261e; }
+@media (max-width: 760px) { .co-right { flex: 1 1 100%; } }
+.co-right .co-search { height: 38px; }

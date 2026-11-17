@@ -9,6 +9,7 @@ import './RequirementsRedesign.css';
 import './CompaniesRedesign.css';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
+import EvaluationInbox from '../components/EvaluationInbox';
 
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
@@ -194,12 +195,23 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
           <div className="co">
             <section className="co-list" aria-label="Company records">
               <div className="co-tools">
-                <label className="co-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                  <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a company" aria-label="Search companies" /></label>
                 <div className="rq-pills" role="group" aria-label="Filter companies">
                   {[['all', 'All', false], ['slots', 'Has open slots', false], ['full', 'Full', true]].map(([v, l, full]) => { const on = full ? fullOnly : !fullOnly && availability === v;
                     return <button key={v} type="button" aria-pressed={on} onClick={() => { setFullOnly(full); if (!full) setAvailability(v); else setAvailability('all'); }}>{l}</button>; })}
                 </div>
+                <span className="co-right">
+                  <label className="co-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Find a company" aria-label="Search companies" /></label>
+                  <EvaluationInbox items={companies.flatMap(c => { const out = []; const d = c.placementDefaults || {}; const nm = c.name || 'Company';
+                    if (c.availableSlots === 0) out.push({ id: `full:${c.id}:${c.capacity}`, kind: 'full', name: nm, company: c, time: 0, hint: `${c.occupiedSlots || 0} of ${c.capacity} slots filled`, text: <><b>{nm}</b> is full</> });
+                    else if (c.availableSlots === 1) out.push({ id: `almost:${c.id}:${c.capacity}`, kind: 'almost', name: nm, company: c, time: 0, hint: 'One slot left', text: <><b>{nm}</b> has 1 open slot left</> });
+                    const miss = [!d.supervisorName && 'supervisor', !(d.supervisorEmail || c.email) && 'email', !d.internshipRole && 'role', !(Number.isSafeInteger(c.capacity) && c.capacity > 0) && 'capacity'].filter(Boolean);
+                    if (miss.length) out.push({ id: `missing:${c.id}:${miss.join(',')}`, kind: 'missing', name: nm, company: c, time: 0, hint: 'Needed before placing students', text: <><b>{nm}</b> is missing its {miss.join(', ')}</> });
+                    return out; })}
+                    onOpen={n => { setFullOnly(false); setAvailability('all'); setSelectedId(n.company.id); if (n.kind === 'missing') editCompany(n.company); }}
+                    storageKey="pathway.companiesInbox.read" emptyText="Full companies and missing details show up here."
+                    tabs={[['all', 'All'], ['full', 'Full', ['full']], ['almost', 'Almost full', ['almost']], ['missing', 'Missing info', ['missing']]]} />
+                </span>
                 {!topHost && <button type="button" className="rq-btn" onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>Add company</button>}
               </div>
               {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div>

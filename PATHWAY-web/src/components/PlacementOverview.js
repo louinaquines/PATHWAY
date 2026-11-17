@@ -87,7 +87,7 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
               </select></label>
             <button type="button" className="rq-btn rq-primary" disabled={busy || !picked.length || !company} onClick={place}>{busy ? 'Placing…' : `Place ${picked.length || ''} student${picked.length === 1 ? '' : 's'}`.replace('  ', ' ')}</button>
           </div>
-          {note && <p className="plo-note" role="status">{note} {/missing/.test(note) && <button type="button" className="rq-link" onClick={onOpenAssign}>Assign placement</button>}</p>}
+          {note && <p className="plo-note" role="status">{note} {/missing/.test(note) && <button type="button" className="rq-link" onClick={() => onOpenAssign(picked)}>Assign placement</button>}</p>}
           {shownWaiting.map(s => { const n = nameOf(s); const on = picked.includes(s.id);
             return <div key={s.id} className="plo-stu" data-on={on || undefined} onClick={() => toggle(s.id)}>
               <input type="checkbox" checked={on} aria-label={`Pick ${n}`} onClick={e => e.stopPropagation()} onChange={() => toggle(s.id)} />

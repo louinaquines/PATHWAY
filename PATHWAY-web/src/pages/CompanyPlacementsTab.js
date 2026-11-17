@@ -22,6 +22,8 @@ import './PlacementReviews.css';
 import Icon from '../components/Icons';
 import PlacementOverview from '../components/PlacementOverview';
 import PlacementTracker from '../components/PlacementTracker';
+import AssignPlacementPanel from '../components/AssignPlacementPanel';
+import '../components/EndorsementDraftDialog.css';
 import SectionPicker from '../components/SectionPicker';
 import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
@@ -34,6 +36,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [topHost, setTopHost] = useState(null);
   const navigate = useNavigate();
   const [doneCompany, setDoneCompany] = useState('');
+  const [assignIds, setAssignIds] = useState([]);
   const [doneCompanies, setDoneCompanies] = useState([]);
   const [collapsed, setCollapsed] = useState({});
   const [matchCompanies, setMatchCompanies] = useState([]);
@@ -357,7 +360,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={historyRevision}
       onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
       onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}
-      onAssigned={() => load({ silent: true })} onOpenAssign={() => { setAssignmentError(''); setAssignmentOpen(true); }} />}
+      onAssigned={() => load({ silent: true })} onOpenAssign={ids => { setAssignIds(Array.isArray(ids) ? ids : []); setAssignmentError(''); setAssignmentOpen(true); }} />}
     {(() => { const isReq = row => row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1;
       const n = queueFilter === 'action' ? queueRows.filter(r => !isReq(r)).length : queueRows.length;
       return <div className="pl-work-head">
@@ -379,47 +382,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <button type="button" className="placement-refresh" onClick={() => setWorkspace('reviews')}>Review pending placements ({items.filter(item => item.status === 'pending_review').length})</button>
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
-    {assignmentOpen && selectedSection && <PortalFormDialog className="placement-student-detail" label="Assign placement" closeOnBackdrop
-      onCancel={() => { if (!busy) setAssignmentOpen(false); }}>
-      <header><div><h2>Assign placement</h2><p>{selectedSection.name}</p></div></header>
-      <form className="placement-detail-body" onSubmit={assignPlacement}>
-        <fieldset className="placement-assignment-fields" disabled={!!busy}>
-          <section className="placement-assignment-section">
-            <h3>Company</h3>
-            <PlacementPicker compact sectionId={selectedSection.id} view="companies" availability="active"
-              label="Company" name="companyId" emptyMessage="No active companies are available."
-              onSelect={(_, company) => setAssignmentCompany(company)} />
-            {assignmentCompany && <small>{assignmentCompany.availableSlots == null
-              ? 'Capacity not set' : assignmentCompany.availableSlots + ' slots available'}</small>}
-          </section>
-          <section className="placement-assignment-section">
-            <h3>Students</h3>
-            <PlacementPicker compact multiple sectionId={selectedSection.id} view="students" queue="waiting"
-              label="Students" name="studentId" emptyMessage="No eligible students in this section." />
-            <small>Select one or more students to place at this company.</small>
-          </section>
-          <h3 className="placement-assignment-section">Placement details</h3>
-          <div className="placement-assignment-details" key={assignmentCompany?.id}>
-          {['supervisorName', 'supervisorEmail', 'internshipRole', 'workArrangement'].map(key => <input key={key} type="hidden" name={key} value={assignmentCompany?.placementDefaults?.[key] ?? ''} />)}
-          {assignmentCompany && <dl className="placement-defaults-summary">
-            <div><dt>Supervisor</dt><dd>{assignmentCompany.placementDefaults?.supervisorName || 'Not set'}</dd></div>
-            <div><dt>Supervisor email</dt><dd>{assignmentCompany.placementDefaults?.supervisorEmail || 'Not set'}</dd></div>
-            <div><dt>Role</dt><dd>{assignmentCompany.placementDefaults?.internshipRole || 'Not set'}</dd></div>
-            <div><dt>Arrangement</dt><dd>{assignmentCompany.placementDefaults?.workArrangement || 'Not set'}</dd></div>
-            <p>To change these, edit the company in Companies.</p>
-          </dl>}
-          <label>Start date<input name="startDate" defaultValue={assignmentCompany?.placementDefaults?.startDate ?? ''} type="date" required /></label>
-          <label>End date<input name="endDate" defaultValue={assignmentCompany?.placementDefaults?.endDate ?? ''} type="date" required /></label>
-          </div>
-        </fieldset>
-        {assignmentError && <p role="alert">{assignmentError}</p>}
-        <div className="review-actions">
-          <button type="button" disabled={!!busy} onClick={() => setAssignmentOpen(false)}>Cancel</button>
-          <button type="submit" className="review-approve" disabled={!!busy}>
-            {busy === 'assignment' ? 'Assigning…' : 'Confirm assignment'}
-          </button>
-        </div>
-      </form>
+    {assignmentOpen && selectedSection && <PortalFormDialog className="apl-dialog" label="Assign placement" closeOnBackdrop onCancel={() => setAssignmentOpen(false)}>
+      <AssignPlacementPanel section={selectedSection} initialIds={assignIds} onClose={() => { setAssignmentOpen(false); setAssignIds([]); }} onDone={() => load({ silent: true })} onEditCompanies={() => navigate('/coordinator/companies')} />
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}

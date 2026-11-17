@@ -32,7 +32,7 @@ function groupChatHref(value) {
   }
 }
 
-export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, sectionActions, department }) {
+export default function SectionsTab({ coordinatorId, selectedSection: sharedSection, onSectionChange, journalSettings, sectionActions, department, onAddStudents }) {
   const [sections, setSections]         = useState([]);
   const [students, setStudents]         = useState([]);
   const [selected, setSelected]         = useState(null);
@@ -284,7 +284,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               <div className="sx-tools">
                 <CoordinatorSearch value={stuQuery} onChange={v => { setStuQuery(v); setStuPage(1); }} label="Find a student" placeholder="Find a student" />
                 <span className="sx-grow" />
-                <button type="button" className="rq-btn" aria-expanded={addOpen} onClick={() => setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
+                <button type="button" className="rq-btn" aria-expanded={addOpen} onClick={() => onAddStudents ? onAddStudents() : setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
                 {sectionActions}
               </div>
               {addOpen && <div className="sx-add"><div className="sx-add-head"><strong>Add students</strong><span>Students in your department who haven’t joined a section.</span></div>
@@ -465,7 +465,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   );
 }
 
-function UnassignedStudents({ sectionId, department, onAssign }) {
+export function UnassignedStudents({ sectionId, department, onAssign }) {
   const [unassigned, setUnassigned] = useState([]);
   const [loading, setLoading]       = useState(true);
 

@@ -61,7 +61,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
     <div className="plt-head">
       <h3>After placement</h3>
       <span className="plt-grow" />
-      <button type="button" className="plt-link" onClick={() => setHistoryOpen(true)}>History</button>
+      <button type="button" className="plt-histbtn" onClick={() => setHistoryOpen(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></svg>History</button>
       {bell}
     </div>
     {rows && needsYou === 0 && <p className="plt-clear">✓ Nothing waiting on you. {count('emailed')} student{count('emailed') === 1 ? ' is' : 's are'} fully placed.</p>}

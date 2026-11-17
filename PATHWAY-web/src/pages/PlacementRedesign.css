@@ -99,3 +99,7 @@
 }
 .pl-co-filter { height: 36px; padding: 0 28px 0 10px; border: 1px solid #e8e5de; border-radius: 8px; background-color: #fff; font-family: inherit; font-size: 13px; color: #15213a; max-width: 220px; }
 @media (max-width: 760px) { .pl-work-head { flex-wrap: wrap; } .pl-co-filter, .pl-work-head .coordinator-search { flex: 1 1 100%; max-width: none; width: auto; } }
+.pl-page .placement-queue-filters[hidden], .pl-page .pl-list[hidden], .pl-page [hidden] { display: none !important; }
+.plo-co > div { min-width: 0; }
+.plo-co strong { flex: 1; min-width: 0; }
+.plo-co em { flex: none; white-space: nowrap; }

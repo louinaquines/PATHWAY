@@ -67,3 +67,19 @@ dialog.inbox-drawer::backdrop { background: rgba(21,33,58,.45) !important; }
 .inbox-drawer footer button:disabled { opacity: .5; cursor: default; }
 .inbox-drawer [role="alert"] { margin: 0; color: #b3261e; font-size: 12.5px; }
 @media (max-width: 1100px) { .ann { padding: 0 16px 24px !important; } .coordinator-page main:has(.ann) > header.requirements-topbar { padding: 18px 16px 12px !important; flex-wrap: wrap; gap: 12px; } .ann .inbox-toolbar { flex-wrap: wrap; } }
+/* identical header controls on Messages + Announcements */
+:is(#msg-top-actions, #ann-top-actions) { display: flex !important; align-items: center; gap: 8px; }
+:is(#msg-top-actions, #ann-top-actions) > *, :is(#msg-top-actions, #ann-top-actions) .msg-switch button, :is(#msg-top-actions, #ann-top-actions) .rq-section-face { height: 40px !important; min-height: 40px !important; box-sizing: border-box; }
+:is(#msg-top-actions, #ann-top-actions) .msg-switch { height: 40px !important; display: inline-flex !important; gap: 6px; margin-right: 4px; }
+:is(#msg-top-actions, #ann-top-actions) .msg-switch button { padding: 0 16px !important; border: 1px solid #e8e5de !important; border-radius: 99px !important; background: #fff !important; font-family: inherit; font-size: 13px !important; font-weight: 600 !important; color: #465066 !important; box-shadow: none !important; }
+:is(#msg-top-actions, #ann-top-actions) .msg-switch button[aria-pressed="true"] { background: #15213a !important; border-color: #15213a !important; color: #fff !important; }
+:is(#msg-top-actions, #ann-top-actions) .rq-primary { padding: 0 16px !important; font-size: 13px !important; font-weight: 600 !important; border-radius: 8px !important; }
+.coordinator-page main:is(:has(.msg), :has(.ann)) > header.requirements-topbar { padding: 32px 40px 20px !important; min-height: 0 !important; align-items: center !important; }
+/* announcements card fixes */
+.ann .ann-tabs { height: 48px; min-height: 0 !important; padding: 0 20px !important; }
+.ann .ann-tabs [role="tablist"] { height: 48px; align-items: stretch; margin: 0 !important; padding: 0 !important; }
+.ann .inbox-panel { border-top: 0 !important; border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; }
+.ann .inbox-toolbar select { line-height: 34px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+.ann .inbox-row { justify-content: stretch !important; text-align: left !important; }
+.ann .inbox-row-copy { justify-items: start !important; align-items: start; }
+.ann .inbox-row-copy > * { text-align: left !important; }

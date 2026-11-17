@@ -281,3 +281,11 @@ dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { 
 .plt-histbtn:hover { background: #f7f5f0; color: #15213a; }
 .plt-head { gap: 8px; }
 .plo-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-top: 1px solid #efece5; font-size: 12.5px; color: #7b8494; }
+.plt-timeline li.plt-month { position: sticky; top: 0; z-index: 2; display: block; margin: 0 -22px 10px; padding: 8px 22px; background: #fff; border-bottom: 1px solid #efece5; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #7b8494; }
+.plt-timeline li.plt-month::before { display: none; }
+.plt-timeline li.plt-month + li { margin-top: 4px; }
+.plt-count { margin: 0 22px 4px; font-size: 12px; color: #9aa1ad; }
+/* search focus: one soft ring on the box, none on the inner input */
+.plt-h-search .coordinator-search input, .plt-h-search .coordinator-search input:focus, .plt-h-search .coordinator-search input:focus-visible,
+.pl-work-head .coordinator-search input:focus, .pl-work-head .coordinator-search input:focus-visible { outline: 0 !important; border: 0 !important; box-shadow: none !important; }
+.plt-h-search .coordinator-search:focus-within, .pl-work-head .coordinator-search:focus-within { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }

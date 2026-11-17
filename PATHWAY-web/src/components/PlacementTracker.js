@@ -114,14 +114,17 @@ function HistoryPanel({ section, onClose }) {
     <ol className="plt-timeline">
       {items === null && <li className="plt-empty">Loading…</li>}
       {items && !items.length && <li className="plt-empty">No decisions yet.</li>}
-      {(items || []).map(it => <li key={it.id}>
+      {(() => { const out = []; let last = ''; (items || []).forEach(it => { const t = Date.parse(it.createdAt); const m = t ? new Date(t).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }) : 'Date unknown';
+        if (m !== last) { out.push(<li key={'m-' + m + out.length} className="plt-month">{m}</li>); last = m; }
+        out.push(<li key={it.id}>
         <span className="plt-date">{fmt(it.createdAt) || '—'}</span>
         <span className="plt-dot" aria-hidden="true" />
         <span className="plt-what"><strong>{it.studentName || it.studentId}</strong>
           <small>{it.before?.companyName ? <>{it.before.companyName} → </> : 'Approved at '}<b>{it.after?.companyName || 'company not recorded'}</b></small>
           {(it.after?.internshipRole || it.after?.supervisorName) && <small>{[it.after.internshipRole, it.after.supervisorName && `Supervisor: ${it.after.supervisorName}`].filter(Boolean).join(' · ')}</small>}</span>
-      </li>)}
+      </li>); }); return out; })()}
     </ol>
+    {items && items.length > 0 && <p className="plt-count">{cursor ? `Showing ${items.length} most recent` : `${items.length} decision${items.length === 1 ? '' : 's'}`}</p>}
     {cursor && <button type="button" className="plt-link plt-more" disabled={busy} onClick={() => fetchPage(cursor, term.trim())}>{busy ? 'Loading…' : 'Show older'}</button>}
   </PortalFormDialog>;
 }

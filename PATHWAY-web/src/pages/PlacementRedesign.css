@@ -289,3 +289,17 @@ dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { 
 .plt-h-search .coordinator-search input, .plt-h-search .coordinator-search input:focus, .plt-h-search .coordinator-search input:focus-visible,
 .pl-work-head .coordinator-search input:focus, .pl-work-head .coordinator-search input:focus-visible { outline: 0 !important; border: 0 !important; box-shadow: none !important; }
 .plt-h-search .coordinator-search:focus-within, .pl-work-head .coordinator-search:focus-within { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.plo-side-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.plo-side-head h3 { margin: 0 !important; }
+.plo-toggle { position: relative; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: #465066; cursor: pointer; user-select: none; white-space: nowrap; }
+.plo-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.plo-toggle i { width: 26px; height: 15px; border-radius: 99px; background: #d6d1c7; position: relative; transition: background-color .15s; }
+.plo-toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.plo-toggle input:checked + i { background: #0b5fd3; }
+.plo-toggle input:checked + i::after { transform: translateX(11px); }
+.plo-toggle input:focus-visible + i { outline: 2px solid #0b5fd3; outline-offset: 2px; }
+.plo-co[data-full] strong, .plo-co[data-full] small { color: #9aa1ad; }
+.plo-co[data-full] .plo-slots i[data-on] { background: #b9c7dc; }
+.plo-bar { display: block; height: 5px; border-radius: 99px; background: #e8e5de; overflow: hidden; }
+.plo-bar b { display: block; height: 100%; background: #0b5fd3; border-radius: 99px; }
+.plo-cpager { margin: 0 -16px; justify-content: center; }

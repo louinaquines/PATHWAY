@@ -17,6 +17,8 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
   const [wPage, setWPage] = useState(1);
+  const [cPage, setCPage] = useState(1);
+  const [hideFull, setHideFull] = useState(null);
   const base = '/coordinator/placement-workspace?sectionId=' + encodeURIComponent(section.id);
   const read = useCallback(async () => {
     const [r, w, c] = await Promise.all([
@@ -98,17 +100,33 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
       </section>
     </div>
     <aside className="plo-side">
-      <h3>Companies and open slots</h3>
-      <div className="plo-card plo-companies">
-        {!companies.length && <p className="plo-empty">No active companies yet. Add them in Companies.</p>}
-        {companies.map(c => { const cap = c.capacity; const used = Number(c.occupiedSlots || 0); const o = open(c);
-          return <div key={c.id} className="plo-co">
-            <div><strong>{c.name}</strong><em data-full={o === 0 || undefined}>{o == null ? 'No limit' : o === 0 ? 'Full' : `${o} open`}</em></div>
-            {cap != null && cap > 0 && <span className="plo-slots" aria-hidden="true">{Array.from({ length: Math.min(cap, 12) }, (_, i) => <i key={i} data-on={i < used || undefined} />)}</span>}
-            <small>{cap != null ? `${used} of ${cap} slots filled` : `${used} placed`}</small>
-          </div>; })}
-      </div>
-      {total > 0 && <p className="plo-foot">{placed} of {total} students are placed.</p>}
+      {(() => {
+        const hf = hideFull ?? companies.length > 5;
+        const sorted = [...companies].sort((x, y) => { const ox = open(x) == null ? 1e6 : open(x); const oy = open(y) == null ? 1e6 : open(y); return oy - ox || String(x.name).localeCompare(String(y.name)); });
+        const list = hf ? sorted.filter(c => open(c) !== 0) : sorted;
+        const pages = Math.max(1, Math.ceil(list.length / 5)); const cur = Math.min(cPage, pages);
+        const rows = list.slice((cur - 1) * 5, cur * 5);
+        const totalOpen = companies.reduce((a, c) => a + (open(c) || 0), 0);
+        const fullCount = companies.filter(c => open(c) === 0).length;
+        return <>
+          <div className="plo-side-head"><h3>Companies and open slots</h3>
+            {fullCount > 0 && <label className="plo-toggle"><input type="checkbox" checked={hf} onChange={e => { setHideFull(e.target.checked); setCPage(1); }} /><i aria-hidden="true" />Hide full</label>}</div>
+          <div className="plo-card plo-companies">
+            {!companies.length && <p className="plo-empty">No active companies yet. Add them in Companies.</p>}
+            {companies.length > 0 && !list.length && <p className="plo-empty">Every company is full.</p>}
+            {rows.map(c => { const cap = c.capacity; const used = Number(c.occupiedSlots || 0); const o = open(c);
+              return <div key={c.id} className="plo-co" data-full={o === 0 || undefined}>
+                <div><strong title={c.name}>{c.name}</strong><em data-full={o === 0 || undefined}>{o == null ? 'No limit' : o === 0 ? 'Full' : `${o} open`}</em></div>
+                {cap != null && cap > 0 && (cap <= 12
+                  ? <span className="plo-slots" aria-hidden="true">{Array.from({ length: cap }, (_, i) => <i key={i} data-on={i < used || undefined} />)}</span>
+                  : <span className="plo-bar" aria-hidden="true"><b style={{ width: `${Math.min(100, (used / cap) * 100)}%` }} /></span>)}
+                <small>{cap != null ? `${used} of ${cap} slots filled` : `${used} placed`}</small>
+              </div>; })}
+            {list.length > 5 && <div className="plo-pager plo-cpager"><Pager page={cur} pages={pages} onGo={setCPage} label="Companies" /></div>}
+          </div>
+          <p className="plo-foot">{companies.length} compan{companies.length === 1 ? 'y' : 'ies'} · {totalOpen} open slot{totalOpen === 1 ? '' : 's'}{total > 0 ? ` · ${placed} of ${total} students placed` : ''}</p>
+        </>;
+      })()}
     </aside>
   </div>;
 }

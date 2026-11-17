@@ -61,3 +61,5 @@ dialog.cei-dialog > .cei { width: 100%; }
 dialog.cei-dialog { overflow: hidden !important; }
 dialog.cei-dialog > .cei { flex: 1 1 auto; min-height: 0; height: auto; overflow: hidden; }
 dialog.cei-dialog .cei-content { flex: 1 1 auto; min-height: 0; overflow-y: auto !important; overscroll-behavior: contain; }
+.cei-content { display: flex !important; flex-direction: column; }
+.cei-content > * { flex-shrink: 0; }

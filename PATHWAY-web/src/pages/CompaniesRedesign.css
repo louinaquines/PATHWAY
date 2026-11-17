@@ -81,3 +81,46 @@
 .coordinator-page :is(.ev-toolbar, .cl-toolbar, .pl-work-head, .lb, .rq) .coordinator-search input:is(:focus, :focus-visible),
 dialog :is(.plt-h-search, .apl-card) .coordinator-search input:is(:focus, :focus-visible) { outline: 0 !important; outline-offset: 0 !important; box-shadow: none !important; }
 .coordinator-page :is(.ev-toolbar, .cl-toolbar) .coordinator-search:focus-within { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+/* ===== Add / Edit company panel ===== */
+dialog.cof-dialog { margin: 0 0 0 auto !important; width: min(620px, 100vw) !important; max-width: none !important; height: 100vh !important; max-height: 100vh !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: #f4f2ec !important; box-shadow: -12px 0 40px rgba(21,33,58,.18) !important; overflow: hidden !important; color: #15213a; font-family: inherit; }
+dialog.cof-dialog[open] { display: flex !important; flex-direction: column; }
+dialog.cof-dialog::backdrop { background: rgba(21,33,58,.35); backdrop-filter: none; }
+.cof { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; margin: 0; }
+.cof-head { display: grid; gap: 12px; padding: 18px 22px 14px; background: #fff; border-bottom: 1px solid #e8e5de; }
+.cof-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cof-title h2 { margin: 0; font-size: 18px; font-weight: 700; color: #15213a; }
+.cof-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.cof-nav button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 6px; border: 1px solid #e8e5de; border-radius: 99px; background: #fff; color: #465066; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cof-nav button i { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: #f1efe9; font-style: normal; font-size: 10.5px; }
+.cof-nav button[data-done] { border-color: #cfe7d9; background: #e6f4ec; color: #1f7a4d; }
+.cof-nav button[data-done] i { background: #1f7a4d; color: #fff; }
+.cof-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 22px 24px !important; background: transparent !important; }
+.cof-body > * { flex-shrink: 0; }
+.cof .directory-form-section { display: grid; gap: 12px; margin: 0 !important; padding: 16px !important; border: 1px solid #e8e5de !important; border-radius: 12px !important; background: #fff !important; scroll-margin-top: 12px; }
+.cof .directory-form-section h3 { margin: 0 !important; font-size: 14px !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important; color: #15213a !important; }
+.cof .directory-form-section p { margin: -6px 0 0 !important; font-size: 12px !important; color: #7b8494 !important; }
+.cof label { font-size: 12px !important; font-weight: 600 !important; color: #465066 !important; }
+.cof input:not([type="checkbox"]):not([type="range"]), .cof select { height: 38px !important; padding: 0 12px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; font-size: 13.5px !important; color: #15213a !important; box-shadow: none !important; }
+.cof input:not([type="checkbox"]):not([type="range"]):focus, .cof select:focus { outline: 0 !important; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.cof .directory-field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cof-step { display: flex; align-items: center; gap: 6px; max-width: 180px; }
+.cof-step button { width: 38px; height: 38px; flex: none; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #15213a; font-size: 18px; cursor: pointer; }
+.cof-step button:hover { background: #f7f5f0; }
+.cof-step input { text-align: center; }
+.cof-switch { position: relative; display: flex !important; align-items: center; justify-content: space-between; gap: 10px; flex-direction: row-reverse; padding: 2px 0; font-size: 13px !important; color: #15213a !important; cursor: pointer; }
+.cof-switch input { appearance: none; -webkit-appearance: none; flex: none; width: 34px; height: 20px; margin: 0; border-radius: 99px; background: #d6d1c7; position: relative; cursor: pointer; transition: background-color .15s; }
+.cof-switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.cof-switch input:checked { background: #0b5fd3; }
+.cof-switch input:checked::after { transform: translateX(14px); }
+.cof fieldset { display: grid; gap: 12px; border: 0 !important; padding: 0 !important; margin: 0; }
+.cof fieldset legend { display: none; }
+.cof-radius { display: grid !important; gap: 6px; } .cof-radius b { color: #0b5fd3; font-weight: 700; }
+.cof-radius input[type="range"] { width: 100%; accent-color: #0b5fd3; }
+.cof .co-ring { transition: transform .15s; }
+.cof .company-suggestions { border-radius: 10px !important; border-color: #e8e5de !important; box-shadow: 0 12px 28px rgba(21,33,58,.12) !important; }
+.cof-foot { display: flex !important; align-items: center; gap: 8px; padding: 14px 22px !important; margin: 0 !important; background: #fff !important; border-top: 1px solid #e8e5de; flex-wrap: wrap; position: static !important; }
+.cof-status { flex: 1; min-width: 0; font-size: 12.5px; color: #7b8494; }
+.cof-danger { padding: 0 4px; border: 0; background: none; color: #b3261e; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cof-foot button[type="submit"] { background: #0b5fd3 !important; }
+.cof-foot button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 600px) { .cof .directory-field-pair { grid-template-columns: 1fr; } .cof-status { flex-basis: 100%; } }

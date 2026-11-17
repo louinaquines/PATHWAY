@@ -138,10 +138,14 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
     {notice && <div role="status" style={styles.notice}>{notice}</div>}
 
     <div className={`company-directory-layout${readOnly || !formOpen ? ' is-readonly' : ''}`} style={{ ...styles.layout, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="admin-create-drawer directory-edit-drawer" closeOnBackdrop label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
-      <form className="company-directory-form" onSubmit={onSubmit} ><header><h2>{editingId ? "Edit company" : "Add company"}</h2></header><div className="directory-form-body">
+      {!readOnly && formOpen && !confirmDeactivate && <PortalFormDialog className="cof-dialog" closeOnBackdrop label={editingId ? 'Edit company' : 'Add company'} onCancel={() => { if (!saving) resetForm(); }}>
+      <form className="company-directory-form cof" onSubmit={onSubmit} >{(() => { const d = form.placementDefaults || {}; const done = [!!form.name.trim(), !!(d.supervisorName && d.supervisorEmail), !!(d.internshipRole && Number(form.capacity) > 0), !form.geofenceEnabled || (form.latitude !== '' && form.longitude !== '')];
+        return <header className="cof-head"><div className="cof-title"><h2>{editingId ? 'Edit company' : 'Add company'}</h2>
+          <button type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={resetForm}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+          <nav className="cof-nav" aria-label="Form sections">{['Company', 'Supervisor', 'Internship', 'Location'].map((l, i) => <button key={l} type="button" data-done={done[i] || undefined} onClick={() => document.getElementById('cof-' + l.toLowerCase())?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><i>{done[i] ? '✓' : i + 1}</i>{l}</button>)}</nav>
+        </header>; })()}<div className="directory-form-body cof-body">
         {error && <div role="alert" style={styles.error}>{error}</div>}
-        <section className="directory-form-section"><h3>Company</h3>
+        <section className="directory-form-section" id="cof-company"><h3>Company</h3>
         <div className="company-name-field" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setSuggestOpen(false); }}>
           <label style={styles.label}>Company name<input required maxLength={160} autoComplete="off" value={form.name}
             placeholder={editingId ? '' : 'Start typing to search'} aria-autocomplete="list" aria-expanded={suggestOpen && suggestions.items.length > 0}
@@ -156,29 +160,32 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
           </div>}
         </div>
         <label style={styles.label}>Address<input maxLength={300} value={form.address} onChange={event => setForm(previous => ({ ...previous, address: event.target.value }))} style={styles.input} /></label>
-        <label style={styles.label}>Industry<input maxLength={120} value={form.industry} onChange={event => setForm(previous => ({ ...previous, industry: event.target.value }))} style={styles.input} /></label>
-        </section><section className="directory-form-section"><h3>Supervisor</h3><p style={styles.help}>Used for every student placed here. Edit it here only.</p><div className="directory-field-pair">
+        <datalist id="cof-industries">{['Information Technology', 'Software Development', 'BPO / Call Center', 'Education', 'Government', 'Banking & Finance', 'Healthcare', 'Manufacturing', 'Retail', 'Hospitality'].map(x => <option key={x} value={x} />)}</datalist><label style={styles.label}>Industry<input list="cof-industries" maxLength={120} value={form.industry} onChange={event => setForm(previous => ({ ...previous, industry: event.target.value }))} style={styles.input} /></label>
+        </section><section className="directory-form-section" id="cof-supervisor"><h3>Supervisor</h3><p style={styles.help}>Used for every student placed here. Edit it here only.</p><div className="directory-field-pair">
           <label style={styles.label}>Supervisor name<input maxLength={160} value={form.placementDefaults.supervisorName || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, supervisorName: value } })); }} style={styles.input} /></label>
           <label style={styles.label}>Supervisor email<input type="email" maxLength={254} value={form.placementDefaults.supervisorEmail || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, email: value, placementDefaults: { ...previous.placementDefaults, supervisorEmail: value } })); }} style={styles.input} /></label>
           <label style={styles.label}>Phone<input maxLength={60} value={form.phone} onChange={event => setForm(previous => ({ ...previous, phone: event.target.value }))} style={styles.input} /></label>
         </div>
-        </section><section className="directory-form-section"><h3>Internship</h3><div className="directory-field-pair">
+        </section><section className="directory-form-section" id="cof-internship"><h3>Internship</h3><div className="directory-field-pair">
           <label style={styles.label}>Role or department<input maxLength={160} value={form.placementDefaults.internshipRole || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, internshipRole: value } })); }} style={styles.input} /></label>
           <label style={styles.label}>Work arrangement<select value={form.placementDefaults.workArrangement || ''} onChange={event => { const value = event.target.value; setForm(previous => ({ ...previous, placementDefaults: { ...previous.placementDefaults, workArrangement: value } })); }} style={styles.input}><option value="">Choose an arrangement</option><option>On-site</option><option>Remote</option><option>Hybrid</option></select></label>
         </div>
-        <label style={styles.label}>Internship capacity<input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><small style={styles.help}>Total active student placements allowed at this company.</small></label>
-        {editingId && <label style={styles.activeCheck}><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
-        <label style={styles.activeCheck}><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
+        <label style={styles.label}>Internship capacity<span className="cof-step"><button type="button" aria-label="Fewer slots" onClick={() => setForm(previous => ({ ...previous, capacity: String(Math.max(1, (Number(previous.capacity) || 1) - 1)) }))}>−</button><input type="number" min="1" step="1" required value={form.capacity} onChange={event => setForm(previous => ({ ...previous, capacity: event.target.value }))} style={styles.input} /><button type="button" aria-label="More slots" onClick={() => setForm(previous => ({ ...previous, capacity: String((Number(previous.capacity) || 0) + 1) }))}>+</button></span><small style={styles.help}>Total active student placements allowed at this company.</small></label>
+        {editingId && <label style={styles.activeCheck} className="cof-switch"><input type="checkbox" checked={Boolean(form.active)} onChange={event => setForm(previous => ({ ...previous, active: event.target.checked }))} /> Available for new placements</label>}
+        </section><section className="directory-form-section" id="cof-location"><h3>Location</h3><label style={styles.activeCheck} className="cof-switch"><input type="checkbox" checked={form.geofenceEnabled} onChange={event => setForm(previous => ({ ...previous, geofenceEnabled: event.target.checked }))} /> Require location for attendance</label>
         {form.geofenceEnabled && <fieldset style={{ border: '1px solid #dbe5f0', borderRadius: 12, padding: 12 }}>
           <legend>Company attendance area</legend>
           <p style={styles.help}>Use verified company coordinates. Both attendance punches must be inside this area.</p>
           <label style={styles.label}>Latitude<input required type="number" step="any" min="-90" max="90" value={form.latitude} onChange={event => setForm(previous => ({ ...previous, latitude: event.target.value }))} style={styles.input} /></label>
           <label style={styles.label}>Longitude<input required type="number" step="any" min="-180" max="180" value={form.longitude} onChange={event => setForm(previous => ({ ...previous, longitude: event.target.value }))} style={styles.input} /></label>
-          <label style={styles.label}>Radius (metres)<input required type="number" min="50" max="2000" value={form.radiusMeters} onChange={event => setForm(previous => ({ ...previous, radiusMeters: event.target.value }))} style={styles.input} /></label>
+          <label style={styles.label} className="cof-radius">Radius (metres) <b>{form.radiusMeters || 0} m</b><input required type="range" min="50" max="2000" step="10" value={form.radiusMeters} onChange={event => setForm(previous => ({ ...previous, radiusMeters: event.target.value }))} /></label><div className="co-map" aria-hidden="true"><i className="co-ring" style={{ transform: `scale(${Math.max(.35, Math.min(1.3, Number(form.radiusMeters || 150) / 300))})` }} /><i className="co-pin" /></div>
         </fieldset>}
-        </section></div><footer className="directory-form-actions">
-          <button type="submit" disabled={saving || loading || loadFailed} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add company'}</button>
+        </section></div><footer className="directory-form-actions cof-foot">
+          {editingId && companies.find(c => c.id === editingId)?.active && <button type="button" className="cof-danger" disabled={saving} onClick={() => setConfirmDeactivate(true)}>Deactivate</button>}
+          <span className="cof-status">{(() => { const d = form.placementDefaults || {}; const left = [!form.name.trim(), !(Number(form.capacity) > 0), form.geofenceEnabled && (form.latitude === '' || form.longitude === '')].filter(Boolean).length; const soft = [!d.supervisorName, !d.supervisorEmail, !d.internshipRole].filter(Boolean).length;
+            return left ? `${left} required field${left === 1 ? '' : 's'} left` : soft ? 'Add the supervisor and role before placing students' : '✓ Ready to save'; })()}</span>
           <button type="button" disabled={saving} onClick={resetForm} style={styles.secondaryButton}>Cancel</button>
+          <button type="submit" disabled={saving || loading || loadFailed || !form.name.trim() || !(Number(form.capacity) > 0)} style={styles.primaryButton}>{saving ? 'Saving…' : editingId ? 'Save changes' : 'Add company'}</button>
         </footer>
       </form></PortalFormDialog>}
 

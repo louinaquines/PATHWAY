@@ -49,3 +49,17 @@ dialog.rgx-dialog::backdrop { background: rgba(21,33,58,.45); }
 .coordinator-page main :has(> .rgx) { padding: 0 !important; max-width: none !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
 .rgx { width: 100%; box-sizing: border-box; padding: 0 40px 32px; align-content: start; }
 @media (max-width: 1100px) { .coordinator-page main:has(.rgx) { overflow-y: auto !important; } .coordinator-page main:has(.rgx) > header.requirements-topbar { padding: 18px 16px 12px !important; } .rgx { padding: 0 16px 24px; } }
+dialog.rgx-dialog { width: min(420px, calc(100vw - 32px)) !important; }
+.rgd { padding: 22px 22px 20px; display: grid; gap: 16px; }
+.rgd-head { display: flex; align-items: center; gap: 12px; padding: 0 !important; border: 0 !important; }
+.rgd-head > div { flex: 1; min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.rgd-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: #15213a; }
+.rgd-av { flex-basis: 44px; height: 44px; font-size: 14px; }
+.rgd-list { margin: 0; display: grid; border: 1px solid #efece5; border-radius: 10px; overflow: hidden; }
+.rgd-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 14px; font-size: 13px; }
+.rgd-list > div + div { border-top: 1px solid #efece5; }
+.rgd-list dt { color: #7b8494; } .rgd-list dd { margin: 0; font-weight: 600; color: #15213a; text-align: right; }
+.rgd .rgx-warn { margin: 0; }
+.rgd-err { margin: 0; color: #b3261e; font-size: 12.5px; }
+.rgd-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 !important; }
+.rgd-foot .rq-btn { height: 38px; padding: 0 16px; }

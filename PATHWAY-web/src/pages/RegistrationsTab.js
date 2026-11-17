@@ -157,23 +157,23 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
         if (reject) setReject(null);
         else closeDetails();
       }}>
-      <div className="accounts-drawer-layout">
-        <header>
-          <h2>{nameOf(selected) || 'Name unavailable'}</h2>
+      <div className="rgd">
+        <header className="rgd-head">
+          <span className="rgx-av rgd-av" aria-hidden="true">{initials(selected).toUpperCase()}</span>
+          <div><h2>{nameOf(selected) || 'Name unavailable'}</h2>
+            <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : tab === 'rejected' ? 'red' : 'amber'}>{selected.status === 'inactive' ? 'Inactive' : tabs[tab]}</b></div>
           <button autoFocus type="button" className="plt-x" aria-label="Close" disabled={saving} onClick={() => closeDetails()}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
         </header>
-        <div className="accounts-drawer-body">
-          <dl>
-            <div><dt>Student ID</dt><dd>{selected.idNumber || '—'}</dd></div>
-            <div><dt>Username</dt><dd>{usernameOf(selected)}</dd></div>
-            <div><dt>Section</dt><dd>{unassigned ? 'Unassigned' : selectedSection?.name}</dd></div>
-            <div><dt>Department</dt><dd>{selected.department || '—'}</dd></div>
-            <div><dt>Account created</dt><dd>{selected.createdAt ? new Date(selected.createdAt).toLocaleDateString('en-PH') : '—'}</dd></div>
-          </dl>
-          {reject && <p role="status" className="rgx-warn">Reject this student registration? They won’t be able to use the student app until approved.</p>}
-          {actionError && <p role="alert">{actionError}</p>}
-        </div>
-        {tab === 'pending' && <footer>
+        <dl className="rgd-list">
+          <div><dt>Student ID</dt><dd>{selected.idNumber || '—'}</dd></div>
+          <div><dt>Username</dt><dd>{usernameOf(selected)}</dd></div>
+          <div><dt>Section</dt><dd>{unassigned ? 'Unassigned' : selectedSection?.name}</dd></div>
+          <div><dt>Department</dt><dd>{selected.department || '—'}</dd></div>
+          <div><dt>Account created</dt><dd>{selected.createdAt ? new Date(selected.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</dd></div>
+        </dl>
+        {reject && <p role="status" className="rgx-warn">Reject this student registration? They won’t be able to use the student app until approved.</p>}
+        {actionError && <p role="alert" className="rgd-err">{actionError}</p>}
+        {tab === 'pending' && <footer className="rgd-foot">
           {reject ? <>
             <button type="button" className="rq-btn" disabled={saving} onClick={() => setReject(null)}>Cancel</button>
             <button type="button" className="rq-btn rgx-danger" disabled={saving} onClick={() => decide(selected, "rejected")}>Reject registration</button>

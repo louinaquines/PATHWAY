@@ -221,3 +221,14 @@ dialog.pl-detail::backdrop { background: rgba(21,33,58,.35); }
   .pl-detail .review-actions { justify-content: stretch; } .pl-detail .review-actions button { flex: 1; }
   .pl-detail .review-actions .review-reject { flex: 0 0 100%; margin: 0; order: 3; }
 }
+/* panel fixes */
+dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { width: 100% !important; max-width: none !important; box-sizing: border-box; }
+.pl-detail .pld-head { grid-template-columns: minmax(0, 1fr) !important; }
+.pld-who > div { min-width: 0; }
+.pld-who h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pld-steps li { white-space: nowrap; }
+.pl-detail .placement-detail-body { padding-top: 18px !important; }
+.pl-detail .review-card > div:first-child { align-items: flex-start; }
+.pl-detail .review-card > div:first-child > strong { flex: none; padding: 3px 10px; border-radius: 99px; background: #fbf1d9; color: #9a6200; font-size: 11.5px; font-weight: 600; }
+.pl-detail .review-card > div:first-child > div > div { font-size: 12.5px !important; color: #7b8494 !important; margin-top: 3px !important; }
+.pl-detail .pld-bar { bottom: 0; margin: 4px -16px -16px !important; border-radius: 0 0 12px 12px; }

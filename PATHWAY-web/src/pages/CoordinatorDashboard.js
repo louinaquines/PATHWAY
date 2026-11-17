@@ -270,6 +270,13 @@ export default function CoordinatorDashboard() {
   const [phaseFilter, setPhaseFilter] = useState('Pre-OJT');
   const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
   const [rqDetailView, setRqDetailView] = useState(false);
+  useEffect(() => {
+    const id = location.state?.openStudentId;
+    if (activeTab !== 'requirements' || !id) return;
+    let on = true;
+    getDoc(doc(db, 'users', id)).then(snap => { if (on && snap.exists()) { setSelectedStudent({ id: snap.id, ...snap.data() }); setRqDetailView(true); } }).catch(() => {});
+    return () => { on = false; };
+  }, [activeTab, location.state]);
   const [viewerId, setViewerId] = useState(null);
   useEffect(() => { setViewerId(null); }, [selectedStudent?.id]);
   const pendingStageRef = useRef(null);

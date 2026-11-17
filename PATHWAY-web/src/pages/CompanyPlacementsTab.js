@@ -9,6 +9,7 @@ import { placementStatusLabel, placementStudentQueue } from '../placementStudent
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import SubmissionNotifications, { submissionTime } from '../components/SubmissionNotifications';
@@ -31,6 +32,7 @@ import './PlacementRedesign.css';
 
 export default function CompanyPlacementsTab({ department, selectedSection, students = [], overviewView, sections = [], onSectionChange }) {
   const [topHost, setTopHost] = useState(null);
+  const navigate = useNavigate();
   const [doneCompany, setDoneCompany] = useState('');
   const [doneCompanies, setDoneCompanies] = useState([]);
   const [collapsed, setCollapsed] = useState({});
@@ -522,11 +524,11 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       const card = (item, verified) => {
         const sent = verified && item.deliveryStatus === 'sent';
         const chip = !verified ? (item.draftVersion > 0 ? ['Waiting for signed copy', 'amber'] : ['Draft needed', 'mute']) : sent ? ['Sent', 'green'] : item.deliveryStatus === 'sending' ? ['Checking email', 'amber'] : ['Ready to email', 'blue'];
-        const hint = !verified ? (item.draftVersion > 0 ? 'Print the draft, get it signed, then upload the signed copy.' : 'Prepare the draft so the company can sign it.') : sent ? 'The email service accepted the letter. Inbox delivery isn’t confirmed.' : 'Only the verified signed copy can be emailed.';
+        const hint = !verified ? (item.draftVersion > 0 ? 'Print and sign the draft. The student uploads the signed copy in their Requirements, then you approve it there.' : 'Prepare the draft, then print and sign it.') : sent ? 'The email service accepted the letter. Inbox delivery isn’t confirmed.' : 'Only the verified signed copy can be emailed.';
         const steps = [
           ['Placement approved', true, day(item.createdAt)],
           ['Prepare the draft', item.draftVersion > 0 || verified, item.draftVersion > 0 ? `v${item.draftVersion} · ${day(item.draftPreparedAt)}` : ''],
-          ['Signed copy uploaded', verified, verified ? day(item.signedCopyVerifiedAt) : ''],
+          ['Signed copy approved', verified, verified ? day(item.signedCopyVerifiedAt) : ''],
           ['Emailed to student & company', sent, sent ? day(item.deliverySentAt || item.updatedAt) : ''],
         ];
         const now = steps.findIndex(x => !x[1]);
@@ -547,7 +549,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
               {item.draftVersion > 0 && <span className="pld-meta">Draft v{item.draftVersion}{item.draftPreparedAt ? ` · ${day(item.draftPreparedAt)}` : ''}{item.draftPreparedByName ? ` by ${item.draftPreparedByName}` : ''}</span>}
               <div className="review-actions">
                 {item.draftVersion > 0 && <button type="button" onClick={() => viewPreparedDraft(item)}>View draft v{item.draftVersion}</button>}
-                <button type="button" className={item.draftVersion > 0 ? '' : 'review-approve'} disabled={draftBusy === item.id} onClick={() => prepareEndorsementDraft(item)}>{draftBusy === item.id ? 'Preparing…' : item.draftVersion > 0 ? 'Prepare new version' : 'Prepare draft'}</button>
+                {item.draftVersion > 0 && <button type="button" className="review-approve" onClick={() => navigate('/coordinator/requirements', { state: { sectionId: selectedSection?.id, openStudentId: item.studentId || selectedQueueStudent } })}>Review signed copy</button>}
+                <button type="button" className={item.draftVersion > 0 ? 'pld-quiet' : 'review-approve'} disabled={draftBusy === item.id} onClick={() => prepareEndorsementDraft(item)}>{draftBusy === item.id ? 'Preparing…' : item.draftVersion > 0 ? 'Prepare new version' : 'Prepare draft'}</button>
               </div>
             </>}
             {verified && <>

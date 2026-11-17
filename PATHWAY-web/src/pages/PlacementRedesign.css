@@ -271,3 +271,4 @@ dialog.pl-detail > *, .pl-detail .pld-head, .pl-detail .placement-detail-body { 
 .pld-meta { font-size: 12px; color: #7b8494; }
 .pld-rcpts { display: flex; gap: 6px; flex-wrap: wrap; }
 .pl-detail .placement-stage-section .review-empty { padding: 24px 16px; border: 1px dashed #d6d1c7; border-radius: 12px; text-align: center; color: #7b8494; font-size: 13px; background: transparent; }
+.pl-detail .review-actions .pld-quiet { border-color: transparent !important; color: #465066 !important; padding: 0 6px !important; }

@@ -274,7 +274,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
         <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button></>;
         return topHost ? createPortal(btn, topHost) : <div className="sx-inline">{btn}</div>; })()}
       <aside className="sx-list">
-        {sections.length > 6 && <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Find a section" />}
+        <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Search sections" />
         {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
           : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
         {sectionsPage.items.map(sec => { const on = selected?.id === sec.id; const n = on ? students.length : Array.isArray(sec.studentIds) ? sec.studentIds.length : null;

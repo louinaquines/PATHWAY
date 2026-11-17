@@ -137,8 +137,8 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
   }
 
   const activeTab = tab || (ids.length ? 'students' : 'add');
-  const pages = Math.max(1, Math.ceil(filteredIds.length / 8)); const cur = Math.min(page, pages);
-  const rows = filteredIds.slice((cur - 1) * 8, cur * 8);
+  const pages = Math.max(1, Math.ceil(filteredIds.length / 10)); const cur = Math.min(page, pages);
+  const rows = filteredIds.slice((cur - 1) * 10, cur * 10);
   const sectionName = sections.find(x => x.id === sectionId)?.name || selectedSection?.name || '';
   const readFile = async file => {
     if (!file) return;
@@ -183,7 +183,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
                 </span>
               </div>)}
             </div>}
-          {filteredIds.length > 8 && <div className="cls-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, filteredIds.length)} of {filteredIds.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Roster students" /></div>}
+          {filteredIds.length > 10 && <div className="cls-foot"><span>{(cur - 1) * 10 + 1}–{Math.min(cur * 10, filteredIds.length)} of {filteredIds.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Roster students" /></div>}
         </section>
         <section hidden={activeTab !== 'add'} className="cls-panel">
           <div className="cls-card">

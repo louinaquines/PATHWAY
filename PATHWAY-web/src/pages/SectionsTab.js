@@ -265,8 +265,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           ? <PortalEmpty icon="section" title="Create your first section" description="A section groups your OJT students, their required hours and the documents they must submit."
               steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']} action={{ label: '+ New Section', onClick: () => setModal(true) }} />
           : <PortalEmpty icon="section" title="Select a section" description="Pick a section on the left to manage students, requirements and deadlines." />)
-        : (() => { const pending = students.filter(x => !x.accountApproved).length; const pages = Math.max(1, Math.ceil(filteredStudents.length / 8)); const cur = Math.min(stuPage, pages);
-          const rows = [...filteredStudents].sort(compareStudents).slice((cur - 1) * 8, cur * 8);
+        : (() => { const pending = students.filter(x => !x.accountApproved).length; const pages = Math.max(1, Math.ceil(filteredStudents.length / 10)); const cur = Math.min(stuPage, pages);
+          const rows = [...filteredStudents].sort(compareStudents).slice((cur - 1) * 10, cur * 10);
           return <>
             <header className="sx-head">
               <div><h2>{selected.name}</h2>
@@ -301,7 +301,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                       <span role="cell"><b className="lb-chip" data-tone={student.accountApproved ? 'green' : 'amber'}>{student.accountApproved ? 'Active' : 'Pending approval'}</b></span>
                     </div>)}
                   </div>}
-              {filteredStudents.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, filteredStudents.length)} of {filteredStudents.length}</span><Pager page={cur} pages={pages} onGo={setStuPage} label="Section students" /></div>}
+              {filteredStudents.length > 10 && <div className="sx-foot"><span>{(cur - 1) * 10 + 1}–{Math.min(cur * 10, filteredStudents.length)} of {filteredStudents.length}</span><Pager page={cur} pages={pages} onGo={setStuPage} label="Section students" /></div>}
             </div>
             {view === 'requirements' && (() => {
               const now = new Date(); const overdue = r => r.deadline && new Date(r.deadline + 'T23:59:59') < now;

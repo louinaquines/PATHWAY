@@ -20,6 +20,7 @@ import PlacementCompanies from '../components/PlacementCompanies';
 import './PlacementReviews.css';
 import Icon from '../components/Icons';
 import PlacementOverview from '../components/PlacementOverview';
+import PlacementTracker from '../components/PlacementTracker';
 import SectionPicker from '../components/SectionPicker';
 import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
@@ -358,11 +359,13 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         <span className="pl-grow" />
         {workspace === 'reviews' && queueFilter === 'completed' && <select className="pl-co-filter" aria-label="Filter by company" value={doneCompany} onChange={e => setDoneCompany(e.target.value)}><option value="">All companies</option>{[...new Set(queueRows.map(r => r.company && r.company !== '—' ? r.company : 'No company recorded'))].sort().map(n => <option key={n} value={n}>{n}</option>)}</select>}
         {workspace === 'reviews' && queueFilter !== 'action' && <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch} label="Search placement reviews by student or company" placeholder="Find a student" />}
-        <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
-          suppliedItems={error ? [] : placementNotices} onRefresh={load}
-          onOpen={(student) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />
+
       </div>; })()}
 
+    {selectedSection && !error && <PlacementTracker section={selectedSection} refreshKey={historyRevision}
+      onOpen={row => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(row.id); setReviewStage('all'); setReviewStatus('all'); }}
+      bell={<SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection} suppliedItems={placementNotices} onRefresh={load}
+        onOpen={(student) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />} />}
     {error && items.length > 0 && <div role="alert" style={{ padding: 14, border: '1px solid #FDA4AF', borderRadius: 10, background: '#FFF1F2', color: '#9F1239', marginTop: 14 }}>{error}</div>}
     {workspace === 'companies' && selectedSection && <PlacementCompanies key={selectedSection.id} selectedSection={selectedSection} onOpenStudent={student => {setWorkspace("reviews");setSelectedQueueStudent(student.id);}} />}
     {workspace === 'companies' && items.some(item => item.status === 'pending_review') && <div style={{ marginTop: 16, padding: 16, border: '1px solid #E2E8F0', borderRadius: 12, background: '#FFF' }}>

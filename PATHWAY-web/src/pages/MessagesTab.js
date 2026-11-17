@@ -40,8 +40,11 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   const loadVersion = useRef(0);
 
   useEffect(() => {
-    if (alertsOpen) alertsDialog.current?.showModal();
-    else alertsDialog.current?.close();
+    if (!alertsOpen) return undefined;
+    const key = e => { if (e.key === 'Escape') setAlertsOpen(false); };
+    const down = e => { if (alertsDialog.current && !alertsDialog.current.contains(e.target) && !e.target.closest?.('.msg-bell')) setAlertsOpen(false); };
+    window.addEventListener('keydown', key); document.addEventListener('mousedown', down);
+    return () => { window.removeEventListener('keydown', key); document.removeEventListener('mousedown', down); };
   }, [alertsOpen]);
 
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
@@ -157,29 +160,13 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     } catch { if(version===loadVersion.current)setError('Could not load older messages. Try again.'); }
     finally {historyBusy.current=false;setOlderBusy(false);}
   };
-  const alertsPage = useRecordPage([...messageAlerts].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))), selectedSection?.id);
+  const alertsPage = useRecordPage([...messageAlerts].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))), selectedSection?.id, 6);
+  const [markingAll, setMarkingAll] = useState(false);
+  const markAllRead = async () => { if (markingAll || !messageAlerts.length) return; setMarkingAll(true); const ids = new Set(messageAlerts.map(m => m.id));
+    await Promise.all(messageAlerts.map(m => updateDoc(doc(db, 'messages', m.id), { read: true, readAt: new Date().toISOString() }).catch(() => null)));
+    setItems(prev => prev.map(m => ids.has(m.id) ? { ...m, read: true } : m)); setMarkingAll(false); };
   const threadPage = useRecordPage([...(selected?.messages || [])].reverse(), selected?.id, 50);
   return <div className="msg messages-workspace">
-    <dialog ref={alertsDialog} className="messages-alert-dialog" aria-labelledby="message-alert-title" onCancel={() => setAlertsOpen(false)} onClose={() => setAlertsOpen(false)} onClick={event => { if (event.target === event.currentTarget) setAlertsOpen(false); }}>
-      <header className="messages-alert-dialog-header"><div className="notification-hero"><span className="notification-hero-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3V11a9 9 0 0 1 18 0Z" /><path d="M7 10h10M7 14h6" /></svg></span><div><span className="notification-eyebrow">STUDENT MESSAGES</span><h2 id="message-alert-title">Unread messages</h2><p>{selectedSection?.name || 'Current section'}</p></div></div><button type="button" className="messages-close" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></header>
-      <div className="messages-alert-dialog-body">
-      <div className="messages-alert-summary"><strong><span className="notification-total">{messageAlerts.length}</span><span>Unread messages<small>Newest first</small></span></strong><button className="messages-alert-refresh" type="button" aria-label="Refresh messages" title="Refresh messages" onClick={load} disabled={loading}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg></button></div>
-      <p>{error ? 'Message alerts are unavailable until messages can load.' : loading ? 'Checking messages…' : messageAlerts.length ? `${messageAlerts.length} unread message(s) in ${selectedSection?.name || 'this section'}` : 'No unread messages in this section.'}</p>
-      <div className="notification-column-labels" aria-hidden="true"><span>Message</span><span>From</span><span>Section</span><span>Time</span></div>
-      <RecordPagination pagination={alertsPage} label="Unread messages" />
-      <div className="messages-alert-actions notification-columns">
-        {alertsPage.items.map(message => {
-          const thread = conversations.find(item => item.studentId === message.studentId);
-          return <button type="button" key={message.id} onClick={() => { if (thread) { openConversation(thread); setAlertsOpen(false); } }}>
-            <span className="notification-message">{message.body}</span>
-            <span className="notification-from"><span className="messages-alert-row-heading"><strong>{thread?.name || message.senderName || 'Student'}</strong><i className="messages-alert-dot" aria-label="Unread" /></span></span>
-            <span className="notification-section">{selectedSection?.name || '—'}</span>
-            <time className="notification-time">{formatDate(message.createdAt)}</time>
-          </button>;
-        })}
-      </div>
-      </div>
-    </dialog>
     {(acts => topHost ? createPortal(acts, topHost) : <div className="msg-inline-actions">{acts}</div>)(<>
       <div className="msg-switch" role="group" aria-label="Message type">
         <button type="button" aria-pressed="true">Students{messageAlerts.length > 0 && <b>{messageAlerts.length}</b>}</button>
@@ -192,12 +179,32 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
     <section className="msg-list">
       <header className="msg-list-head">
         <h2 className="sr-only">Students</h2>
-        <div className="msg-search-row"><div className="coordinator-search msg-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <div className="msg-search-row msg-pop-anchor"><div className="coordinator-search msg-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input type="search" aria-label="Search students and conversations" placeholder="Find a student" value={search} onChange={event => setSearch(event.target.value)} /></div>
       <button className="rq-btn msg-bell messages-alert-trigger" type="button" aria-label="Unread messages" aria-haspopup="dialog" aria-expanded={alertsOpen} onClick={() => setAlertsOpen(true)}>
         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
         {messageAlerts.length > 0 && <span className="msg-count">{messageAlerts.length}</span>}
       </button>
+        {alertsOpen && <div ref={alertsDialog} className="msg-pop" role="dialog" aria-label="Unread messages">
+          <header className="msg-pop-head"><h3>Unread messages {messageAlerts.length > 0 && <b>{messageAlerts.length}</b>}</h3>
+            <div className="msg-pop-acts">
+              <button type="button" className="msg-pop-icon messages-alert-refresh" aria-label="Refresh messages" title="Refresh" onClick={load} disabled={loading}><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg></button>
+              {messageAlerts.length > 0 && <button type="button" className="rq-link" onClick={markAllRead} disabled={markingAll}>{markingAll ? 'Marking…' : 'Mark all read'}</button>}
+              <button type="button" className="msg-pop-icon" aria-label="Close message notifications" onClick={() => setAlertsOpen(false)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
+            </div></header>
+          {error ? <p className="msg-pop-empty">Message alerts are unavailable until messages can load.</p>
+            : loading ? <p className="msg-pop-empty">Checking messages…</p>
+            : !messageAlerts.length ? <div className="msg-pop-empty"><span aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg></span><strong>You’re all caught up</strong><p>No unread messages in this section.</p></div>
+            : <div className="msg-pop-list">{alertsPage.items.map(message => {
+              const thread = conversations.find(item => item.studentId === message.studentId);
+              const name = thread?.name || message.senderName || 'Student';
+              return <button type="button" key={message.id} className="msg-pop-row" onClick={() => { if (thread) { openConversation(thread); setAlertsOpen(false); } }}>
+                <span className="msg-av" aria-hidden="true">{initialsOf(name)}</span>
+                <span className="msg-row-main"><span className="msg-row-top"><strong>{name}</strong><time>{shortTime(message.createdAt)}</time></span><span className="msg-row-prev">{message.body}</span></span>
+                <i className="msg-dot" aria-label="Unread" />
+              </button>; })}</div>}
+          {alertsPage.pageCount > 1 && <div className="msg-pop-foot"><span>{alertsPage.start + 1}–{alertsPage.start + alertsPage.items.length} of {alertsPage.total}</span><Pager page={alertsPage.page} pages={alertsPage.pageCount} onGo={alertsPage.onPageChange} label="Unread messages" /></div>}
+        </div>}
         </div>
       </header>
       {error && <div className="msg-error" role="status">{error}<button type="button" className="rq-link" onClick={load}>Check again</button></div>}

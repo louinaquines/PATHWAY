@@ -530,7 +530,7 @@ function AnalyticsOverview({ data }) {
       </section>
       {wide && createPortal(<div className="an-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setWide(false); }}>
         <div className="an-modal" role="dialog" aria-modal="true" aria-label="Hours done so far, expanded">
-          <div className="an-chart-head"><div><h3 className="an-title">Hours done so far</h3><p className="an-sub">{bars.length} students · names under each bar</p></div>
+          <div className="an-chart-head"><div><h3 className="an-title">Hours done so far</h3><p className="an-sub">{bars.length} students · names under each bar{bars.length > 25 ? ' · scroll sideways to see everyone' : ''}</p></div>
             <button type="button" className="plt-x" aria-label="Close expanded chart" autoFocus onClick={() => setWide(false)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></div>
           <HoursChart bars={bars} average={data.averageHours} height={Math.min(520, window.innerHeight - 220)} wide />
           <div className="an-legend"><span data-tier="on">On track {count('on')}</span><span data-tier="mid">A little behind {count('mid')}</span><span data-tier="far">Far behind {count('far')}</span></div>
@@ -554,13 +554,17 @@ function HoursTip({ active, payload }) {
 }
 function HoursChart({ bars, average, height, wide = false }) {
   const rows = bars.map(st => ({ id: st.id, name: st.name, short: String(st.name || '').split(',')[0], hours: st.hoursRendered || 0, required: st.hoursRequired, tier: TIER[st.riskTier ?? st.risk] || 'none' }));
-  const max = Math.max(1, ...rows.map(r => r.required || r.hours));
-  return <div className="an-rc" style={{ height }}>
+  const top = Math.max(1, ...rows.map(r => Math.max(r.required || 0, r.hours)));
+  const step = top > 400 ? 100 : top > 100 ? 50 : 10;
+  const max = Math.ceil(top / step) * step;
+  const ticks = Array.from({ length: max / step + 1 }, (_, i) => i * step);
+  return <div className={wide ? 'an-rc an-rc-wide' : 'an-rc'} style={{ height }}>
+    <div className="an-rc-inner" style={{ width: wide ? `max(100%, ${rows.length * 56}px)` : '100%', height: '100%' }}>
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={rows} margin={{ top: 10, right: 8, left: wide ? 0 : -18, bottom: wide ? 40 : 0 }} barCategoryGap="18%">
         <CartesianGrid vertical={false} stroke="#efece5" />
         <XAxis dataKey={wide ? 'short' : 'id'} tick={wide ? { fontSize: 11, fill: '#7b8494' } : false} tickLine={false} axisLine={{ stroke: '#e8e5de' }} interval={0} angle={wide ? -40 : 0} textAnchor={wide ? 'end' : 'middle'} height={wide ? 60 : 4} />
-        <YAxis domain={[0, max]} tick={{ fontSize: 11, fill: '#7b8494' }} tickLine={false} axisLine={false} width={44} />
+        <YAxis domain={[0, max]} ticks={ticks} tick={{ fontSize: 11, fill: '#7b8494' }} tickLine={false} axisLine={false} width={44} />
         <Tooltip cursor={{ fill: 'rgba(11,95,211,.06)' }} content={<HoursTip />} />
         {average != null && <ReferenceLine y={average} stroke="#465066" strokeDasharray="4 4" label={{ value: `avg ${average} h`, position: 'insideTopRight', fontSize: 11, fill: '#465066' }} />}
         <Bar dataKey="hours" radius={[3, 3, 0, 0]} maxBarSize={wide ? 34 : 22} isAnimationActive>
@@ -568,6 +572,7 @@ function HoursChart({ bars, average, height, wide = false }) {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </div>
   </div>;
 }
 

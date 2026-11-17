@@ -141,3 +141,5 @@
 .anp-ai h4 { margin: 8px 0 2px; font-size: 12.5px; }
 .anp-foot { padding: 14px 20px; border-top: 1px solid #efece5; display: flex; justify-content: flex-end; }
 .anp-foot .rq-btn { height: 36px; padding: 0 18px; }
+.an-rc-wide { overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; }
+.an-rc-wide::-webkit-scrollbar { height: 8px; } .an-rc-wide::-webkit-scrollbar-thumb { background: #d9d5cc; border-radius: 99px; }

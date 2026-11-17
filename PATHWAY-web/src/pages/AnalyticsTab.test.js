@@ -53,7 +53,7 @@ test('explicit tiers, progress and data quality override compatibility status an
   expect(screen.getByText('Progress: Completed')).toBeInTheDocument();
   expect(screen.getByText('Data: Needs verification')).toBeInTheDocument();
   expect(screen.queryByText('On Track')).not.toBeInTheDocument();
-  expect(screen.getAllByText(/Projected shortfall/).length).toBe(6); // 4 table rows + 2 'Needs a nudge' chips
+  expect(screen.getAllByText(/Projected shortfall/).length).toBe(4);
   fireEvent.click(screen.getByRole('button', { name: 'Work schedule' }));
   expect(screen.getByRole('dialog')).not.toHaveTextContent(/How is this calculated/i);
   expect(screen.queryByText('0 hrs')).not.toBeInTheDocument();

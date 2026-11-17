@@ -196,7 +196,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
         </form>
       </PortalFormDialog>}
 
-      {data && <AnalyticsOverview data={data} onOpen={id => { setSearchQuery(''); setProgressFilter('all'); requestAnimationFrame(() => { const row = document.getElementById(`attendance-student-${id}`); row?.scrollIntoView?.({ block: 'center' }); const d = row?.querySelector('details'); if (d) d.open = true; }); }} />}
+      {data && <AnalyticsOverview data={data} />}
 
       {/* Student Progress Breakdown Table */}
       <div className="an-card an-records">
@@ -214,40 +214,40 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
           </select></div>
         </div>
 
-        <div className="analytics-table-scroll" style={s.tableWrap}>
-          <table style={s.table}>
+        <div className="analytics-table-scroll">
+          <table>
             <thead>
               <tr>
-                <th style={s.th}>Student ID</th>
-                <th style={s.th}>Student name</th>
-                {!selectedSection?.id && <th style={s.th}>Section</th>}
-                <th style={s.th}>Hours</th>
-                <th style={s.th}>Progress</th>
-                <th style={s.th}>Attendance</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Status</th>
+                <th>Student ID</th>
+                <th>Student name</th>
+                {!selectedSection?.id && <th>Section</th>}
+                <th>Hours</th>
+                <th>Progress</th>
+                <th>Attendance</th>
+                <th className="an-r">Status</th>
               </tr>
             </thead>
             <tbody>
               {recordsPage.items.map(st => {
                 const percent = st.completionPercentage;
                 return (
-                  <tr data-risk={st.riskTier || undefined} key={st.id} id={`attendance-student-${st.id}`} style={{ ...s.tr, ...(st.id === highlightStudentId ? { backgroundColor: COLORS.sky50, outline: `2px solid ${COLORS.sky500}`, outlineOffset: -2 } : {}) }}>
-                    <td style={s.td}><span style={s.idCode}>{st.idNumber || '—'}</span></td>
-                    <td style={s.td}><div style={s.studentName}>{st.name}</div></td>
-                    {!selectedSection?.id && <td style={s.td}>{st.section}</td>}
-                    <td style={s.td}>
+                  <tr data-risk={st.riskTier || undefined} key={st.id} id={`attendance-student-${st.id}`} className={st.id === highlightStudentId ? "an-hl" : undefined}>
+                    <td className="an-id">{st.idNumber || '—'}</td>
+                    <td className="an-name">{st.name}</td>
+                    {!selectedSection?.id && <td>{st.section}</td>}
+                    <td>
                       <strong>{st.hoursRendered ?? 'Unavailable'}</strong> / {st.hoursRequired ?? 'Unavailable'} hrs
                     </td>
-                    <td style={s.td}>
-                      <div style={s.progressContainer}>
-                        <div style={s.progressBarWrap}>
-                          <div style={{ ...s.progressBar, width: `${percent == null ? 0 : Math.max(0, Math.min(100, percent))}%` }} />
+                    <td>
+                      <div className="an-prog">
+                        <div className="an-track">
+                          <div className="an-fill" style={{ width: `${percent == null ? 0 : Math.max(0, Math.min(100, percent))}%` }} />
                         </div>
-                        <span style={s.progressText}>{percent == null ? 'Unavailable' : `${percent}%`}</span>
+                        <span>{percent == null ? 'Unavailable' : `${percent}%`}</span>
                       </div>
                     </td>
-                    <td style={s.td}>
-                      <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics" style={s.attendanceMini}>
+                    <td>
+                      <details open={st.id === highlightStudentId || undefined} className="analytics-attendance-metrics">
                         <summary><span className="analytics-att-rate">{st.attendanceRate == null ? "No data yet" : `${st.attendanceRate}% attendance`}</span><span className="analytics-att-more">Attendance details</span></summary>
                         <div className="analytics-att-panel">
                         <span style={{ display: 'block' }}>Risk: {st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable')} · Data: {st.dataStatus ?? 'Unavailable'}</span>
@@ -263,7 +263,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
                         </div>
                       </details>
                     </td>
-                    <td style={{ ...s.td, textAlign: 'right' }} className="analytics-status-cell">
+                    <td className="an-r analytics-status-cell">
                       {(() => {
                         const label = st.riskTier ?? (['Not deployed', 'Completed'].includes(st.risk) ? st.risk : 'Unavailable');
                         const tone = { High: 'high', Medium: 'medium', Low: 'low', Completed: 'done' }[label] || 'none';
@@ -278,7 +278,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
               })}
               {filteredStudents.length === 0 && (
                 <tr>
-                  <td colSpan={selectedSection?.id ? 6 : 7} style={{ ...s.td, textAlign: 'center', color: '#000000', padding: 32 }}>
+                  <td colSpan={selectedSection?.id ? 6 : 7} className="an-none">
                     {searchQuery || progressFilter !== 'all' ? 'No students match this search or filter.' : 'No student progress records found for this cohort.'}
                   </td>
                 </tr>
@@ -508,7 +508,7 @@ const s = {
 };
 
 const TIER = { Low: 'on', Completed: 'on', Medium: 'mid', High: 'far' };
-function AnalyticsOverview({ data, onOpen }) {
+function AnalyticsOverview({ data }) {
   const students = data.students || [];
   const total = students.length;
   const bars = [...students].filter(st => st.hoursRendered != null).sort((a, b) => (b.hoursRendered || 0) - (a.hoursRendered || 0));
@@ -517,13 +517,11 @@ function AnalyticsOverview({ data, onOpen }) {
   const placed = students.filter(st => st.companyName).length;
   const done = students.filter(st => st.progressStatus === 'Completed').length;
   const nudge = students.filter(st => ['High', 'Medium'].includes(st.riskTier)).sort((a, b) => (a.riskTier === 'High' ? 0 : 1) - (b.riskTier === 'High' ? 0 : 1));
-  const [page, setPage] = useState(1);
-  const pages = Math.max(1, Math.ceil(nudge.length / 5)); const cur = Math.min(page, pages);
   const stats = [
     ['Placed in a company', placed],
     ['Clocking in now', data.activeInterns ?? 0],
     ['Finished their hours', done],
-    ['Needs a nudge', nudge.length],
+    ['Behind on hours or attendance', nudge.length],
   ];
   return <>
     <div className="an-top">
@@ -544,19 +542,5 @@ function AnalyticsOverview({ data, onOpen }) {
         </div>)}
       </section>
     </div>
-    <section className="an-card" aria-label="Needs a nudge">
-      <div className="an-head"><div><h3 className="an-title">Needs a nudge</h3><p className="an-sub">Students who are behind on hours or attendance.</p></div></div>
-      {nudge.length ? <div className="an-nudge">
-        {nudge.slice((cur - 1) * 5, cur * 5).map(st => <div key={st.id} className="an-nrow">
-          <span className="an-av" aria-hidden="true">{String(st.name || '?').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</span>
-          <span className="an-nname">{st.name}<small>{st.idNumber}</small></span>
-          <span className="an-nhrs">{st.hoursRendered ?? 0} of {st.hoursRequired ?? '—'} h</span>
-          <span className="an-nwhy"><b className="lb-chip" data-tone={st.riskTier === 'High' ? 'red' : 'amber'}>{(st.reasonCodes || []).map(r => attendanceReasonLabels[r.code]).find(Boolean) || (st.riskTier === 'High' ? 'Far behind' : 'A little behind')}</b></span>
-          <button type="button" className="rq-link an-open" onClick={() => onOpen(st.id)}>Open</button>
-        </div>)}
-        {nudge.length > 5 && <div className="an-foot"><span>{(cur - 1) * 5 + 1}–{Math.min(cur * 5, nudge.length)} of {nudge.length}</span>
-          <div className="an-pager"><button type="button" className="rq-btn" aria-label="Previous nudge page" disabled={cur === 1} onClick={() => setPage(cur - 1)}>‹</button><button type="button" className="rq-btn" aria-label="Next nudge page" disabled={cur === pages} onClick={() => setPage(cur + 1)}>›</button></div></div>}
-      </div> : <p className="an-empty">Everyone is on track right now.</p>}
-    </section>
   </>;
 }

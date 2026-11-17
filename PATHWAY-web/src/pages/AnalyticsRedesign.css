@@ -45,3 +45,8 @@
 .an-records select { height: 36px; padding: 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; font-family: inherit; font-size: 13px; color: #15213a; }
 @media (max-width: 1100px) { .an { padding: 0 16px 24px !important; } .an-top { grid-template-columns: 1fr; } .coordinator-page main:has(.an) { overflow-y: auto !important; } .coordinator-page main:has(.an) > header.requirements-topbar { padding: 18px 16px 12px !important; flex-wrap: wrap; gap: 12px; } }
 @media (max-width: 700px) { .an-nrow { grid-template-columns: 34px minmax(0, 1fr) 50px; } .an-nhrs, .an-nwhy { display: none; } }
+.coordinator-page main:has(.an) { overflow-y: auto !important; height: 100vh; }
+.coordinator-page main:has(.an) > div:has(> .an), .coordinator-page main :has(> .an) { overflow: visible !important; height: auto !important; max-height: none !important; }
+.an-top { align-items: stretch !important; }
+.an-top > .an-card { height: 100%; box-sizing: border-box; }
+.an-where { align-content: space-between; }

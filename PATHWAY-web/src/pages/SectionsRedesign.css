@@ -184,3 +184,15 @@
 .sx-selwrap svg { position: absolute; right: 11px; top: 11px; pointer-events: none; color: #7b8494; }
 .sx-chatform input[type="date"] { flex: 0 1 180px; }
 .coordinator-page .sx-selwrap select:is(:focus, :focus-visible) { outline: 0 !important; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.sx-set-head { align-items: center; }
+.sx-bulk { display: grid; gap: 10px; padding: 14px; border: 1px solid #efece5; border-radius: 10px; background: #faf9f6; }
+.sx-bulk-title { margin: 0 !important; font-size: 12px !important; font-weight: 600; color: #7b8494 !important; }
+.sx-bulk-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sx-bulk-row > * { height: 38px !important; box-sizing: border-box; }
+.sx-bulk-row .sx-selwrap select { height: 38px; min-width: 210px; }
+.sx-bulk-row .sx-selwrap svg { top: 12px; }
+.sx-bulk-row input[type="date"] { width: 180px; padding: 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; font-family: inherit; font-size: 13px; color: #15213a; }
+.coordinator-page .sx-bulk-row input:is(:focus, :focus-visible) { outline: 0 !important; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.sx-bulk-row .rq-btn { padding: 0 16px; font-size: 13px; }
+.sx-bulk-row .rq-btn:disabled { opacity: .5; cursor: not-allowed; }
+.sx-bulk .sx-chatmsg { margin: 0 !important; }

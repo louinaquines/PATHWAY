@@ -368,13 +368,16 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   <button type="submit" className="rq-btn rq-primary" disabled={chatSave?.busy}>Save group chat link</button>
                   {chatSave?.id === selected.id && chatSave.message && <p role={chatSave.failed ? 'alert' : 'status'} className="sx-chatmsg" data-bad={chatSave.failed || undefined}>{chatSave.message}</p>}
                 </form></div>
-              <div className="sx-set sx-set-col"><div className="sx-set-head"><div><h3>Deadlines</h3><p>Set one deadline for many documents at once, or adjust each one in Required documents.</p></div><button type="button" className="rq-link" onClick={() => fetchRequirements(selected)}>Set one by one</button></div>
-                <form className="sx-chatform" onSubmit={applyDeadlineToAll}>
+              <div className="sx-set sx-set-col"><div className="sx-set-head"><div><h3>Deadlines</h3><p>Each required document has its own deadline.</p></div><button type="button" className="rq-btn" onClick={() => fetchRequirements(selected)}>Set deadlines</button></div>
+                <form className="sx-bulk" onSubmit={applyDeadlineToAll}>
+                  <p className="sx-bulk-title">Optional · Use one date for many documents</p>
+                  <div className="sx-bulk-row">
                   <span className="sx-selwrap"><select aria-label="Apply to" value={bulk.scope} onChange={e => setBulk(b => ({ ...b, scope: e.target.value, msg: '' }))}>
                     <option value="all">All documents</option><option value="Pre-OJT">Before OJT documents</option><option value="Ongoing">During OJT documents</option><option value="Post-OJT">After OJT documents</option>
                   </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span>
                   <input type="date" aria-label="Deadline for all" value={bulk.date} onChange={e => setBulk(b => ({ ...b, date: e.target.value, msg: '' }))} />
-                  <button type="submit" className="rq-btn rq-primary" disabled={!bulk.date || bulk.busy}>{bulk.busy ? 'Saving…' : 'Apply deadline'}</button>
+                  <button type="submit" className="rq-btn" disabled={!bulk.date || bulk.busy}>{bulk.busy ? 'Saving…' : 'Apply to all'}</button>
+                  </div>
                   {bulk.msg && <p role="status" className="sx-chatmsg" data-bad={bulk.bad || undefined}>{bulk.msg}</p>}
                 </form></div>
             </div>

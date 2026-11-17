@@ -49,6 +49,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [finalItems, setFinalItems] = useState([]);
   const [history, setHistory] = useState(null);
   const [historyRevision, setHistoryRevision] = useState(0);
+  const [boardKey, setBoardKey] = useState(0);
   const [historyPaging, setHistoryPaging] = useState(null);
   const [endorsementItems, setEndorsementItems] = useState([]);
   const [verifiedEndorsementItems, setVerifiedEndorsementItems] = useState([]);
@@ -96,6 +97,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const load = useCallback(async ({ silent = false, isCurrent: isRefreshCurrent = () => true } = {}) => {
     if (!silent) setLoading(true);
     setHistoryRevision(value => value + 1);
+    if (!silent) setBoardKey(value => value + 1);
     setError('');
     try {
       if (!selectedSection?.id) {
@@ -358,10 +360,10 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
     </>; return topHost ? createPortal(acts, topHost) : <div className="pl-inline-actions">{acts}</div>; })()}
     {selectedSection && error && <div className="pl-down" role="alert"><strong>Placements couldn’t load</strong><p>{/503|unavailable|fetch|network|timed? ?out/i.test(error) ? 'The PATHWAY server is starting up or temporarily down. This usually clears within a minute.' : error}</p><button type="button" className="rq-btn rq-primary" onClick={() => load()}>Try again</button></div>}
-    {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={historyRevision}
+    {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={boardKey}
       onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
       onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}
-      onAssigned={() => load({ silent: true })} onOpenAssign={ids => { setAssignIds(Array.isArray(ids) ? ids : []); setAssignmentError(''); setAssignmentOpen(true); }} />}
+      onAssigned={() => load()} onOpenAssign={ids => { setAssignIds(Array.isArray(ids) ? ids : []); setAssignmentError(''); setAssignmentOpen(true); }} />}
     {(() => { const isReq = row => row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1;
       const n = queueFilter === 'action' ? queueRows.filter(r => !isReq(r)).length : queueRows.length;
       return <div className="pl-work-head">
@@ -372,7 +374,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
       </div>; })()}
 
-    {selectedSection && !error && <PlacementTracker section={selectedSection} refreshKey={historyRevision}
+    {selectedSection && !error && <PlacementTracker section={selectedSection} refreshKey={boardKey}
       onOpen={row => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(row.id); setReviewStage('all'); setReviewStatus('all'); }}
       bell={<SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection} suppliedItems={placementNotices} onRefresh={load}
         onOpen={(student) => { setWorkspace('reviews'); setQueueFilter('action'); setSelectedQueueStudent(student.id); setReviewStage('all'); setReviewStatus('all'); setReviewSearch(''); }} />} />}
@@ -384,7 +386,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
     {assignmentOpen && selectedSection && <PortalFormDialog className="apl-dialog" label="Assign placement" closeOnBackdrop onCancel={() => setAssignmentOpen(false)}>
-      <AssignPlacementPanel section={selectedSection} initialIds={assignIds} onClose={() => { setAssignmentOpen(false); setAssignIds([]); }} onDone={() => load({ silent: true })} onEditCompanies={() => navigate('/coordinator/companies')} />
+      <AssignPlacementPanel section={selectedSection} initialIds={assignIds} onClose={() => { setAssignmentOpen(false); setAssignIds([]); }} onDone={() => load()} onEditCompanies={() => navigate('/coordinator/companies')} />
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}

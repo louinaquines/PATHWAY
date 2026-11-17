@@ -21,7 +21,7 @@ export default function CompanyEmailInbox({ onClose }) {
     try { setData(await adminRequest('/coordinator/company-emails')); setError(''); }
     catch (failure) { setError(failure.message || 'Could not load company emails.'); }
   }, []);
-  useEffect(() => { load(); const timer = setInterval(load, 60000); return () => clearInterval(timer); }, [load]);
+  useEffect(() => { load(); const timer = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 180000); return () => clearInterval(timer); }, [load]);
   const check = async () => {
     setChecking(true);
     try { await adminRequest('/coordinator/company-emails/check', { method: 'POST' }); await load(); }

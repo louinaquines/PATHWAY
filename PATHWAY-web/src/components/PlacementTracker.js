@@ -42,7 +42,7 @@ export default function PlacementTracker({ section, refreshKey, onOpen, bell }) 
     const all = [];
     for (const queue of ['action', 'completed']) {
       let cursor = null;
-      for (let i = 0; i < 6; i += 1) {
+      for (let i = 0; i < 3; i += 1) {
         const page = await adminRequest(base + '&view=students&queue=' + queue + '&stage=all' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '')).catch(() => ({ students: [] }));
         (page.students || []).forEach(s => all.push({ ...s.queue, id: s.id, idNumber: s.idNumber, name: [s.firstName, s.lastName].filter(Boolean).join(' ') || s.queue?.name }));
         cursor = page.nextCursor; if (!cursor) break;

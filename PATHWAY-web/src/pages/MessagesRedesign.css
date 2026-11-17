@@ -71,3 +71,7 @@
 .msg-row { padding: 10px 14px; }
 .msg-rows { scrollbar-width: thin; }
 .msg-list .msg-foot { padding: 8px 12px; }
+.msg .msg-search { height: 38px !important; gap: 8px !important; padding: 0 12px !important; }
+.msg .msg-search input[type="search"] { padding: 0 !important; margin: 0 !important; text-indent: 0 !important; height: 100% !important; min-height: 0 !important; border: 0 !important; background: none !important; font-size: 13px !important; line-height: normal; }
+.msg .msg-search > svg { position: static !important; margin: 0 !important; }
+.msg-search-row .msg-bell { flex-basis: 38px !important; width: 38px !important; height: 38px !important; min-height: 38px !important; }

@@ -144,7 +144,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
             const thread = threadsByStudent.get(student.id);
             return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
           });
-  const studentsPage = useRecordPage(visibleStudents, (selectedSection?.id || '') + ':' + search, 8);
+  const studentsPage = useRecordPage(visibleStudents, (selectedSection?.id || '') + ':' + search, 10);
   const messageAlerts = items.filter(item => item.recipientId === coordinatorId && !item.read && allowedStudentIds.has(item.studentId));
 
   const loadOlder = async () => {

@@ -552,7 +552,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -566,6 +566,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'logbook' && <div className="rq-top-actions" id="lb-top-actions" />}
           {activeTab === 'evaluations' && <div className="rq-top-actions" id="ev-top-actions" />}
           {activeTab === 'clearance' && <div className="rq-top-actions" id="cl-top-actions" />}
+          {activeTab === 'placements' && <div className="rq-top-actions" id="pl-top-actions" />}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button
@@ -792,7 +793,7 @@ export default function CoordinatorDashboard() {
               <ClassListTab coordinatorId={coordinatorId} department={coordDept} selectedSection={selectedSection} onBusyChange={setRosterBusy} />
             </PortalFormDialog>}
             {activeTab === 'logbook' && <LogbookTab key={selectedSection?.id} pendingStudentIds={overviewView === 'journals' ? location.state.pendingStudentIds : undefined} openJournals={overviewView === 'journals'} coordinatorId={coordinatorId} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
-            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} />}
+            {activeTab === 'placements' && <CompanyPlacementsTab overviewView={overviewView} department={coordDept} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'companies' && <CompanyDirectoryTab readOnly={false} />}
             {activeTab === 'messages' && <MessagesTab key={selectedSection?.id} selectedSection={selectedSection} sections={sections} onSectionChange={fetchStudents} />}
             {activeTab === 'registrations' && <RegistrationsTab key={selectedSection?.id} department={coordDept} selectedSection={selectedSection} />}

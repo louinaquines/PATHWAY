@@ -19,10 +19,17 @@ import { adminRequest } from '../adminApi';
 import PlacementCompanies from '../components/PlacementCompanies';
 import './PlacementReviews.css';
 import Icon from '../components/Icons';
+import PlacementOverview from '../components/PlacementOverview';
+import SectionPicker from '../components/SectionPicker';
+import { createPortal } from 'react-dom';
+import './RequirementsRedesign.css';
+import './PlacementRedesign.css';
 
 
 
-export default function CompanyPlacementsTab({ department, selectedSection, students = [], overviewView }) {
+export default function CompanyPlacementsTab({ department, selectedSection, students = [], overviewView, sections = [], onSectionChange }) {
+  const [topHost, setTopHost] = useState(null);
+  useEffect(() => { setTopHost(document.getElementById('pl-top-actions')); }, []);
   const [items, setItems] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [assignedStudents, setAssignedStudents] = useState([]);
@@ -325,21 +332,20 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const verifiedPage = useRecordPage(verifiedEndorsementItems.filter(matchesReview), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
   const historyPage = useRecordPage(historyItems.filter(item => matchesReview({ ...item, status: 'approved', companyName: item.after?.companyName })), (selectedSection?.id || '') + ':' + reviewSearch + ':' + reviewStatus + ':' + reviewStage);
 
-  return <div className="placement-page" style={{ padding: 28, overflowY: 'auto', flex: 1, background: '#F8FAFC' }}>
+  return <div className="placement-page pl-page">
 
-    <div className="placement-page-header">
-      <div>
-      </div>
-      <div className="review-actions">
-        <button type="button" className="portal-secondary placement-email-action" onClick={() => setEmailOpen(true)}>
-          <Icon name="mail" size={16} /> Company email
-        </button>
-        <button type="button" className="placement-refresh" onClick={load} disabled={!selectedSection}>Refresh placements</button>
-        {selectedSection && !error && <button type="button" className="portal-primary" disabled={!!busy}
-          onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
-      </div>
-    </div>
-    <div className="placement-summary" aria-label="Placement summary">{[['Assigned',summary?.assigned],['Waiting for assignment',summary?.waiting],['Needs review',summary?.needsReview]].map(([label,value],index)=><div key={label} data-tone={['assigned','waiting','review'][index]}><i className="placement-summary-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{index === 0 ? <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18" /></> : index === 1 ? <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></> : <><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></>}</svg></i><span>{label}</span>{loading && value == null ? <strong className="placement-skeleton-number" aria-label="Loading" /> : <strong data-empty={value == null}>{value ?? 0}</strong>}</div>)}</div><div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
+    {(() => { const acts = <>
+      <button type="button" className="rq-btn" onClick={() => setEmailOpen(true)}><Icon name="mail" size={14} /> Company email</button>
+      <button type="button" className="rq-btn" onClick={load} disabled={!selectedSection}>Refresh</button>
+      {selectedSection && !error && <button type="button" className="rq-btn" disabled={!!busy} onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
+      {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
+    </>; return topHost ? createPortal(acts, topHost) : <div className="pl-inline-actions">{acts}</div>; })()}
+    {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={historyRevision}
+      onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
+      onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}
+      onAssigned={() => load({ silent: true })} onOpenAssign={() => { setAssignmentError(''); setAssignmentOpen(true); }} />}
+    <h3 className="pl-section-title">All placement work</h3>
+    <div className="placement-workspace-tabs" role="group" aria-label="Placement workspace">
       <button type="button" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>By company</button>
       <button type="button" aria-pressed={workspace === 'reviews'} onClick={() => setWorkspace('reviews')}>Students</button>
     </div>

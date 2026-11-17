@@ -124,3 +124,11 @@ dialog.cof-dialog::backdrop { background: rgba(21,33,58,.35); backdrop-filter: n
 .cof-foot button[type="submit"] { background: #0b5fd3 !important; }
 .cof-foot button:disabled { opacity: .5; cursor: default; }
 @media (max-width: 600px) { .cof .directory-field-pair { grid-template-columns: 1fr; } .cof-status { flex-basis: 100%; } }
+.cof-radius { display: grid; gap: 6px; }
+.cof-radius-row { display: flex; align-items: center; gap: 12px; }
+.cof-radius-row input[type="range"] { flex: 1; min-width: 0; accent-color: #0b5fd3; }
+.cof-radius-row input[type="range"]:focus { outline: 0 !important; box-shadow: none !important; }
+.cof-radius-n { position: relative; flex: none; width: 110px; }
+.cof-radius-n input { width: 100% !important; padding-right: 30px !important; text-align: right; }
+.cof-radius-n em { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 13px; color: #7b8494; pointer-events: none; }
+.cof-hint { font-size: 11.5px; color: #9aa1ad; }

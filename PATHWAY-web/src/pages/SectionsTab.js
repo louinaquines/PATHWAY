@@ -50,6 +50,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [stuQuery, setStuQuery]         = useState('');
   const [stuPage, setStuPage]           = useState(1);
   const [addOpen, setAddOpen]           = useState(false);
+  const [reqStage, setReqStage]         = useState('Pre-OJT');
+  const [reqPage, setReqPage]           = useState(1);
   const [topHost, setTopHost]           = useState(null);
   useEffect(() => { setTopHost(document.getElementById('sx-top-actions')); }, []);
 
@@ -301,85 +303,40 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   </div>}
               {filteredStudents.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, filteredStudents.length)} of {filteredStudents.length}</span><Pager page={cur} pages={pages} onGo={setStuPage} label="Section students" /></div>}
             </div>
-            {view === 'requirements' && <div style={t.viewContent}>
-                <div className="req-header-card" style={t.reqHeader}>
-                  <div>
-                    <h3 style={t.sectionLabel}>Requirements & deadlines</h3>
-                    <p style={t.reqSubText}>Set deadlines and, per requirement, turn on AI auto-check with a reference file. Overdue alerts are shown to students automatically.</p>
-                    <div className="autocheck-tip"><span className="autocheck-tip-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg></span><span><strong>Tip:</strong> click <strong>Add reference file</strong> on a requirement so student uploads are checked automatically.</span></div>
-                    {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
-                      onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
-                  </div>
-                  <button
-                    className="req-add-btn"
-                    style={t.addReqBtn}
-                    onClick={() => {
-                      setReqModal('add');
-                      setReqForm({ label: '', category: 'Pre-OJT', deadline: '' });
-                    }}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg> Add requirement
-                  </button>
+            {view === 'requirements' && (() => {
+              const now = new Date(); const overdue = r => r.deadline && new Date(r.deadline + 'T23:59:59') < now;
+              const stages = [['Pre-OJT', 'Before OJT'], ['Ongoing', 'During OJT'], ['Post-OJT', 'After OJT']];
+              const list = requirements.filter(r => r.category === reqStage);
+              const pages = Math.max(1, Math.ceil(list.length / 8)); const cur = Math.min(reqPage, pages);
+              const rows = list.slice((cur - 1) * 8, cur * 8);
+              const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set a date';
+              return <div className="sx-panel sx-req">
+                {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
+                  onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
+                <div className="sx-stage" role="tablist" aria-label="OJT stage">
+                  {stages.map(([k, l]) => { const items = requirements.filter(r => r.category === k); const late = items.filter(overdue).length;
+                    return <button key={k} type="button" role="tab" aria-selected={reqStage === k} onClick={() => { setReqStage(k); setReqPage(1); }}>
+                      {late > 0 && <i aria-label={`${late} overdue`} />}{l}<b>{items.length}</b></button>; })}
                 </div>
-
-                {CATEGORIES.map(cat => {
-                  const catReqs = requirements.filter(r => r.category === cat);
-                  if (catReqs.length === 0) return null;
-                  return (
-                    <div key={cat} className="req-cat-block" style={t.catBlock}>
-                      <div className="req-cat-label" style={t.catLabel}>{cat} requirements</div>
-                      <div style={t.reqList}>
-                        {catReqs.map(req => {
-                          const isOverdue = req.deadline && new Date(req.deadline) < new Date();
-                          return (
-                            <div key={req.id} className="req-row" style={t.reqRow}>
-                              <div style={t.reqLeft}>
-                                <div className="req-label" style={t.reqLabel}>{req.label}</div>
-                                <div style={t.deadlineRow}>
-                                  <span style={t.deadlineLabel}>Deadline:</span>
-                                  <input
-                                    type="date"
-                                    aria-label={`${req.label} deadline`}
-                                    className="req-date" style={t.dateInput}
-                                    value={req.deadline || ''}
-                                    onChange={e => handleUpdateDeadline(req.id, e.target.value)}
-                                  />
-                                  {req.deadline && (
-                                    <span style={{
-                                      ...t.deadlineBadge,
-                                      backgroundColor: isOverdue ? COLORS.rose50 : COLORS.emerald50,
-                                      color: '#000000',
-                                      border: `1px solid ${isOverdue ? COLORS.rose200 : COLORS.emerald200}`,
-                                    }}>
-                                      {isOverdue ? 'Overdue' : 'Active'}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                className={'autocheck-chip' + (req.autoCheck?.enabled ? ' is-on' : '')}
-                                onClick={() => setAutoCheckReq(req)}
-                                title="Reference file and auto-check settings"
-                              >
-                                {req.autoCheck?.referenceName ? <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg><span>Reference: {req.autoCheck.referenceName}</span></> : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg><span>{req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'}</span></>}
-                              </button>
-                              <button
-                                className="req-delete"
-                                style={t.deleteBtn}
-                                onClick={() => setDeleteConfirm(req)}
-                                title="Delete requirement"
-                              >
-                                <Icon name="trash" size={15} label="Delete requirement" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>}
+                <div className="sx-req-tools">
+                  <span>{list.length} document{list.length === 1 ? '' : 's'}{list.filter(overdue).length ? <> · <em>{list.filter(overdue).length} overdue</em></> : ''}</span>
+                  <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
+                </div>
+                <p className="sx-hint">Add a reference file to let AI flag each submission green, yellow or red. Overdue alerts reach students automatically.</p>
+                {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
+                : <div className="sx-reqlist">{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
+                  return <div key={req.id} className="sx-reqrow req-row">
+                    <span className="sx-reqname req-label">{req.label}</span>
+                    <label className="sx-date" data-empty={!req.deadline || undefined}><span>{fmt(req.deadline)}</span>
+                      <input type="date" aria-label={`${req.label} deadline`} className="req-date" value={req.deadline || ''} onChange={e => handleUpdateDeadline(req.id, e.target.value)} /></label>
+                    <b className="lb-chip" data-tone={!req.deadline ? 'mute' : late ? 'red' : 'green'}>{!req.deadline ? 'No deadline' : late ? 'Overdue' : 'Active'}</b>
+                    <button type="button" className="sx-icon autocheck-chip" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
+                      {ref ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg>}
+                      <span>{ref ? 'Reference' : 'Reference'}</span></button>
+                    <button type="button" className="sx-icon sx-del req-delete" onClick={() => setDeleteConfirm(req)} title="Delete requirement" aria-label="Delete requirement"><Icon name="trash" size={15} /></button>
+                  </div>; })}</div>}
+                {list.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setReqPage} label="Requirements" /></div>}
+              </div>; })()}
             <div hidden={view !== 'rules'} className="sx-panel sx-rules">
               <div className="sx-rule"><h3>Required hours</h3><p><b>{selected.hoursRequired || '—'} hours</b> for every student in {selected.name}.</p></div>
               <div className="sx-rule"><h3>Journals</h3>{journalSettings || <p>Journal settings aren’t available here.</p>}</div>

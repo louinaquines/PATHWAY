@@ -299,7 +299,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
               : state === 'waiting' ? [`Waiting · ${item.emailAcceptedAt ? 'sent ' + ago(item.emailAcceptedAt) : 'not emailed'}`, 'amber']
               : state === 'expired' ? [`Link expired ${short(item.expiresAt)}`, 'red'] : ['Not asked yet', 'mute'];
             return <div key={student.id} className="ev-row" data-open={open || undefined}>
-              <button type="button" className="ev-row-main" aria-expanded={open} onClick={() => setExpandedId(open ? null : student.id)}>
+              <button type="button" className="ev-row-main" aria-expanded={item ? open : undefined} onClick={() => { if (!item) { if (placedIds.has(student.id)) openAsk(student); return; } setExpandedId(open ? null : student.id); }}>
                 <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
                 <span className="ev-who"><strong>{personName(student)}</strong><small>{[item?.companyName || student.company || student.companyName, item?.supervisorName || student.supervisorName].filter(Boolean).join(' · ')}</small></span>
                 <span className="ev-state"><b className="lb-chip" data-tone={chip[1]}>{chip[0]}</b></span>
@@ -331,7 +331,6 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
                 })()}
                 <div className="ev-detail-foot"><button type="button" className="rq-link ev-delete" onClick={() => setDeleteTarget(item)}><Icon name="trash" size={13} /> Delete this evaluation</button></div>
               </div>}
-              {open && !item && <div className="ev-detail"><p className="f48-muted">No evaluation yet. Use Ask now to send the supervisor a link.</p></div>}
             </div>;
           })}
         </div>

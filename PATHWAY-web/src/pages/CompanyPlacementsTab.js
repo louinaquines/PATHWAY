@@ -357,6 +357,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       {selectedSection && !error && <button type="button" className="rq-btn" disabled={!!busy} onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
       {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
     </>; return topHost ? createPortal(acts, topHost) : <div className="pl-inline-actions">{acts}</div>; })()}
+    {selectedSection && error && <div className="pl-down" role="alert"><strong>Placements couldn’t load</strong><p>{/503|unavailable|fetch|network|timed? ?out/i.test(error) ? 'The PATHWAY server is starting up or temporarily down. This usually clears within a minute.' : error}</p><button type="button" className="rq-btn rq-primary" onClick={() => load()}>Try again</button></div>}
     {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={historyRevision}
       onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
       onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}

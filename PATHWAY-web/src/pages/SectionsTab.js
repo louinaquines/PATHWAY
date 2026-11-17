@@ -245,10 +245,10 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   }
 
   return (
-    <div className="sx sections-workspace">
+    <div className="sx">
       {(() => { const btn = <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button>;
         return topHost ? createPortal(btn, topHost) : <div className="sx-inline">{btn}</div>; })()}
-      <aside className="sx-list sections-panel">
+      <aside className="sx-list">
         {sections.length > 6 && <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Find a section" />}
         {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
           : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
@@ -258,7 +258,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
           </button>; })}
         <RecordPagination pagination={sectionsPage} label="Sections" />
       </aside>
-      <section className="sx-detail sections-detail">
+      <section className="sx-detail">
         {!selected ? (sections.length === 0
           ? <PortalEmpty icon="section" title="Create your first section" description="A section groups your OJT students, their required hours and the documents they must submit."
               steps={['Create a section (name and required hours)', 'Add students or approve sign-ups', 'Set requirements, deadlines and reference files']} action={{ label: '+ New Section', onClick: () => setModal(true) }} />

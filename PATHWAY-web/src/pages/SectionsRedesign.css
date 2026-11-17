@@ -61,3 +61,6 @@
   .sx-row { grid-template-columns: 90px minmax(0, 1fr) 120px; } .sx-row > :nth-child(3) { display: none; }
 }
 @media (max-width: 600px) { .sx-tools .coordinator-search { width: 100%; } .sx-row { grid-template-columns: minmax(0, 1fr) auto; } .sx-row > :first-child { display: none; } }
+.sx-detail { padding: 20px 24px !important; }
+.sx-list { width: 240px; }
+@media (max-width: 1100px) { .sx-list { width: auto; } }

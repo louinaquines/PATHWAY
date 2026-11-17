@@ -23,12 +23,16 @@ import PlacementOverview from '../components/PlacementOverview';
 import SectionPicker from '../components/SectionPicker';
 import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
+import './LogbookRedesign.css';
 import './PlacementRedesign.css';
 
 
 
 export default function CompanyPlacementsTab({ department, selectedSection, students = [], overviewView, sections = [], onSectionChange }) {
   const [topHost, setTopHost] = useState(null);
+  const [doneCompany, setDoneCompany] = useState('');
+  const [doneCompanies, setDoneCompanies] = useState([]);
+  const [collapsed, setCollapsed] = useState({});
   useEffect(() => { setTopHost(document.getElementById('pl-top-actions')); }, []);
   const [items, setItems] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -140,6 +144,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     Promise.all([adminRequest(base+'&view=students&queue=waiting'),adminRequest(base+'&view=companies&availability=active')]).then(([a,b])=>{if(active){setAssignedStudents(a.students||[]);setCompanies(b.companies||[]);}}).catch(e=>{if(active)setAssignmentError(e.message);});return()=>{active=false;};
   },[assignmentOpen,selectedSection?.id]);
 
+  useEffect(() => { if (queueFilter !== 'completed' || !selectedSection?.id) return; let on = true;
+    adminRequest('/coordinator/placement-workspace?sectionId=' + encodeURIComponent(selectedSection.id) + '&view=companies&availability=active').then(d => { if (on) setDoneCompanies(d.companies || []); }).catch(() => {});
+    return () => { on = false; }; }, [queueFilter, selectedSection?.id]);
   const historyOpen = queueFilter === 'history' || (selectedQueueStudent && reviewStage === 'history');
   const sectionId = selectedSection?.id;
   useEffect(() => {
@@ -347,8 +354,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {(() => { const isReq = row => row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1;
       const n = queueFilter === 'action' ? queueRows.filter(r => !isReq(r)).length : queueRows.length;
       return <div className="pl-work-head">
-        <h3 className="pl-section-title">{workspace === 'companies' ? 'Students by company' : queueFilter === 'history' ? 'Placement history' : queueFilter === 'completed' ? 'Finished placements' : n ? `${n} letter${n === 1 ? '' : 's'} and approval${n === 1 ? '' : 's'} to finish` : 'Letters and approvals'}</h3>
+        <h3 className="pl-section-title">{workspace === 'companies' ? 'Students by company' : queueFilter === 'history' ? 'Placement history' : queueFilter === 'completed' ? `Finished placements · ${queueRows.length}` : n ? `${n} letter${n === 1 ? '' : 's'} and approval${n === 1 ? '' : 's'} to finish` : 'Letters and approvals'}</h3>
         <span className="pl-grow" />
+        {workspace === 'reviews' && queueFilter === 'completed' && <select className="pl-co-filter" aria-label="Filter by company" value={doneCompany} onChange={e => setDoneCompany(e.target.value)}><option value="">All companies</option>{[...new Set(queueRows.map(r => r.company && r.company !== '—' ? r.company : 'No company recorded'))].sort().map(n => <option key={n} value={n}>{n}</option>)}</select>}
         {workspace === 'reviews' && queueFilter !== 'action' && <CoordinatorSearch value={reviewSearch} onChange={setReviewSearch} label="Search placement reviews by student or company" placeholder="Find a student" />}
         <SubmissionNotifications kind="placements" coordinatorId={auth?.currentUser?.uid} section={selectedSection}
           suppliedItems={error ? [] : placementNotices} onRefresh={load}
@@ -420,7 +428,35 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         onClick={() => setHistoryPaging({ scope: historyScope, cursors: [...historyCursors, currentHistory.nextCursor] })}>Next</button>
     </nav>}
 
-    {loading && <div role="status" className="placement-loading-banner"><span className="placement-spinner" aria-hidden="true" /><div><strong>Loading placements…</strong>{slowLoad && <span>The server is waking up. The first load can take up to a minute.</span>}</div></div>}<div className="placement-queue-table pl-list">
+    {loading && <div role="status" className="placement-loading-banner"><span className="placement-spinner" aria-hidden="true" /><div><strong>Loading placements…</strong>{slowLoad && <span>The server is waking up. The first load can take up to a minute.</span>}</div></div>}{queueFilter === 'completed' && workspace === 'reviews' && (() => {
+      const recOf = row => (row.tasks || []).find(t => t.stage === 'placement' && t.record?.status === 'approved')?.record || row.current?.record || {};
+      const chip = row => { const ts = row.tasks || []; if (ts.some(t => t.stage === 'verified' && t.record?.deliveryStatus === 'sent')) return ['Letter sent', 'green']; if (ts.some(t => t.stage === 'final' && t.record?.status === 'approved')) return ['Training', 'blue']; return ['Approved', 'mute']; };
+      const fmt = v => { const t = Date.parse(v); return t ? new Date(t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''; };
+      const groups = new Map();
+      queueRows.forEach(row => { const c = row.company && row.company !== '—' ? row.company : 'No company recorded'; if (!groups.has(c)) groups.set(c, []); groups.get(c).push(row); });
+      const names = [...groups.keys()].sort((x, y) => x.localeCompare(y));
+      const shown = doneCompany ? names.filter(n => n === doneCompany) : names;
+      return <div className="pl-done">
+        {!loading && !names.length && <div className="pl-list"><div className="review-empty">No finished placements yet.</div></div>}
+        {shown.map(name => { const rows = groups.get(name).sort((x, y) => String(recOf(y).updatedAt || recOf(y).createdAt || '').localeCompare(String(recOf(x).updatedAt || recOf(x).createdAt || '')));
+          const co = doneCompanies.find(c => c.name === name); const shut = collapsed[name];
+          return <section key={name} className="pl-co-card">
+            <button type="button" className="pl-co-head" aria-expanded={!shut} onClick={() => setCollapsed(v => ({ ...v, [name]: !shut }))}>
+              <span className="pl-co-name"><strong>{name}</strong><small>{rows.length} student{rows.length === 1 ? '' : 's'}</small></span>
+              {co?.capacity > 0 && <span className="plo-slots" aria-label={`${co.occupiedSlots || 0} of ${co.capacity} slots filled`}>{Array.from({ length: Math.min(co.capacity, 12) }, (_, i) => <i key={i} data-on={i < (co.occupiedSlots || 0) || undefined} />)}</span>}
+              <svg className="pl-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </button>
+            {!shut && rows.map(row => { const rec = recOf(row); const [label, tone] = chip(row); const nm = row.name || 'Student';
+              return <div key={row.id} className="pl-done-row">
+                <i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
+                <span className="plo-body"><strong>{nm}</strong><small>{[studentIdsByUid.get(row.id), rec.internshipRole].filter(Boolean).join(' · ') || '—'}</small></span>
+                <b className="lb-chip" data-tone={tone}>{label}</b>
+                <span className="pl-dates">{rec.startDate ? `${fmt(rec.startDate)} – ${fmt(rec.endDate)}` : ''}</span>
+                <button type="button" className="rq-link" onClick={() => openStudent(row)}>View<span className="sr-only"> placement for {row.name}</span></button>
+              </div>; })}
+          </section>; })}
+      </div>; })()}
+    <div className="placement-queue-table pl-list" hidden={queueFilter === 'completed'}>
       {queuePage.items.filter(row => queueFilter !== 'action' || !(row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1)).map(row => { const label = queueFilter === 'history' ? 'View history' : ({ 'Draft needed': 'Prepare draft', 'Waiting for signed copy': 'View letter', 'Signed copy verified': 'Email letter', 'Final approval awaiting review': 'Review' }[row.current.step] || row.current.action);
         const nm = row.name || 'Student'; return <div key={row.id} className="pl-row">
         <i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
@@ -541,7 +577,6 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     <footer className="pl-foot">
       <span className="pl-links">
         {[['action', 'To finish'], ['completed', 'Finished'], ['history', 'History']].map(([v, l]) => <button key={v} type="button" className="rq-link" aria-pressed={workspace === 'reviews' && queueFilter === v} onClick={() => { setWorkspace('reviews'); setRequestsOnly(false); setQueueFilter(v); setSelectedQueueStudent(null); }}>{l}</button>)}
-        <button type="button" className="rq-link" aria-pressed={workspace === 'companies'} onClick={() => setWorkspace('companies')}>By company</button>
       </span>
       {workspace === 'reviews' && (queueCursors.length > 1 || nextQueueCursor) && <nav aria-label="Placement students pagination"><button type="button" className="rq-btn" aria-label="Previous page" disabled={queueCursors.length===1} onClick={()=>setQueueCursors(v=>v.slice(0,-1))}>‹</button><span>Page {queueCursors.length}</span><button type="button" className="rq-btn" aria-label="Next page" disabled={!nextQueueCursor} onClick={()=>setQueueCursors(v=>[...v,nextQueueCursor])}>›</button></nav>}
     </footer>

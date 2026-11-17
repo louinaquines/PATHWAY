@@ -418,7 +418,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                   <span className="arq-select"><select value={reqForm.category} onChange={e => setReqForm(f => ({ ...f, category: e.target.value }))}>
                     {CATEGORIES.map(c => <option key={c} value={c}>{({ 'Pre-OJT': 'Before OJT', Ongoing: 'During OJT', 'Post-OJT': 'After OJT' })[c] || c}</option>)}
                   </select><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></label>
-                <label className="arq-field">Deadline <em>optional</em>
+                <label className="arq-field"><span>Deadline <em>(optional)</em></span>
                   <input type="date" value={reqForm.deadline} onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))} /></label>
               </div>
             </div>

@@ -149,3 +149,6 @@
 .arq-primary:hover:not(:disabled) { background: #0a52b6; }
 .arq-btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 520px) { .arq-pair { grid-template-columns: 1fr; } }
+.coordinator-page .arq :is(input, select):is(:focus, :focus-visible) { outline: 0 !important; outline-offset: 0 !important; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.arq-field > span:first-child { display: block; }
+.arq-pair { align-items: end; }

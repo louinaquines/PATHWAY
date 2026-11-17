@@ -109,3 +109,22 @@
 .sx-req-tools .sx-addreq { margin-bottom: 6px; }
 .sx-hint em { font-style: normal; color: #b3261e; font-weight: 600; }
 .sx-stage { gap: 36px; }
+/* document table */
+.sx-reqlist { display: block; border: 1px solid #e8e5de; border-radius: 12px; background: #fff; overflow: hidden; }
+.sx-reqrow { display: grid !important; grid-template-columns: minmax(0, 1fr) 150px 120px 84px; align-items: center; gap: 16px; min-height: 52px; padding: 0 16px !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; background: #fff !important; box-shadow: none !important; transform: none !important; transition: background-color .12s; }
+.sx-reqrow + .sx-reqrow { border-top: 1px solid #efece5 !important; }
+.sx-reqrow:not(.sx-reqhead):hover { background: #faf9f6 !important; }
+.sx-reqhead { min-height: 36px; background: #faf9f6 !important; font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #9aa1ad; }
+.sx-reqhead span:last-child { text-align: right; }
+.sx-reqname { font-size: 13.5px; font-weight: 600; color: #15213a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-date { width: 100%; box-sizing: border-box; }
+.sx-reqrow[data-late] .sx-date span { color: #b3261e; }
+.sx-status .lb-chip { font-size: 11.5px; }
+.sx-acts { display: flex; justify-content: flex-end; gap: 6px; }
+.sx-icon.sx-ref, .sx-icon.sx-del { width: 32px; height: 32px !important; padding: 0 !important; justify-content: center; }
+@media (max-width: 760px) {
+  .sx-reqhead { display: none !important; }
+  .sx-reqrow { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 14px !important; }
+  .sx-reqname { grid-column: 1 / -1; white-space: normal; }
+  .sx-date { width: auto; }
+}

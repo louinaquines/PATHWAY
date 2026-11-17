@@ -323,16 +323,16 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 </div>
                 <p className="sx-hint">{list.filter(overdue).length ? <><em>{list.filter(overdue).length} overdue</em> · </> : null}Add a reference file to let AI flag each submission green, yellow or red. Overdue alerts reach students automatically.</p>
                 {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
-                : <div className="sx-reqlist">{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
-                  return <div key={req.id} className="sx-reqrow req-row">
-                    <span className="sx-reqname req-label">{req.label}</span>
+                : <div className="sx-reqlist"><div className="sx-reqrow sx-reqhead" aria-hidden="true"><span>Document</span><span>Deadline</span><span>Status</span><span>Actions</span></div>{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
+                  return <div key={req.id} className="sx-reqrow" data-late={late || undefined}>
+                    <span className="sx-reqname" title={req.label}>{req.label}</span>
                     <label className="sx-date" data-empty={!req.deadline || undefined}><span>{fmt(req.deadline)}</span>
                       <input type="date" aria-label={`${req.label} deadline`} className="req-date" value={req.deadline || ''} onChange={e => handleUpdateDeadline(req.id, e.target.value)} /></label>
-                    <b className="lb-chip" data-tone={!req.deadline ? 'mute' : late ? 'red' : 'green'}>{!req.deadline ? 'No deadline' : late ? 'Overdue' : 'Active'}</b>
-                    <button type="button" className="sx-icon autocheck-chip" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
+                    <span className="sx-status"><b className="lb-chip" data-tone={!req.deadline ? 'mute' : late ? 'red' : 'green'}>{!req.deadline ? 'No deadline' : late ? 'Overdue' : 'Active'}</b></span>
+                    <span className="sx-acts"><button type="button" className="sx-icon sx-ref" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
                       {ref ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg>}
-                      <span>{ref ? 'Reference' : 'Reference'}</span></button>
-                    <button type="button" className="sx-icon sx-del req-delete" onClick={() => setDeleteConfirm(req)} title="Delete requirement" aria-label="Delete requirement"><Icon name="trash" size={15} /></button>
+                      </button>
+                    <button type="button" className="sx-icon sx-del" onClick={() => setDeleteConfirm(req)} title="Delete requirement" aria-label="Delete requirement"><Icon name="trash" size={15} /></button></span>
                   </div>; })}</div>}
                 {list.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setReqPage} label="Requirements" /></div>}
               </div>; })()}

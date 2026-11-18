@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { showStudentError } from '../services/studentSuccess';
 import { BackHandler, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import Modal from '../components/BackdropModal';
 import { studentAlert as Alert } from '../services/studentAlert';
@@ -305,7 +306,7 @@ export default function NotificationsScreen({ navigation, route }) {
       load();
     } catch (error) {
       console.error('Send message error:', error);
-      Alert.alert('Message not sent', error.message || 'Check your connection and try again.');
+      showStudentError('Message not sent', error.message || 'Check your connection and try again.');
     } finally { setSending(false); }
   };
 

@@ -9,3 +9,8 @@ export function registerStudentSuccess(next) {
 export function showStudentSuccess(title, message) {
   handler?.({ title, message });
 }
+
+// Failures that need attention: same card, error character, stays until dismissed.
+export function showStudentError(title, message) {
+  handler?.({ title, message, tone: 'error' });
+}

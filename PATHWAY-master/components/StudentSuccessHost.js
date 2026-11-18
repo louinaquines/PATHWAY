@@ -29,7 +29,7 @@ export default function StudentSuccessHost() {
       useNativeDriver: Platform.OS !== 'web',
     });
     if (!reducedMotion) animation.start();
-    const timer = setTimeout(() => setFeedback(null), 2400);
+    const timer = feedback.tone === 'error' ? null : setTimeout(() => setFeedback(null), 2400);
     return () => { clearTimeout(timer); animation.stop(); };
   }, [feedback, reducedMotion, progress]);
   const close = () => setFeedback(null);
@@ -39,13 +39,13 @@ export default function StudentSuccessHost() {
         <Animated.View style={[styles.card, { opacity: progress, transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]} accessibilityViewIsModal>
           <ScrollView contentContainerStyle={styles.body}>
             <Animated.View style={{ transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }}>
-              <Image source={require('../assets/pathway-guide-success.png')} style={styles.character} resizeMode="contain" accessible={false} />
+              <Image source={feedback?.tone === 'error' ? require('../assets/pathway-guide-error.png') : require('../assets/pathway-guide-success.png')} style={styles.character} resizeMode="contain" accessible={false} />
             </Animated.View>
             <Text accessibilityRole="header" style={styles.title}>{feedback?.title}</Text>
             <Text accessibilityLiveRegion="polite" style={styles.message}>{feedback?.message}</Text>
           </ScrollView>
-          <MotionTouchableOpacity style={styles.button} onPress={close} accessibilityRole="button" accessibilityLabel="Continue">
-            <Text style={styles.buttonText}>Continue</Text>
+          <MotionTouchableOpacity style={[styles.button, feedback?.tone === 'error' && styles.buttonError]} onPress={close} accessibilityRole="button" accessibilityLabel={feedback?.tone === 'error' ? 'OK' : 'Continue'}>
+            <Text style={styles.buttonText}>{feedback?.tone === 'error' ? 'OK' : 'Continue'}</Text>
           </MotionTouchableOpacity>
         </Animated.View>
       </SafeAreaView>
@@ -60,5 +60,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '600', textAlign: 'center', color: COLORS.textPrimary, marginTop: 16 },
   message: { fontSize: 15, lineHeight: 22, textAlign: 'center', color: COLORS.textSecondary, marginTop: 10 },
   button: { minHeight: 48, borderRadius: 14, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  buttonError: { backgroundColor: '#B3261E' },
   buttonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { showStudentSuccess } from '../services/studentSuccess';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, usePreventRemove } from '@react-navigation/native';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -25,6 +26,10 @@ export default function WorkplaceSupportScreen({ navigation, route }) {
   const controller = useRef(null);
   if (!controller.current) controller.current = createSupportDraft({ uid: owner?.uid, onChange: value => { if (alive.current) setDraft(value); } });
   const form = draft || controller.current.state;
+  const shownResult = useRef(null);
+  useEffect(() => {
+    if (form.result && shownResult.current !== form.result) { shownResult.current = form.result; showStudentSuccess('Request sent', 'Your coordinator will review it and reply here.'); }
+  }, [form.result]);
   const [context, setContext] = useState(null);
   const [view, setView] = useState(route?.params?.reportId ? 'detail' : 'form');
   const [reportId, setReportId] = useState(route?.params?.reportId || null);
@@ -135,7 +140,7 @@ export default function WorkplaceSupportScreen({ navigation, route }) {
           const folder = `${FileSystem.documentDirectory}PATHWAY/`;
           await FileSystem.makeDirectoryAsync(folder, { intermediates: true }); check();
           await FileSystem.copyAsync({ from: downloaded.uri, to: `${folder}support-${Date.now()}-${name}` });
-          check(); Alert.alert('Attachment saved', 'Your attachment is saved in the PATHWAY folder in Files.');
+          check(); showStudentSuccess('Attachment saved', 'It is in the PATHWAY folder in Files.');
         }
       }
     } catch (failure) { if (current()) Alert.alert('Unable to open attachment', failure.message || 'Try again with a compatible file viewer.'); }

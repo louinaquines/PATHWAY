@@ -1,4 +1,5 @@
 // screens/StudentDashboard.js
+import { showStudentError } from '../services/studentSuccess';
 import TickProgress from '../components/TickProgress';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -397,7 +398,8 @@ export default function StudentDashboard({ navigation }) {
       const uploaded = await uploadCloudinaryFile(asset, authorization);
       const saved = await requestBackend('/profile/photo', { method: 'PUT', payload: uploaded });
       setStudent(current => ({ ...current, profilePhotoUrl: saved.profilePhotoUrl }));
-    } catch (error) { Alert.alert('Profile photo', error.message || 'Unable to update your profile photo.'); }
+      showStudentSuccess('Photo updated', 'Your new profile photo is saved.');
+    } catch (error) { showStudentError('Photo not updated', error.message || 'Unable to update your profile photo. Try again.'); }
   };
 
   const gateProps = {
@@ -1017,7 +1019,7 @@ function LogsPanel({ logbook, openAttendance, openProgress, logbookRecords = [],
       setAttLogs(prev => [newLog, ...prev]);
       showStudentSuccess('Time-in recorded', 'Your shift has started.');
     } catch (e) {
-      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-in.');
+      showStudentError('Time-in not recorded', e.message || 'Failed to record time-in. Try again.');
     } finally { setSaving(false); }
   };
 
@@ -1032,7 +1034,7 @@ function LogsPanel({ logbook, openAttendance, openProgress, logbookRecords = [],
       if (onHoursUpdate) onHoursUpdate(); // refresh parent metrics
       showStudentSuccess('Time-out recorded', 'Your shift has been saved.');
     } catch (e) {
-      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-out.');
+      showStudentError('Time-out not recorded', e.message || 'Failed to record time-out. Try again.');
     } finally { setSaving(false); }
   };
 

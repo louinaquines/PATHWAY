@@ -1,4 +1,5 @@
 // screens/ChangePasswordScreen.js
+import { showStudentSuccess } from '../services/studentSuccess';
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -86,6 +87,7 @@ export default function ChangePasswordScreen({ navigation }) {
     try {
       await postBackend('/student/change-password', { currentPassword, newPassword, apiKey: auth.app.options.apiKey });
       setDone(true);
+      showStudentSuccess('Password updated', 'Use your new password next time you sign in.');
       setTimeout(leave, 1600);
     } catch (e) {
       setError(/wrong|invalid|incorrect|credential/i.test(e.message || '') ? 'Your temporary password is incorrect.' : (e.message || 'Could not save your password. Try again.'));

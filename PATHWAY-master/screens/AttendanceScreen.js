@@ -117,7 +117,7 @@ export default function AttendanceScreen({ navigation }) {
       setLogs(prev => [newLog, ...prev]);
       showStudentSuccess('Time-in recorded', 'Your shift has started.');
     } catch (e) {
-      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-in.');
+      showStudentError('Time-in not recorded', e.message || 'Failed to record time-in. Try again.');
       console.error(e);
     } finally {
       setSaving(false);
@@ -135,7 +135,7 @@ export default function AttendanceScreen({ navigation }) {
       setUserData(u => ({ ...u, hoursRendered: Number(u?.hoursRendered || 0) + Number(result.hoursToday || 0) }));
       showStudentSuccess('Time-out recorded', 'Your shift has been saved.');
     } catch (e) {
-      Alert.alert('Attendance unavailable', e.message || 'Failed to record time-out.');
+      showStudentError('Time-out not recorded', e.message || 'Failed to record time-out. Try again.');
       console.error(e);
     } finally {
       setSaving(false);
@@ -561,4 +561,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-import { showStudentSuccess } from '../services/studentSuccess';
+import { showStudentError, showStudentSuccess } from '../services/studentSuccess';

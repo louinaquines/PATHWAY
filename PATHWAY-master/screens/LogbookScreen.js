@@ -16,7 +16,7 @@ import { readRecordPage, mergeRecords } from '../services/recordPagination';
 import { logbookLoadErrorMessage } from '../services/logbookLoadError';
 import { journalEntryTitle, journalContextChanged, validJournalSettings } from '../services/journalPresentation';
 import LoadMore from '../components/LoadMore';
-import { showStudentSuccess } from '../services/studentSuccess';
+import { showStudentError, showStudentSuccess } from '../services/studentSuccess';
 import { auth, db } from '../firebaseConfig';
 import { postBackend, requestBackend } from '../services/backendApi';
 import { createJournalMigrationClient, journalRevisionExpectation } from '../services/journalSubmission';
@@ -407,7 +407,7 @@ export default function LogbookScreen({ navigation }) {
       fetchEntries();
     } catch (e) {
       setRecoveryRequired(migration.current.hasPendingJournal());
-      Alert.alert('Could not submit', e.message || 'Failed to submit logbook entry. Try again.');
+      showStudentError('Logbook not submitted', e.message || 'Failed to submit your logbook entry. Try again.');
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,5 @@
 // screens/StudentDashboard.js
+import TickProgress from '../components/TickProgress';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1069,22 +1070,14 @@ function LogsPanel({ logbook, openAttendance, openProgress, logbookRecords = [],
             <View style={styles.logsAccumulationIcon}><ClockIcon size={18} color={COLORS.primary} /></View>
             <Text style={styles.logsAccumulationLabel}>OJT HOURS</Text>
           </View>
-          <View style={styles.logsAccumulationPercent}>
-            <Text style={styles.logsAccumulationPercentValue}>{progressPercent}%</Text>
-            <Text style={styles.logsAccumulationPercentLabel}>complete</Text>
-          </View>
         </View>
 
-        <View>
-          <Text variant="heading" style={styles.logsAccumulationValue}>{metrics.rendered.toFixed(1)}<Text style={styles.logsAccumulationUnit}> / {metrics.required} hrs</Text></Text>
+        <View style={styles.logsHoursRow}>
+          <Text variant="heading" style={styles.logsAccumulationValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metrics.rendered.toFixed(1)}<Text style={styles.logsAccumulationUnit}>  /  {metrics.required} hrs</Text></Text>
+          <View style={styles.logsPercentPill}><Text style={styles.logsPercentPillText}>{progressPercent}%</Text></View>
         </View>
-
-        <View style={styles.logsAccumulationFooter}>
-          <View style={styles.logsMeterCopy}>
-            <View style={styles.logsAccumulationTrack} accessible accessibilityRole="progressbar" accessibilityLabel="OJT hours completed" accessibilityValue={{ min: 0, max: 100, now: progressPercent }}>
-              <View style={[styles.logsAccumulationFill, { width: `${Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100}%` }]} />
-            </View>
-          </View>
+        <View style={styles.logsTickWrap}>
+          <TickProgress height={22} progress={Math.max(0, Math.min(Number(metrics.progress) || 0, 1))} percent={progressPercent} accessibilityLabel="OJT hours completed" />
         </View>
         <View style={styles.heroBottomRow}>
           <Text style={styles.logsAccumulationRemaining}>{metrics.remaining.toFixed(1)} hours to go</Text>
@@ -2017,8 +2010,12 @@ const styles = StyleSheet.create({
   logsAccumulationPercentValue: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '800' },
   logsAccumulationPercentLabel: { color: COLORS.textSecondary, fontSize: 10, fontWeight: '600' },
   logsAccumulationValueRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logsAccumulationValue: { color: '#0A1631', fontSize: 36, lineHeight: 40, fontWeight: '700', marginTop: 2, flexShrink: 1, minWidth: 0, transform: [{ translateY: 6 }] },
-  logsAccumulationUnit: { color: COLORS.textMuted, fontSize: 16, fontWeight: '600', flexShrink: 1 },
+  logsAccumulationValue: { color: '#0A1631', fontSize: 34, lineHeight: 38, fontWeight: '700', flexShrink: 1, minWidth: 0 },
+  logsHoursRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 },
+  logsPercentPill: { backgroundColor: '#EEF2F8', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  logsPercentPillText: { fontSize: 15, fontWeight: '700', color: '#0A1631' },
+  logsTickWrap: { marginTop: 8 },
+  logsAccumulationUnit: { color: '#465066', fontSize: 17, fontWeight: '500', flexShrink: 1 },
   logsAccumulationSubline: { color: COLORS.textMuted, fontSize: 11, marginTop: 1 },
   logsAccumulationTrack: { width: '100%', height: 8, borderRadius: 6, backgroundColor: '#E7EDF7', overflow: 'hidden' },
   logsAccumulationFill: { height: '100%', borderRadius: 6, backgroundColor: '#0874E8' },

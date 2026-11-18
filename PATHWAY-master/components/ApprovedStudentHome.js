@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import HomeSurface from './StudentSurface';
+import TickProgress from './TickProgress';
 import { AppText as Text } from './AppText';
 import ScrollView from './RefreshableScrollView';
 import { MotionTouchableOpacity, ScreenEntrance } from './Motion';
@@ -23,12 +24,12 @@ export default function ApprovedStudentHome({ student, metrics, recent, width, g
     <ScrollView showsVerticalScrollIndicator={false} style={styles.page} contentContainerStyle={styles.scroll}>
       <HomeSurface tone="page" />
       <View style={styles.body}>
-        <ScreenEntrance style={styles.welcome}>
+        <ScreenEntrance style={[styles.welcome, compact && styles.welcomeCompact]}>
           <HomeSurface tone="welcome" waves />
-          <View style={styles.welcomeCopy}>
-            <Text style={styles.eyebrow}>OJT SUMMARY</Text>
-            <Text variant="heading" style={[styles.greeting, compact && styles.greetingCompact]}>Welcome, {student?.firstName || 'Student'}</Text>
-            <Text style={styles.department}>{student?.department || student?.course || 'OJT Student'}</Text>
+          <View style={[styles.welcomeCopy, { paddingRight: compact ? 104 : 122 }]}>
+            <Text variant="heading" numberOfLines={1} style={[styles.greeting, compact && styles.greetingCompact]}>Welcome,</Text>
+            <Text variant="heading" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={[styles.greeting, compact && styles.greetingCompact]}>{student?.firstName || 'Student'}</Text>
+            <Text numberOfLines={1} style={styles.department}>{student?.department || student?.course || 'OJT Student'}</Text>
           </View>
           {/* Home uses the PATHWAY guide; the student's own photo stays on the Profile screen. */}
           <Image source={waving} style={[styles.wavingGuide, compact && styles.wavingGuideCompact]} resizeMode="contain" accessible={false} />
@@ -38,15 +39,13 @@ export default function ApprovedStudentHome({ student, metrics, recent, width, g
           <HomeSurface waves />
           <View style={styles.heroTop}>
             <View style={styles.labelRow}><View style={[styles.blueIcon, styles.heroIcon]}><ClockIcon size={18} color={COLORS.primary} /></View><Text style={styles.blueLabel}>TOTAL OJT HOURS</Text></View>
-            <View style={styles.percentBadge}><Text style={styles.percent}>{percent}% complete</Text></View>
           </View>
-          <Text variant="heading" style={styles.hours}>{metrics.rendered.toFixed(1)}<Text style={styles.hoursTotal}> / {metrics.required} hrs</Text></Text>
-          <View style={styles.heroFooter}>
-            <View style={styles.heroProgressCopy}>
-              <View accessibilityRole="progressbar" accessibilityLabel="OJT hours completed" accessibilityValue={{ min: 0, max: 100, now: percent }} style={styles.track}>
-                <View style={[styles.fill, { width: `${progress * 100}%` }]} />
-              </View>
-            </View>
+          <View style={styles.hoursRow}>
+            <Text variant="heading" style={styles.hours} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metrics.rendered.toFixed(1)}<Text style={styles.hoursTotal}>  /  {metrics.required} hrs</Text></Text>
+            <View style={styles.percentPill}><Text style={styles.percentPillText}>{percent}%</Text></View>
+          </View>
+          <View style={styles.tickWrap}>
+            <TickProgress height={22} progress={progress} percent={percent} accessibilityLabel="OJT hours completed" />
           </View>
           <View style={styles.heroBottomRow}>
             <Text style={styles.remaining}>{metrics.remaining.toFixed(1)} hours to go</Text>
@@ -125,14 +124,16 @@ const styles = StyleSheet.create({
   surfaceArtwork: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden' },
   scroll: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 88 },
   body: { width: '100%', maxWidth: 620, alignSelf: 'center', gap: 18 },
-  welcome: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 16, borderRadius: 22, backgroundColor: '#EDF5FF', overflow: 'hidden' },
-  welcomeCopy: { flex: 1, minWidth: 0, gap: 5 },
+  // Fixed height: two-line greeting (Welcome, / first name) + department; never grows with the name.
+  welcome: { flexDirection: 'row', alignItems: 'center', height: 148, paddingHorizontal: 18, borderRadius: 22, backgroundColor: '#EDF5FF', overflow: 'hidden' },
+  welcomeCompact: { height: 132 },
+  welcomeCopy: { flex: 1, minWidth: 0, gap: 2 },
   eyebrow: { fontSize: 11, fontWeight: '600', letterSpacing: 1.4, color: COLORS.textMuted },
   greeting: { fontSize: 27, lineHeight: 34, fontWeight: '700', color: '#0A1631', letterSpacing: -0.4, flexShrink: 1 },
   greetingCompact: { fontSize: 24, lineHeight: 31 },
   department: { fontSize: 14, lineHeight: 21, color: COLORS.textMuted },
-  wavingGuide: { width: 112, height: 112, marginRight: 10, marginBottom: -14, alignSelf: 'flex-end', flexShrink: 0 },
-  wavingGuideCompact: { width: 92, height: 92 },
+  wavingGuide: { width: 132, height: 132, position: 'absolute', right: 6, bottom: -4 },
+  wavingGuideCompact: { width: 114, height: 114 },
   avatar: { width: 66, height: 66, flexShrink: 0, borderRadius: 33, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarImage: { width: '100%', height: '100%' },
   initials: { fontSize: 20, fontWeight: '700', color: COLORS.primary },
@@ -145,12 +146,16 @@ const styles = StyleSheet.create({
   blueLabel: { fontSize: 11, fontWeight: '600', color: COLORS.primary, letterSpacing: 0.7 },
   percentBadge: { backgroundColor: '#EDF5FF', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 },
   percent: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
-  hours: { fontSize: 36, lineHeight: 40, fontWeight: '700', color: '#0A1631', marginTop: 6, transform: [{ translateY: 6 }] },
-  hoursTotal: { fontSize: 16, color: COLORS.textMuted, fontWeight: '600' },
+  hours: { flexShrink: 1, fontSize: 34, lineHeight: 38, fontWeight: '700', color: '#0A1631' },
+  hoursTotal: { fontSize: 17, color: '#465066', fontWeight: '500' },
+  hoursRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 },
+  percentPill: { backgroundColor: '#EEF2F8', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  percentPillText: { fontSize: 15, fontWeight: '700', color: '#0A1631' },
+  tickWrap: { marginTop: 8, marginBottom: 0 },
   track: { height: 8, borderRadius: 6, backgroundColor: '#E7EDF7', overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 8, backgroundColor: '#0874E8' },
   heroFooter: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: -7, transform: [{ translateY: 6 }] },
-  heroBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, transform: [{ translateY: 6 }] },
+  heroBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   heroInlineAction: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 },
   heroProgressCopy: { flex: 1, minWidth: 0, gap: 9 },
   heroAction: { alignItems: 'center', gap: 4, minHeight: 44, paddingVertical: 2 },

@@ -572,23 +572,6 @@ export default function RequirementsScreen({ navigation, route }) {
             </Text>
           </View>
 
-          {!isDocumentHub && <View style={[styles.checklistCard, styles.driveCard]}>
-            <Text style={styles.checklistTitle}>Google Drive folder</Text>
-            <Text style={styles.checklistSubtitle}>Paste your Google Drive folder link here</Text>
-            {driveSaved ? <View style={styles.driveSavedRow}>
-              <Text style={styles.driveSavedText} numberOfLines={1}>✓ Saved · {driveLink}</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={() => setDriveSaved(false)}><Text style={styles.driveLinkBtn}>Change</Text></TouchableOpacity>
-            </View> : <View style={styles.driveRow}>
-              <TextInput style={styles.driveInput} value={driveLink} onChangeText={t => { setDriveLink(t); setDriveError(''); }} placeholder="https://drive.google.com/drive/folders/…" placeholderTextColor="#94A3B8" autoCapitalize="none" autoCorrect={false} keyboardType="url" accessibilityLabel="Google Drive folder link" editable={!driveBusy} />
-              <TouchableOpacity accessibilityRole="button" style={[styles.driveSaveBtn, (driveBusy || !driveLink.trim()) && { opacity: 0.5 }]} disabled={driveBusy || !driveLink.trim()} onPress={saveDriveLink}>
-                {driveBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.driveSaveText}>Save</Text>}
-              </TouchableOpacity>
-            </View>}
-            {!!driveError && <Text style={styles.driveError}>{driveError}</Text>}
-            <Text style={styles.driveHint}>File format: LASTNAME_FIRSTNAME_MEDCERT (e.g. BAUTISTA_CARLO_MEDCERT.pdf)</Text>
-            <Text style={styles.driveHint}>Set sharing to “Anyone with the link · Viewer”.</Text>
-          </View>}
-
         <View style={styles.documentsHeading}>
             <View>
               <Text style={styles.documentsTitle}>Your documents</Text>
@@ -794,6 +777,41 @@ export default function RequirementsScreen({ navigation, route }) {
               </TouchableOpacity>
             );
           })}
+          {!isDocumentHub && (() => { const open = expandedRequirementId === '__drive'; return (
+            <View style={[styles.docCard, isNarrowScreen && styles.docCardNarrow, open && styles.docCardExpanded]}>
+              <StudentSurface tone={driveSaved ? 'mint' : 'blue'} waves />
+              <TouchableOpacity activeOpacity={0.92} accessibilityRole="button" accessibilityState={{ expanded: open }}
+                accessibilityLabel={`Google Drive folder. Optional submission. ${open ? 'Tap to collapse.' : 'Tap to expand.'}`}
+                onPress={() => setExpandedRequirementId(current => current === '__drive' ? null : '__drive')}
+                style={[styles.docHeaderRow, open && styles.docHeaderExpanded]}>
+                <View style={[styles.docStatusIcon, driveSaved && styles.docStatusIconApproved]}>
+                  {driveSaved ? <CheckCircleIcon size={18} color={COLORS.successDark} /> : <FileIcon size={18} color={COLORS.primary} />}
+                </View>
+                <View style={styles.docHeaderCopy}>
+                  <Text style={styles.docTitle} numberOfLines={1}>Google Drive folder</Text>
+                  <Text style={styles.docSubtitle} numberOfLines={1}>{driveSaved ? 'Link saved' : 'Paste your folder link'}</Text>
+                </View>
+                {driveSaved
+                  ? <View style={styles.verifiedBadge}><CheckCircleIcon size={13} color={COLORS.successDark} /><Text style={styles.verifiedBadgeText}>Linked</Text></View>
+                  : <View style={styles.requiredBadge}><Text style={styles.requiredBadgeText}>Optional submission</Text></View>}
+                <ChevronIcon size={16} color={COLORS.textMuted} expanded={open} />
+              </TouchableOpacity>
+              {open && <View style={styles.driveBody}>
+                <Text style={styles.driveLabel}>Paste your Google Drive folder link here</Text>
+                {driveSaved ? <View style={styles.driveSavedRow}>
+                  <Text style={styles.driveSavedText} numberOfLines={1}>✓ Saved · {driveLink}</Text>
+                  <TouchableOpacity accessibilityRole="button" onPress={() => setDriveSaved(false)}><Text style={styles.driveLinkBtn}>Change</Text></TouchableOpacity>
+                </View> : <View style={styles.driveRow}>
+                  <TextInput style={styles.driveInput} value={driveLink} onChangeText={t => { setDriveLink(t); setDriveError(''); }} placeholder="https://drive.google.com/drive/folders/…" placeholderTextColor="#94A3B8" autoCapitalize="none" autoCorrect={false} keyboardType="url" accessibilityLabel="Google Drive folder link" editable={!driveBusy} />
+                  <TouchableOpacity accessibilityRole="button" style={[styles.driveSaveBtn, (driveBusy || !driveLink.trim()) && { opacity: 0.5 }]} disabled={driveBusy || !driveLink.trim()} onPress={saveDriveLink}>
+                    {driveBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.driveSaveText}>Save</Text>}
+                  </TouchableOpacity>
+                </View>}
+                {!!driveError && <Text style={styles.driveError}>{driveError}</Text>}
+                <Text style={styles.driveHint}>File format: LASTNAME_FIRSTNAME_MEDCERT (e.g. BAUTISTA_CARLO_MEDCERT.pdf)</Text>
+                <Text style={styles.driveHint}>Set sharing to “Anyone with the link · Viewer”.</Text>
+              </View>}
+            </View>); })()}
         </View>
 
         {/* ── Footer Navigation / Submit Button ── */}
@@ -1055,7 +1073,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
-  driveCard: { marginTop: 12, gap: 6 },
+  driveBody: { gap: 8, marginTop: 14 },
+  driveLabel: { color: '#172B44', fontSize: 14, fontWeight: '600' },
   driveRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   driveInput: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: '#D8DEE8', borderRadius: 12, paddingHorizontal: 12, fontSize: 14, color: '#172B44', backgroundColor: '#fff' },
   driveSaveBtn: { height: 44, paddingHorizontal: 18, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },

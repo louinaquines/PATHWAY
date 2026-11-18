@@ -249,3 +249,5 @@
 .sx-linktag { margin-left: 8px; padding: 1px 7px; border-radius: 99px; background: #eaf1fd; color: #0b5fd3; font-size: 11px; font-weight: 700; vertical-align: middle; }
 .sx-linkbtn[data-on="true"] { color: #0b5fd3 !important; border-color: #c9dafa !important; background: #eaf1fd !important; }
 .arq-hint { font-size: 11.5px; color: #9aa1ad; font-weight: 400; }
+.sx-linkall { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; color: #15213a; cursor: pointer; }
+.sx-linkall input { width: 16px !important; height: 16px !important; margin: 0; accent-color: #0b5fd3; }

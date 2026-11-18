@@ -361,12 +361,14 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                     <header className="tm-head"><div><h2>Submission link</h2><p>{linkReq.label} · students open this link to submit, then tap “I’ve submitted it”.</p></div>
                       <button type="button" className="plt-x" aria-label="Close" disabled={linkBusy} onClick={() => setLinkReq(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
                     <div className="tm-body tm-form"><label><span>Link</span><input autoFocus type="url" placeholder="https://drive.google.com/drive/folders/…" value={linkReq.value} onChange={e => setLinkReq(l => ({ ...l, value: e.target.value }))} /></label>
+                      <label className="sx-linkall"><input type="checkbox" checked={Boolean(linkReq.all)} onChange={e => setLinkReq(l => ({ ...l, all: e.target.checked }))} /><span>Apply to all {requirements.length} documents in this section</span></label>
                       <p className="tm-empty">Leave empty to go back to uploading in PATHWAY.</p>{linkErr && <p role="alert" className="tm-err">{linkErr}</p>}</div>
                     <footer className="tm-foot"><button type="button" className="rq-btn" disabled={linkBusy} onClick={() => setLinkReq(null)}>Cancel</button>
                       <button type="button" className="rq-btn rq-primary" disabled={linkBusy} onClick={async () => { setLinkBusy(true); setLinkErr('');
-                        try { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(linkReq.id)}/link`, { method: 'PATCH', body: JSON.stringify({ submissionLink: linkReq.value.trim() }) });
-                          setRequirements(prev => prev.map(r2 => r2.id === linkReq.id ? { ...r2, submissionLink: r.submissionLink } : r2)); setLinkReq(null); }
-                        catch (e) { setLinkErr(e.message || 'Could not save the link.'); } finally { setLinkBusy(false); } }}>{linkBusy ? 'Saving…' : 'Save link'}</button></footer>
+                        try { const ids = linkReq.all ? requirements.map(r2 => r2.id) : [linkReq.id]; const saved = {};
+                          for (const id of ids) { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(id)}/link`, { method: 'PATCH', body: JSON.stringify({ submissionLink: linkReq.value.trim() }) }); saved[id] = r.submissionLink; }
+                          setRequirements(prev => prev.map(r2 => r2.id in saved ? { ...r2, submissionLink: saved[r2.id] } : r2)); setLinkReq(null); }
+                        catch (e) { setLinkErr(e.message || 'Could not save the link.'); } finally { setLinkBusy(false); } }}>{linkBusy ? 'Saving…' : linkReq.all ? 'Save to all' : 'Save link'}</button></footer>
                   </div></div>, document.body)}
                 {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
                   onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}

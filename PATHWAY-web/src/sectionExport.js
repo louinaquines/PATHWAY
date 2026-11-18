@@ -1,7 +1,7 @@
 import personName from './personName';
 import { compareStudents } from './coordinatorStudentSort';
 import { requirementProgress } from './requirementProgress';
-import { phDate, phClock, PHASES, fileSafe, stamp } from './excelKit';
+import { phDate, phClock, PHASES, fileSafe, today, addExportedColumns } from './excelKit';
 
 const statuses = { approved: 'Approved', submitted: 'Pending review', rejected: 'Rejected', needs_revision: 'Needs fixing', not_submitted: 'Not submitted' };
 
@@ -47,6 +47,7 @@ export async function buildSectionWorkbook(section, students, checklist) {
     ['Source', 'PATHWAY section student records and configured requirements.'],
     ['Privacy', 'Passwords, authentication tokens, and private attachment links are excluded.'],
   ]);
+  addExportedColumns(summary, workbook.created); addExportedColumns(details, workbook.created);
   for (const sheet of [summary, details, info]) {
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: sheet.rowCount, column: sheet.columnCount } };
@@ -71,7 +72,7 @@ export async function downloadSectionExcel(section, students, checklist) {
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `PATHWAY-${fileSafe(section.name)}-requirements-${stamp()}.xlsx`;
+  link.download = `PATHWAY-${fileSafe(section.name)}-requirements-${today()}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

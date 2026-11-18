@@ -1,5 +1,5 @@
 import personName from './personName';
-import { phDate, phClock, stamp } from './excelKit';
+import { phDate, phClock, addExportedColumns } from './excelKit';
 const timestamp = value => {
   if (!value) return '';
   const date = value?.toDate ? value.toDate() : new Date(value);
@@ -26,6 +26,7 @@ export async function buildStudentRecordsWorkbook(student, section, attendance, 
     weekly.addRow([...identity, record.frequency === 'daily' ? 'Daily' : record.weekNum ?? '', record.frequency === 'daily' ? record.periodStart || '' : record.weekRange || '', Number.isFinite(Number(record.hours)) ? Number(record.hours) : null, record.status || '', phDate(record.submittedAt || record.createdAt), phClock(record.submittedAt || record.createdAt), phDate(record.reviewedAt), phClock(record.reviewedAt), String(record.refined || ''), String(record.rawNotes || ''), String(record.reviewReason || '')]);
   });
   weekly.getColumn(6).numFmt = '0.00';
+  addExportedColumns(punches, workbook.created); addExportedColumns(weekly, workbook.created);
   const info = workbook.addWorksheet('Export information');
   info.addRows([['Field', 'Value'], ['Student ID', identity[0]], ['Student', name], ['Section', section?.name || ''], ['Date exported', phDate(workbook.created)], ['Time exported (Philippine time)', phClock(workbook.created)], ['Attendance records', attendance.length], ['Journal records', journals.length], ['Hours', 'Attendance hours and journal reported hours are separate; do not add them together. In-progress attendance has blank hours.'], ['Scope', 'Selected student only. Both sheets are exported regardless of the visible tab. Empty sheets contain headers.'], ['Privacy', 'Passwords, authentication tokens, private file links, and location coordinates are excluded.']]);
   for (const sheet of workbook.worksheets) {
@@ -50,7 +51,7 @@ export async function downloadStudentRecordsExcel(student, section, attendance, 
   const link = document.createElement('a');
   link.href = url;
   const identifier = String(student.idNumber || student.id || 'student').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  link.download = `PATHWAY-${identifier}-attendance-journals-${stamp()}.xlsx`;
+  link.download = `PATHWAY-${identifier}-attendance-journals.xlsx`;
   document.body.appendChild(link);
   try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }

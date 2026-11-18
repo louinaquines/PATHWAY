@@ -47,3 +47,10 @@ export async function downloadWorkbook(workbook, fileName) {
 }
 export const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 export const stamp = () => { const now = new Date(); return `${today()}_${now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit' }).replace(':', '')}`; };
+
+// Adds "Date exported" and "Time exported" columns to every row of a data sheet.
+export function addExportedColumns(sheet, when = new Date()) {
+  const date = phDate(when), time = phClock(when);
+  const c = sheet.columnCount;
+  sheet.eachRow({ includeEmpty: false }, (row, n) => { row.getCell(c + 1).value = n === 1 ? 'Date exported' : date; row.getCell(c + 2).value = n === 1 ? 'Time exported (PH)' : time; });
+}

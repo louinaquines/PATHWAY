@@ -145,16 +145,17 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   };
 
   const exportCsv = async () => {
-    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, stamp } = await import('../excelKit');
+    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, today, addExportedColumns } = await import('../excelKit');
     const workbook = await newWorkbook();
     const sheet = workbook.addWorksheet('Clearance');
     sheet.addRow(['Student ID', 'Student name', 'Section', 'Account', 'Requirements', 'Hours done', 'Hours required', 'Hours status', 'Clearance']);
     [...rows].sort(compareStudents).forEach(row => sheet.addRow([String(row.idNumber || ''), row.student || '', row.section || '', row.account || '', row.requirements || '',
       Number.isFinite(Number(row.rendered)) ? Number(row.rendered) : row.rendered ?? '', Number.isFinite(Number(row.required)) ? Number(row.required) : row.required ?? '',
       row.hours || '', row.clearanceStatus === 'cleared' ? 'Cleared' : row.ready ? 'Ready to clear' : 'Not ready']));
+    addExportedColumns(sheet, workbook.created);
     styleSheet(sheet);
     addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
-    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${stamp()}.xlsx`);
+    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${today()}.xlsx`);
   };
 
   const printReport = () => {

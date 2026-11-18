@@ -295,6 +295,7 @@ export default function CoordinatorDashboard() {
   useEffect(() => { setPhaseFilter(pendingStageRef.current || 'Pre-OJT'); pendingStageRef.current = null; }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
   const [colorFilter, setColorFilter] = useState(null);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [colorPage, setColorPage] = useState(1);
   const [allSectionStudents, setAllSectionStudents] = useState(null);
   const [colorRefresh, setColorRefresh] = useState(0);
@@ -662,15 +663,21 @@ export default function CoordinatorDashboard() {
                 <div className="rq-list">
                   <div className="rq-search-row">
                     <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search students" placeholder="Find a student" />
+                    <div className="rq-filter" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setFilterOpen(false); }}>
+                      <button type="button" className="rq-filter-btn" aria-haspopup="menu" aria-expanded={filterOpen} aria-label={`Filter students: ${({ all: 'All', review: 'To check', revision: 'Needs fixing', complete: 'Complete' })[reviewFilter]}`} data-active={reviewFilter !== 'all' || undefined} onClick={() => setFilterOpen(o => !o)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z" /></svg>
+                        {reviewFilter !== 'all' && <i aria-hidden="true" />}
+                      </button>
+                      {filterOpen && <ul className="rq-filter-menu" role="menu" aria-label="Filter students" onMouseDown={e => e.preventDefault()}>
+                        {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
+                          <li key={value}><button type="button" role="menuitemradio" aria-checked={reviewFilter === value} onClick={() => { setColorFilter(null); setReviewFilter(value); setFilterOpen(false); }}>{label}{reviewFilter === value && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>}</button></li>)}
+                      </ul>}
+                    </div>
                     <RequirementsInbox coordinatorId={coordinatorId} section={selectedSection} requirements={sectionRequirements}
                       toneFor={(studentId, reqId, item) => aiTone(aiReviewFor(studentId, reqId, item?.autoReview))}
                       stageFor={reqId => requirementCategory(sectionRequirements.find(r => r.id === reqId)?.category)}
                       onNewChange={setNewStudentIds}
                       onOpen={(student, stage) => { setRqDetailView(true); pendingStageRef.current = stage || null; if (selectedStudent?.id === student.id && stage) setPhaseFilter(stage); setSelectedStudent(student); }} />
-                  </div>
-                  <div className="rq-pills" role="group" aria-label="Filter students">
-                    {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
-                      <button key={value} type="button" aria-pressed={!colorFilter && reviewFilter === value} onClick={() => { setColorFilter(null); setReviewFilter(value); }}>{label}</button>)}
                   </div>
                   <div className="rq-pills rq-tones" role="group" aria-label="Filter by AI check">
                     {[['green', 'Green'], ['yellow', 'Yellow'], ['red', 'Red']].map(([tone, label]) => { const n = toneItems(allSectionStudents, tone).length;

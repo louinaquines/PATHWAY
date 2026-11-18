@@ -167,6 +167,15 @@ export default function RequirementsScreen({ navigation, route }) {
     return () => subscription.remove();
   }, [showMenuDrawer, showNotifications]);
 
+  const [linkSubmitting, setLinkSubmitting] = useState(null);
+  const handleLinkSubmitted = async (docItem) => {
+    setLinkSubmitting(docItem.id);
+    try {
+      await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}/link-submitted`, { method: 'POST' });
+      await fetchRequirements();
+    } catch (e) { Alert.alert('Could not mark as submitted', e.message || 'Try again.'); }
+    finally { setLinkSubmitting(null); }
+  };
   const fetchRequirements = async () => {
     setLoading(true);
     setCanEditRequirements(false);
@@ -204,6 +213,7 @@ export default function RequirementsScreen({ navigation, route }) {
           category: r.category || 'Pre-OJT',
           required: r.required !== false,
           fileTypeHint: r.fileTypeHint || 'PDF or Word (Max 5MB)',
+          submissionLink: r.submissionLink || '',
           status: userSaved.status || 'not_submitted',
           autoReview: userSaved.autoReview || null,
           fileUrl: userSaved.fileUrl || null,
@@ -741,11 +751,11 @@ export default function RequirementsScreen({ navigation, route }) {
                     {isRejected && canEditItem(docItem) && (
                       <TouchableOpacity
                         style={styles.resubmitButton}
-                        disabled={readOnlyStep} onPress={() => handlePickAndUpload(docItem)}
+                        disabled={readOnlyStep} onPress={() => (docItem.submissionLink ? Linking.openURL(docItem.submissionLink) : handlePickAndUpload(docItem))}
                         activeOpacity={0.75}
                       >
                         <RefreshIcon size={16} color={COLORS.secondary} />
-                        <Text style={styles.resubmitButtonText}>Upload Replacement</Text>
+                        <Text style={styles.resubmitButtonText}>{docItem.submissionLink ? 'Open link to resubmit' : 'Upload Replacement'}</Text>
                       </TouchableOpacity>
                     )}
                   </>
@@ -754,6 +764,18 @@ export default function RequirementsScreen({ navigation, route }) {
                 {/* ── State 3: Awaiting Upload ── */}
                 {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && canEditItem(docItem) && (
                   <>
+                    {docItem.submissionLink ? (
+                      <View style={styles.dropzoneContainer}>
+                        <Text style={styles.dropzoneMainText}>Submit using your coordinator's link</Text>
+                        <Text style={styles.dropzoneHintText}>Open the link, upload your file there, then tap "I've submitted it".</Text>
+                        <TouchableOpacity style={styles.resubmitButton} onPress={() => Linking.openURL(docItem.submissionLink).catch(() => Alert.alert('Could not open link'))} activeOpacity={0.75}>
+                          <Text style={styles.resubmitButtonText}>Open submission link</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.resubmitButton} disabled={readOnlyStep || linkSubmitting === docItem.id} onPress={() => handleLinkSubmitted(docItem)} activeOpacity={0.75}>
+                          <Text style={styles.resubmitButtonText}>{linkSubmitting === docItem.id ? 'Saving…' : "I've submitted it"}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
                     <TouchableOpacity
                       style={styles.dropzoneContainer}
                       onPress={() => handlePickAndUpload(docItem)}
@@ -767,6 +789,7 @@ export default function RequirementsScreen({ navigation, route }) {
                         Tap to choose a document • {docItem.fileTypeHint}
                       </Text>
                     </TouchableOpacity>
+                    )}
 
                     <View style={styles.awaitingBadge}>
                       <Text style={styles.awaitingBadgeIcon}>•</Text>
@@ -783,9 +806,8 @@ export default function RequirementsScreen({ navigation, route }) {
           <View style={styles.documentsHeading}>
             <View style={{ flex: 1 }}>
               <Text style={styles.documentsTitle}>Optional submission</Text>
-              <Text style={styles.documentsSubtitle}>Share a Google Drive folder with your files. You can skip this.</Text>
+              <Text style={styles.documentsSubtitle}>Share a Google Drive folder with your files.</Text>
             </View>
-            <Text style={styles.documentsCount}>1 item</Text>
           </View>
           {(() => { const open = expandedRequirementId === '__drive'; return (
             <View style={[styles.docCard, isNarrowScreen && styles.docCardNarrow, open && styles.docCardExpanded]}>

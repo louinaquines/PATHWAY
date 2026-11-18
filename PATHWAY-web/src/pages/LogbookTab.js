@@ -678,7 +678,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
       </div>
       <div ref={confirmHost} />
       <AlertDialog
-        portalTarget={confirmHost.current || undefined}
+
         open={Boolean(rejectConfirm)}
         title="Ask the student to redo this journal?"
         description="They will see your note and must edit the journal before sending it again."

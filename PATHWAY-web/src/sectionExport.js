@@ -1,19 +1,21 @@
 import personName from './personName';
 import { compareStudents } from './coordinatorStudentSort';
 import { requirementProgress } from './requirementProgress';
+import { phTime, PHASES, fileSafe, today } from './excelKit';
 
-const statuses = { approved: 'Approved', submitted: 'Pending review', rejected: 'Rejected', not_submitted: 'Not submitted' };
+const statuses = { approved: 'Approved', submitted: 'Pending review', rejected: 'Rejected', needs_revision: 'Needs fixing', not_submitted: 'Not submitted' };
 
 export function sectionExportRows(section, students, checklist) {
   const sorted = [...students].sort(compareStudents);
   const summary = sorted.map(student => {
     const progress = requirementProgress(student.requirements, checklist);
     return [String(student.idNumber || ''), String(student.username || ''), student.firstName || '', student.lastName || '', section.name || '', section.department || '', student.accountApproved ? 'Approved' : 'Not approved', progress.approved, progress.total, progress.total ? progress.approved / progress.total : null,
-      ...checklist.map(item => statuses[student.requirements?.[item.id]?.status] || 'Not submitted')];
+      ...checklist.map(item => statuses[student.requirements?.[item.id]?.status] || 'Not submitted'),
+      student.companyName || student.company || '', /^https:\/\/drive\.google\.com\//.test(student.driveFolderUrl || '') ? student.driveFolderUrl : ''];
   });
   const details = sorted.flatMap(student => checklist.map(item => {
     const record = student.requirements?.[item.id] || {};
-    return [String(student.idNumber || ''), personName(student), item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', record.submittedAt || '', record.reviewedAt || '', record.status === 'rejected' ? record.rejectionReason || '' : ''];
+    return [String(student.idNumber || ''), personName(student), PHASES[item.category] || item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', phTime(record.submittedAt), phTime(record.reviewedAt), ['rejected', 'needs_revision'].includes(record.status) ? record.rejectionReason || record.revisionNote || '' : ''];
   }));
   return { summary, details };
 }
@@ -29,11 +31,11 @@ export async function buildSectionWorkbook(section, students, checklist) {
   const details = workbook.addWorksheet('Requirements');
   const info = workbook.addWorksheet('Export information');
   summary.addRow(['Student ID', 'Username', 'First name', 'Last name', 'Section', 'Department', 'Account approval', 'Approved requirements', 'Total requirements', 'Requirements approved',
-    ...checklist.map(item => item.label || item.name || item.id)]);
+    ...checklist.map(item => item.label || item.name || item.id), 'Company', 'Google Drive folder']);
   summary.addRows(rows.summary);
   summary.getColumn(1).numFmt = '@';
   summary.getColumn(10).numFmt = '0%';
-  details.addRow(['Student ID', 'Student name', 'Phase', 'Requirement', 'Status', 'Deadline', 'Submitted at', 'Reviewed at', 'Rejection remarks']);
+  details.addRow(['Student ID', 'Student name', 'Phase', 'Requirement', 'Status', 'Deadline', 'Submitted (Philippine time)', 'Reviewed (Philippine time)', 'Coordinator remarks']);
   details.addRows(rows.details);
   details.getColumn(1).numFmt = '@';
   info.addRows([
@@ -69,8 +71,7 @@ export async function downloadSectionExcel(section, students, checklist) {
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const link = document.createElement('a');
   link.href = url;
-  const name = String(section.name || 'section').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  link.download = `PATHWAY-${name}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  link.download = `PATHWAY-${fileSafe(section.name)}-requirements-${today()}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

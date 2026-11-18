@@ -144,29 +144,17 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
     }
   };
 
-  const exportCsv = () => {
-    const columns = ['Student ID', 'Student', 'Section', 'Account', 'Requirements', 'Hours Rendered', 'Hours Required', 'Hours Status', 'Clearance'];
-    const content = [
-      columns,
-      ...[...rows].sort(compareStudents).map(row => [
-        row.idNumber,
-        row.student,
-        row.section,
-        row.account,
-        row.requirements,
-        row.rendered,
-        row.required,
-        row.hours,
-        row.clearanceStatus === 'cleared' ? 'Cleared' : row.ready ? 'Ready' : 'Not ready'
-      ])
-    ].map(line => line.map(csvCell).join(',')).join('\n');
-
-    const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pathway-clearance-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const exportCsv = async () => {
+    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, today } = await import('../excelKit');
+    const workbook = await newWorkbook();
+    const sheet = workbook.addWorksheet('Clearance');
+    sheet.addRow(['Student ID', 'Student name', 'Section', 'Account', 'Requirements', 'Hours done', 'Hours required', 'Hours status', 'Clearance']);
+    [...rows].sort(compareStudents).forEach(row => sheet.addRow([String(row.idNumber || ''), row.student || '', row.section || '', row.account || '', row.requirements || '',
+      Number.isFinite(Number(row.rendered)) ? Number(row.rendered) : row.rendered ?? '', Number.isFinite(Number(row.required)) ? Number(row.required) : row.required ?? '',
+      row.hours || '', row.clearanceStatus === 'cleared' ? 'Cleared' : row.ready ? 'Ready to clear' : 'Not ready']));
+    styleSheet(sheet);
+    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
+    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${today()}.xlsx`);
   };
 
   const printReport = () => {
@@ -267,7 +255,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   }
   const topActions = <>
     <button type="button" className="rq-btn" onClick={printReport} disabled={!rows.length}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z" /></svg> Print report</button>
-    <button type="button" className="rq-btn" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={14} /> Export list</button>
+    <button type="button" className="rq-btn" onClick={exportCsv} disabled={!rows.length}><Icon name="download" size={14} /> Export Excel</button>
     {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
   </>;
   return (

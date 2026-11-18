@@ -98,28 +98,26 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     finally { if (isCurrent()) setSaving(false); }
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     if (!data?.students) return;
-    const header = ['Student ID', 'Student Name', 'Section', 'Department', 'Company', 'Server-credited hours', 'Hours Required', 'Progress (%)', 'Risk tier', 'Progress status', 'Data status'];
-    const rows = [...data.students].sort(compareStudents).map(s => [
-      s.idNumber,
-      s.name,
-      s.section,
-      s.department,
-      s.companyName,
-      s.hoursRendered,
-      s.hoursRequired,
-      s.completionPercentage,
-      s.riskTier ?? (['Not deployed', 'Completed'].includes(s.risk) ? s.risk : 'Unavailable'), s.progressStatus ?? 'Unavailable', s.dataStatus ?? 'Unavailable',
-    ]);
-    const csvContent = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pathway-analytics-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, today } = await import('../excelKit');
+    const tierText = s => { const t = s.riskTier ?? (['Not deployed', 'Completed'].includes(s.risk) ? s.risk : null); return { High: 'High risk', Medium: 'At risk', Low: 'On track' }[t] || t || 'Not enough data'; };
+    const workbook = await newWorkbook();
+    const sheet = workbook.addWorksheet('Progress');
+    sheet.addRow(['Student ID', 'Student name', 'Section', 'Company', 'Hours done', 'Hours required', 'Progress', 'Attendance', 'Status', 'Progress status', 'Data quality', 'Estimated finish']);
+    [...data.students].sort(compareStudents).forEach(s => sheet.addRow([
+      String(s.idNumber || ''), s.name || '', s.section || selectedSection?.name || '', s.companyName || '',
+      Number.isFinite(Number(s.hoursRendered)) ? Number(s.hoursRendered) : null, Number.isFinite(Number(s.hoursRequired)) ? Number(s.hoursRequired) : null,
+      Number.isFinite(Number(s.completionPercentage)) ? Number(s.completionPercentage) / 100 : null,
+      Number.isFinite(Number(s.attendanceRate)) ? Number(s.attendanceRate) / 100 : null,
+      tierText(s), s.progressStatus || '', s.dataStatus || '', s.projectedCompletion || '',
+    ]));
+    styleSheet(sheet);
+    sheet.getColumn(7).numFmt = '0%'; sheet.getColumn(8).numFmt = '0%'; sheet.getColumn(5).numFmt = '0.0'; sheet.getColumn(6).numFmt = '0';
+    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', data.students.length], ['As of', data.today || ''],
+      ['Status', 'High risk / At risk / On track come from attendance and hours. "Not enough data" means fewer than five reliable work days.'],
+      ['Hours', 'Hours done count only server-credited attendance hours.']]);
+    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-progress-${today()}.xlsx`);
   };
 
 
@@ -150,7 +148,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
             setDraft(schedule);
           }}>Work schedule</button>}
           <button type="button" className="rq-btn" onClick={exportCsv} disabled={!data?.students?.length}>
-            <Icon name="download" size={15} /> Export CSV
+            <Icon name="download" size={15} /> Export Excel
           </button>
         {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}</>;
         return topHost ? createPortal(acts, topHost) : <div className="an-inline-actions">{acts}</div>; })()}

@@ -5,7 +5,7 @@ test('exports section records and numeric approval ratios without sensitive fiel
   expect(result.summary[0][0]).toBe('00123');
   expect(result.summary[0][2]).toBe('=Example');
   expect(result.summary[0][9]).toBe(0.5);
-  expect(result.summary[0].slice(10)).toEqual(['Approved', 'Pending review']);
+  expect(result.summary[0].slice(10, 12)).toEqual(['Approved', 'Pending review']);
   expect(result.details.map(row => row[4])).toEqual(['Approved', 'Pending review']);
   expect(JSON.stringify(result)).not.toMatch(/secret|private/);
 });

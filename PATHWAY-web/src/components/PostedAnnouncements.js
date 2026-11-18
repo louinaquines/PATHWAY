@@ -55,7 +55,7 @@ export default function PostedAnnouncements({ section, switcher, refreshKey = 0 
           : shown.map(r => <button type="button" key={r.id} className="pa-row" aria-pressed={r.id === openId} onClick={() => setOpenId(r.id)}>
             <span className="pa-badge">{badge(section?.name)}</span>
             <span className="pa-main"><span className="pa-top"><strong>{r.title}</strong><time>{when(r.createdAt)}</time></span>
-              <small>{section?.name} · {r.recipients} student{r.recipients === 1 ? '' : 's'}</small></span>
+              <small>{section?.name}{r.recipients ? ` · ${r.recipients} student${r.recipients === 1 ? '' : 's'}` : ''}</small></span>
           </button>)}
       </div>
       {pages > 1 && <div className="pa-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Announcements" /></div>}
@@ -66,7 +66,7 @@ export default function PostedAnnouncements({ section, switcher, refreshKey = 0 
         <div className="pa-body">
           <p className="pa-msg">{open.message}</p>
           <div className="pa-seen">
-            {!seen ? <p className="pa-note">Checking who has seen it…</p> : seen.failed ? <p className="pa-note">Couldn’t load who has seen it.</p> : <>
+            {!seen ? <p className="pa-note">Checking who has seen it…</p> : seen.failed ? <p className="pa-note">Couldn’t load who has seen it.</p> : !total ? <p className="pa-note pa-untracked"><Icon name="eye" size={15} /> Read tracking isn’t available for this announcement. It was posted before tracking started.</p> : <>
               <div className="pa-seen-top"><span><Icon name="eye" size={15} /> Seen by {seen.seen} of {total}</span>
                 {seen.unseen.length > 0 && <button type="button" className="rq-link" onClick={remind} disabled={reminding}>{reminding ? 'Sending…' : `Remind the ${seen.unseen.length} who haven’t seen it`}</button>}</div>
               <i className="pa-bar"><em style={{ width: `${total ? (seen.seen / total) * 100 : 0}%` }} /></i>

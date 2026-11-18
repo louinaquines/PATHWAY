@@ -198,9 +198,6 @@ export default function AttendanceScreen({ navigation }) {
             <Text style={styles.hoursLabel}>hours recorded</Text>
           </View>
 
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
 
           <View style={styles.progressMeta}>
             <Text style={styles.progressSub}>

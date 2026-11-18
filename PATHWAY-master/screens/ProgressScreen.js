@@ -160,9 +160,6 @@ export default function ProgressScreen({ navigation }) {
             </View>
           </View>
 
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
 
           <View style={styles.progressMeta}>
             <Text style={styles.progressSub}>Training Target</Text>

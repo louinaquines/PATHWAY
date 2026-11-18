@@ -1344,15 +1344,6 @@ function ProgressPanel({ student, metrics, attendance, logbook, openAttendance, 
           </View>
         </View>
 
-        <View
-          style={styles.progressHeroTrack}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel="OJT hours completed"
-          accessibilityValue={{ min: 0, max: 100, now: progressPercent }}
-        >
-          <View style={[styles.progressHeroFill, { width: `${Math.max(0, Math.min(Number(metrics.progress) || 0, 1)) * 100}%` }]} />
-        </View>
         <View style={styles.progressHeroMeta}>
           <Text style={styles.progressHeroMetaLabel}>{metrics.remaining.toFixed(1)} hours to go</Text>
           <View style={styles.progressCardCue}><Text style={styles.progressHeroMetaText}>{metrics.required} hours goal</Text><ChevronRightIcon size={20} color={COLORS.primary} /></View>

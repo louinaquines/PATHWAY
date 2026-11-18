@@ -251,3 +251,6 @@
 .arq-hint { font-size: 11.5px; color: #9aa1ad; font-weight: 400; }
 .sx-linkall { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; margin-top: 12px; font-size: 13.5px; color: #15213a; cursor: pointer; }
 .sx-linkall input { width: 16px !important; height: 16px !important; margin: 0; accent-color: #0b5fd3; }
+.sx .sx-acts { display: inline-flex; align-items: center; gap: 6px; }
+.sx .sx-acts .sx-icon { width: 32px !important; height: 32px !important; min-width: 32px !important; padding: 0 !important; display: inline-flex !important; align-items: center; justify-content: center; border-radius: 9px; flex: none; }
+.sx .sx-acts .sx-icon svg { width: 15px; height: 15px; }

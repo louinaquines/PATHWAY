@@ -62,9 +62,24 @@ export async function showLocal({ title, body, data }) {
   });
 }
 
+let handledResponseId = null;
 export function onNotificationTap(handler) {
-  const sub = Notifications.addNotificationResponseReceivedListener(response => handler(response?.notification?.request?.content?.data || {}));
-  Notifications.getLastNotificationResponseAsync().then(last => { if (last) handler(last.notification.request.content.data || {}); }).catch(() => {});
+  const handle = response => {
+    const id = response?.notification?.request?.identifier;
+    if (!response || (id && id === handledResponseId)) return;
+    handledResponseId = id;
+    handler(response.notification.request.content.data || {});
+    Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
+  };
+  const sub = Notifications.addNotificationResponseReceivedListener(handle);
+  Notifications.getLastNotificationResponseAsync()
+    .then(last => {
+      // Only follow the tap that just opened the app, never an old remembered one.
+      const at = last?.notification?.date || 0;
+      if (last && Date.now() - at < 60_000) handle(last);
+      else Notifications.clearLastNotificationResponseAsync?.().catch(() => {});
+    })
+    .catch(() => {});
   return () => sub.remove();
 }
 
@@ -76,4 +91,15 @@ export function routeFor(data = {}) {
   if (/final_review|approval|clearance/.test(t)) return { name: 'Approval' };
   if (/message/.test(t)) return { name: 'Notifications', params: { initialTab: 'messages' } };
   return { name: 'Notifications', params: { initialTab: 'notifications' } };
+}
+
+// Schedules a sample notification a few seconds from now so it can be seen with the app closed.
+export async function sendTestNotification(seconds = 5) {
+  if (!(await askPermission())) return false;
+  await ensureChannel();
+  await Notifications.scheduleNotificationAsync({
+    content: { title: 'Requirement approved', body: 'Your Certificate of Registration was approved.', data: { type: 'requirement_approved' }, color: '#0B5FD3', ...(Platform.OS === 'android' ? { channelId: 'pathway' } : {}) },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, repeats: false },
+  });
+  return true;
 }

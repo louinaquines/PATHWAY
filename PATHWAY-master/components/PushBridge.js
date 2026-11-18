@@ -10,7 +10,14 @@ import { onNotificationTap, registerForPush, routeFor, showLocal } from '../serv
 export default function PushBridge({ navigationRef }) {
   useEffect(() => onNotificationTap(data => {
     const target = routeFor(data);
-    const go = () => navigationRef?.isReady?.() ? navigationRef.navigate(target.name, target.params) : setTimeout(go, 400);
+    let tries = 0;
+    // Only open a screen for a signed-in student who is past the login screens.
+    const go = () => {
+      const route = navigationRef?.isReady?.() ? navigationRef.getCurrentRoute()?.name : null;
+      const ready = route && auth.currentUser && !['Login', 'Onboarding', 'ForgotPassword', 'ChangePassword'].includes(route);
+      if (ready) navigationRef.navigate(target.name, target.params);
+      else if (++tries < 40) setTimeout(go, 500);
+    };
     go();
   }), [navigationRef]);
 

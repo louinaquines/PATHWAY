@@ -5,6 +5,7 @@ import { signOut } from 'firebase/auth';
 import { Animated, StatusBar, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import StudentSuccessHost from './components/StudentSuccessHost';
+import PushBridge from './components/PushBridge';
 import StudentToastHost from './components/StudentToastHost';
 import { auth } from './firebaseConfig';
 import { destinationForProfile } from './services/authDestination';
@@ -222,6 +223,7 @@ export default function App() {
         {appContent}
         <StudentDialogHost />
         <StudentSuccessHost />
+        <PushBridge navigationRef={navigationRef} />
         <StudentToastHost enabled={startupComplete && studentScreenVisible && !restoreError} />
       </View>
       {!startupComplete ? (

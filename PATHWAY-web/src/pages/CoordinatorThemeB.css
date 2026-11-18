@@ -6,3 +6,9 @@
   background: var(--pw-gold-dark) !important; border-color: var(--pw-gold-dark) !important; color: var(--pw-gold-ink) !important; }
 .coordinator-page :is(.rq-primary, .inbox-primary, .portal-primary, .arq-primary) svg { color: var(--pw-gold-ink) !important; stroke: currentColor; }
 .coordinator-page .sidebar-container { background: var(--pw-blue-soft) !important; border-right: 1px solid #dde6f7 !important; }
+.coordinator-page .sidebar-container .sidebar-nav-btn { transition: background .15s ease, color .15s ease !important; }
+.coordinator-page .sidebar-container .sidebar-nav-btn:hover:not(.sidebar-nav-btn-active) { background: #dfe8f9 !important; color: #1746a2 !important; transform: none; }
+.coordinator-page .sidebar-container .sidebar-nav-btn:hover:not(.sidebar-nav-btn-active) svg { color: #1746a2 !important; }
+.coordinator-page .sidebar-container .sidebar-nav-btn-active, .coordinator-page .sidebar-container .sidebar-nav-btn-active:hover { background: #1746a2 !important; color: #fff !important; }
+.coordinator-page .sidebar-container .sidebar-nav-btn-active svg { color: #fff !important; }
+.coordinator-page .sidebar-container .sidebar-user-pill:hover { background: #dfe8f9 !important; border-color: #c4d4f2 !important; }

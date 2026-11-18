@@ -1,6 +1,7 @@
 import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import { showToast } from '../successFx';
 // src/pages/ClearanceTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -156,6 +157,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
     styleSheet(sheet);
     addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Term', selectedSection?.termName || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
     await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${today()}.xlsx`);
+    showToast('Export ready', 'Clearance report downloaded.');
   };
 
   const printReport = () => {

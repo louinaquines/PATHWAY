@@ -6,6 +6,7 @@ import Icon from './Icons';
 import { submissionTime } from './SubmissionNotifications';
 import { adminRequest } from '../adminApi';
 import './RequirementsInbox.css';
+import { showSuccess } from '../successFx';
 
 const DAY = 86400000;
 const ago = ms => { const d = Date.now() - ms; if (d < 60000) return 'just now'; if (d < 3600000) return `${Math.floor(d / 60000)}m ago`; if (d < DAY) return `${Math.floor(d / 3600000)}h ago`; if (d < 7 * DAY) return `${Math.floor(d / DAY)}d ago`; return new Date(ms).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }); };
@@ -67,11 +68,12 @@ export default function JournalsInbox({ section, coordinatorId, pendingCounts = 
     setProgress({ done, total: items.length });
     for (const item of items) {
       try {
-        await adminRequest(`/coordinator/students/${encodeURIComponent(item.studentId)}/logbook/${encodeURIComponent(item.entryId)}/decision`, { method: 'POST', body: JSON.stringify({ status: 'approved' }) });
+        await adminRequest(`/coordinator/students/${encodeURIComponent(item.studentId)}/logbook/${encodeURIComponent(item.entryId)}/decision`, { method: 'POST', silent: true, body: JSON.stringify({ status: 'approved' }) });
       } catch (_) { failed += 1; }
       done += 1; setProgress({ done, total: items.length });
     }
     setProgress(null); setConfirmAll(false); setGroups(null);
+    if (done - failed > 0) showSuccess('Approved', `${done - failed} of ${items.length} journals approved.`);
     if (failed) setError(`${failed} journal${failed === 1 ? '' : 's'} could not be approved. Try again.`);
     onChanged?.();
   };

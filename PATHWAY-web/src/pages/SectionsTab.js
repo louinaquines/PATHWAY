@@ -2,6 +2,7 @@ import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import { quietly, showSuccess } from '../successFx';
 // src/pages/SectionsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -366,7 +367,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                     <footer className="tm-foot"><button type="button" className="rq-btn" disabled={linkBusy} onClick={() => setLinkReq(null)}>Cancel</button>
                       <button type="button" className="rq-btn rq-primary" disabled={linkBusy} onClick={async () => { setLinkBusy(true); setLinkErr('');
                         try { const ids = linkReq.all ? requirements.map(r2 => r2.id) : [linkReq.id]; const saved = {};
-                          for (const id of ids) { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(id)}/link`, { method: 'PATCH', body: JSON.stringify({ submissionLink: linkReq.value.trim() }) }); saved[id] = r.submissionLink; }
+                          await quietly(async () => { for (const id of ids) { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(id)}/link`, { method: 'PATCH', body: JSON.stringify({ submissionLink: linkReq.value.trim() }) }); saved[id] = r.submissionLink; } });
+                          showSuccess(linkReq.value.trim() ? 'Link saved' : 'Link removed', ids.length > 1 ? `Applied to ${ids.length} documents.` : '');
                           setRequirements(prev => prev.map(r2 => r2.id in saved ? { ...r2, submissionLink: saved[r2.id] } : r2)); setLinkReq(null); }
                         catch (e) { setLinkErr(e.message || 'Could not save the link.'); } finally { setLinkBusy(false); } }}>{linkBusy ? 'Saving…' : linkReq.all ? 'Save to all' : 'Save link'}</button></footer>
                   </div></div>, document.body)}

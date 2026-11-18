@@ -1,6 +1,7 @@
 import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import { showToast } from '../successFx';
 // src/pages/EvaluationTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -181,6 +182,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
+      showToast('Link copied');
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch (error) {

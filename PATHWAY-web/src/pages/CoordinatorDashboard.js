@@ -52,6 +52,8 @@ import '../sidebarV2.css';
 import './RequirementsRedesign.css';
 import './Responsive.css';
 import './CoordinatorThemeB.css';
+import SuccessHost from '../components/SuccessHost';
+import { quietly, showSuccess, showToast } from '../successFx';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -155,6 +157,7 @@ export default function CoordinatorDashboard() {
       ]);
       if (studentSnap.metadata.fromCache || reqSnap.metadata.fromCache) throw new Error('Connect to the internet before exporting current section records.');
       await downloadSectionExcel(section, studentSnap.docs.map(item => ({ ...item.data(), id: item.id })), reqSnap.docs.map(item => ({ ...item.data(), id: item.id })));
+      showToast('Export ready', 'Section requirements downloaded.');
     } catch (e) {
       setError(e.message || 'Could not export this section. Please try again.');
     } finally {
@@ -319,7 +322,11 @@ export default function CoordinatorDashboard() {
     if (!bulkConfirm) return;
     const { items, status } = bulkConfirm;
     setBulkBusy(true);
-    try { for (const item of items) await handleRequirement(item.studentId, item.reqId, status, status === 'rejected' ? bulkReason.trim() : ''); }
+    try {
+      let ok = 0;
+      await quietly(async () => { for (const item of items) if (await handleRequirement(item.studentId, item.reqId, status, status === 'rejected' ? bulkReason.trim() : '')) ok += 1; });
+      showSuccess(status === 'approved' ? 'Approved' : 'Sent back', `${ok} of ${items.length} requirements ${status === 'approved' ? 'approved' : 'sent back'}.`);
+    }
     finally { setBulkBusy(false); setBulkConfirm(null); setColorRefresh(v => v + 1); }
   };
 
@@ -481,6 +488,7 @@ export default function CoordinatorDashboard() {
       <ServerWakeNotice />
       {documentPreview && <DocumentPreviewDialog key={documentPreview.path} {...documentPreview} onClose={() => setDocumentPreview(null)} />}
       {/* Sidebar */}
+      <SuccessHost />
       <aside className="sidebar-container" style={s.sidebar}>
         <div className="sidebar-brand" style={s.sidebarTop}>
           <button type="button" className="sidebar-home-link" onClick={() => setActiveTab('overview')} aria-label="Go to dashboard">

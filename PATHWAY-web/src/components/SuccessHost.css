@@ -1,0 +1,19 @@
+.sfx-overlay { position: fixed; inset: 0; z-index: 4000; display: flex; align-items: center; justify-content: center; background: rgba(21,33,58,.18); animation: sfx-fade .18s ease-out; }
+.sfx-card { width: 280px; padding: 28px 24px 24px; border-radius: 18px; background: #fff; text-align: center; box-shadow: 0 18px 50px rgba(21,33,58,.18); animation: sfx-pop .34s cubic-bezier(.2,1.4,.4,1); font-family: inherit; }
+.sfx-card strong { display: block; margin-top: 14px; font-size: 17px; color: #15213a; }
+.sfx-card p { margin: 6px 0 0; font-size: 13.5px; color: #465066; line-height: 1.5; }
+.sfx-mark { width: 64px; height: 64px; }
+.sfx-circle { fill: #e6f4ec; stroke: #1f7a4d; stroke-width: 2.5; stroke-dasharray: 151; stroke-dashoffset: 151; animation: sfx-draw .45s ease-out forwards; }
+.sfx-check { fill: none; stroke: #1f7a4d; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 36; stroke-dashoffset: 36; animation: sfx-draw .3s .35s ease-out forwards; }
+.sfx-toasts { position: fixed; right: 24px; bottom: 24px; z-index: 4001; display: grid; gap: 8px; }
+.sfx-toast { display: flex; align-items: center; gap: 10px; min-width: 220px; padding: 11px 14px; border-radius: 12px; background: #15213a; color: #fff; box-shadow: 0 10px 30px rgba(21,33,58,.25); animation: sfx-rise .25s ease-out; font-size: 13.5px; }
+.sfx-toast svg { width: 20px; height: 20px; flex: none; }
+.sfx-toast svg circle { fill: #1f7a4d; }
+.sfx-toast svg path { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.sfx-toast span { display: grid; }
+.sfx-toast small { color: #c9d1de; font-size: 12px; }
+@keyframes sfx-fade { from { opacity: 0; } }
+@keyframes sfx-pop { from { opacity: 0; transform: scale(.85); } }
+@keyframes sfx-draw { to { stroke-dashoffset: 0; } }
+@keyframes sfx-rise { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .sfx-overlay, .sfx-card, .sfx-toast { animation: none; } .sfx-circle, .sfx-check { animation: none; stroke-dashoffset: 0; } }

@@ -3,6 +3,7 @@ import { compareStudents } from '../coordinatorStudentSort';
 import { useRecordPage } from '../components/RecordPagination';
 import Pager from '../components/Pager';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import { showToast } from '../successFx';
 // src/pages/AnalyticsTab.js
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { adminRequest } from '../adminApi';
@@ -119,6 +120,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
       ['Status', 'High risk / At risk / On track come from attendance and hours. "Not enough data" means fewer than five reliable work days.'],
       ['Hours', 'Hours done count only server-credited attendance hours.']]);
     await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-progress-${today()}.xlsx`);
+    showToast('Export ready', 'Progress report downloaded.');
   };
 
 

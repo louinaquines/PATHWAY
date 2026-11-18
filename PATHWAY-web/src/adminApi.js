@@ -1,3 +1,4 @@
+import { autoSuccess } from './successFx';
 import { auth } from './firebase';
 
 export const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
@@ -60,6 +61,7 @@ export async function adminRequest(path, options = {}) {
       error.status = response.status;
       throw error;
     }
+    try { if (!requestOptions.silent) autoSuccess(path, requestOptions); } catch { /* feedback only */ }
     return data;
   };
   if (!controller) return execute();

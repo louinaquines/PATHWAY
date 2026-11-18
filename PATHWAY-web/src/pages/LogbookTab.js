@@ -2,6 +2,7 @@ import personName from '../personName';
 import { PortalEmpty } from '../components/PortalStates';
 import { readPortalPage, readMatchingPortalPage } from '../portalRecordPages';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
+import { showToast } from '../successFx';
 // src/pages/LogbookTab.js
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PortalFormDialog } from '../components/PortalStates';
@@ -163,6 +164,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
         getDocs(collection(db, 'users', student.id, 'logbook')),
       ]);
       await downloadStudentRecordsExcel(student, section, punches.docs.map(item => item.data()).filter(item => String(item.date || '').startsWith(recordMonth)), journals.docs.map(item => item.data()).filter(item => entryMonth(item) === recordMonth));
+      showToast('Export ready', 'Student records downloaded.');
     } catch (_) { setExportError('Could not export student records. Check your connection and try again.'); }
     finally { setExporting(false); }
   };

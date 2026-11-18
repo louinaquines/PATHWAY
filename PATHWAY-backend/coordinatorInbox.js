@@ -275,6 +275,7 @@ function installCoordinatorInbox({ app, db, requireStaff, allowRate }) {
       previousRiskTier: d.previousRiskTier || null,
       reasonCodes: Array.isArray(d.reasonCodes) ? d.reasonCodes : [],
       studentName: d.studentName || null,
+      driveFolderUrl: typeof d.driveFolderUrl === 'string' && d.driveFolderUrl.startsWith('https://drive.google.com/') ? d.driveFolderUrl : null,
     };
   }
   app.post(

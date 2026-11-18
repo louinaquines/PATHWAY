@@ -719,8 +719,13 @@ export default function CoordinatorDashboard() {
                       <div className="rq-head">
                         <div><h2>{personName(selectedStudent)}</h2>
                           <p>{selectedProgress?.approved || 0} of {selectedProgress?.total || 0} documents approved · ID {selectedStudent.idNumber || 'not provided'}</p></div>
+                        <div className="rq-head-acts">
+                        {selectedStudent.driveFolderUrl && /^https:\/\/drive\.google\.com\//.test(selectedStudent.driveFolderUrl)
+                          ? <a className="rq-btn rq-gdrive" href={selectedStudent.driveFolderUrl} target="_blank" rel="noreferrer noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>View GDrive</a>
+                          : <span className="rq-btn rq-gdrive is-off" aria-disabled="true">No GDrive yet</span>}
                         {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
                           Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
+                        </div>
                       </div>
                       <div className="rq-progress" role="progressbar" aria-label="Documents approved" aria-valuemin={0} aria-valuemax={selectedProgress?.total || 0} aria-valuenow={selectedProgress?.approved || 0}><i style={{ width: `${selectedProgress?.total ? Math.round(100 * (selectedProgress.approved || 0) / selectedProgress.total) : 0}%` }} /></div>
                       <div className="rq-stages" role="tablist" aria-label="OJT stage" style={{ '--count': stages.length, '--index': Math.max(0, stages.indexOf(activeStage)) }}>

@@ -283,3 +283,6 @@
 .pager[aria-busy] { opacity: .75; }
 .rq-pages { gap: 8px !important; }
 .rq-pages > span { flex: 1; }
+.rq-head-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.rq-gdrive { display: inline-flex !important; align-items: center; gap: 6px; text-decoration: none; color: #0b5fd3 !important; }
+.rq-gdrive.is-off { color: #9aa1ad !important; cursor: default; background: #faf9f6 !important; }

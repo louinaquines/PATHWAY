@@ -248,6 +248,37 @@ async function verifyCloudinaryUpload({ req, intentId, publicId, version, respon
 app.post('/requirements/:requirementId/upload-signature', requireUser, (req, res) =>
   issueCloudinaryIntent(req, res, { kind: 'requirement', requirementId: req.params.requirementId }));
 
+// Student shares a Google Drive folder link ("Anyone with the link can view").
+app.put('/student/drive-folder', requireUser, async (req, res) => {
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
+  if (!allowRate(req, res, { limit: 10, windowMs: 60 * 60_000, key: request => `drive-folder:${request.user.uid}` })) return;
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+  if (url.length > 300 || !/^https:\/\/drive\.google\.com\/(drive\/(u\/\d+\/)?folders\/|open\?id=)[A-Za-z0-9_-]+([?#][^\s]*)?$/.test(url)) {
+    return res.status(400).json({ error: 'Paste a Google Drive folder link (drive.google.com/drive/folders/…).' });
+  }
+  try {
+    const userRef = adminDb.collection('users').doc(req.user.uid);
+    const now = new Date().toISOString();
+    await adminDb.runTransaction(async transaction => {
+      const user = (await transaction.get(userRef)).data() || {};
+      const section = user.sectionId ? (await transaction.get(adminDb.collection('sections').doc(user.sectionId))).data() : null;
+      transaction.update(userRef, { driveFolderUrl: url, driveFolderUpdatedAt: now });
+      if (section?.coordinatorId && user.driveFolderUrl !== url) {
+        const name = `${user.lastName || ''}${user.lastName && user.firstName ? ', ' : ''}${user.firstName || ''}`.trim() || 'A student';
+        transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
+          recipientId: section.coordinatorId, senderId: req.user.uid, senderRole: 'student',
+          title: 'Google Drive folder shared', message: `${name} shared a Google Drive folder.`,
+          type: 'drive_folder', studentId: req.user.uid, sectionId: user.sectionId, driveFolderUrl: url, read: false, createdAt: now,
+        }));
+      }
+    });
+    return res.json({ success: true, url });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Could not save the link. Try again.' });
+  }
+});
+
 app.put('/requirements/:requirementId', requireUser, async (req, res) => {
   const { requirementId } = req.params;
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });

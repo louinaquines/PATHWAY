@@ -17,6 +17,7 @@ import { useInRouterContext, useNavigate } from "react-router-dom";
 function useSafeNavigate() { const inRouter = useInRouterContext(); return inRouter ? useNavigate() : () => {}; } // eslint-disable-line react-hooks/rules-of-hooks
 const rowIcon = (kind, row) => kind === "attendance" ? "clock"
   : /placement|company/i.test(row?.title || "") ? "briefcase"
+  : /drive/i.test(row?.title || "") ? "layers"
   : /announce/i.test(row?.title || "") ? "megaphone"
   : /review|submitted|document|requirement|journal/i.test(row?.title || "") ? "clipboard" : "bell";
 const timestamp = (value) =>
@@ -428,7 +429,7 @@ export function NotificationWorkspace({
           const tierText = recovered ? "Recovered" : tier === "High" ? "High risk" : tier === "Medium" ? "At risk" : tier === "Low" ? "On track" : null;
           const kindText = { opened: "Started falling behind", escalated: "Risk went up", recovered: "Back on track", assigned: "Assigned risk update" }[detail.kind];
           const reasons = (detail.reasonCodes || []).map((r) => attendanceReasonLabels[r?.code || r] || r?.code || r).filter(Boolean);
-          const next = att ? { label: "View student", go: () => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); } }
+          const next = detail.driveFolderUrl ? { label: "View GDrive", go: () => window.open(detail.driveFolderUrl, "_blank", "noopener,noreferrer") } : att ? { label: "View student", go: () => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); } }
             : /placement|company/i.test(detail.title || "") ? { label: "Review in Placements", go: () => navigate("/coordinator/placements") }
             : detail.studentId && /review|submitted|package|requirement|document|upload/i.test(`${detail.title} ${detail.message}`) ? { label: "Open in Requirements", go: () => navigate("/coordinator/requirements", { state: { sectionId: section?.id, openStudentId: detail.studentId } }) }
             : null;

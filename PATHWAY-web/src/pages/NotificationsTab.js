@@ -289,7 +289,7 @@ export function NotificationWorkspace({
   return (
     <div className="ann notifications-workspace">
       {(acts => topHost ? createPortal(acts, topHost) : <div className="ann-inline-actions">{acts}</div>)(<>
-        <button type="button" className="rq-btn ann-refresh-btn" onClick={() => { if (kind === "posted") setPostedKey((v) => v + 1); else setRetry((v) => v + 1); }} disabled={busy}><Icon name="refresh" size={15} />Refresh</button>
+        <button type="button" className="rq-btn ann-refresh-btn" onClick={() => { if (kind === "posted") setPostedKey((v) => v + 1); else setRetry((v) => v + 1); }} disabled={kind !== "posted" && busy}><Icon name="refresh" size={15} />Refresh</button>
         <button
           type="button"
           className="rq-btn rq-primary inbox-primary"

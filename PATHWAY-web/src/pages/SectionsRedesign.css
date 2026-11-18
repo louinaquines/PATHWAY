@@ -11,7 +11,7 @@
 .sx-list .coordinator-search input { flex: 1; min-width: 0; border: 0 !important; outline: 0 !important; box-shadow: none !important; background: transparent !important; padding: 0 !important; font-size: 13px !important; }
 .sx-card { display: grid; gap: 3px; padding: 12px 14px; border: 1px solid #e8e5de; border-radius: 10px; background: #fff; font-family: inherit; text-align: left; cursor: pointer; transition: border-color .12s, background-color .12s; }
 .sx-card:hover { border-color: #cfcabf; }
-.sx-card[aria-pressed="true"] { background: #eaf1fd; border-color: #c9d9f3; }
+.sx-card[aria-pressed="true"] { background: #fff !important; border-color: #0b5fd3; box-shadow: 0 0 0 1px #0b5fd3; }
 .sx-card strong { font-size: 14px; font-weight: 700; color: #15213a; }
 .sx-card[aria-pressed="true"] strong { color: #0b5fd3; }
 .sx-card small { font-size: 12px; color: #7b8494; }
@@ -254,3 +254,4 @@
 .sx .sx-acts { display: inline-flex; align-items: center; gap: 6px; }
 .sx .sx-acts .sx-icon { width: 32px !important; height: 32px !important; min-width: 32px !important; padding: 0 !important; display: inline-flex !important; align-items: center; justify-content: center; border-radius: 9px; flex: none; }
 .sx .sx-acts .sx-icon svg { width: 15px; height: 15px; }
+.sx .sx-card { background: #fff !important; }

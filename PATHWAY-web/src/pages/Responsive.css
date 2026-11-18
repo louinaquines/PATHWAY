@@ -25,7 +25,7 @@
   .rq-list { width: auto; flex: 1; border-right: 0; padding: 14px; }
   .rq-students { overflow: visible; }
   .rq-detail { flex: 1; padding: 16px; overflow: visible !important; }
-  .coordinator-page .rq .rq-back { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; height: 32px !important; min-height: 32px !important; padding: 0 10px 0 6px !important; margin: -4px 0 0 -6px; border: 0 !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; color: #0b5fd3 !important; font-family: inherit; font-size: 13.5px !important; font-weight: 600 !important; cursor: pointer; }
+  .coordinator-page .rq .rq-back { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; height: 32px !important; min-height: 32px !important; padding: 0 10px 0 6px !important; margin: -4px 0 0 -6px; border: 0 !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; color: #1746a2 !important; font-family: inherit; font-size: 13.5px !important; font-weight: 600 !important; cursor: pointer; }
   .rq-back:hover { background: #f4f2ec !important; }
   .rq-table, .lb-body, .f48-times, .f48-scan { max-height: none !important; overflow: visible !important; margin-right: 0; padding-right: 0; }
   .rq-head { flex-wrap: wrap; }

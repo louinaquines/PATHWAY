@@ -547,7 +547,7 @@ function AnalyticsOverview({ data }) {
   </>;
 }
 
-const TIER_COLOR = { on: '#0b5fd3', mid: '#b07a12', far: '#b3261e', none: '#c9ced8' };
+const TIER_COLOR = { on: '#1746a2', mid: '#b07a12', far: '#b3261e', none: '#c9ced8' };
 function HoursTip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;

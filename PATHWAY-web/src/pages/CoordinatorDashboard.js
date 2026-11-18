@@ -51,6 +51,7 @@ import './PortalPolish.css';
 import '../sidebarV2.css';
 import './RequirementsRedesign.css';
 import './Responsive.css';
+import './CoordinatorThemeB.css';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 

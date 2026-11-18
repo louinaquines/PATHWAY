@@ -27,7 +27,7 @@
 .cl-tick { flex: none; }
 .cl-act { display: flex; justify-content: flex-end; }
 .cl-act em { font-style: normal; font-size: 12.5px; color: #7b8494; }
-.cl-act .rq-link { padding: 0; border: 0; background: none; color: #0b5fd3; font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+.cl-act .rq-link { padding: 0; border: 0; background: none; color: #1746a2; font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
 .cl-act .rq-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .cl-empty { padding: 48px 20px; text-align: center; color: #7b8494; font-size: 13.5px; }
 .cl-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid #e8e5de; font-size: 13px; color: #7b8494; }
@@ -52,7 +52,7 @@
 }
 .cl .lb-chip { font-size: 11.5px; }
 .cl-act .rq-btn { height: 32px; font-size: 12.5px; }
-.cl-act .rq-primary { background: #0b5fd3; border-color: #0b5fd3; color: #fff; }
+.cl-act .rq-primary { background: #1746a2; border-color: #1746a2; color: #fff; }
 .cl-table { padding-right: 14px; }
 .cl-header-pad { }
 .cl-act { padding-right: 4px; }

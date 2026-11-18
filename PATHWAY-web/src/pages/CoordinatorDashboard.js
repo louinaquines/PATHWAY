@@ -294,6 +294,21 @@ export default function CoordinatorDashboard() {
   newStudentIdsRef.current = newStudentIds;
   useEffect(() => { setPhaseFilter(pendingStageRef.current || 'Pre-OJT'); pendingStageRef.current = null; }, [selectedStudent?.id]);
   const aiReviewFor = (studentId, reqId, fallback) => aiReviews[`${studentId}__${reqId}`] || fallback;
+  const [colorFilter, setColorFilter] = useState(null);
+  const [colorPage, setColorPage] = useState(1);
+  const [allSectionStudents, setAllSectionStudents] = useState(null);
+  const [colorRefresh, setColorRefresh] = useState(0);
+  useEffect(() => {
+    if (!requirementsActive || !selectedSection?.id) { setAllSectionStudents(null); return undefined; }
+    let on = true;
+    getDocs(query(collection(db, 'users'), where('role', '==', 'student'), where('department', '==', selectedSection.department), where('sectionId', '==', selectedSection.id)))
+      .then(snap => { if (on) setAllSectionStudents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }).catch(() => { if (on) setAllSectionStudents([]); });
+    return () => { on = false; };
+  }, [requirementsActive, selectedSection?.id, selectedSection?.department, colorRefresh]);
+  useEffect(() => { setColorFilter(null); setColorPage(1); }, [selectedSection?.id]);
+  const toneItems = (list, tone) => (list || []).flatMap(st => Object.entries(st.requirements || {})
+    .filter(([reqId, r]) => r?.status === 'submitted' && aiTone(aiReviewFor(st.id, reqId, r?.autoReview)) === tone).map(([reqId]) => ({ studentId: st.id, reqId, name: personName(st), label: sectionRequirements.find(x => x.id === reqId)?.label || reqId })));
+  const toneCount = (st, tone) => toneItems([st], tone).length;
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkReason, setBulkReason] = useState('The AI check found this is the wrong document, a different student, or the form was not filled in and signed. Please upload the correct, completed and signed form.');
   const tierItems = (list, tier) => (list || []).flatMap(st => Object.entries(st.requirements || {})
@@ -303,7 +318,7 @@ export default function CoordinatorDashboard() {
     const { items, status } = bulkConfirm;
     setBulkBusy(true);
     try { for (const item of items) await handleRequirement(item.studentId, item.reqId, status, status === 'rejected' ? bulkReason.trim() : ''); }
-    finally { setBulkBusy(false); setBulkConfirm(null); }
+    finally { setBulkBusy(false); setBulkConfirm(null); setColorRefresh(v => v + 1); }
   };
 
   const handleUndoAutoApproval = async (studentId, reqId) => {
@@ -655,8 +670,16 @@ export default function CoordinatorDashboard() {
                   </div>
                   <div className="rq-pills" role="group" aria-label="Filter students">
                     {[['all', 'All'], ['review', 'To check'], ['revision', 'Needs fixing'], ['complete', 'Complete']].map(([value, label]) =>
-                      <button key={value} type="button" aria-pressed={reviewFilter === value} onClick={() => setReviewFilter(value)}>{label}</button>)}
+                      <button key={value} type="button" aria-pressed={!colorFilter && reviewFilter === value} onClick={() => { setColorFilter(null); setReviewFilter(value); }}>{label}</button>)}
                   </div>
+                  <div className="rq-pills rq-tones" role="group" aria-label="Filter by AI check">
+                    {[['green', 'Green'], ['yellow', 'Yellow'], ['red', 'Red']].map(([tone, label]) => { const n = toneItems(allSectionStudents, tone).length;
+                      return <button key={tone} type="button" data-tone={tone} aria-pressed={colorFilter === tone} onClick={() => { setColorFilter(colorFilter === tone ? null : tone); setColorPage(1); }}><i aria-hidden="true" />{label}<b>{allSectionStudents ? n : '…'}</b></button>; })}
+                  </div>
+                  {colorFilter && colorFilter !== 'yellow' && (() => { const items = toneItems(allSectionStudents, colorFilter); return items.length > 0 &&
+                    <button type="button" className={`rq-btn rq-bulk rq-bulk-${colorFilter}`} disabled={saving || bulkBusy} onClick={() => setBulkConfirm({ status: colorFilter === 'green' ? 'approved' : 'rejected', items })}>
+                      {colorFilter === 'green' ? `Approve all green (${items.length} document${items.length === 1 ? '' : 's'})` : `Reject all red (${items.length} document${items.length === 1 ? '' : 's'})`}</button>; })()}
+                  {colorFilter === 'yellow' && <p className="rq-tone-note">Yellow documents need a closer look. Open each student to review them.</p>}
                   <div className="rq-students">
                     {!selectedSection && (sections.length === 0
                       ? <PortalEmpty compact icon="section" title="No sections yet" description="Create a section to see students here." />
@@ -670,7 +693,20 @@ export default function CoordinatorDashboard() {
                       <span>Students will appear here once they join {selectedSection?.name || 'this section'}.</span>
                       <button type="button" className="rq-link" onClick={() => setReviewRetry(value => value + 1)}>Check again</button>
                     </div>}
-                    {visibleReviewStudents.map(student => {
+                    {colorFilter && (() => { const list = (allSectionStudents || []).filter(st => toneCount(st, colorFilter) > 0).sort((a, b) => personName(a).localeCompare(personName(b)));
+                      const pages = Math.max(1, Math.ceil(list.length / 10)); const cur = Math.min(colorPage, pages);
+                      return <>
+                        {!allSectionStudents && <div className="rq-empty">Loading…</div>}
+                        {allSectionStudents && !list.length && <div className="rq-empty">No students have {colorFilter} documents waiting.</div>}
+                        {list.slice((cur - 1) * 10, cur * 10).map(student => { const n = toneCount(student, colorFilter);
+                          return <button type="button" className="rq-student" aria-pressed={selectedStudent?.id === student.id} key={student.id} onClick={() => { setSelectedStudent(student); setRqDetailView(true); }}>
+                            <span className="rq-avatar" aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+                            <span className="rq-student-name"><strong>{personName(student)}</strong><small>{selectedSection?.name}</small></span>
+                            <span className="rq-student-tag" data-tone={colorFilter === 'yellow' ? 'amber' : colorFilter}>{n} {colorFilter}</span>
+                          </button>; })}
+                        {pages > 1 && <div className="rq-pages"><span>{(cur - 1) * 10 + 1}–{Math.min(cur * 10, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setColorPage} label="Colour filter pages" /></div>}
+                      </>; })()}
+                    {!colorFilter && visibleReviewStudents.map(student => {
                       const reqs = sectionRequirements.map(r => student.requirements?.[r.id]?.status);
                       const toCheck = reqs.filter(v => v === 'submitted').length, toFix = reqs.filter(v => v === 'rejected').length;
                       const tag = toFix ? [`${toFix} need${toFix === 1 ? 's' : ''} fixing`, 'red'] : toCheck ? [`${toCheck} to check`, 'blue'] : isComplete(student) ? ['All approved', 'green'] : ['Nothing new', 'mute'];
@@ -681,7 +717,7 @@ export default function CoordinatorDashboard() {
                       </button>;
                     })}
                   </div>
-                  {visibleReviewStudents.length > 0 && (() => {
+                  {!colorFilter && visibleReviewStudents.length > 0 && (() => {
                     const first = (reviewCursors.length - 1) * 10 + 1, last = first + visibleReviewStudents.length - 1;
                     const total = reviewTotal?.scope === reviewScope && reviewTotal.count != null ? reviewTotal.count : null;
                     const pages = reviewTotal?.scope === reviewScope ? Math.max(reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore)), reviewTotal.pages) : reviewCursors.length + Number(Boolean(currentReview?.page?.hasMore));
@@ -786,13 +822,17 @@ export default function CoordinatorDashboard() {
                   })()}
                   <AlertDialog
                     open={Boolean(bulkConfirm)}
-                    title={bulkConfirm ? `Approve ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'}?` : ''}
-                    description="These passed the AI check. You can still undo each one later."
-                    confirmLabel="Approve"
+                    title={bulkConfirm ? `${bulkConfirm.status === 'rejected' ? 'Send back' : 'Approve'} ${bulkConfirm.items.length} document${bulkConfirm.items.length === 1 ? '' : 's'}?` : ''}
+                    description={bulkConfirm?.status === 'rejected' ? 'These were flagged red by the AI check. Each student gets this reason and can upload again.' : 'These passed the AI check. You can still undo each one later.'}
+                    confirmLabel={bulkConfirm?.status === 'rejected' ? 'Send back' : 'Approve'}
+                    confirmDisabled={bulkConfirm?.status === 'rejected' && !bulkReason.trim()}
                     busy={bulkBusy}
                     onCancel={() => setBulkConfirm(null)}
                     onConfirm={runBulk}
-                  />
+                  >
+                    {bulkConfirm && bulkConfirm.items.length > 1 && bulkConfirm.items[0].name && <ul className="rq-bulk-list">{bulkConfirm.items.slice(0, 8).map(it => <li key={it.studentId + it.reqId}><b>{it.name}</b> · {it.label}</li>)}{bulkConfirm.items.length > 8 && <li>+{bulkConfirm.items.length - 8} more</li>}</ul>}
+                    {bulkConfirm?.status === 'rejected' && <textarea aria-label="Reason sent to students" className="rq-reason" rows={3} value={bulkReason} onChange={e => setBulkReason(e.target.value)} />}
+                  </AlertDialog>
                   <AlertDialog
                     open={Boolean(rejectionModal)}
                     title="Ask the student to fix this?"

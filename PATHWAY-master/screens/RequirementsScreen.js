@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
   Linking,
   TextInput,
+  Animated,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -109,7 +110,7 @@ export default function RequirementsScreen({ navigation, route }) {
     const url = driveLink.trim();
     if (!/^https:\/\/drive\.google\.com\/(drive\/(u\/\d+\/)?folders\/|open\?id=)[A-Za-z0-9_-]+/.test(url)) { setDriveError('Paste a Google Drive folder link (drive.google.com/drive/folders/…).'); return; }
     setDriveBusy(true); setDriveError('');
-    try { await requestBackend('/student/drive-folder', { method: 'PUT', payload: { url } }); setDriveSaved(true); }
+    try { await requestBackend('/student/drive-folder', { method: 'PUT', payload: { url } }); setDriveSaved(true); playLinkSuccess('Drive folder saved'); }
     catch (e) { setDriveError(e.message || 'Could not save the link. Try again.'); }
     finally { setDriveBusy(false); }
   };
@@ -168,10 +169,21 @@ export default function RequirementsScreen({ navigation, route }) {
   }, [showMenuDrawer, showNotifications]);
 
   const [linkSubmitting, setLinkSubmitting] = useState(null);
+  const [linkSuccess, setLinkSuccess] = useState(false);
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successFade = useRef(new Animated.Value(0)).current;
+  const playLinkSuccess = (title = 'Marked as submitted') => {
+    setLinkSuccess(title); successScale.setValue(0.4); successFade.setValue(0);
+    Animated.parallel([
+      Animated.spring(successScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      Animated.timing(successFade, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start(() => setTimeout(() => Animated.timing(successFade, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setLinkSuccess(false)), 1300));
+  };
   const handleLinkSubmitted = async (docItem) => {
     setLinkSubmitting(docItem.id);
     try {
       await requestBackend(`/requirements/${encodeURIComponent(docItem.id)}/link-submitted`, { method: 'POST' });
+      playLinkSuccess('Marked as submitted');
       await fetchRequirements();
     } catch (e) { Alert.alert('Could not mark as submitted', e.message || 'Try again.'); }
     finally { setLinkSubmitting(null); }
@@ -221,6 +233,7 @@ export default function RequirementsScreen({ navigation, route }) {
           fileSize: userSaved.fileSize || null,
           submittedAt: userSaved.submittedAt || null,
           cloudinaryDeliveryType: userSaved.cloudinaryDeliveryType || null,
+          viaLink: Boolean(userSaved.viaLink),
         };
       });
 
@@ -426,6 +439,7 @@ export default function RequirementsScreen({ navigation, route }) {
       ));
 
       setUploadingId(null);
+      playLinkSuccess('Document uploaded');
 
     } catch (e) {
       setUploadingId(null);
@@ -691,7 +705,7 @@ export default function RequirementsScreen({ navigation, route }) {
                     <View style={[styles.uploadedFileRow, isRejected && styles.uploadedFileRowIssue]}>
                       <TouchableOpacity
                         style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                        onPress={event => { event.stopPropagation(); handleOpenRequirement(docItem); }}
+                        onPress={event => { event.stopPropagation(); if (docItem.viaLink) { Linking.openURL(docItem.submissionLink).catch(() => {}); } else { handleOpenRequirement(docItem); } }}
                         disabled={Boolean(downloadingId)}
                         accessibilityRole="button"
                         accessibilityLabel={`Open ${docItem.fileName || docItem.label}`}
@@ -702,10 +716,10 @@ export default function RequirementsScreen({ navigation, route }) {
                       </View>
                       <View style={styles.fileDetails}>
                         <Text style={styles.fileNameText} numberOfLines={1}>
-                          {docItem.fileName || 'app_form_signed.pdf'}
+                          {docItem.viaLink ? 'Submitted through link' : (docItem.fileName || docItem.label)}
                         </Text>
                         <Text style={styles.fileMetaText}>
-                          {[docItem.fileSize, docItem.submittedAt && `Uploaded ${new Date(docItem.submittedAt).toLocaleDateString('en-PH')}`].filter(Boolean).join(' · ') || 'File received'}
+                          {[docItem.fileSize, docItem.submittedAt && `${docItem.viaLink ? 'Marked submitted' : 'Uploaded'} ${new Date(docItem.submittedAt).toLocaleDateString('en-PH')}`].filter(Boolean).join(' · ') || 'File received'}
                         </Text>
                       </View>
                       </TouchableOpacity>
@@ -765,14 +779,14 @@ export default function RequirementsScreen({ navigation, route }) {
                 {expandedRequirementId === docItem.id && !isUploading && isNotSubmitted && canEditItem(docItem) && (
                   <>
                     {docItem.submissionLink ? (
-                      <View style={styles.dropzoneContainer}>
-                        <Text style={styles.dropzoneMainText}>Submit using your coordinator's link</Text>
-                        <Text style={styles.dropzoneHintText}>Open the link, upload your file there, then tap "I've submitted it".</Text>
-                        <TouchableOpacity style={styles.resubmitButton} onPress={() => Linking.openURL(docItem.submissionLink).catch(() => Alert.alert('Could not open link'))} activeOpacity={0.75}>
-                          <Text style={styles.resubmitButtonText}>Open submission link</Text>
+                      <View style={styles.linkBox}>
+                        <Text style={styles.linkTitle}>Submit through your coordinator's link</Text>
+                        <Text style={styles.linkHint}>1. Open the link and upload your file there.{'\n'}2. Come back and tap "I've submitted it".</Text>
+                        <TouchableOpacity style={styles.linkPrimary} onPress={() => Linking.openURL(docItem.submissionLink).catch(() => Alert.alert('Could not open link'))} activeOpacity={0.8}>
+                          <Text style={styles.linkPrimaryText}>Open submission link</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.resubmitButton} disabled={readOnlyStep || linkSubmitting === docItem.id} onPress={() => handleLinkSubmitted(docItem)} activeOpacity={0.75}>
-                          <Text style={styles.resubmitButtonText}>{linkSubmitting === docItem.id ? 'Saving…' : "I've submitted it"}</Text>
+                        <TouchableOpacity style={[styles.linkSecondary, (readOnlyStep || linkSubmitting === docItem.id) && { opacity: 0.5 }]} disabled={readOnlyStep || linkSubmitting === docItem.id} onPress={() => handleLinkSubmitted(docItem)} activeOpacity={0.8}>
+                          <Text style={styles.linkSecondaryText}>{linkSubmitting === docItem.id ? 'Saving…' : "I've submitted it"}</Text>
                         </TouchableOpacity>
                       </View>
                     ) : (
@@ -878,6 +892,15 @@ export default function RequirementsScreen({ navigation, route }) {
         onNavigate={route => navigation.replace(route)}
         onSignOut={handleLogout}
       />
+      {linkSuccess && (
+        <Animated.View pointerEvents="none" style={[styles.successOverlay, { opacity: successFade }]}>
+          <Animated.View style={[styles.successCard, { transform: [{ scale: successScale }] }]}>
+            <View style={styles.successCircle}><CheckCircleIcon size={44} color="#fff" /></View>
+            <Text style={styles.successTitle}>{linkSuccess}</Text>
+            <Text style={styles.successText}>Your coordinator will review it.</Text>
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -1441,6 +1464,18 @@ const styles = StyleSheet.create({
   },
 
   /* Dropzone Container */
+  successOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,33,58,0.25)', alignItems: 'center', justifyContent: 'center' },
+  successCard: { width: 260, paddingVertical: 28, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center' },
+  successCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#1f7a4d', alignItems: 'center', justifyContent: 'center' },
+  successTitle: { marginTop: 14, fontSize: 17, fontWeight: '700', color: '#15213a' },
+  successText: { marginTop: 4, fontSize: 13, color: '#465066', textAlign: 'center' },
+  linkBox: { marginTop: 14, padding: 16, borderRadius: 14, backgroundColor: '#f5f8fe', borderWidth: 1, borderColor: '#dce7fb' },
+  linkTitle: { fontSize: 15, fontWeight: '700', color: '#15213a' },
+  linkHint: { marginTop: 6, fontSize: 13, lineHeight: 20, color: '#465066' },
+  linkPrimary: { marginTop: 14, height: 46, borderRadius: 12, backgroundColor: '#0b5fd3', alignItems: 'center', justifyContent: 'center' },
+  linkPrimaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  linkSecondary: { marginTop: 10, height: 46, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#c9dafa', alignItems: 'center', justifyContent: 'center' },
+  linkSecondaryText: { color: '#0b5fd3', fontSize: 15, fontWeight: '700' },
   dropzoneContainer: {
     borderWidth: 1.5,
     borderColor: '#CBD5E1',

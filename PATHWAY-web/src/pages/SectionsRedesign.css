@@ -226,3 +226,15 @@
 .tm-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid #efece5; }
 .tm-foot .rq-btn { height: 38px; padding: 0 16px; } .tm .rq-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
 .tm .rq-primary:disabled { opacity: .5; }
+/* term dropdown polish */
+.tm-pick .rq-section-face { height: 40px !important; min-width: 0 !important; padding: 0 12px 0 14px !important; gap: 10px; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; box-shadow: none !important; }
+.tm-pick .rq-section-face svg { position: static !important; }
+.tm-pick .rq-section-face[aria-expanded="true"], .tm-pick .rq-section-face:focus-visible { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; outline: 0 !important; }
+.tm-pick .rq-section-face[aria-expanded="true"] svg { transform: rotate(180deg); }
+.tm-menu { position: absolute !important; top: calc(100% + 6px) !important; left: 0 !important; right: auto !important; min-width: max(100%, 220px) !important; z-index: 60 !important; margin: 0 !important; padding: 6px !important; list-style: none; background: #fff !important; border: 1px solid #e8e5de !important; border-radius: 10px !important; box-shadow: 0 12px 32px rgba(21,33,58,.14) !important; }
+.tm-menu li button { width: 100%; display: flex !important; align-items: center; gap: 8px; height: 36px; padding: 0 10px !important; border: 0 !important; border-radius: 6px !important; background: none !important; font-family: inherit; font-size: 13px !important; font-weight: 500 !important; color: #15213a !important; text-align: left; cursor: pointer; white-space: nowrap; }
+.tm-menu li button:hover { background: #f4f2ec !important; }
+.tm-menu li button[aria-selected="true"] { background: #eaf1fd !important; color: #0b5fd3 !important; font-weight: 600 !important; }
+.tm-menu .tm-manage { border-top: 1px solid #efece5; margin-top: 6px; padding-top: 6px; }
+.tm-menu .tm-manage button { color: #0b5fd3 !important; font-weight: 600 !important; }
+.tm-menu .tm-manage svg { position: static !important; color: currentColor; }

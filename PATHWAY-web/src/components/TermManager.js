@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { adminRequest } from '../adminApi';
+import AlertDialog from './AlertDialog';
 
 const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 const blank = { name: '', startDate: '', endDate: '', isCurrent: false };
@@ -22,6 +23,7 @@ export function TermPicker({ terms, value, onChange, onManage }) {
 export function TermDialog({ terms, onClose, onChanged }) {
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [delTerm, setDelTerm] = useState(null);
   const [error, setError] = useState('');
   const run = async (fn) => { setBusy(true); setError(''); try { await fn(); await onChanged(); setDraft(null); } catch (e) { setError(e.message || 'Something went wrong.'); } finally { setBusy(false); } };
   const save = () => run(() => draft.id
@@ -44,10 +46,13 @@ export function TermDialog({ terms, onClose, onChanged }) {
             <div className="tm-acts">
               {!t.isCurrent && <button type="button" className="rq-link" disabled={busy} onClick={() => run(() => adminRequest(`/coordinator/terms/${encodeURIComponent(t.id)}`, { method: 'PATCH', body: JSON.stringify({ isCurrent: true }) }))}>Make current</button>}
               <button type="button" className="rq-link" disabled={busy} onClick={() => setDraft({ ...t })}>Edit</button>
-              <button type="button" className="rq-link tm-del" disabled={busy} onClick={() => { if (window.confirm(`Delete "${t.name}"?`)) run(() => adminRequest(`/coordinator/terms/${encodeURIComponent(t.id)}`, { method: 'DELETE' })); }}>Delete</button>
+              <button type="button" className="rq-link tm-del" disabled={busy} onClick={() => setDelTerm(t)}>Delete</button>
             </div></li>)}</ul>
           : <p className="tm-empty">No terms yet. Add your first one, like “1st Semester A.Y. 2026–2027”.</p>}
         {error && <p role="alert" className="tm-err">{error}</p>}
+        <AlertDialog open={Boolean(delTerm)} title="Delete this term?" description={delTerm ? `“${delTerm.name}” will be deleted. Sections that use it will show no term. This can’t be undone.` : ''}
+          confirmLabel="Delete term" busy={busy} onCancel={() => setDelTerm(null)}
+          onConfirm={() => { const t = delTerm; setDelTerm(null); run(() => adminRequest(`/coordinator/terms/${encodeURIComponent(t.id)}`, { method: 'DELETE' })); }} />
       </div>
       <footer className="tm-foot">
         {draft ? <><button type="button" className="rq-btn" disabled={busy} onClick={() => setDraft(null)}>Back</button>

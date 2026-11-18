@@ -2,7 +2,7 @@
 .lb-month { display: inline-flex; align-items: center; gap: 4px; height: 38px; padding: 0 4px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; }
 .lb-month span { min-width: 118px; text-align: center; font-size: 13.5px; font-weight: 500; color: #15213a; }
 .coordinator-page .lb-month button { width: 28px !important; height: 28px !important; min-height: 28px !important; padding: 0 !important; display: grid; place-items: center; border: 0 !important; border-radius: 6px !important; background: transparent !important; color: #465066 !important; box-shadow: none !important; cursor: pointer; }
-.coordinator-page .lb-month button:hover:not(:disabled) { background: #f4f2ec !important; }
+.coordinator-page .lb-month button:hover:not(:disabled) { background: #e9f0fb !important; }
 .coordinator-page .lb-month button:disabled { opacity: .35; }
 .lb .rq-stages button i[data-tone="mute"] { background: #c9c4ba; }
 .lb-detail { gap: 16px; }

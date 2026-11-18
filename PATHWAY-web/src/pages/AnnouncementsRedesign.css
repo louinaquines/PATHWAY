@@ -1,4 +1,4 @@
-.coordinator-page main:has(.ann) { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-page main:has(.ann) { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-page main:has(.ann) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; }
 .coordinator-page main:has(.ann) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
 .coordinator-page main:has(.ann) > div { background: transparent !important; }
@@ -237,7 +237,7 @@ dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; he
 .ann .ann-card .ann-sel select { line-height: 36px !important; padding-top: 0 !important; padding-bottom: 0 !important; border-radius: 8px !important; }
 .ann .ann-card .inbox-search { border-radius: 8px !important; }
 /* dashboard: flat background, no topbar strip */
-.coordinator-dashboard-mode main { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-dashboard-mode main { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-dashboard-mode main::before, .coordinator-dashboard-mode main::after { display: none !important; }
 .coordinator-dashboard-mode main > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; backdrop-filter: none !important; }
 .coordinator-dashboard-mode main > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
@@ -245,10 +245,10 @@ dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; he
 .coordinator-dashboard-mode main :is(.cdash-metrics > *, .cdash-columns > *, .cdash-steps, .cdash-steps > *, section) { backdrop-filter: none !important; }
 /* dashboard background: stronger than the global campus-photo rule */
 html body .coordinator-page.coordinator-dashboard-mode main,
-html body .coordinator-page.coordinator-dashboard-mode main * :is(.coordinator-dashboard, .cdash) { background: #f4f2ec !important; background-image: none !important; background-attachment: scroll !important; }
+html body .coordinator-page.coordinator-dashboard-mode main * :is(.coordinator-dashboard, .cdash) { background: #e9f0fb !important; background-image: none !important; background-attachment: scroll !important; }
 html body .coordinator-page.coordinator-dashboard-mode main > div,
 html body .coordinator-page.coordinator-dashboard-mode main > div > div:not([class*="card"]) { background-color: transparent !important; background-image: none !important; }
 html body .coordinator-page.coordinator-dashboard-mode main :is(.cdash-metrics > *, .cdash-columns > *, .cdash-steps > *) { background: #fff !important; border: 1px solid #e8e5de !important; box-shadow: none !important; backdrop-filter: none !important; }
-.coordinator-page main:has(.coordinator-overview), .coordinator-page main:has(.cdash-metrics) { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-page main:has(.coordinator-overview), .coordinator-page main:has(.cdash-metrics) { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-page main:has(.coordinator-overview)::before, .coordinator-page main:has(.coordinator-overview)::after, .coordinator-page main:has(.cdash-metrics)::before, .coordinator-page main:has(.cdash-metrics)::after { display: none !important; background: none !important; }
 .coordinator-page main :is(.coordinator-overview) * { background-attachment: scroll !important; }

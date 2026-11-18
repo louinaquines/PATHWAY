@@ -4,6 +4,7 @@
 .coordinator-page .sidebar-container .sidebar-nav-btn:hover:not(.sidebar-nav-btn-active) svg { color: #0b5fd3 !important; }
 .coordinator-page .sidebar-container .sidebar-user-pill:hover { background: #eef1f6 !important; }
 /* Light blue page background */
-.coordinator-page main, .coordinator-page main:is(:has(.an), :has(.ann), :has(.sx), :has(.rq), :has(.plo), :has(.msg)) { background: #e9f0fb !important; background-image: none !important; }
+html body .coordinator-page main, html body .coordinator-page main[class], html body .coordinator-page main:is(:has(div), :not(:has(div))) { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-page main > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
 .coordinator-page main > header.requirements-topbar > div:not(.topbarLeft) :is(button, select, .rq-section-face) { box-shadow: none; }
+html body .coordinator-page main > div, html body .coordinator-page main > section { background-color: transparent !important; background-image: none !important; }

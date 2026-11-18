@@ -41,7 +41,7 @@ dialog.rgx-dialog::backdrop { background: rgba(21,33,58,.45); }
 .rgx-dialog .rq-primary { background: #0b5fd3 !important; border-color: #0b5fd3 !important; color: #fff !important; }
 .rgx-dialog .rgx-danger { background: #b3261e !important; border-color: #b3261e !important; color: #fff !important; }
 .rgx-dialog [role="alert"] { color: #b3261e; font-size: 12.5px; }
-.coordinator-page main:has(.rgx) { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-page main:has(.rgx) { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-page main:has(.rgx) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; }
 .coordinator-page main:has(.rgx) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
 .coordinator-page main:has(.rgx) > div { background: transparent !important; }

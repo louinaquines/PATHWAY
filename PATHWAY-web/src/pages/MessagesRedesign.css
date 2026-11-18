@@ -1,4 +1,4 @@
-.coordinator-page main:has(.msg) { background: #f4f2ec !important; background-image: none !important; display: flex !important; flex-direction: column; height: 100vh; overflow: hidden !important; }
+.coordinator-page main:has(.msg) { background: #e9f0fb !important; background-image: none !important; display: flex !important; flex-direction: column; height: 100vh; overflow: hidden !important; }
 .coordinator-page main:has(.msg) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; flex: none; }
 .coordinator-page main:has(.msg) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
 .coordinator-page main:has(.msg) > div { background: transparent !important; flex: 1; min-height: 0; }

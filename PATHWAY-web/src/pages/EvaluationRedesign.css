@@ -1,5 +1,5 @@
 /* Evaluations — same look as Requirements / Attendance & Journals */
-.coordinator-page main:has(.ev) { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-page main:has(.ev) { background: #e9f0fb !important; background-image: none !important; }
 .coordinator-page main:has(.ev) > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; }
 .coordinator-page main:has(.ev) > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
 .coordinator-page main:has(.ev) > div { background: transparent !important; }

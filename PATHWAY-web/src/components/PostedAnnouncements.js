@@ -46,8 +46,8 @@ export default function PostedAnnouncements({ section, switcher, refreshKey = 0 
   const total = seen?.total || open?.recipients || 0;
   return <div className="ann-card pa">
     <section className="pa-list">
-      {switcher}
       <div className="pa-search coordinator-search"><Icon name="search" size={15} /><input type="search" aria-label="Find an announcement" placeholder="Find an announcement" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></div>
+      {switcher}
       <div className="pa-rows">
         {rows === null ? <p className="pa-empty">Loading announcements…</p>
           : error ? <p className="pa-empty">{error}</p>

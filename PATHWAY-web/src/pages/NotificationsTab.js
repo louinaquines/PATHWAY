@@ -297,7 +297,6 @@ export function NotificationWorkspace({
           kind === "activity" ? "Activity inbox" : "Attendance alerts"
         }
       >
-        {switcher}
         <div className="inbox-toolbar">
           <label className="inbox-search">
             <Icon name="search" size={18} />
@@ -325,6 +324,7 @@ export function NotificationWorkspace({
               : "Unread count unavailable"}
           </span>
         </div>
+        {switcher}
         <div
           className="inbox-rows"
           ref={list}

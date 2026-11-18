@@ -203,3 +203,10 @@ dialog.ana-dialog { width: min(560px, calc(100vw - 32px)) !important; }
 .ana-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px !important; border-top: 1px solid #efece5; }
 .ana-foot .rq-btn { height: 40px; padding: 0 16px; display: inline-flex; align-items: center; gap: 6px; }
 .ana-foot .rq-primary:disabled { opacity: .45; cursor: default; }
+dialog.ana-dialog { height: auto !important; min-height: 0 !important; max-height: calc(100vh - 40px) !important; top: 50% !important; bottom: auto !important; transform: translateY(-50%); margin: 0 auto !important; display: block; }
+dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; height: auto !important; flex: none !important; }
+/* switch now sits under the search */
+.pa .pa-search { margin: 14px 14px 10px !important; }
+.pa .ann-switch, .ann .ann-card .ann-switch { padding: 0 14px 12px !important; }
+.ann .ann-card .inbox-toolbar { padding: 14px 14px 10px !important; border-bottom: 0 !important; }
+.ann .ann-card .inbox-rows, .pa-rows { border-top: 1px solid #efece5; }

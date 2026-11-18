@@ -777,7 +777,17 @@ export default function RequirementsScreen({ navigation, route }) {
               </TouchableOpacity>
             );
           })}
-          {!isDocumentHub && (() => { const open = expandedRequirementId === '__drive'; return (
+        </View>
+
+        {!isDocumentHub && activeStep === 1 && <View style={styles.optionalSection}>
+          <View style={styles.documentsHeading}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.documentsTitle}>Optional submission</Text>
+              <Text style={styles.documentsSubtitle}>Share a Google Drive folder with your files. You can skip this.</Text>
+            </View>
+            <Text style={styles.documentsCount}>1 item</Text>
+          </View>
+          {(() => { const open = expandedRequirementId === '__drive'; return (
             <View style={[styles.docCard, isNarrowScreen && styles.docCardNarrow, open && styles.docCardExpanded]}>
               <StudentSurface tone={driveSaved ? 'mint' : 'blue'} waves />
               <TouchableOpacity activeOpacity={0.92} accessibilityRole="button" accessibilityState={{ expanded: open }}
@@ -793,7 +803,7 @@ export default function RequirementsScreen({ navigation, route }) {
                 </View>
                 {driveSaved
                   ? <View style={styles.verifiedBadge}><CheckCircleIcon size={13} color={COLORS.successDark} /><Text style={styles.verifiedBadgeText}>Linked</Text></View>
-                  : <View style={styles.requiredBadge}><Text style={styles.requiredBadgeText}>Optional submission</Text></View>}
+                  : <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>Optional</Text></View>}
                 <ChevronIcon size={16} color={COLORS.textMuted} expanded={open} />
               </TouchableOpacity>
               {open && <View style={styles.driveBody}>
@@ -812,7 +822,7 @@ export default function RequirementsScreen({ navigation, route }) {
                 <Text style={styles.driveHint}>Set sharing to “Anyone with the link · Viewer”.</Text>
               </View>}
             </View>); })()}
-        </View>
+        </View>}
 
         {/* ── Footer Navigation / Submit Button ── */}
         {!isDocumentHub && <View style={styles.footerSection}>
@@ -1073,6 +1083,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 
+  optionalSection: { marginTop: 28 },
+  optionalBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: '#F1F5F9', marginRight: 6 },
+  optionalBadgeText: { color: '#64748B', fontSize: 12, fontWeight: '700' },
   driveBody: { gap: 8, marginTop: 14 },
   driveLabel: { color: '#172B44', fontSize: 14, fontWeight: '600' },
   driveRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },

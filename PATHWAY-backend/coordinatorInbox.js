@@ -117,6 +117,9 @@ function createInboxPager(db, key = crypto.randomBytes(32)) {
           sectionId: d.sectionId,
           type: d.type,
           kind: d.kind,
+          riskTier: d.riskTier || null,
+          reasonCodes: Array.isArray(d.reasonCodes) ? d.reasonCodes : [],
+          studentName: d.studentName || null,
         };
       }),
       hasMore: result.size > 10,
@@ -266,6 +269,12 @@ function installCoordinatorInbox({ app, db, requireStaff, allowRate }) {
       createdAt: d.inboxAt ? new Date(d.inboxAt).toISOString() : null,
       studentId: d.studentId,
       sectionId: d.sectionId,
+      type: d.type || null,
+      kind: d.kind || null,
+      riskTier: d.riskTier || null,
+      previousRiskTier: d.previousRiskTier || null,
+      reasonCodes: Array.isArray(d.reasonCodes) ? d.reasonCodes : [],
+      studentName: d.studentName || null,
     };
   }
   app.post(

@@ -7,6 +7,8 @@ jest.mock("../components/AttendanceAccess", () => ({
     children({ isCurrent: () => true, onDenied: jest.fn() }),
 }));
 jest.mock("../adminApi", () => ({ adminRequest: jest.fn() }));
+jest.mock("../firebase", () => ({ db: {} }));
+jest.mock("firebase/firestore", () => ({ doc: jest.fn(), getDoc: jest.fn(() => Promise.resolve({ exists: () => false })) }));
 jest.mock("../components/AnnouncementEmailDelivery", () => () => null);
 const row = {
   id: "a",

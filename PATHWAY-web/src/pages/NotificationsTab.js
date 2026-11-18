@@ -9,6 +9,11 @@ import "./AnnouncementsRedesign.css";
 import { createPortal } from "react-dom";
 import SectionPicker from "../components/SectionPicker";
 import PostedAnnouncements from "../components/PostedAnnouncements";
+import { attendanceReasonLabels } from "../attendanceRiskLabels";
+import { doc as fsDoc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
+import { useInRouterContext, useNavigate } from "react-router-dom";
+function useSafeNavigate() { const inRouter = useInRouterContext(); return inRouter ? useNavigate() : () => {}; } // eslint-disable-line react-hooks/rules-of-hooks
 const rowIcon = (kind, row) => kind === "attendance" ? "clock"
   : /placement|company/i.test(row?.title || "") ? "briefcase"
   : /announce/i.test(row?.title || "") ? "megaphone"
@@ -56,6 +61,7 @@ export function NotificationWorkspace({
   onSectionChange,
   access,
 }) {
+  const navigate = useSafeNavigate();
   const storage = `pathway-inbox:${userId}`;
   const [topHost, setTopHost] = useState(null);
   useEffect(() => { setTopHost(document.getElementById("ann-top-actions")); }, []);
@@ -212,8 +218,14 @@ export function NotificationWorkspace({
       const result = await adminRequest(
         `/coordinator/inbox/${kind}/${encodeURIComponent(row.id)}?sectionId=${encodeURIComponent(section.id)}`,
       );
-      if (detailVersion.current === generation && access.isCurrent())
-        setDetail(result);
+      if (detailVersion.current === generation && access.isCurrent()) {
+        setDetail({ ...row, ...result, type: result.type || row.type, kind: result.kind || row.kind, loading: false });
+        const sid = result.studentId || row.studentId;
+        if (sid) getDoc(fsDoc(db, "users", sid)).then((snap) => {
+          if (detailVersion.current !== generation || !snap.exists()) return;
+          const u = snap.data(); setDetail((old) => old && ({ ...old, studentName: `${u.lastName || ""}${u.lastName && u.firstName ? ", " : ""}${u.firstName || ""}`.trim() || old.studentName, studentIdNumber: u.idNumber }));
+        }).catch(() => {});
+      }
     } catch {
       if (detailVersion.current === generation)
         setFormError(
@@ -356,15 +368,16 @@ export function NotificationWorkspace({
                   ? "No matching notifications."
                   : filter === "unread"
                     ? "No unread notifications."
-                    : "No notifications yet."}
+                    : kind === "attendance" ? "No attendance alerts" : "No notifications yet."}
               </strong>
               <span>
                 {query
                   ? "Try a different search term or clear the filter."
                   : kind === "attendance"
-                    ? "Attendance risk alerts for this section will appear here."
+                    ? "PATHWAY checks attendance every day and lists students here when they start falling behind."
                     : "Student submissions, reviews and other section activity will appear here."}
               </span>
+              {kind === "attendance" && !query && filter !== "unread" && <button type="button" className="inbox-check-again" onClick={() => navigate("/coordinator/analytics")}>See class progress</button>}
             </div>
           ) : (
             page.records.map((row) => (
@@ -427,18 +440,48 @@ export function NotificationWorkspace({
         </footer>
       </section>
       <section className="ann-detail" {...(detail ? { role: "dialog", "aria-label": "Notification details" } : {})}>
-        {detail ? <>
-          <header className="ann-detail-head"><span className="inbox-row-icon"><Icon name={rowIcon(kind, detail)} size={18} /></span>
-            <div><h3>{detail.title}</h3><p>{kind === "attendance" ? "Attendance alert" : "Activity"}{detail.createdAt ? ` · ${timestamp(detail.createdAt)}` : ""}</p></div>
-            <button type="button" className="plt-x" aria-label="Close details" onClick={close}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
-          <div className="ann-detail-body"><p className="inbox-detail-message">{detail.message}</p>
-            {detail.loading && <p role="status">Loading details…</p>}
-            {formError && <p role="alert">{formError}</p>}</div>
-          <footer className="ann-detail-foot">
-            {kind === "attendance" && !detail.loading && <button className="rq-btn" onClick={() => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); }}>View student</button>}
-            <button className="rq-btn rq-primary" onClick={read} disabled={saving || detail.read || detail.loading}>{saving ? "Saving…" : detail.read ? "Read" : "Mark as read"}</button>
-          </footer>
-        </> : <div className="ann-pick"><Icon name="bell" size={30} /><strong>Pick a notification</strong><span>Its details will show here.</span></div>}
+        {detail ? (() => {
+          const att = kind === "attendance";
+          const tier = detail.riskTier;
+          const recovered = detail.kind === "recovered";
+          const tone = recovered ? "green" : tier === "High" ? "red" : tier === "Medium" ? "amber" : "mute";
+          const tierText = recovered ? "Recovered" : tier === "High" ? "High risk" : tier === "Medium" ? "At risk" : tier === "Low" ? "On track" : null;
+          const kindText = { opened: "Started falling behind", escalated: "Risk went up", recovered: "Back on track", assigned: "Assigned risk update" }[detail.kind];
+          const reasons = (detail.reasonCodes || []).map((r) => attendanceReasonLabels[r?.code || r] || r?.code || r).filter(Boolean);
+          const next = att ? { label: "View student", go: () => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); } }
+            : /placement|company/i.test(detail.title || "") ? { label: "Review in Placements", go: () => navigate("/coordinator/placements") }
+            : detail.studentId && /review|submitted|package|requirement|document|upload/i.test(`${detail.title} ${detail.message}`) ? { label: "Open in Requirements", go: () => navigate("/coordinator/requirements", { state: { sectionId: section?.id, openStudentId: detail.studentId } }) }
+            : null;
+          const goNext = async () => { if (!detail.read && !detail.loading) { try { await read(); } catch {} } next.go(); };
+          return <>
+            <header className="ann-detail-head"><span className="inbox-row-icon"><Icon name={rowIcon(kind, detail)} size={18} /></span>
+              <div><h3>{att && detail.studentName ? detail.studentName : detail.title}</h3><p>{att ? "Attendance alert" : /placement|company/i.test(detail.title || "") ? "Placement" : /review|submitted|package|requirement|document/i.test(detail.title || "") ? "Submission" : "Activity"}{detail.createdAt ? ` · ${timestamp(detail.createdAt)}` : ""}</p></div>
+              <b className="lb-chip" data-tone={detail.read ? "mute" : "blue"}>{detail.read ? "Read" : "Unread"}</b>
+              <button type="button" className="plt-x" aria-label="Close details" onClick={close}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
+            <div className="ann-detail-body">
+              {att && (tierText || kindText) && <div className="ann-tier">{tierText && <b className="lb-chip" data-tone={tone}>{tierText}</b>}{kindText && <span>{kindText}{detail.previousRiskTier && detail.kind === "escalated" ? ` (from ${detail.previousRiskTier === "Medium" ? "At risk" : detail.previousRiskTier})` : ""}</span>}</div>}
+              <div className="ann-what"><p className="inbox-detail-message">{detail.message}</p></div>
+              {att && reasons.length > 0 && <div className="ann-sec2"><h4>Why</h4><ul className="anp-why">{reasons.map((r, i) => <li key={i}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4M12 17h.01" /></svg>{r}</li>)}</ul></div>}
+              <dl className="ann-facts">
+                {detail.studentName && <div><dt>Student</dt><dd><span className="ann-mini-av">{detail.studentName.split(/[ ,]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}</span>{detail.studentName}{detail.studentIdNumber ? <small> · {detail.studentIdNumber}</small> : null}</dd></div>}
+                {section?.name && <div><dt>Section</dt><dd>{section.name}</dd></div>}
+                {detail.createdAt && <div><dt>Received</dt><dd>{timestamp(detail.createdAt)}</dd></div>}
+              </dl>
+              {detail.loading && <p role="status" className="ann-loading">Loading details…</p>}
+              {formError && <p role="alert">{formError}</p>}
+            </div>
+            <footer className="ann-detail-foot">
+              <button className="rq-btn" onClick={read} disabled={saving || detail.read || detail.loading}>{saving ? "Saving…" : detail.read ? "Read" : "Mark as read"}</button>
+              {next && !detail.loading && <button className="rq-btn rq-primary" onClick={goNext}>{next.label}</button>}
+            </footer>
+          </>;
+        })() : !page.records.length && kind === "attendance" && !busy ? <div className="ann-how">
+            <h4>How attendance alerts work</h4>
+            <p>PATHWAY checks each student’s attendance every day and adds an alert here when:</p>
+            <ul><li>Attendance drops below 90% or 80%</li><li>They’re absent several work days in a row</li><li>They’re not on pace to finish their hours by the deadline</li></ul>
+            <p>You’ll also get an alert when a student recovers.</p>
+          </div>
+          : <div className="ann-pick"><Icon name="bell" size={30} /><strong>Pick a notification</strong><span>Its details will show here.</span></div>}
       </section>
       </div>}
       {draft && (() => {

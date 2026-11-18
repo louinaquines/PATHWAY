@@ -100,7 +100,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
 
   const exportCsv = async () => {
     if (!data?.students) return;
-    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, today } = await import('../excelKit');
+    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, stamp } = await import('../excelKit');
     const tierText = s => { const t = s.riskTier ?? (['Not deployed', 'Completed'].includes(s.risk) ? s.risk : null); return { High: 'High risk', Medium: 'At risk', Low: 'On track' }[t] || t || 'Not enough data'; };
     const workbook = await newWorkbook();
     const sheet = workbook.addWorksheet('Progress');
@@ -117,7 +117,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', data.students.length], ['As of', data.today || ''],
       ['Status', 'High risk / At risk / On track come from attendance and hours. "Not enough data" means fewer than five reliable work days.'],
       ['Hours', 'Hours done count only server-credited attendance hours.']]);
-    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-progress-${today()}.xlsx`);
+    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-progress-${stamp()}.xlsx`);
   };
 
 

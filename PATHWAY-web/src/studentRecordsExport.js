@@ -1,4 +1,5 @@
 import personName from './personName';
+import { phDate, phClock, stamp } from './excelKit';
 const timestamp = value => {
   if (!value) return '';
   const date = value?.toDate ? value.toDate() : new Date(value);
@@ -14,19 +15,19 @@ export async function buildStudentRecordsWorkbook(student, section, attendance, 
   const name = personName(student);
   const identity = [String(student.idNumber || ''), name, section?.name || ''];
   const punches = workbook.addWorksheet('Attendance');
-  punches.addRow(['Student ID', 'Student name', 'Section', 'Date', 'Time in (Philippine time)', 'Time out (Philippine time)', 'Recorded hours', 'Status']);
+  punches.addRow(['Student ID', 'Student name', 'Section', 'Date', 'Time in (PH)', 'Time out (PH)', 'Recorded hours', 'Status']);
   [...attendance].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).forEach(record => {
-    punches.addRow([...identity, record.date || '', timestamp(record.timeIn), timestamp(record.timeOut), record.timeOut && Number.isFinite(Number(record.hoursToday)) ? Number(record.hoursToday) : null, record.timeOut ? record.status || 'Completed' : 'In progress']);
+    punches.addRow([...identity, record.date || phDate(record.timeIn), phClock(record.timeIn), phClock(record.timeOut), record.timeOut && Number.isFinite(Number(record.hoursToday)) ? Number(record.hoursToday) : null, record.timeOut ? record.status || 'Completed' : 'In progress']);
   });
   punches.getColumn(7).numFmt = '0.00';
   const weekly = workbook.addWorksheet('Journals');
-  weekly.addRow(['Student ID', 'Student name', 'Section', 'Entry', 'Reporting period', 'Reported hours', 'Status', 'Submitted / created (Philippine time)', 'Reviewed (Philippine time)', 'Journal report', 'Original notes', 'Coordinator feedback']);
+  weekly.addRow(['Student ID', 'Student name', 'Section', 'Entry', 'Reporting period', 'Reported hours', 'Status', 'Submitted date', 'Submitted time (PH)', 'Reviewed date', 'Reviewed time (PH)', 'Journal report', 'Original notes', 'Coordinator feedback']);
   [...journals].sort((a, b) => (a.weekNum || 0) - (b.weekNum || 0)).forEach(record => {
-    weekly.addRow([...identity, record.frequency === 'daily' ? 'Daily' : record.weekNum ?? '', record.frequency === 'daily' ? record.periodStart || '' : record.weekRange || '', Number.isFinite(Number(record.hours)) ? Number(record.hours) : null, record.status || '', timestamp(record.submittedAt || record.createdAt), timestamp(record.reviewedAt), String(record.refined || ''), String(record.rawNotes || ''), String(record.reviewReason || '')]);
+    weekly.addRow([...identity, record.frequency === 'daily' ? 'Daily' : record.weekNum ?? '', record.frequency === 'daily' ? record.periodStart || '' : record.weekRange || '', Number.isFinite(Number(record.hours)) ? Number(record.hours) : null, record.status || '', phDate(record.submittedAt || record.createdAt), phClock(record.submittedAt || record.createdAt), phDate(record.reviewedAt), phClock(record.reviewedAt), String(record.refined || ''), String(record.rawNotes || ''), String(record.reviewReason || '')]);
   });
   weekly.getColumn(6).numFmt = '0.00';
   const info = workbook.addWorksheet('Export information');
-  info.addRows([['Field', 'Value'], ['Student ID', identity[0]], ['Student', name], ['Section', section?.name || ''], ['Exported (Philippine time)', timestamp(workbook.created)], ['Attendance records', attendance.length], ['Journal records', journals.length], ['Hours', 'Attendance hours and journal reported hours are separate; do not add them together. In-progress attendance has blank hours.'], ['Scope', 'Selected student only. Both sheets are exported regardless of the visible tab. Empty sheets contain headers.'], ['Privacy', 'Passwords, authentication tokens, private file links, and location coordinates are excluded.']]);
+  info.addRows([['Field', 'Value'], ['Student ID', identity[0]], ['Student', name], ['Section', section?.name || ''], ['Date exported', phDate(workbook.created)], ['Time exported (Philippine time)', phClock(workbook.created)], ['Attendance records', attendance.length], ['Journal records', journals.length], ['Hours', 'Attendance hours and journal reported hours are separate; do not add them together. In-progress attendance has blank hours.'], ['Scope', 'Selected student only. Both sheets are exported regardless of the visible tab. Empty sheets contain headers.'], ['Privacy', 'Passwords, authentication tokens, private file links, and location coordinates are excluded.']]);
   for (const sheet of workbook.worksheets) {
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: Math.max(1, sheet.rowCount), column: sheet.columnCount } };
@@ -37,7 +38,7 @@ export async function buildStudentRecordsWorkbook(student, section, attendance, 
     sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF075FC9' } };
     sheet.getRow(1).height = 36;
   }
-  [10, 11, 12].forEach(column => { weekly.getColumn(column).width = 60; });
+  [12, 13, 14].forEach(column => { weekly.getColumn(column).width = 60; });
   info.getColumn(2).width = 90;
   return workbook;
 }
@@ -49,7 +50,7 @@ export async function downloadStudentRecordsExcel(student, section, attendance, 
   const link = document.createElement('a');
   link.href = url;
   const identifier = String(student.idNumber || student.id || 'student').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80);
-  link.download = `PATHWAY-${identifier}-attendance-journals.xlsx`;
+  link.download = `PATHWAY-${identifier}-attendance-journals-${stamp()}.xlsx`;
   document.body.appendChild(link);
   try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }

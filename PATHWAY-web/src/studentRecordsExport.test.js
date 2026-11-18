@@ -9,10 +9,11 @@ test('Excel contains attendance and journals, correct timezone, safe text, and s
   const attendance = restored.getWorksheet('Attendance');
   expect(attendance.getCell('A2').value).toBe('00123');
   expect(attendance.getCell('B2').value).toBe('=1+1 Student');
-  expect(attendance.getCell('E2').value).toContain('02:45:38 AM');
+  expect(attendance.getCell('E2').value).toContain('02:45:38');
+  expect(attendance.getCell('D2').value).toBe('2026-10-08');
   expect(attendance.getCell('G2').value).toBe(0.03);
   expect(restored.getWorksheet('Journals').getCell('F2').value).toBe(8);
-  expect(restored.getWorksheet('Journals').getCell('K2').value).toBe('=SUM(A1)');
+  expect(restored.getWorksheet('Journals').getCell('M2').value).toBe('=SUM(A1)');
   const values = restored.worksheets.flatMap(sheet => sheet.getSheetValues());
   expect(JSON.stringify(values)).not.toMatch(/secret|private-url|private-coordinates/);
 }, 15000);

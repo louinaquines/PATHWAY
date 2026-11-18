@@ -145,7 +145,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
   };
 
   const exportCsv = async () => {
-    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, today } = await import('../excelKit');
+    const { newWorkbook, styleSheet, addInfoSheet, downloadWorkbook, fileSafe, stamp } = await import('../excelKit');
     const workbook = await newWorkbook();
     const sheet = workbook.addWorksheet('Clearance');
     sheet.addRow(['Student ID', 'Student name', 'Section', 'Account', 'Requirements', 'Hours done', 'Hours required', 'Hours status', 'Clearance']);
@@ -154,7 +154,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       row.hours || '', row.clearanceStatus === 'cleared' ? 'Cleared' : row.ready ? 'Ready to clear' : 'Not ready']));
     styleSheet(sheet);
     addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
-    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${today()}.xlsx`);
+    await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${stamp()}.xlsx`);
   };
 
   const printReport = () => {
@@ -190,7 +190,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
         </head>
         <body>
           <h1>PATHWAY OJT Clearance Report</h1>
-          <p>Generated: ${new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          <p>Date generated: ${new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' })}</p><p>Time generated: ${new Date().toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })}</p>
           <table>
             <thead>
               <tr>

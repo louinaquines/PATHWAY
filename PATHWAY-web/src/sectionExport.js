@@ -1,7 +1,7 @@
 import personName from './personName';
 import { compareStudents } from './coordinatorStudentSort';
 import { requirementProgress } from './requirementProgress';
-import { phTime, PHASES, fileSafe, today } from './excelKit';
+import { phDate, phClock, PHASES, fileSafe, stamp } from './excelKit';
 
 const statuses = { approved: 'Approved', submitted: 'Pending review', rejected: 'Rejected', needs_revision: 'Needs fixing', not_submitted: 'Not submitted' };
 
@@ -15,7 +15,7 @@ export function sectionExportRows(section, students, checklist) {
   });
   const details = sorted.flatMap(student => checklist.map(item => {
     const record = student.requirements?.[item.id] || {};
-    return [String(student.idNumber || ''), personName(student), PHASES[item.category] || item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', phTime(record.submittedAt), phTime(record.reviewedAt), ['rejected', 'needs_revision'].includes(record.status) ? record.rejectionReason || record.revisionNote || '' : ''];
+    return [String(student.idNumber || ''), personName(student), PHASES[item.category] || item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', phDate(record.submittedAt), phClock(record.submittedAt), phDate(record.reviewedAt), phClock(record.reviewedAt), ['rejected', 'needs_revision'].includes(record.status) ? record.rejectionReason || record.revisionNote || '' : ''];
   }));
   return { summary, details };
 }
@@ -35,12 +35,12 @@ export async function buildSectionWorkbook(section, students, checklist) {
   summary.addRows(rows.summary);
   summary.getColumn(1).numFmt = '@';
   summary.getColumn(10).numFmt = '0%';
-  details.addRow(['Student ID', 'Student name', 'Phase', 'Requirement', 'Status', 'Deadline', 'Submitted (Philippine time)', 'Reviewed (Philippine time)', 'Coordinator remarks']);
+  details.addRow(['Student ID', 'Student name', 'Phase', 'Requirement', 'Status', 'Deadline', 'Submitted date', 'Submitted time (PH)', 'Reviewed date', 'Reviewed time (PH)', 'Coordinator remarks']);
   details.addRows(rows.details);
   details.getColumn(1).numFmt = '@';
   info.addRows([
     ['Field', 'Value'], ['Section', section.name || ''], ['Department', section.department || ''],
-    ['Exported at (UTC)', new Date().toISOString()], ['Students', students.length],
+    ['Date exported', phDate(new Date())], ['Time exported (Philippine time)', phClock(new Date())], ['Students', students.length],
     ['Percentage definition', 'Approved requirements divided by the section checklist total. Pending and rejected items do not count.'],
     ['Empty checklist', 'Percentage is blank when no requirements are configured.'],
     ['Scope', 'All students in the selected section, regardless of screen search filters.'],
@@ -60,7 +60,7 @@ export async function buildSectionWorkbook(section, students, checklist) {
   summary.getRow(1).height = 48;
   checklist.forEach((item, index) => { summary.getColumn(11 + index).width = 30; });
   summary.views = [{ state: 'frozen', xSplit: 4, ySplit: 1 }];
-  details.getColumn(9).width = 50;
+  details.getColumn(11).width = 50;
   info.getColumn(2).width = 100;
   return workbook;
 }
@@ -71,7 +71,7 @@ export async function downloadSectionExcel(section, students, checklist) {
   const url = URL.createObjectURL(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `PATHWAY-${fileSafe(section.name)}-requirements-${today()}.xlsx`;
+  link.download = `PATHWAY-${fileSafe(section.name)}-requirements-${stamp()}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

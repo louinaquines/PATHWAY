@@ -15,7 +15,7 @@ export function sectionExportRows(section, students, checklist) {
   });
   const details = sorted.flatMap(student => checklist.map(item => {
     const record = student.requirements?.[item.id] || {};
-    return [String(student.idNumber || ''), personName(student), PHASES[item.category] || item.category || '', item.label || item.name || item.id, statuses[record.status] || 'Not submitted', item.deadline || '', phDate(record.submittedAt), phClock(record.submittedAt), phDate(record.reviewedAt), phClock(record.reviewedAt), ['rejected', 'needs_revision'].includes(record.status) ? record.rejectionReason || record.revisionNote || '' : ''];
+    return [String(student.idNumber || ''), personName(student), PHASES[item.category] || item.category || '', item.label || item.name || item.id, (statuses[record.status] || 'Not submitted') + (record.viaLink && record.status ? ' (via link)' : ''), item.deadline || '', phDate(record.submittedAt), phClock(record.submittedAt), phDate(record.reviewedAt), phClock(record.reviewedAt), ['rejected', 'needs_revision'].includes(record.status) ? record.rejectionReason || record.revisionNote || '' : ''];
   }));
   return { summary, details };
 }

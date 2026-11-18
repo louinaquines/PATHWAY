@@ -46,7 +46,10 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [form, setForm]                 = useState({ name: '', year: '', section: '', hoursRequired: '', messengerLink: '' });
   const [autoCheckReq, setAutoCheckReq] = useState(null);
-  const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '' });
+  const [reqForm, setReqForm]           = useState({ label: '', category: 'Pre-OJT', deadline: '', submissionLink: '' });
+  const [linkReq, setLinkReq] = useState(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkErr, setLinkErr] = useState('');
   const [searchQuery, setSearchQuery]   = useState('');
   const [stuQuery, setStuQuery]         = useState('');
   const [stuPage, setStuPage]           = useState(1);
@@ -219,7 +222,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
     setSaving(true);
     try {
       await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements`, {
-        method: 'POST', body: JSON.stringify({ label: reqForm.label.trim(), category: reqForm.category, deadline: reqForm.deadline }),
+        method: 'POST', body: JSON.stringify({ label: reqForm.label.trim(), category: reqForm.category, deadline: reqForm.deadline, submissionLink: (reqForm.submissionLink || '').trim() }),
       });
       setReqModal(null);
       setReqForm({ label: '', category: 'Pre-OJT', deadline: '' });
@@ -353,6 +356,18 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
               const rows = list.slice((cur - 1) * 8, cur * 8);
               const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Set a date';
               return <div className="sx-panel sx-req">
+                {linkReq && createPortal(<div className="sx-overlay tm-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !linkBusy) setLinkReq(null); }}>
+                  <div className="tm" role="dialog" aria-modal="true" aria-label="Submission link">
+                    <header className="tm-head"><div><h2>Submission link</h2><p>{linkReq.label} · students open this link to submit, then tap “I’ve submitted it”.</p></div>
+                      <button type="button" className="plt-x" aria-label="Close" disabled={linkBusy} onClick={() => setLinkReq(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
+                    <div className="tm-body tm-form"><label><span>Link</span><input autoFocus type="url" placeholder="https://drive.google.com/drive/folders/…" value={linkReq.value} onChange={e => setLinkReq(l => ({ ...l, value: e.target.value }))} /></label>
+                      <p className="tm-empty">Leave empty to go back to uploading in PATHWAY.</p>{linkErr && <p role="alert" className="tm-err">{linkErr}</p>}</div>
+                    <footer className="tm-foot"><button type="button" className="rq-btn" disabled={linkBusy} onClick={() => setLinkReq(null)}>Cancel</button>
+                      <button type="button" className="rq-btn rq-primary" disabled={linkBusy} onClick={async () => { setLinkBusy(true); setLinkErr('');
+                        try { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(selected.id)}/requirements/${encodeURIComponent(linkReq.id)}/link`, { method: 'PATCH', body: JSON.stringify({ submissionLink: linkReq.value.trim() }) });
+                          setRequirements(prev => prev.map(r2 => r2.id === linkReq.id ? { ...r2, submissionLink: r.submissionLink } : r2)); setLinkReq(null); }
+                        catch (e) { setLinkErr(e.message || 'Could not save the link.'); } finally { setLinkBusy(false); } }}>{linkBusy ? 'Saving…' : 'Save link'}</button></footer>
+                  </div></div>, document.body)}
                 {autoCheckReq && <RequirementAutoCheckDialog sectionId={selected.id} requirement={autoCheckReq} onClose={() => setAutoCheckReq(null)}
                   onSaved={autoCheck => setRequirements(prev => prev.map(r => r.id === autoCheckReq.id ? { ...r, autoCheck } : r))} />}
                 <div className="sx-req-tools">
@@ -361,16 +376,17 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                     return <button key={k} type="button" role="tab" aria-selected={reqStage === k} onClick={() => { setReqStage(k); setReqPage(1); }}>
                       {l}<b>{items.length}</b></button>; })}
                   </div>
-                  <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
+                  <button type="button" className="rq-btn sx-addreq" onClick={() => { setReqModal('add'); setReqForm({ label: '', category: reqStage, deadline: '', submissionLink: '' }); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add requirement</button>
                 </div>
                 {!list.length ? <div className="sx-emptybox"><strong>No documents in this stage</strong><span>Use Add requirement to add one.</span></div>
                 : <div className="sx-reqlist"><div className="sx-reqrow sx-reqhead" aria-hidden="true"><span>Document</span><span>Deadline</span><span>Status</span><span>Actions</span></div>{rows.map(req => { const late = overdue(req); const ref = req.autoCheck?.referenceName;
                   return <div key={req.id} className="sx-reqrow" data-late={late || undefined}>
-                    <span className="sx-reqname" title={req.label}>{req.label}</span>
+                    <span className="sx-reqname" title={req.label}>{req.label}{req.submissionLink && <b className="sx-linktag">Link</b>}</span>
                     <label className="sx-date" data-empty={!req.deadline || undefined}><span>{fmt(req.deadline)}</span>
                       <input type="date" aria-label={`${req.label} deadline`} className="req-date" value={req.deadline || ''} onChange={e => handleUpdateDeadline(req.id, e.target.value)} /></label>
                     <span className="sx-status"><b className="lb-chip" data-tone={!req.deadline ? 'mute' : late ? 'red' : 'green'}>{!req.deadline ? 'No deadline' : late ? 'Overdue' : 'Active'}</b></span>
-                    <span className="sx-acts"><button type="button" className="sx-icon sx-ref" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
+                    <span className="sx-acts"><button type="button" className="sx-icon sx-linkbtn" data-on={req.submissionLink ? 'true' : undefined} onClick={() => { setLinkErr(''); setLinkReq({ id: req.id, label: req.label, value: req.submissionLink || '' }); }} title={req.submissionLink ? 'Edit submission link' : 'Add submission link'} aria-label={`Submission link for ${req.label}`}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" /></svg></button>
+                    <button type="button" className="sx-icon sx-ref" data-on={ref || req.autoCheck?.enabled ? 'true' : undefined} onClick={() => setAutoCheckReq(req)} title={ref ? `Reference: ${ref}` : req.autoCheck?.enabled ? 'Auto-check on · add reference' : 'Add reference file'} aria-label={ref ? `Reference file for ${req.label}: ${ref}` : `Add reference file for ${req.label}`}>
                       {ref ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M12 12v6M9 15h6" /></svg>}
                       </button>
                     <button type="button" className="sx-icon sx-del" onClick={() => setDeleteConfirm(req)} title="Delete requirement" aria-label="Delete requirement"><Icon name="trash" size={15} /></button></span>
@@ -483,6 +499,9 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 <label className="arq-field"><span>Deadline <em>(optional)</em></span>
                   <input type="date" value={reqForm.deadline} onChange={e => setReqForm(f => ({ ...f, deadline: e.target.value }))} /></label>
               </div>
+              <label className="arq-field"><span>Submission link <em>(optional)</em></span>
+                <input type="url" placeholder="https://drive.google.com/drive/folders/…" value={reqForm.submissionLink || ''} onChange={e => setReqForm(f => ({ ...f, submissionLink: e.target.value }))} />
+                <small className="arq-hint">Students open this link to submit instead of uploading in PATHWAY.</small></label>
             </div>
             <div className="arq-foot">
               <button type="button" className="arq-btn" onClick={() => setReqModal(null)}>Cancel</button>

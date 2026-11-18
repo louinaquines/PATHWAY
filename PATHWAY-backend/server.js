@@ -279,6 +279,39 @@ app.put('/student/drive-folder', requireUser, async (req, res) => {
   }
 });
 
+// Student confirms they submitted a requirement through the coordinator's external link.
+app.post('/requirements/:requirementId/link-submitted', requireUser, async (req, res) => {
+  const { requirementId } = req.params;
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  if (!allowRate(req, res, { limit: 20, windowMs: 60 * 60_000, key: request => `requirement-change:${request.user.uid}` })) return;
+  try {
+    const { userRef, student } = await getEditableRequirement(req.user.uid, requirementId);
+    const reqDoc = student.sectionId ? await adminDb.collection('sections').doc(student.sectionId).collection('requirements').doc(requirementId).get() : null;
+    if (!reqDoc?.exists || !reqDoc.data().submissionLink) return res.status(409).json({ error: 'This requirement is not submitted through a link.' });
+    const submittedAt = new Date().toISOString();
+    await adminDb.runTransaction(async transaction => {
+      const fresh = await transaction.get(userRef);
+      if (!fresh.exists || requirementLocked(fresh.data(), requirementId)) throw Object.assign(new Error('This requirement can no longer be changed.'), { status: 403 });
+      const previous = fresh.data().requirements?.[requirementId] || {};
+      if (previous.status === 'approved') throw Object.assign(new Error('This requirement is already approved.'), { status: 409 });
+      transaction.update(userRef, { [`requirements.${requirementId}`]: {
+        status: 'submitted', viaLink: true, submissionLink: reqDoc.data().submissionLink, submittedAt,
+        fileUrl: null, fileName: null, fileSize: null, uploadedBytes: null, cloudinaryPublicId: null, cloudinaryVersion: null,
+      } });
+      writeAuditInTransaction(transaction, {
+        actorId: req.user.uid, actorRole: 'student', action: 'requirement.submitted', targetType: 'requirements', targetId: requirementId,
+        details: { studentId: req.user.uid, sectionId: fresh.data().sectionId || null, previousStatus: previous.status || 'not_submitted', deliveryType: 'link' },
+      });
+    });
+    return res.json({ success: true, submittedAt, viaLink: true });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error);
+    return res.status(500).json({ error: 'Could not mark this as submitted.' });
+  }
+});
+
 app.put('/requirements/:requirementId', requireUser, async (req, res) => {
   const { requirementId } = req.params;
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Student access required.' });
@@ -2303,14 +2336,15 @@ app.post('/coordinator/sections/:sectionId/requirements/defaults', requireStaff,
 });
 
 app.post('/coordinator/sections/:sectionId/requirements', requireStaff, async (req, res) => {
-  const { label, category, deadline = '' } = req.body || {};
+  const { label, category, deadline = '', submissionLink = '' } = req.body || {};
+  if (!validSubmissionLink(submissionLink)) return res.status(400).json({ error: 'Enter a full https:// submission link or leave it blank.' });
   if (typeof label !== 'string' || !label.trim() || label.trim().length > 160
     || !['Pre-OJT', 'Ongoing', 'Post-OJT'].includes(category)
     || typeof deadline !== 'string' || (deadline && !validTermDates(deadline, deadline))) return res.status(400).json({ error: 'Enter a valid requirement.' });
   try {
     await coordinatorSection(req, req.params.sectionId);
     const ref = adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(`req_${crypto.randomBytes(12).toString('hex')}`);
-    const item = { id: ref.id, label: label.trim(), category, deadline, createdAt: new Date().toISOString() };
+    const item = { id: ref.id, label: label.trim(), category, deadline, ...(submissionLink.trim() ? { submissionLink: submissionLink.trim() } : {}), createdAt: new Date().toISOString() };
     const auditRef = adminDb.collection('auditLogs').doc();
     await adminDb.runTransaction(async transaction => {
       transaction.set(ref, item);
@@ -2321,6 +2355,32 @@ app.post('/coordinator/sections/:sectionId/requirements', requireStaff, async (r
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error(error);
     return res.status(500).json({ error: 'Could not add requirement.' });
+  }
+});
+
+function validSubmissionLink(value) {
+  if (value === '' || value == null) return true;
+  if (typeof value !== 'string' || value.trim().length > 500) return false;
+  try { const url = new URL(value.trim()); return url.protocol === 'https:' && !!url.hostname; } catch { return false; }
+}
+
+// Coordinator sets or clears an external submission link (e.g. a Google Drive folder) on a requirement.
+app.patch('/coordinator/sections/:sectionId/requirements/:requirementId/link', requireStaff, async (req, res) => {
+  const link = typeof req.body?.submissionLink === 'string' ? req.body.submissionLink.trim() : '';
+  if (!validSubmissionLink(link)) return res.status(400).json({ error: 'Enter a full https:// link or leave it blank.' });
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(req.params.requirementId)) return res.status(400).json({ error: 'Invalid requirement.' });
+  try {
+    await coordinatorSection(req, req.params.sectionId);
+    const ref = adminDb.collection('sections').doc(req.params.sectionId).collection('requirements').doc(req.params.requirementId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'Requirement not found.' });
+    await ref.update({ submissionLink: link || null });
+    await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'requirement.link_updated', targetType: 'sectionRequirements', targetId: req.params.requirementId, details: { sectionId: req.params.sectionId, hasLink: !!link } }).catch(() => {});
+    return res.json({ success: true, submissionLink: link || null });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error(error);
+    return res.status(500).json({ error: 'Could not save the link.' });
   }
 });
 

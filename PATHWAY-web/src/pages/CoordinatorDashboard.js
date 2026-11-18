@@ -801,7 +801,7 @@ export default function CoordinatorDashboard() {
                           const note = finding || (row.status === 'approved' ? (row.req?.autoApproved ? 'Approved by the AI check.' : row.req?.reviewedAt ? `Checked by you on ${fmt(row.req.reviewedAt)}.` : 'Approved.') : row.status === 'not_submitted' ? 'The student has not uploaded this yet.' : row.review && ['queued', 'checking'].includes(row.review.status) ? 'The AI is still checking this.' : '');
                           return <div className="rq-row" role="row" key={row.id} data-status={row.status}>
                             <span className="rq-doc" role="cell"><strong>{row.label}</strong>
-                              <small>{row.req?.submittedAt ? `Sent ${fmt(row.req.submittedAt)}` : 'Not sent yet'}{row.deadline && <em data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (late)' : ''}</em>}</small></span>
+                              <small>{row.req?.submittedAt ? `${row.req?.viaLink ? 'Submitted through link' : 'Sent'} ${fmt(row.req.submittedAt)}` : 'Not sent yet'}{row.deadline && <em data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (late)' : ''}</em>}</small></span>
                             <span className="rq-status" role="cell"><b data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' && ` · ${pct}% sure`}</b>
                               {note && <small>{note}</small>}
                               {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</span>
@@ -813,7 +813,8 @@ export default function CoordinatorDashboard() {
                               {canOpen && <button type="button" className="rq-link" onClick={() => setViewerId(row.id)}>View <Icon name="eye" size={14} /></button>}
                               {canOpen && <button type="button" className="rq-icon" title="Download" aria-label={`Download ${row.label}`} disabled={downloadingRequirement === `${selectedStudent.id}:${row.id}`} onClick={() => handleDownloadRequirement(selectedStudent.id, row.id, row.req.fileName)}><Icon name="download" size={14} /></button>}
                               {row.status === 'approved' && row.req?.autoApproved && <button type="button" className="rq-link" disabled={saving} onClick={() => handleUndoAutoApproval(selectedStudent.id, row.id)}>Undo</button>}
-                              {!canOpen && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
+                              {row.req?.viaLink && row.req?.submissionLink && <a className="rq-link" href={row.req.submissionLink} target="_blank" rel="noopener noreferrer">Open link</a>}
+                              {!canOpen && !row.req?.viaLink && row.req?.fileUrl && <small>Ask the student to upload again.</small>}
                             </span>
                           </div>;
                         })}

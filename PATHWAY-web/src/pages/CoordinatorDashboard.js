@@ -53,7 +53,7 @@ import './RequirementsRedesign.css';
 import './Responsive.css';
 import './CoordinatorSidebar.css';
 import SuccessHost from '../components/SuccessHost';
-import { quietly, showSuccess, showToast } from '../successFx';
+import { quietly, showSuccess, showToast, showNotice } from '../successFx';
 import { ListSkeleton, SplitSkeleton, SectionsSkeleton, ProgressSkeleton } from '../components/CoordSkeletons';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
@@ -370,7 +370,7 @@ export default function CoordinatorDashboard() {
       console.error(e);
       const message = e.message || 'Could not save the requirement decision. Please try again.';
       setError(message);
-      window.alert(message);
+      showNotice(message);
       return false;
     } finally {
       setSaving(false);
@@ -386,7 +386,7 @@ export default function CoordinatorDashboard() {
         fileName || 'endorsement-letter',
       );
     } catch (downloadError) {
-      window.alert(downloadError.message || 'Could not download this protected document.');
+      showNotice(downloadError.message || 'Could not download this protected document.');
     } finally {
       setDownloadingRequirement('');
     }

@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import Pager from '../components/Pager';
 import SectionPicker from '../components/SectionPicker';
 import { RowsSkeleton } from '../components/CoordSkeletons';
+import { showNotice } from '../successFx';
 
 const shortTime = value => { if (!value) return ''; const d = new Date(value); const now = new Date(); const days = Math.floor((now - d) / 86400000);
   if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
@@ -138,7 +139,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       setItems(previous => [...previous, created]);
       setSelected(previous => previous?.id === selected.id ? { ...previous, messages: [...previous.messages, created] } : previous);
       setDraft(previous => previous === draft ? '' : previous);
-    } catch (error) { window.alert(error.message || 'Unable to send message.'); }
+    } catch (error) { showNotice(error.message || 'Unable to send message.'); }
     finally { setSending(false); }
   };
 

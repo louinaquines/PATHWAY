@@ -2,7 +2,7 @@ import personName from '../personName';
 import { compareStudents } from '../coordinatorStudentSort';
 import RecordPagination, { useRecordPage } from '../components/RecordPagination';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
-import { quietly, showSuccess } from '../successFx';
+import { quietly, showSuccess, showNotice } from '../successFx';
 // src/pages/SectionsTab.js
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -556,7 +556,7 @@ export function UnassignedStudents({ sectionId, department, onAssign }) {
       setUnassigned(u => u.filter(s => s.id !== studentId));
       onAssign();
     } catch (error) {
-      window.alert(error.message || 'Unable to assign this student.');
+      showNotice(error.message || 'Unable to assign this student.');
     }
   };
 

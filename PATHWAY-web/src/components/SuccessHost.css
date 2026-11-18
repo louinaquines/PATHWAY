@@ -17,3 +17,9 @@
 @keyframes sfx-draw { to { stroke-dashoffset: 0; } }
 @keyframes sfx-rise { from { opacity: 0; transform: translateY(10px); } }
 @media (prefers-reduced-motion: reduce) { .sfx-overlay, .sfx-card, .sfx-toast { animation: none; } .sfx-circle, .sfx-check { animation: none; stroke-dashoffset: 0; } }
+
+.sfx-notice-overlay { background: rgba(21,33,58,.32); z-index: 4100; }
+.sfx-notice { width: 360px; animation: sfx-pop .28s cubic-bezier(.2,1.3,.4,1); }
+.sfx-notice-icon { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: #fbf1d9; color: #9a6200; font-size: 26px; font-weight: 800; }
+.sfx-notice p { margin: 8px 0 18px; }
+.sfx-notice-ok { min-width: 120px; justify-content: center; }

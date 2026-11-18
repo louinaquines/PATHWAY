@@ -1,6 +1,7 @@
 import './EndorsementDraftDialog.css';
 import React from 'react';
 import PathwayLogo, { PATHWAY_LOGO_SOURCE } from './PathwayLogo';
+import { showNotice } from '../successFx';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -103,7 +104,7 @@ export default function EndorsementDraftDialog({ draft, onClose }) {
   const printDraft = () => {
     const printWindow = window.open('', '_blank', 'width=900,height=1100');
     if (!printWindow) {
-      window.alert('Allow pop-ups for this site to print or save the draft as PDF.');
+      showNotice('Allow pop-ups for this site to print or save the draft as PDF.');
       return;
     }
     printWindow.opener = null;

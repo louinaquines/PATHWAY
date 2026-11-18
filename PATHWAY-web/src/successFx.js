@@ -3,6 +3,12 @@ let handler;
 let quiet = 0;
 export function registerSuccess(next) { handler = next; return () => { if (handler === next) handler = undefined; }; }
 export function showSuccess(title, detail = '', kind = 'pop') { if (!quiet) handler?.({ title, detail, kind, id: Date.now() + Math.random() }); }
+// Replaces browser alert() boxes with the portal's own dialog. Shown even during quiet bulk runs.
+export function showNotice(message, title) {
+  const text = String(message || '');
+  const t = title || (/^(enter|choose|pick|select|assign|allow|add)\b/i.test(text) ? 'One more thing' : 'Something went wrong');
+  handler?.({ title: t, detail: text, kind: 'notice', id: Date.now() + Math.random() });
+}
 export function showToast(title, detail = '') { showSuccess(title, detail, 'toast'); }
 // Run many requests without a popup per request, e.g. bulk approvals.
 export async function quietly(fn) { quiet += 1; try { return await fn(); } finally { quiet -= 1; } }

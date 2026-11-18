@@ -30,6 +30,7 @@ import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
 import './PlacementRedesign.css';
 import { RowsSkeleton } from '../components/CoordSkeletons';
+import { showNotice } from '../successFx';
 
 
 
@@ -227,12 +228,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const review = async (item, status) => {
     const note = (reasons[`placement:${item.id}`] || '').trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this proposal.'); return false; }
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { showNotice('Enter a reason before returning this proposal.'); return false; }
     setBusy(item.id);
     try {
       const companyId = companySelections[item.id] || item.companyId || '';
       if (status === 'approved' && !companyId) {
-        window.alert('Assign this proposal to an active company in the directory before approving it.');
+        showNotice('Assign this proposal to an active company in the directory before approving it.');
         return false;
       }
       await adminRequest(`/coordinator/company-placements/${encodeURIComponent(item.id)}/decision`, {
@@ -242,12 +243,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       if (status === 'approved') setEndorsementDraft(null);
       await load();
       return true;
-    } catch (error) { window.alert(error.message || 'Unable to review placement.'); return false; } finally { setBusy(''); }
+    } catch (error) { showNotice(error.message || 'Unable to review placement.'); return false; } finally { setBusy(''); }
   };
 
   const reviewFinal = async (item, status) => {
     const note = (reasons[`final:${item.id}`] || '').trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { window.alert('Enter a reason before returning this review.'); return false; }
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { showNotice('Enter a reason before returning this review.'); return false; }
     setBusy(item.id);
     try {
       await adminRequest(`/coordinator/final-reviews/${encodeURIComponent(item.id)}/decision`, {
@@ -256,7 +257,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       });
       setReasons(previous => ({ ...previous, [`final:${item.id}`]: '' })); await load();
       return true;
-    } catch (error) { window.alert(error.message || 'Unable to review final request.'); return false; } finally { setBusy(''); }
+    } catch (error) { showNotice(error.message || 'Unable to review final request.'); return false; } finally { setBusy(''); }
   };
 
   const prepareEndorsementDraft = async item => {
@@ -272,7 +273,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         draftPreparedByName: result.draft.preparedBy, draftVersion: result.draft.draftVersion,
       } : record));
     } catch (error) {
-      window.alert(error.message || 'Unable to prepare the endorsement draft.');
+      showNotice(error.message || 'Unable to prepare the endorsement draft.');
     } finally { setDraftBusy(''); }
   };
 
@@ -308,7 +309,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const requestReviewConfirmation = (item, status, finalReview = false) => {
     const note = (reasons[`${finalReview ? 'final' : 'placement'}:${item.id}`] || '').trim();
     if ((status === 'needs_revision' || status === 'rejected') && !note) {
-      window.alert(finalReview ? 'Enter a reason before returning this review.' : 'Enter a reason before returning this proposal.');
+      showNotice(finalReview ? 'Enter a reason before returning this review.' : 'Enter a reason before returning this proposal.');
       return;
     }
     setReviewConfirm({ item, status, finalReview });

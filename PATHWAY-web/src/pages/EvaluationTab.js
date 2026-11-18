@@ -45,7 +45,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
       if (invitation?.id === removedId) { setInvitation(null); setLink(''); }
       setDeleteTarget(null);
       loadEvaluations().catch(() => {});
-    } catch (error) { window.alert(error.message || 'Could not delete this evaluation.'); }
+    } catch (error) { showNotice(error.message || 'Could not delete this evaluation.'); }
     finally { setDeleting(false); }
   };
   const [form, setForm]               = useState({

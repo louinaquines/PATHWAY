@@ -27,7 +27,7 @@ export function TermDialog({ terms, onClose, onChanged }) {
   const save = () => run(() => draft.id
     ? adminRequest(`/coordinator/terms/${encodeURIComponent(draft.id)}`, { method: 'PATCH', body: JSON.stringify({ name: draft.name, startDate: draft.startDate, endDate: draft.endDate, isCurrent: draft.isCurrent }) })
     : adminRequest('/coordinator/terms', { method: 'POST', body: JSON.stringify(draft) }));
-  return createPortal(<div className="sx-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
+  return createPortal(<div className="sx-overlay tm-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !busy) onClose(); }}>
     <div className="tm" role="dialog" aria-modal="true" aria-label="Manage terms">
       <header className="tm-head"><div><h2>Academic terms</h2><p>Shared with coordinators in your department. New sections use the current term.</p></div>
         <button type="button" className="plt-x" aria-label="Close" disabled={busy} onClick={onClose}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>

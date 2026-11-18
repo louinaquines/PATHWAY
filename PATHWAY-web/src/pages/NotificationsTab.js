@@ -9,6 +9,7 @@ import "./AnnouncementsRedesign.css";
 import { createPortal } from "react-dom";
 import SectionPicker from "../components/SectionPicker";
 import PostedAnnouncements from "../components/PostedAnnouncements";
+import Pager from "../components/Pager";
 import { attendanceReasonLabels } from "../attendanceRiskLabels";
 import { doc as fsDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -288,6 +289,7 @@ export function NotificationWorkspace({
   return (
     <div className="ann notifications-workspace">
       {(acts => topHost ? createPortal(acts, topHost) : <div className="ann-inline-actions">{acts}</div>)(<>
+        <button type="button" className="rq-btn ann-refresh-btn" onClick={() => { if (kind === "posted") setPostedKey((v) => v + 1); else setRetry((v) => v + 1); }} disabled={busy}><Icon name="refresh" size={15} />Refresh</button>
         <button
           type="button"
           className="rq-btn rq-primary inbox-primary"
@@ -319,17 +321,14 @@ export function NotificationWorkspace({
               onChange={(event) => setSearch(event.target.value)}
             />
           </label>
-          <select
+          <span className="ann-sel"><select
             aria-label="Read status"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
           >
             <option value="all">All</option>
             <option value="unread">Unread</option>
-          </select>
-          <button className="ann-refresh" aria-label="Refresh" title="Refresh" onClick={() => setRetry((v) => v + 1)} disabled={busy}>
-            <Icon name="refresh" size={15} />
-          </button>
+          </select><Icon name="chevronDown" size={14} /></span>
           <span className="inbox-count">
             {Number.isFinite(counts.unread)
               ? `${counts.unread} unread`
@@ -415,28 +414,9 @@ export function NotificationWorkspace({
                   ? `${index * 10 + 1}–${index * 10 + page.records.length}${Number.isFinite(page.total) ? ` of ${page.total}` : ""} notifications`
                   : "0 notifications"}
           </span>
-          <nav aria-label="Inbox pages">
-            <button
-              aria-label="Previous page"
-              disabled={busy || index === 0}
-              onClick={() => changePage(index - 1)}
-            >
-              ‹
-            </button>
-            <span>
-              Page {index + 1}
-              {Number.isFinite(page.total)
-                ? ` of ${Math.max(1, Math.ceil(page.total / 10))}`
-                : ""}
-            </span>
-            <button
-              aria-label="Next page"
-              disabled={busy || !page.hasMore}
-              onClick={() => changePage(index + 1)}
-            >
-              ›
-            </button>
-          </nav>
+          {(() => { const known = Number.isFinite(page.total) ? Math.max(1, Math.ceil(page.total / 10)) : Infinity;
+            const reach = index + 1 + (page.hasMore ? 1 : 0); const pages = Math.max(1, Math.min(known, Math.max(reach, cursors.length)));
+            return <Pager page={index + 1} pages={pages} busy={busy} label="Inbox pages" onGo={(p) => { const t = p - 1; if (t <= index || t === index + 1) changePage(t); }} />; })()}
         </footer>
       </section>
       <section className="ann-detail" {...(detail ? { role: "dialog", "aria-label": "Notification details" } : {})}>

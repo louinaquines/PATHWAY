@@ -58,7 +58,7 @@ export default function PostedAnnouncements({ section, switcher, refreshKey = 0 
               <small>{section?.name}{r.recipients ? ` · ${r.recipients} student${r.recipients === 1 ? '' : 's'}` : ''}</small></span>
           </button>)}
       </div>
-      {pages > 1 && <div className="pa-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Announcements" /></div>}
+      {list.length > 0 && <div className="pa-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setPage} label="Announcements" /></div>}
     </section>
     <section className="pa-detail">
       {open ? <>

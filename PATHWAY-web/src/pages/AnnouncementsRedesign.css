@@ -226,3 +226,8 @@ dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; he
 .ann-loading { margin: 0; font-size: 12.5px; color: #7b8494; }
 .ann-how { margin: auto; max-width: 380px; padding: 20px 22px; border: 1px solid #efece5; border-radius: 12px; background: #faf9f6; color: #465066; font-size: 13px; line-height: 1.55; }
 .ann-how h4 { margin: 0 0 6px; font-size: 14px; color: #15213a; } .ann-how p { margin: 0 0 8px; } .ann-how ul { margin: 0 0 8px; padding-left: 18px; }
+.ann-sel { position: relative; display: inline-flex; flex: none; }
+.ann .ann-card .ann-sel select { width: 104px !important; min-width: 0 !important; height: 36px !important; padding: 0 30px 0 12px !important; background-image: none !important; line-height: 34px !important; }
+.ann-sel svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #7b8494; }
+.ann .ann-card .inbox-footer, .pa-foot { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px !important; border-top: 1px solid #efece5 !important; font-size: 12px; color: #7b8494; }
+#ann-top-actions .ann-refresh-btn, .ann-inline-actions .ann-refresh-btn { background: #fff; }

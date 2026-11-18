@@ -12,6 +12,7 @@ import './MessagesRedesign.css';
 import { createPortal } from 'react-dom';
 import Pager from '../components/Pager';
 import SectionPicker from '../components/SectionPicker';
+import { RowsSkeleton } from '../components/CoordSkeletons';
 
 const shortTime = value => { if (!value) return ''; const d = new Date(value); const now = new Date(); const days = Math.floor((now - d) / 86400000);
   if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
@@ -205,7 +206,7 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       </header>
       {error && <div className="msg-error" role="status">{error}<button type="button" className="rq-link" onClick={load}>Check again</button></div>}
       <div className="msg-rows" aria-busy={loading}>
-        {loading ? <p className="msg-empty">Loading students and messages...</p> : !selectedSection ? <p className="msg-empty">Select a section to see its students.</p> : <>
+        {loading ? <RowsSkeleton label="Loading students and messages" rows={7} action={false} /> : !selectedSection ? <p className="msg-empty">Select a section to see its students.</p> : <>
           {studentsPage.items.map(student => {
             const thread = conversations.find(item => item.studentId === student.id);
             const name = personName(student) || student.idNumber || student.id;

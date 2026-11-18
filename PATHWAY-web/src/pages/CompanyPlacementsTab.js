@@ -29,6 +29,7 @@ import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
 import './PlacementRedesign.css';
+import { RowsSkeleton } from '../components/CoordSkeletons';
 
 
 
@@ -433,7 +434,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         <i className="plo-av">{nm.split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase()}</i>
         <span className="plo-body"><strong>{nm}</strong><small>{[row.company && row.company !== '—' ? row.company : null, queueFilter === 'history' ? 'Previous decisions' : row.current.step, row.tasks.filter(task => task.needsAction).length > 1 ? `${row.tasks.filter(task => task.needsAction).length} tasks` : null].filter(Boolean).join(' · ')}</small></span>
         <button type="button" className="rq-btn" onClick={() => openStudent(row)}>{label}<span className="sr-only"> for {row.name}</span></button>
-      </div>; })}{loading && !filteredQueue.length && <div className="placement-skeleton-rows" aria-hidden="true">{[0,1,2].map(i => <div key={i}><span /><span /><span /><span /></div>)}</div>}{!loading && !filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'No placement records yet. They will appear here once students submit placement requests.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'All caught up. Placement tasks will appear here when students submit requests.' : 'No students in this view yet.'}</div>}</div>
+      </div>; })}{loading && !filteredQueue.length && <RowsSkeleton label="Loading placements" rows={6} />}{!loading && !filteredQueue.length && <div className="review-empty">{nextQueueCursor ? 'No matches on this page. Choose Next to keep searching.' : error ? 'No placement records yet. They will appear here once students submit placement requests.' : queueFilter === 'history' && !currentHistory ? 'Loading placement history…' : queueFilter === 'history' && currentHistory.error ? currentHistory.error : reviewSearch ? (queueFilter === 'history' && currentHistory?.nextCursor ? 'No matches on this page. Choose Next to search older decisions.' : 'No students match this search.') : queueFilter === 'action' ? 'All caught up. Placement tasks will appear here when students submit requests.' : 'No students in this view yet.'}</div>}</div>
     {selectedQueue && !reviewConfirm && !deliveryConfirm && !endorsementDraft && <PortalFormDialog className="placement-student-detail pl-detail" label={'Placement details for ' + selectedQueue.name} closeOnBackdrop onCancel={() => setSelectedQueueStudent(null)}>
       {(() => { const steps = [['placement', 'Request'], ['final', 'Final check'], ['endorsement', 'Letter draft'], ['verified', 'Signed copy'], ['sent', 'Emailed']];
         const cur = selectedQueue.current?.stage === 'verified' && selectedQueue.current?.record?.deliveryStatus === 'sent' ? 'sent' : (selectedQueue.current?.stage || 'placement');

@@ -23,6 +23,7 @@ import Pager from '../components/Pager';
 import EvaluationInbox from '../components/EvaluationInbox';
 import { createPortal } from 'react-dom';
 import './EvaluationRedesign.css';
+import { ListSkeleton } from '../components/CoordSkeletons';
 
 const EVALUATIONS_PER_PAGE = 5;
 
@@ -220,7 +221,7 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
   void pageCount; void visibleEvaluations;
 
   if (loading) {
-    return <EvaluationSkeleton />;
+    return <ListSkeleton label="Loading evaluations" chips={4} side />;
   }
 
   const placedIds = new Set(placedStudents.map(student => student.id));

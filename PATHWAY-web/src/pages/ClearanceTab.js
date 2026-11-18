@@ -20,6 +20,7 @@ import { createPortal } from 'react-dom';
 import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
 import './ClearanceRedesign.css';
+import { ListSkeleton } from '../components/CoordSkeletons';
 
 export function csvCell(value) {
   const text = String(value ?? '');
@@ -254,7 +255,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
     setOpenId(n.kind === 'almost' ? n.row.id : null);
   };
   if (loading) {
-    return <PageSkeleton label="Loading clearance matrix" variant="detail" />;
+    return <ListSkeleton label="Loading clearance" chips={4} table />;
   }
   const topActions = <>
     <button type="button" className="rq-btn" onClick={printReport} disabled={!rows.length}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z" /></svg> Print report</button>

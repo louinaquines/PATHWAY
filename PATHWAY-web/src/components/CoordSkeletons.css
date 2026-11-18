@@ -1,0 +1,28 @@
+.csk { display: flex; gap: 20px; align-items: flex-start; width: 100%; }
+.csk > .csk-card, .csk-split > .csk-right { flex: 1; min-width: 0; }
+.csk-card { background: #fff; border: 1px solid #e8e5de; border-radius: 18px; padding: 18px 22px; display: grid; gap: 14px; min-width: 0; }
+.csk-pad { padding: 22px 24px; }
+.csk-soft { background: #f3f7fe; border-color: #e3ecfa; }
+.csk-bar { display: block; flex: none; max-width: 100%; }
+.csk-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.csk-chips, .csk-tools { display: flex; gap: 8px; align-items: center; }
+.csk-tools { flex-wrap: nowrap; }
+.csk-rows { display: grid; }
+.csk-row { display: flex; align-items: center; gap: 16px; padding: 14px 4px; border-bottom: 1px solid #f0eee8; }
+.csk-row:last-child { border-bottom: 0; }
+.csk-mini { padding: 11px 4px; gap: 12px; }
+.csk-doc { padding: 16px 0; }
+.csk-lines { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.csk-person { display: flex; align-items: center; gap: 12px; flex: 1.6; min-width: 0; }
+.csk-table > .csk-bar, .csk-table4 > .csk-bar { flex: 1; }
+.csk-head { display: flex; gap: 40px; padding: 4px 4px 0; }
+.csk-pager { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f0eee8; padding-top: 14px; }
+.csk-stack { display: grid; gap: 8px; }
+.csk-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.csk-side { width: 370px; flex: none; display: grid; gap: 16px; }
+.csk-split .csk-left { width: 420px; flex: none; }
+.csk-sections > .csk-stack { width: 300px; flex: none; }
+.csk-sections > .csk-card { flex: 1; }
+.csk-chart { height: 260px; display: flex; align-items: flex-end; gap: 14px; padding: 10px 6px; border-bottom: 1px solid #f0eee8; }
+.csk-chart > .csk-bar { flex: 1; }
+@media (max-width: 1100px) { .csk { flex-direction: column; } .csk-side, .csk-split .csk-left, .csk-sections > .csk-stack { width: 100%; } }

@@ -23,6 +23,7 @@ import './SectionsRedesign.css';
 import Pager from '../components/Pager';
 import { TermPicker, TermDialog } from '../components/TermManager';
 import { createPortal } from 'react-dom';
+import { SectionsSkeleton } from '../components/CoordSkeletons';
 
 function groupChatHref(value) {
   if (typeof value !== 'string' || !/^https:\/\//i.test(value.trim())) return '';
@@ -284,7 +285,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selected?.id || '') + ':' + searchQuery);
   const sectionsPage = useRecordPage(filteredSections, searchQuery + ':' + termFilter);
   if (loading) {
-    return <PageSkeleton label="Loading sections" variant="three-column" />;
+    return <SectionsSkeleton />;
   }
 
   return (

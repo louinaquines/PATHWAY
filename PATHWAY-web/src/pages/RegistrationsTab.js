@@ -7,6 +7,7 @@ import CoordinatorSearch from '../components/CoordinatorSearch';
 import { PortalFormDialog } from '../components/PortalStates';
 import './CoordinatorRecords.css';
 import './RegistrationsRedesign.css';
+import { RowsSkeleton } from '../components/CoordSkeletons';
 
 const tabs = { pending: 'Waiting', approved: 'Approved', rejected: 'Turned away' };
 const initials = s => ((s.firstName || '')[0] || '') + ((s.lastName || '')[0] || '') || '?';
@@ -122,7 +123,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
     {actionError && !selected && <p role="alert" className="rgx-alert">{actionError}</p>}
     {error ? <div className="rgx-empty" role="status"><strong>Couldn’t load accounts</strong><span>{error}</span><button type="button" className="rq-btn" onClick={() => setRevision(value => value + 1)}>Try again</button></div>
       : sectionId === undefined ? <div className="rgx-empty"><strong>Select a section</strong><span>Pick a section to see who signed up.</span></div>
-      : !data ? <p role="status" className="rgx-loading">Loading student accounts…</p>
+      : !data ? <div className="csk-card"><RowsSkeleton label="Loading student accounts" rows={4} /></div>
       : !data.rows.length ? <div className="rgx-empty"><strong>{term ? 'No matching students' : tab === 'pending' ? 'No one is waiting' : 'No students here'}</strong>
           <span>{term ? 'Try another name or student ID.' : tab === 'pending' ? 'New sign-ups for this section will show up here.' : 'Nothing in this list yet.'}</span>
           {!term && tab === 'pending' && countOf('approved') > 0 && <button type="button" className="rq-btn" onClick={() => { setTab('approved'); setCursors(['']); }}>View approved accounts</button>}</div>

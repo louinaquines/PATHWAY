@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
 import EvaluationInbox from '../components/EvaluationInbox';
 import Pager from '../components/Pager';
+import { RowsSkeleton } from '../components/CoordSkeletons';
 
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
@@ -227,7 +228,7 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
                 </span>
                 {!topHost && <button type="button" className="rq-btn" onClick={() => { resetForm(); setError(''); setFormOpen(true); }}>Add company</button>}
               </div>
-              {loading ? <div className="directory-skeleton" role="status" aria-label="Loading companies"><span /><span /><span /></div>
+              {loading ? <RowsSkeleton label="Loading companies" rows={7} action={false} />
                 : loadFailed ? <p className="co-empty">Company records could not be loaded. <button type="button" className="rq-link" onClick={load}>Try again</button></p>
                 : shown.length === 0 ? <PortalEmpty title={searchTerm || availability !== 'all' || fullOnly ? 'No matching companies on this page.' : 'No companies have been added yet.'} description={nextCursor ? 'Choose Next to continue searching.' : searchTerm || availability !== 'all' || fullOnly ? 'Try another search or filter.' : 'Add a company to make it available for placements.'} />
                 : <ul className="co-rows">{shown.map(company => { const cap = Number.isSafeInteger(company.capacity) && company.capacity > 0 ? company.capacity : null; const used = Number(company.occupiedSlots || 0); const open = company.availableSlots;

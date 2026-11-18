@@ -54,6 +54,7 @@ import './Responsive.css';
 import './CoordinatorSidebar.css';
 import SuccessHost from '../components/SuccessHost';
 import { quietly, showSuccess, showToast } from '../successFx';
+import { ListSkeleton, SplitSkeleton, SectionsSkeleton, ProgressSkeleton } from '../components/CoordSkeletons';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
 
@@ -649,7 +650,16 @@ export default function CoordinatorDashboard() {
         {error && !loading && <PortalError message={error} onRetry={() => (activeTab === 'overview' || requirementsActive) && selectedSection ? fetchStudents(selectedSection) : fetchInitialData()} />}
 
         {loading ? (
-          activeTab === 'overview' ? <OverviewSkeleton /> : activeTab === 'requirements' ? <RequirementsSkeleton /> : activeTab === 'logbook' ? <LogbookSkeleton /> : activeTab === 'evaluations' ? <EvaluationSkeleton /> : <PageSkeleton label="Loading coordinator data" variant="three-column" />
+          activeTab === 'overview' ? <OverviewSkeleton />
+            : activeTab === 'requirements' ? <SplitSkeleton label="Loading requirements" />
+            : ['messages', 'notifications'].includes(activeTab) ? <SplitSkeleton label="Loading inbox" inbox />
+            : activeTab === 'sections' ? <SectionsSkeleton />
+            : activeTab === 'analytics' ? <ProgressSkeleton />
+            : activeTab === 'clearance' ? <ListSkeleton label="Loading clearance" chips={4} table />
+            : activeTab === 'evaluations' ? <ListSkeleton label="Loading evaluations" chips={4} side />
+            : activeTab === 'companies' ? <ListSkeleton label="Loading companies" chips={3} side />
+            : activeTab === 'registrations' ? <ListSkeleton label="Loading accounts" chips={3} rows={4} />
+            : <ListSkeleton label="Loading" chips={3} />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
             <CoordinatorProfileTab

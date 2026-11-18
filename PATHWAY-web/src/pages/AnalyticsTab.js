@@ -21,6 +21,7 @@ import './AnalyticsRedesign.css';
 import { createPortal } from 'react-dom';
 import SectionPicker from '../components/SectionPicker';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid, ReferenceLine } from 'recharts';
+import { ProgressSkeleton } from '../components/CoordSkeletons';
 
 function csvEscape(v) {
   const text = String(v ?? '');
@@ -139,7 +140,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
 
   const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selectedSection?.id || '') + ':' + searchQuery + ':' + progressFilter, 10);
   if (loading) {
-    return <PageSkeleton label="Calculating cohort analytics" variant="dashboard" />;
+    return <ProgressSkeleton />;
   }
   return (
     <div className="an coordinator-analytics-page">

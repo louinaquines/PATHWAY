@@ -2879,6 +2879,7 @@ const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocal
 const companySender = require('./companyMailSender').createCompanySender(process.env);
 require('./announcementEmail').installAnnouncementEmail({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 require('./announcementList').installAnnouncementList({ app, db: adminDb, requireStaff, coordinatorSection, allowRate });
+require('./pushNotifications').installPushNotifications({ app, db: adminDb, requireUser, allowRate, FieldValue });
 require('./coordinatorTerms').installCoordinatorTerms({ app, db: adminDb, requireStaff, coordinatorSection, recordAudit });
 installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender,
   discoveryEnabled: process.env.COMPANY_INBOX_PLACEMENT_DISCOVERY_ENABLED === '1' });

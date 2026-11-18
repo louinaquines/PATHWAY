@@ -441,93 +441,50 @@ export function NotificationWorkspace({
         </> : <div className="ann-pick"><Icon name="bell" size={30} /><strong>Pick a notification</strong><span>Its details will show here.</span></div>}
       </section>
       </div>}
-      {draft && (
-        <PortalFormDialog
-          label="Post announcement"
-          className="inbox-drawer"
-          closeOnBackdrop
-          onCancel={close}
-        >
-          <header>
-            <h2>Post announcement</h2>
-            <button onClick={close} disabled={saving} aria-label="Close drawer">
-              ×
-            </button>
+      {draft && (() => {
+        const target = sections.find((x) => x.id === draft.sectionId);
+        const count = Array.isArray(target?.studentIds) ? target.studentIds.length : null;
+        const ready = draft.sectionId && draft.title.trim() && draft.message.trim();
+        return (
+        <PortalFormDialog label="Post announcement" className="inbox-drawer ana-dialog" closeOnBackdrop onCancel={close}>
+          <header className="ana-head">
+            <div><h2>{announcement ? "Announcement posted" : "New announcement"}</h2>{!announcement && <p>Students get it in the app right away.</p>}</div>
+            <button type="button" className="plt-x" onClick={close} disabled={saving} aria-label="Close drawer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>
           </header>
-          {(
-            <form onSubmit={post}>
-              <div className="inbox-drawer-body">
-                {announcement ? (
-                  <>
-                    <p role="status">
-                      Announcement posted to {announcement.count} students.
-                    </p>
-                    {announcement.announcementId && (
-                      <AnnouncementEmailDelivery
-                        announcementId={announcement.announcementId}
-                      />
-                    )}
-                  </>
-                ) : (
-                  <fieldset disabled={saving}>
-                    <label>
-                      Section
-                      <select
-                        required
-                        value={draft.sectionId}
-                        onChange={(e) =>
-                          setDraft({ ...draft, sectionId: e.target.value })
-                        }
-                      >
-                        <option value="">Choose section</option>
-                        {sections.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Title
-                      <input
-                        required
-                        maxLength={200}
-                        value={draft.title}
-                        onChange={(e) =>
-                          setDraft({ ...draft, title: e.target.value })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Message
-                      <textarea
-                        required
-                        rows={7}
-                        maxLength={5000}
-                        value={draft.message}
-                        onChange={(e) =>
-                          setDraft({ ...draft, message: e.target.value })
-                        }
-                      />
-                    </label>
-                  </fieldset>
-                )}
-                {formError && <p role="alert">{formError}</p>}
-              </div>
-              <footer>
-                <button type="button" onClick={close} disabled={saving}>
-                  {announcement ? "Close" : "Cancel"}
-                </button>
-                {!announcement && (
-                  <button className="inbox-primary" disabled={saving}>
-                    {saving ? "Posting…" : "Post announcement"}
-                  </button>
-                )}
-              </footer>
-            </form>
-          )}
-        </PortalFormDialog>
-      )}
+          <form onSubmit={post}>
+            <div className="ana-body">
+              {announcement ? (
+                <div className="ana-done">
+                  <span aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg></span>
+                  <strong role="status">Announcement posted to {announcement.count} students.</strong>
+                  {announcement.announcementId && <div className="ana-email"><AnnouncementEmailDelivery announcementId={announcement.announcementId} /></div>}
+                </div>
+              ) : (
+                <fieldset disabled={saving}>
+                  <label className="ana-field"><span>Send to</span>
+                    <span className="ana-sel"><select required aria-label="Section" value={draft.sectionId} onChange={(e) => setDraft({ ...draft, sectionId: e.target.value })}>
+                      <option value="">Choose section</option>
+                      {sections.map((x) => <option key={x.id} value={x.id}>{x.name}{Array.isArray(x.studentIds) ? ` · ${x.studentIds.length} students` : ""}</option>)}
+                    </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></label>
+                  <label className="ana-field"><span>Title <em>{draft.title.length} / 120</em></span>
+                    <input required aria-label="Title" maxLength={120} placeholder="e.g. Orientation moved to Friday" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
+                  <label className="ana-field"><span>Message <em>{draft.message.length.toLocaleString()} / 4,000</em></span>
+                    <textarea required aria-label="Message" rows={6} maxLength={4000} placeholder="Write the details students need…" value={draft.message} onChange={(e) => setDraft({ ...draft, message: e.target.value })} /></label>
+                  {(draft.title.trim() || draft.message.trim()) && <div className="ana-preview" aria-label="Preview">
+                    <small>Preview in the student app</small>
+                    <div><span className="ana-pv-icon"><Icon name="megaphone" size={15} /></span><div><strong>{draft.title.trim() || "Title"}</strong><p>{draft.message.trim() || "Message"}</p></div></div>
+                  </div>}
+                </fieldset>
+              )}
+              {formError && <p role="alert" className="ana-err">{formError}</p>}
+            </div>
+            <footer className="ana-foot">
+              <button type="button" className="rq-btn" onClick={close} disabled={saving}>{announcement ? "Done" : "Cancel"}</button>
+              {!announcement && <button className="rq-btn rq-primary inbox-primary" disabled={saving || !ready}><Icon name="megaphone" size={15} />{saving ? "Posting…" : `Post to ${target?.name || "section"}`}</button>}
+            </footer>
+          </form>
+        </PortalFormDialog>);
+      })()}
     </div>
   );
 }

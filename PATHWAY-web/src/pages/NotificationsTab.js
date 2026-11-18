@@ -67,7 +67,7 @@ export function NotificationWorkspace({
       saved.current = {};
     }
   }
-  const [kind, setKind] = useState(saved.current.kind || (onStudents ? "posted" : "activity")),
+  const [kind, setKind] = useState(saved.current.kind || (onSectionChange ? "posted" : "activity")),
     [search, setSearch] = useState(saved.current.search || ""),
     [query, setQuery] = useState(search),
     [filter, setFilter] = useState(saved.current.filter || "all");
@@ -268,7 +268,7 @@ export function NotificationWorkspace({
   }
   const switcher = (
         <div className="ann-switch" role="tablist" aria-label="Inbox">
-          {onStudents && <button role="tab" aria-selected={kind === "posted"} onClick={() => setKind("posted")}>Posted</button>}
+          {onSectionChange && <button role="tab" aria-selected={kind === "posted"} onClick={() => setKind("posted")}>Posted</button>}
           <button role="tab" aria-selected={kind === "activity"} onClick={() => setKind("activity")}>Activity{kind === "activity" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
           <button role="tab" aria-selected={kind === "attendance"} onClick={() => setKind("attendance")}>Attendance alerts{kind === "attendance" && Number.isFinite(counts.unread) && counts.unread > 0 && <b>{counts.unread}</b>}</button>
         </div>
@@ -276,10 +276,6 @@ export function NotificationWorkspace({
   return (
     <div className="ann notifications-workspace">
       {(acts => topHost ? createPortal(acts, topHost) : <div className="ann-inline-actions">{acts}</div>)(<>
-        {onStudents && <div className="msg-switch" role="group" aria-label="Message type">
-          <button type="button" aria-pressed="false" onClick={onStudents}>Students</button>
-          <button type="button" aria-pressed="true">Announcements</button>
-        </div>}
         <button
           type="button"
           className="rq-btn rq-primary inbox-primary"

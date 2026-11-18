@@ -240,3 +240,9 @@
 .tm-menu .tm-manage svg { position: static !important; color: currentColor; }
 .tm-overlay { position: fixed !important; inset: 0 !important; padding: 20px; }
 .tm-menu li button { justify-content: flex-start !important; }
+/* Rules tab: Term dropdown */
+.sx .sx-set > .sx-selwrap { flex: none; height: 38px; }
+.sx .sx-set > .sx-selwrap select { height: 38px !important; min-width: 200px; padding: 0 36px 0 12px !important; border: 1px solid #e8e5de !important; border-radius: 8px !important; background: #fff !important; font-family: inherit; font-size: 13px !important; font-weight: 600; color: #15213a !important; appearance: none; -webkit-appearance: none; cursor: pointer; box-shadow: none !important; }
+.sx .sx-set > .sx-selwrap svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #7b8494; }
+.coordinator-page .sx .sx-set > .sx-selwrap select:is(:focus, :focus-visible) { outline: 0 !important; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.sx .sx-set > .sx-selwrap select:disabled { opacity: .6; cursor: default; }

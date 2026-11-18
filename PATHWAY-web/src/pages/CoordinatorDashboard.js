@@ -24,6 +24,7 @@ import MessagesTab from './MessagesTab';
 import SubmissionNotifications, { receivedRequirements, submissionTime } from '../components/SubmissionNotifications'; // eslint-disable-line no-unused-vars
 import RequirementsInbox from '../components/RequirementsInbox';
 import Pager from '../components/Pager';
+import SectionPicker from '../components/SectionPicker';
 import RequirementViewer from '../components/RequirementViewer';
 import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
@@ -559,7 +560,7 @@ export default function CoordinatorDashboard() {
                 {pendingCount} Pending Review
               </span>
             )}
-            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements', 'companies', 'registrations', 'analytics', 'notifications'].includes(activeTab) && (
+            {!['profile', 'requirements', 'logbook', 'sections', 'evaluations', 'messages', 'clearance', 'placements', 'companies', 'registrations', 'analytics', 'notifications', 'overview'].includes(activeTab) && (
               <label style={s.sectionPickerLabel} className="sectionPickerLabel">
                 <span>Section</span>
                 <select aria-label="Current section" style={s.sectionPicker} className="sectionPicker" disabled={!sections.length} value={selectedSection?.id || sections[0]?.id || ''} onChange={e => { const section = sections.find(item => item.id === e.target.value); if (section) fetchStudents(section); }}>
@@ -580,6 +581,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions" />}
           {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions" />}
           {activeTab === 'notifications' && <div className="rq-top-actions" id="ann-top-actions" />}
+          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><SectionPicker sections={sections} selected={selectedSection} onChange={section => fetchStudents(section)} /></div>}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button

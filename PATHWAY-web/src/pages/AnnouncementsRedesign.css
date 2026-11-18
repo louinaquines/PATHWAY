@@ -236,3 +236,10 @@ dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; he
 .ann .ann-card .inbox-search, .ann .ann-card .ann-sel, .ann .ann-card .ann-sel select { height: 38px !important; min-height: 38px !important; max-height: 38px !important; box-sizing: border-box !important; margin: 0 !important; }
 .ann .ann-card .ann-sel select { line-height: 36px !important; padding-top: 0 !important; padding-bottom: 0 !important; border-radius: 8px !important; }
 .ann .ann-card .inbox-search { border-radius: 8px !important; }
+/* dashboard: flat background, no topbar strip */
+.coordinator-dashboard-mode main { background: #f4f2ec !important; background-image: none !important; }
+.coordinator-dashboard-mode main::before, .coordinator-dashboard-mode main::after { display: none !important; }
+.coordinator-dashboard-mode main > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; padding: 32px 40px 20px !important; backdrop-filter: none !important; }
+.coordinator-dashboard-mode main > header h1 { font-size: 26px !important; font-weight: 800 !important; letter-spacing: -0.02em; color: #15213a; margin: 0; }
+.coordinator-dashboard-mode main > div { background: transparent !important; }
+.coordinator-dashboard-mode main :is(.cdash-metrics > *, .cdash-columns > *, .cdash-steps, .cdash-steps > *, section) { backdrop-filter: none !important; }

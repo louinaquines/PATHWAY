@@ -62,8 +62,23 @@ export default function AuthHero({
   const guideEnter = { opacity: guideIn, transform: [{ translateY: guideIn.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }] };
   const heroH = (heroHeight ?? Math.min(360, Math.max(280, height * 0.4))) + insets.top;
   const wide = measuredWidth >= 600;
-  // Welcome copy sits under the logo with breathing room, scaled for phones and tablets.
-  const copyTop = insets.top + 24 + 40 + Math.max(28, Math.round(heroH * 0.1));
+  // Responsive layout: everything scales from the hero's real width and height,
+  // so the copy and the character keep their places on small phones, large phones, tablets and web.
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const bodyH = heroH - insets.top;
+  const scale = clamp(Math.min(measuredWidth / 390, bodyH / 320), 0.78, 1.45);
+  const sidePad = wide ? clamp(measuredWidth * 0.06, 32, 72) : clamp(measuredWidth * 0.066, 18, 28);
+  const brandTop = insets.top + clamp(Math.round(bodyH * 0.07), 14, 28);
+  const guideH = Math.round(clamp(bodyH * 0.96, 190, 500));
+  const guideW = Math.round(Math.min(measuredWidth * (wide ? 0.48 : 0.62), guideH * 1.05));
+  const guideRight = wide ? Math.round(measuredWidth * 0.04) : -Math.round(guideW * 0.1);
+  // Stop the copy before the character's left edge (its spark lines start there), with a gap.
+  const copyW = Math.round(clamp(measuredWidth - sidePad - guideW - guideRight - 14, measuredWidth * 0.4, measuredWidth * 0.6));
+  const titleSize = Math.round(clamp(31 * scale, 24, 48));
+  const subSize = Math.round(clamp(14 * scale, 12.5, 19));
+  // Copy starts under the logo row and sits in the upper-middle of the free space.
+  const copyBottom = clamp(Math.round(bodyH * 0.1), 20, 44);
+  const copyTop = brandTop + 40 + clamp(Math.round(bodyH * 0.09), 14, 44);
   const backdropOpacity = progress
     ? progress.interpolate({ inputRange: [0, 0.38, 0.84, 1], outputRange: [1, 1, 0, 0] })
     : 0;
@@ -84,9 +99,19 @@ export default function AuthHero({
   return (
     <ImageBackground source={illustrated ? LOGIN_HERO_IMAGE : CAMPUS_IMAGE} resizeMode="cover" onLayout={event => setMeasuredWidth(event.nativeEvent.layout.width)} style={[styles.hero, illustrated && { height: (heroHeight ?? Math.min(360, Math.max(280, height * 0.4))) + insets.top, flexShrink: 0, overflow: 'hidden' }]} imageStyle={[styles.image, illustrated && styles.heroPhoto]}>
       {illustrated ? null : <View pointerEvents="none" style={styles.tint} />}
-      {illustrated && <Animated.Image source={guideSource || require('../assets/pathway-guide-thumbsup-plain-laptop.png')} style={[styles.loginGuide, guideEnter, { width: Math.min(measuredWidth * 0.62, heroH * 1.05), height: heroH * 0.82 }]} resizeMode="contain" accessible={false} />}
+      {illustrated && <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient id="pwCopyShade" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor="#0A3D91" stopOpacity="0.55" />
+            <Stop offset="0.38" stopColor="#0A3D91" stopOpacity="0.3" />
+            <Stop offset="0.62" stopColor="#0A3D91" stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill="url(#pwCopyShade)" />
+      </Svg>}
+      {illustrated && <Animated.Image source={guideSource || require('../assets/pathway-guide-thumbsup-plain-laptop.png')} style={[styles.loginGuide, guideEnter, { width: guideW, height: guideH, right: guideRight }]} resizeMode="contain" accessible={false} />}
       <Animated.View pointerEvents="none" style={[styles.deepCover, { opacity: backdropOpacity }]} />
-      <View style={[styles.content, illustrated && styles.illustratedContent, illustrated && { paddingTop: copyTop, paddingHorizontal: wide ? 48 : 26 }]}>
+      <View style={[styles.content, illustrated && styles.illustratedContent, illustrated && { paddingTop: brandTop + 48, paddingBottom: copyBottom, justifyContent: 'center', paddingHorizontal: sidePad }]}>
         {onBack ? (
           <TouchableOpacity
             onPress={onBack}
@@ -97,7 +122,7 @@ export default function AuthHero({
             <ChevronLeftIcon size={22} color="#FFFFFF" />
           </TouchableOpacity>
         ) : null}
-        <View style={[styles.brandRow, illustrated && styles.illustratedBrand, illustrated && { top: insets.top + 24, left: wide ? 48 : 26 }]}>
+        <View style={[styles.brandRow, illustrated && styles.illustratedBrand, illustrated && { top: brandTop, left: sidePad }]}>
           <Animated.View style={[styles.logoFrame, logoStyle]}>
             <View ref={logoRef} onLayout={reportLogoFrame} style={styles.logoMeasureTarget}>
               <PathwayMark size={40} decorative />
@@ -105,9 +130,9 @@ export default function AuthHero({
           </Animated.View>
         <Animated.Text style={[styles.brandName, brandStyle, { fontFamily: customFontsAvailable ? FONTS.bodySemiBold : fallbackBody }]}>PATHWAY</Animated.Text>
       </View>
-        <Animated.View style={illustrated ? [styles.welcomeCopy, wide && { width: '45%' }, copyEnter] : undefined}>
-          <Animated.Text style={[styles.title, illustrated && styles.illustratedTitle, titleStyle, illustrated && wide && { fontSize: 46 }, { fontFamily: customFontsAvailable ? FONTS.headingBold : fallbackHeading }]}>{title}</Animated.Text>
-          <Animated.Text style={[styles.subtitle, illustrated && styles.illustratedSubtitle, subtitleStyle, illustrated && wide && { fontSize: 18, lineHeight: 26 }, { fontFamily: customFontsAvailable ? FONTS.body : fallbackBody }]}>{subtitle}</Animated.Text>
+        <Animated.View style={illustrated ? [styles.welcomeCopy, { width: copyW }, copyEnter] : undefined}>
+          <Animated.Text adjustsFontSizeToFit={illustrated} numberOfLines={illustrated ? 2 : undefined} minimumFontScale={0.75} style={[styles.title, illustrated && styles.illustratedTitle, titleStyle, illustrated && { fontSize: titleSize, lineHeight: Math.round(titleSize * 1.12), color: '#F8AA00' }, { fontFamily: customFontsAvailable ? FONTS.headingBold : fallbackHeading }]}>{title}</Animated.Text>
+          <Animated.Text style={[styles.subtitle, illustrated && styles.illustratedSubtitle, subtitleStyle, illustrated && { fontSize: subSize, lineHeight: Math.round(subSize * 1.45), marginTop: Math.round(6 * scale) }, { fontFamily: customFontsAvailable ? FONTS.body : fallbackBody }]}>{subtitle}</Animated.Text>
         </Animated.View>
       </View>
     </ImageBackground>
@@ -132,8 +157,8 @@ const styles = StyleSheet.create({
   illustratedContent: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-start', paddingHorizontal: 26, paddingBottom: 40 },
   illustratedBrand: { position: 'absolute', left: 26, top: 28 },
   welcomeCopy: { width: '52%', alignItems: 'stretch' },
-  illustratedTitle: { fontSize: 34, textShadowColor: 'rgba(0,40,110,0.35)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
-  illustratedSubtitle: { textShadowColor: 'rgba(0,40,110,0.35)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4, width: '100%', maxWidth: '100%', fontSize: 14, lineHeight: 20, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
+  illustratedTitle: { fontSize: 34, textShadowColor: 'rgba(0,25,80,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
+  illustratedSubtitle: { textShadowColor: 'rgba(0,25,80,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6, width: '100%', maxWidth: '100%', fontSize: 14, lineHeight: 20, textAlign: 'left', includeFontPadding: false, padding: 0, marginLeft: 0 },
   loginGuide: { position: 'absolute', right: -18, bottom: 0 },
   hero: {
     height: 270,

@@ -231,3 +231,8 @@ dialog.ana-dialog > form, dialog.ana-dialog form { display: block !important; he
 .ann-sel svg { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #7b8494; }
 .ann .ann-card .inbox-footer, .pa-foot { display: flex !important; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px !important; border-top: 1px solid #efece5 !important; font-size: 12px; color: #7b8494; }
 #ann-top-actions .ann-refresh-btn, .ann-inline-actions .ann-refresh-btn { background: #fff; }
+/* search + filter same height */
+.ann .ann-card .inbox-toolbar { display: flex !important; align-items: stretch !important; gap: 8px; }
+.ann .ann-card .inbox-search, .ann .ann-card .ann-sel, .ann .ann-card .ann-sel select { height: 38px !important; min-height: 38px !important; max-height: 38px !important; box-sizing: border-box !important; margin: 0 !important; }
+.ann .ann-card .ann-sel select { line-height: 36px !important; padding-top: 0 !important; padding-bottom: 0 !important; border-radius: 8px !important; }
+.ann .ann-card .inbox-search { border-radius: 8px !important; }

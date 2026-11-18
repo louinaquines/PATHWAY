@@ -20,6 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { auth, db } from '../firebaseConfig';
 import { BACKEND_URL, requestBackend } from '../services/backendApi';
+import { showStudentSuccess } from '../services/studentSuccess';
 import { uploadCloudinaryFile } from '../services/cloudinaryUpload';
 import { studentAlert as Alert } from '../services/studentAlert';
 import { doc, getDoc, getDocs, collection, onSnapshot } from 'firebase/firestore';
@@ -169,16 +170,7 @@ export default function RequirementsScreen({ navigation, route }) {
   }, [showMenuDrawer, showNotifications]);
 
   const [linkSubmitting, setLinkSubmitting] = useState(null);
-  const [linkSuccess, setLinkSuccess] = useState(false);
-  const successScale = useRef(new Animated.Value(0)).current;
-  const successFade = useRef(new Animated.Value(0)).current;
-  const playLinkSuccess = (title = 'Marked as submitted') => {
-    setLinkSuccess(title); successScale.setValue(0.4); successFade.setValue(0);
-    Animated.parallel([
-      Animated.spring(successScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
-      Animated.timing(successFade, { toValue: 1, duration: 180, useNativeDriver: true }),
-    ]).start(() => setTimeout(() => Animated.timing(successFade, { toValue: 0, duration: 220, useNativeDriver: true }).start(() => setLinkSuccess(false)), 1300));
-  };
+  const playLinkSuccess = (title) => showStudentSuccess(title, title === 'Drive folder saved' ? 'Your coordinator can now view your folder.' : 'Your coordinator will review it.');
   const handleLinkSubmitted = async (docItem) => {
     setLinkSubmitting(docItem.id);
     try {
@@ -886,21 +878,13 @@ export default function RequirementsScreen({ navigation, route }) {
       />
 
       <PreDeploymentDrawer
+        reachedStep={reachedStep}
         visible={showMenuDrawer}
         activeRoute="Requirements"
         onClose={() => setShowMenuDrawer(false)}
-        onNavigate={route => navigation.replace(route)}
+        onNavigate={(route, params) => navigation.replace(route, params)}
         onSignOut={handleLogout}
       />
-      {linkSuccess && (
-        <Animated.View pointerEvents="none" style={[styles.successOverlay, { opacity: successFade }]}>
-          <Animated.View style={[styles.successCard, { transform: [{ scale: successScale }] }]}>
-            <View style={styles.successCircle}><CheckCircleIcon size={44} color="#fff" /></View>
-            <Text style={styles.successTitle}>{linkSuccess}</Text>
-            <Text style={styles.successText}>Your coordinator will review it.</Text>
-          </Animated.View>
-        </Animated.View>
-      )}
     </View>
   );
 }
@@ -1466,6 +1450,8 @@ const styles = StyleSheet.create({
   /* Dropzone Container */
   successOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(21,33,58,0.25)', alignItems: 'center', justifyContent: 'center' },
   successCard: { width: 260, paddingVertical: 28, paddingHorizontal: 20, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center' },
+  successCharacter: { width: 130, height: 130 },
+  successBadge: { marginTop: -18, width: 30, height: 30, borderRadius: 15, backgroundColor: '#1f7a4d', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
   successCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#1f7a4d', alignItems: 'center', justifyContent: 'center' },
   successTitle: { marginTop: 14, fontSize: 17, fontWeight: '700', color: '#15213a' },
   successText: { marginTop: 4, fontSize: 13, color: '#465066', textAlign: 'center' },

@@ -57,10 +57,11 @@ export default function PreDeploymentDrawer({
   onClose,
   onNavigate,
   onSignOut,
+  reachedStep = 1,
 }) {
   const navigateTo = route => {
     onClose?.();
-    if (route !== activeRoute) onNavigate?.(route);
+    if (route !== activeRoute) onNavigate?.(route, { reachedStep });
   };
 
   return (
@@ -128,15 +129,17 @@ export default function PreDeploymentDrawer({
           <View style={styles.stepList}>
             {STEPS.map(({ route, number, title, description, Icon }) => {
               const active = route === activeRoute;
+              const locked = !active && Number(number) > reachedStep;
               return (
                 <TouchableOpacity
                   key={route}
-                  style={[styles.step, active && styles.stepActive]}
-                  onPress={() => navigateTo(route)}
+                  style={[styles.step, active && styles.stepActive, locked && styles.stepLocked]}
+                  onPress={() => { if (!locked) navigateTo(route); }}
+                  disabled={locked}
                   activeOpacity={0.76}
                   accessibilityRole="button"
                   accessibilityLabel={`${title}${active ? ', current step' : ''}`}
-                  accessibilityState={{ selected: active }}
+                  accessibilityState={{ selected: active, disabled: locked }}
                 >
                   <View style={[styles.stepIcon, active && styles.stepIconActive]}>
                     <Icon
@@ -148,7 +151,7 @@ export default function PreDeploymentDrawer({
                     <Text style={[styles.stepTitle, active && styles.stepTitleActive]}>
                       {title}
                     </Text>
-                    <Text style={styles.stepDescription}>{description}</Text>
+                    <Text style={styles.stepDescription}>{locked ? 'Finish the previous step first' : description}</Text>
                   </View>
                   {active ? (
                     <View style={styles.currentBadge}>
@@ -186,6 +189,7 @@ export default function PreDeploymentDrawer({
 }
 
 const styles = StyleSheet.create({
+  stepLocked: { opacity: 0.42 },
   overlay: {
     flex: 1,
     flexDirection: 'row',

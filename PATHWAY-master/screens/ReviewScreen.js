@@ -501,10 +501,11 @@ export default function ReviewScreen({ navigation, route }) {
       <PreDeploymentNotificationsSheet visible={showNotifications} onClose={() => setShowNotifications(false)} />
 
       <PreDeploymentDrawer
+        reachedStep={reachedStep}
         visible={showMenuDrawer}
         activeRoute="Review"
         onClose={() => setShowMenuDrawer(false)}
-        onNavigate={route => navigation.replace(route)}
+        onNavigate={(route, params) => navigation.replace(route, params)}
         onSignOut={logout}
       />
     </View>

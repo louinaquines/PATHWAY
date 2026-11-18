@@ -915,7 +915,7 @@ function Gate({
         visible={showMenuDrawer}
         activeRoute="StudentDashboard"
         onClose={() => setShowMenuDrawer(false)}
-        onNavigate={route => navigation.replace(route)}
+        onNavigate={(route, params) => navigation.replace(route, params)}
         onSignOut={logout}
       />
     </View>

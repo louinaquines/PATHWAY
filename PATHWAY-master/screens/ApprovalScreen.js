@@ -221,10 +221,11 @@ export default function ApprovalScreen({ navigation, route }) {
       <PreDeploymentNotificationsSheet visible={notifications} onClose={() => setNotifications(false)} />
 
       <PreDeploymentDrawer
+        reachedStep={reachedStep}
         visible={menu}
         activeRoute="Approval"
         onClose={() => setMenu(false)}
-        onNavigate={route => navigation.replace(route)}
+        onNavigate={(route, params) => navigation.replace(route, params)}
         onSignOut={logout}
       />
     </View>

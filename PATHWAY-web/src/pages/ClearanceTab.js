@@ -154,7 +154,7 @@ export default function ClearanceTab({ coordinatorId, selectedSection, initialFi
       row.hours || '', row.clearanceStatus === 'cleared' ? 'Cleared' : row.ready ? 'Ready to clear' : 'Not ready']));
     addExportedColumns(sheet, workbook.created);
     styleSheet(sheet);
-    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
+    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Term', selectedSection?.termName || ''], ['Students', rows.length], ['Clearance', '"Ready to clear" means requirements and hours are complete but the student has not been cleared yet.']]);
     await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-clearance-${today()}.xlsx`);
   };
 

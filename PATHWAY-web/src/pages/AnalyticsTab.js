@@ -115,7 +115,7 @@ function AnalyticsContent({ coordinatorId, selectedSection, highlightStudentId, 
     addExportedColumns(sheet, workbook.created);
     styleSheet(sheet);
     sheet.getColumn(7).numFmt = '0%'; sheet.getColumn(8).numFmt = '0%'; sheet.getColumn(5).numFmt = '0.0'; sheet.getColumn(6).numFmt = '0';
-    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Students', data.students.length], ['As of', data.today || ''],
+    addInfoSheet(workbook, [['Section', selectedSection?.name || ''], ['Term', selectedSection?.termName || ''], ['Students', data.students.length], ['As of', data.today || ''],
       ['Status', 'High risk / At risk / On track come from attendance and hours. "Not enough data" means fewer than five reliable work days.'],
       ['Hours', 'Hours done count only server-credited attendance hours.']]);
     await downloadWorkbook(workbook, `PATHWAY-${fileSafe(selectedSection?.name)}-progress-${today()}.xlsx`);

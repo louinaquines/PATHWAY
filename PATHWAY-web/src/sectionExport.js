@@ -39,7 +39,7 @@ export async function buildSectionWorkbook(section, students, checklist) {
   details.addRows(rows.details);
   details.getColumn(1).numFmt = '@';
   info.addRows([
-    ['Field', 'Value'], ['Section', section.name || ''], ['Department', section.department || ''],
+    ['Field', 'Value'], ['Section', section.name || ''], ['Term', section.termName || ''], ['Department', section.department || ''],
     ['Date exported', phDate(new Date())], ['Time exported (Philippine time)', phClock(new Date())], ['Students', students.length],
     ['Percentage definition', 'Approved requirements divided by the section checklist total. Pending and rejected items do not count.'],
     ['Empty checklist', 'Percentage is blank when no requirements are configured.'],

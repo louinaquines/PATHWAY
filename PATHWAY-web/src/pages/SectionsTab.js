@@ -20,6 +20,7 @@ import './RequirementsRedesign.css';
 import './LogbookRedesign.css';
 import './SectionsRedesign.css';
 import Pager from '../components/Pager';
+import { TermPicker, TermDialog } from '../components/TermManager';
 import { createPortal } from 'react-dom';
 
 function groupChatHref(value) {
@@ -52,6 +53,21 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [addOpen, setAddOpen]           = useState(false);
   const [reqStage, setReqStage]         = useState('Pre-OJT');
   const [reqPage, setReqPage]           = useState(1);
+  const [terms, setTerms] = useState([]);
+  const [termFilter, setTermFilter] = useState(null);
+  const [termDialog, setTermDialog] = useState(false);
+  const [termBusy, setTermBusy] = useState(false);
+  const loadTerms = useCallback(async () => {
+    try { const d = await adminRequest('/coordinator/terms'); setTerms(d.terms || []); setTermFilter(f => f ?? ((d.terms || []).find(t => t.isCurrent)?.id || 'all')); }
+    catch { setTerms([]); setTermFilter(f => f ?? 'all'); }
+  }, []);
+  useEffect(() => { loadTerms(); }, [loadTerms]);
+  const changeSectionTerm = async (sec, termId) => {
+    setTermBusy(true);
+    try { const r = await adminRequest(`/coordinator/sections/${encodeURIComponent(sec.id)}/term`, { method: 'PATCH', body: JSON.stringify({ termId }) });
+      const upd = x => x.id === sec.id ? { ...x, termId: r.termId, termName: r.termName } : x; setSections(p => p.map(upd)); setSelected(p => p && upd(p)); }
+    catch (e) { console.error(e); } finally { setTermBusy(false); }
+  };
   const [topHost, setTopHost]           = useState(null);
   useEffect(() => { setTopHost(document.getElementById('sx-top-actions')); }, []);
 
@@ -99,7 +115,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   }
 
   const CATEGORIES = ['Pre-OJT', 'Ongoing', 'Post-OJT'];
-  const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department));
+  const filteredSections = sections.filter(section => matchesCoordinatorSearch(searchQuery, section.name, section.department)
+    && (!termFilter || termFilter === 'all' || (termFilter === 'none' ? !section.termId : section.termId === termFilter)));
   const filteredStudents = students.filter(student => matchesCoordinatorSearch(stuQuery, student.firstName, student.lastName, student.idNumber, student.companyName || student.company));
 
   const fetchSections = useCallback(async () => {
@@ -184,7 +201,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       await adminRequest('/coordinator/sections', {
         method: 'POST',
         body: JSON.stringify({
-          name: formattedSectionName(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(),
+          name: formattedSectionName(), department: assignedDepartment, hoursRequired: Number(form.hoursRequired), messengerLink: form.messengerLink.trim(), termId: form.termId || undefined,
         }),
       });
       setModal(false);
@@ -261,25 +278,27 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   };
 
   const recordsPage = useRecordPage(filteredStudents.sort(compareStudents), (selected?.id || '') + ':' + searchQuery);
-  const sectionsPage = useRecordPage(filteredSections, searchQuery);
+  const sectionsPage = useRecordPage(filteredSections, searchQuery + ':' + termFilter);
   if (loading) {
     return <PageSkeleton label="Loading sections" variant="three-column" />;
   }
 
   return (
     <div className="sx">
-      {(() => { const btn = <>{selected && <>
+      {(() => { const btn = <><TermPicker terms={terms} value={termFilter || 'all'} onChange={setTermFilter} onManage={() => setTermDialog(true)} />{selected && <>
           <button type="button" className="rq-btn sx-topbtn" onClick={() => onAddStudents ? onAddStudents() : setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
           {onManageAccounts && <button type="button" className="rq-btn sx-topbtn" onClick={onManageAccounts}><Icon name="users" size={15} />Manage accounts</button>}</>}
         <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button></>;
         return topHost ? createPortal(btn, topHost) : <div className="sx-inline">{btn}</div>; })()}
+      {termDialog && <TermDialog terms={terms} onClose={() => setTermDialog(false)} onChanged={loadTerms} />}
       <aside className="sx-list">
         <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Search sections" />
         {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
+          : sections.length && termFilter !== 'all' ? <p className="sx-empty">No sections in this term. <button type="button" className="rq-link" onClick={() => setTermFilter('all')}>Show all terms</button></p>
           : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
         {sectionsPage.items.map(sec => { const on = selected?.id === sec.id; const n = on ? students.length : Array.isArray(sec.studentIds) ? sec.studentIds.length : null;
           return <button key={sec.id} type="button" className="section-select sx-card" aria-pressed={on} onClick={() => { setStuPage(1); setAddOpen(false); fetchStudents(sec); }}>
-            <strong>{sec.name}</strong><small>{[n != null ? `${n} student${n === 1 ? '' : 's'}` : null, sec.hoursRequired ? `${sec.hoursRequired} hrs` : null].filter(Boolean).join(' · ')}</small>
+            <strong>{sec.name}</strong><small>{[n != null ? `${n} student${n === 1 ? '' : 's'}` : null, sec.hoursRequired ? `${sec.hoursRequired} hrs` : null, termFilter === 'all' || termFilter === 'none' ? sec.termName || null : null].filter(Boolean).join(' · ')}</small>
           </button>; })}
         <RecordPagination pagination={sectionsPage} label="Sections" />
       </aside>
@@ -359,6 +378,10 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 {list.length > 8 && <div className="sx-foot"><span>{(cur - 1) * 8 + 1}–{Math.min(cur * 8, list.length)} of {list.length}</span><Pager page={cur} pages={pages} onGo={setReqPage} label="Requirements" /></div>}
               </div>; })()}
             <div hidden={view !== 'rules'} className="sx-panel sx-rules">
+              <div className="sx-set"><div><h3>Term</h3><p>Which semester this section belongs to.</p></div>
+                <span className="sx-selwrap"><select aria-label="Section term" disabled={termBusy} value={selected.termId || ''} onChange={e => changeSectionTerm(selected, e.target.value)}>
+                  <option value="">No term</option>{terms.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span></div>
               <div className="sx-set"><div><h3>Required hours</h3><p>Every student in {selected.name} must render this.</p></div><b className="sx-val">{selected.hoursRequired || '—'} hours</b></div>
               <div className="sx-set"><div><h3>Journals</h3><p>How often students write a journal.</p></div><div className="sx-journal">{journalSettings || <span className="sx-muted">Not available</span>}</div></div>
               <div className="sx-set sx-set-col"><div><h3>Group chat</h3><p>Students see this link in their app.</p></div>
@@ -412,6 +435,13 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
                 onChange={e => setForm(f => ({ ...f, hoursRequired: e.target.value }))}
                 required
               />
+            </div>
+            <div style={t.field}>
+              <label style={t.label}>Term</label>
+              <select style={t.input} value={form.termId ?? (terms.find(x => x.isCurrent)?.id || '')} onChange={e => setForm(f => ({ ...f, termId: e.target.value }))}>
+                <option value="">No term</option>
+                {terms.map(x => <option key={x.id} value={x.id}>{x.name}{x.isCurrent ? ' (current)' : ''}</option>)}
+              </select>
             </div>
             <div style={t.field}>
               <label style={t.label}>Messenger group link (optional)</label>

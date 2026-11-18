@@ -2259,7 +2259,10 @@ app.post('/coordinator/sections', requireStaff, async (req, res) => {
     || department !== req.staff.data.department) return res.status(400).json({ error: 'Enter valid section details for your assigned department.' });
   try {
     const sectionRef = adminDb.collection('sections').doc();
-    const activeTerm = await adminDb.collection('academicTerms').where('isActive', '==', true).limit(1).get();
+    const wantedTerm = typeof req.body?.termId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(req.body.termId) ? await adminDb.collection('academicTerms').doc(req.body.termId).get() : null;
+    const activeTerm = wantedTerm?.exists && wantedTerm.data().department === req.staff.data.department
+      ? { empty: false, docs: [wantedTerm] }
+      : await adminDb.collection('academicTerms').where('department', '==', req.staff.data.department).where('isCurrent', '==', true).limit(1).get();
     const section = {
       name: name.trim(), department: req.staff.data.department, hoursRequired: Number(hoursRequired),
       messengerLink: messengerLink.trim(), coordinatorId: req.staff.uid, studentIds: [], createdAt: new Date().toISOString(),
@@ -2816,6 +2819,7 @@ const companyInbox = createCompanyInbox(require('./localCompanyInbox').loadLocal
 const companySender = require('./companyMailSender').createCompanySender(process.env);
 require('./announcementEmail').installAnnouncementEmail({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });
 require('./announcementList').installAnnouncementList({ app, db: adminDb, requireStaff, coordinatorSection, allowRate });
+require('./coordinatorTerms').installCoordinatorTerms({ app, db: adminDb, requireStaff, coordinatorSection, recordAudit });
 installCompanyInbox({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, inbox: companyInbox, sender: companySender,
   discoveryEnabled: process.env.COMPANY_INBOX_PLACEMENT_DISCOVERY_ENABLED === '1' });
 require('./companyMailReplies').installCompanyReplies({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, sender: companySender });

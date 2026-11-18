@@ -20,7 +20,7 @@ COPY pathway-email-logo.png email-guide-writing.gif email-guide-thinking.gif ema
 COPY workplaceSupport.js workplaceSupportAttachments.js workplaceSupportCursors.js workplaceSupportNotifications.js workplaceSupportWorkflow.js ./
 COPY localCompanyInbox.js ./
 COPY companyTestLink.js ./
-COPY companyMailSender.js companyMailReplies.js companyMailAttachment.js announcementEmail.js announcementList.js evaluationOtp.js ./
+COPY companyMailSender.js companyMailReplies.js companyMailAttachment.js announcementEmail.js announcementList.js coordinatorTerms.js evaluationOtp.js ./
 
 USER node
 EXPOSE 8080

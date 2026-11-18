@@ -44,7 +44,7 @@ test('selecting a section loads the same enrolled roster', async () => {
 
 test('a legacy placeholder is hidden and the coordinator can replace it with a Messenger invite', async () => {
   const messengerLink = 'https://m.me/j/example-invite/';
-  adminRequest.mockResolvedValueOnce({ messengerLink });
+  adminRequest.mockImplementation(async path => path === '/coordinator/terms' ? { terms: [] } : { messengerLink });
   render(<SectionsTab coordinatorId="coord-a" selectedSection={{ ...section, messengerLink: 'N/a' }} />);
   fireEvent.click(await screen.findByRole('tab', { name: 'Rules and deadlines' }));
   const input = await screen.findByLabelText('Group chat link');

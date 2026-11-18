@@ -270,7 +270,6 @@ export default function AdminDashboard() {
     {
       title: 'Configuration',
       items: [
-        { id: 'terms', icon: 'calendar', label: 'Academic Terms' },
         { id: 'settings', icon: 'settings', label: 'System Settings' },
         { id: 'audit', icon: 'shield', label: 'Audit Logs' },
       ],

@@ -19,7 +19,7 @@
 .lb-cal-day[data-state="late"] { background: #fbf1d9; color: #9a6200; }
 .lb-cal-day[data-state="missing"] { background: #fff; color: #b3261e; border-color: #b3261e; }
 .lb-cal-day[data-state="absent"] { background: #fbe9e7; color: #b3261e; }
-.lb-cal-day[data-state="today"] { background: #eef3fd; color: #1746a2; }
+.lb-cal-day[data-state="today"] { background: #eaf1fd; color: #0b5fd3; }
 .lb-legend { margin: 22px 0 0; display: grid; gap: 8px; }
 .lb-legend div { display: grid; grid-template-columns: 140px auto; align-items: center; }
 .lb-legend dt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #465066; }
@@ -29,7 +29,7 @@
 .lb-legend i[data-state="late"] { background: #fbf1d9; }
 .lb-legend i[data-state="missing"] { border: 1.5px solid #b3261e; }
 .lb-legend i[data-state="absent"] { background: #fbe9e7; }
-.lb-legend i[data-state="today"] { background: #eef3fd; }
+.lb-legend i[data-state="today"] { background: #eaf1fd; }
 /* attendance table */
 .lb-table { display: flex; flex-direction: column; }
 .lb-tr { display: grid; grid-template-columns: 1.6fr 1fr 1fr .6fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid #e8e5de; font-size: 13.5px; color: #15213a; }
@@ -50,7 +50,7 @@
 .coordinator-page .lb-days button[data-status="approved"] { background: #e6f4ec !important; } .lb-days button[data-status="approved"] strong { color: #1f7a4d; }
 .coordinator-page .lb-days button[data-status="pending"] { background: #fbf1d9 !important; } .lb-days button[data-status="pending"] strong { color: #9a6200; }
 .coordinator-page .lb-days button[data-status="rejected"] { background: #fbe9e7 !important; } .lb-days button[data-status="rejected"] strong { color: #b3261e; }
-.coordinator-page .lb-days button[aria-selected="true"] { background: #fff !important; border-color: #1746a2 !important; } .lb-days button[aria-selected="true"] strong { color: #1746a2; }
+.coordinator-page .lb-days button[aria-selected="true"] { background: #fff !important; border-color: #0b5fd3 !important; } .lb-days button[aria-selected="true"] strong { color: #0b5fd3; }
 .lb-legend-inline { display: flex; gap: 16px; font-size: 12px; color: #465066; padding-bottom: 12px; border-bottom: 1px solid #e8e5de; }
 .lb-legend-inline span { display: inline-flex; align-items: center; gap: 6px; }
 .lb-legend-inline i { width: 10px; height: 10px; border-radius: 3px; }
@@ -64,11 +64,11 @@
 .lb-entry section h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 500; color: #7b8494; }
 .lb-entry section p { margin: 0; font-size: 14px; line-height: 1.6; color: #2b3546; white-space: pre-wrap; }
 .lb-feedback { padding: 12px 14px; border-radius: 10px; background: #fbe9e7; } .lb-feedback h4 { color: #b3261e !important; }
-.lb-details { font-size: 13px; color: #465066; } .lb-details summary { cursor: pointer; color: #1746a2; font-weight: 600; }
+.lb-details { font-size: 13px; color: #465066; } .lb-details summary { cursor: pointer; color: #0b5fd3; font-weight: 600; }
 .lb-note { padding: 10px 14px; border-radius: 10px; background: #fbf1d9; font-size: 13px; color: #9a6200; }
 .lb-actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid #e8e5de; }
 .lb-note-input { flex: 1; min-width: 0; height: 38px; padding: 0 14px; border: 1px solid #e8e5de; border-radius: 8px; background: #faf9f6; font-family: inherit; font-size: 13.5px; color: #15213a; }
-.coordinator-page .lb .lb-note-input:focus { outline: none; border-color: #1746a2 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; background: #fff; }
+.coordinator-page .lb .lb-note-input:focus { outline: none; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; background: #fff; }
 .lb .rq-student-name small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1100px) { .lb-cal { grid-template-columns: repeat(5, 1fr); } .lb-tr { grid-template-columns: 1.4fr 1fr 1fr .6fr; } }
 /* v2: compact calendar like Figma */
@@ -86,7 +86,7 @@
 .coordinator-page .lb-cal button.lb-cal-day { width: 40px; padding: 0 !important; min-height: 0 !important; font-family: inherit; box-shadow: none !important; cursor: pointer; transition: transform .1s, box-shadow .15s; }
 .coordinator-page .lb-cal button.lb-cal-day:hover:not(:disabled) { box-shadow: 0 0 0 2px #d9d5cc !important; }
 .coordinator-page .lb-cal button.lb-cal-day:active:not(:disabled) { transform: scale(.96); }
-.coordinator-page .lb-cal button.lb-cal-day[aria-selected="true"] { box-shadow: 0 0 0 2px #1746a2 !important; }
+.coordinator-page .lb-cal button.lb-cal-day[aria-selected="true"] { box-shadow: 0 0 0 2px #0b5fd3 !important; }
 .coordinator-page .lb-cal button.lb-cal-day:disabled { cursor: default; }
 .lb-dayview { display: flex; flex-direction: column; gap: 10px; }
 .lb-daynav { display: flex; align-items: center; gap: 8px; }

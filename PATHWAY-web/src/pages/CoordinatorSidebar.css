@@ -1,0 +1,5 @@
+/* Sidebar hover/active, original palette */
+.coordinator-page .sidebar-container .sidebar-nav-btn { transition: background .15s ease, color .15s ease !important; }
+.coordinator-page .sidebar-container .sidebar-nav-btn:hover:not(.sidebar-nav-btn-active) { background: #eef1f6 !important; color: #0b5fd3 !important; transform: none; }
+.coordinator-page .sidebar-container .sidebar-nav-btn:hover:not(.sidebar-nav-btn-active) svg { color: #0b5fd3 !important; }
+.coordinator-page .sidebar-container .sidebar-user-pill:hover { background: #eef1f6 !important; }

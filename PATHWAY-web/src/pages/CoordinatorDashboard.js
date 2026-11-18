@@ -51,7 +51,7 @@ import './PortalPolish.css';
 import '../sidebarV2.css';
 import './RequirementsRedesign.css';
 import './Responsive.css';
-import './CoordinatorThemeB.css';
+import './CoordinatorSidebar.css';
 import SuccessHost from '../components/SuccessHost';
 import { quietly, showSuccess, showToast } from '../successFx';
 

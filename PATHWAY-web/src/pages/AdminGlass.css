@@ -79,7 +79,7 @@
 .admin-directory-head { display: flex; align-items: stretch; gap: 20px; margin-bottom: 20px; }
 .admin-directory-head .admin-stat-cards { flex: 1; margin: 0; }
 .admin-primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: center; min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #075fc9; color: #fff; font: inherit; font-size: 14px; font-weight: 700; white-space: nowrap; cursor: pointer; box-shadow: 0 8px 20px rgba(7,95,201,.28); transition: background .15s ease, transform .15s ease; }
-.admin-primary-action:hover { background: #123a87; transform: translateY(-1px); }
+.admin-primary-action:hover { background: #0a52b6; transform: translateY(-1px); }
 .admin-primary-action:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
 
 /* Records card: glass, sticky toolbar + header, scroll inside */
@@ -306,7 +306,7 @@
 .admin-page main .admin-profile-input-readonly { background: #f1f5f9 !important; color: #64748b !important; }
 .admin-page main .admin-profile-actions { display: flex; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(148,163,184,.22); }
 .admin-page main .admin-profile-save-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 22px !important; border: 0 !important; border-radius: 12px !important; background: #075fc9 !important; color: #fff !important; font: inherit; font-size: 14px !important; font-weight: 700 !important; box-shadow: 0 8px 20px rgba(7,95,201,.28); cursor: pointer; }
-.admin-page main .admin-profile-save-btn:hover { background: #123a87 !important; }
+.admin-page main .admin-profile-save-btn:hover { background: #0a52b6 !important; }
 .admin-page main .admin-profile-security-grid { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 10px !important; }
 .admin-page main .admin-profile-security-item { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; background: #f8fafc !important; min-width: 0; }
 .admin-page main .admin-profile-security-item-label { color: #64748b !important; font-size: 12px !important; font-weight: 600 !important; text-transform: none !important; letter-spacing: 0 !important; }

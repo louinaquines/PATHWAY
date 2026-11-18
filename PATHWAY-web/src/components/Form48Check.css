@@ -10,7 +10,7 @@
 .coordinator-page .f48 .f48-big { height: 42px !important; min-height: 42px !important; padding: 0 20px !important; font-size: 14px !important; }
 .f48-reading { display: grid; justify-items: center; gap: 8px; font-size: 13px; color: #7b8494; }
 .f48-reading strong { font-size: 15px; color: #15213a; }
-.f48-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #e8e5de; border-top-color: #1746a2; animation: f48spin .8s linear infinite; }
+.f48-spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #e8e5de; border-top-color: #0b5fd3; animation: f48spin .8s linear infinite; }
 @keyframes f48spin { to { transform: rotate(360deg); } }
 .f48-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .f48-bar p { margin: 0; font-size: 13.5px; color: #15213a; }
@@ -28,7 +28,7 @@
 .f48-dayno { font-size: 13px; font-weight: 600; color: #15213a; text-align: center; }
 .f48-gr input { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid #e8e5de; border-radius: 7px; background: #fff; font-family: inherit; font-size: 13px; color: #15213a; }
 .f48-gr input[data-flag] { background: #fbf1d9; border-color: #e9c46a; }
-.coordinator-page .f48 .f48-gr input:focus { outline: none; border-color: #1746a2 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
+.coordinator-page .f48 .f48-gr input:focus { outline: none; border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
 .f48-gr[data-flag] .f48-dayno { color: #9a6200; }
 .f48-confirm { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 13px; color: #465066; }
 .f48-res .lb-tr { grid-template-columns: 1.1fr 1.3fr 1.6fr auto; }
@@ -77,7 +77,7 @@
 .coordinator-page .f48-tools .f48-tool-text { font-size: 12.5px !important; }
 .coordinator-page .f48-tools button:hover:not(:disabled), .f48-tools a:hover { background: #f4f2ec !important; color: #15213a !important; }
 .coordinator-page .f48-tools button:disabled { opacity: .35; }
-.coordinator-page .f48-tools .f48-times-toggle[aria-pressed="true"] { background: #eef3fd !important; color: #1746a2 !important; }
+.coordinator-page .f48-tools .f48-times-toggle[aria-pressed="true"] { background: #eaf1fd !important; color: #0b5fd3 !important; }
 .f48-focus-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
 .f48-focus-body[data-panel] { grid-template-columns: minmax(0, 1fr) 420px; }
 .f48-stage { min-width: 0; overflow: auto; background: #ecebe6; padding: 20px; }

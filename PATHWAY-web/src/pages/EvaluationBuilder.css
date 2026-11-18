@@ -18,14 +18,14 @@
 .eqb-field { display: grid; gap: 6px; font-size: 12.5px; font-weight: 600; color: #465066; }
 .eqb-field input, .eqb-field textarea, .eqb-text { width: 100%; padding: 9px 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; font-family: inherit; font-size: 13.5px; font-weight: 400; color: #15213a; box-shadow: none; }
 .eqb-field textarea { resize: vertical; min-height: 60px; }
-.eqb-field input:focus, .eqb-field textarea:focus, .eqb-text:focus { outline: 0; border-color: #1746a2; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
+.eqb-field input:focus, .eqb-field textarea:focus, .eqb-text:focus { outline: 0; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.12); }
 .eqb-qhead { display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; }
 .eqb-qhead h3 { margin: 0; font-size: 15px; font-weight: 700; }
 .eqb-qhead span { font-size: 12.5px; color: #7b8494; }
 .eqb-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .eqb-q { display: grid; grid-template-columns: 18px 22px minmax(0, 1fr); align-items: start; gap: 8px; padding: 10px 12px 10px 8px; border: 1px solid #ebe8e1; border-radius: 10px; background: #fff; transition: border-color .12s, box-shadow .12s, opacity .12s; }
 .eqb-q:focus-within { border-color: #c9d9f3; box-shadow: 0 0 0 3px rgba(11,95,211,.06); }
-.eqb-q[data-drop] { border-color: #1746a2; box-shadow: 0 -3px 0 #1746a2; }
+.eqb-q[data-drop] { border-color: #0b5fd3; box-shadow: 0 -3px 0 #0b5fd3; }
 .eqb-q[data-dragging] { opacity: .45; }
 .eqb-handle { height: 34px; display: grid; place-items: center; color: #b9b3a8; cursor: grab; border-radius: 6px; }
 .eqb-handle:hover { color: #465066; background: #f4f2ec; }
@@ -41,16 +41,16 @@
 .eqb-req input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .eqb-req i { width: 28px; height: 16px; border-radius: 99px; background: #d6d1c7; position: relative; transition: background-color .15s; }
 .eqb-req i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform .15s; }
-.eqb-req input:checked + i { background: #1746a2; }
+.eqb-req input:checked + i { background: #0b5fd3; }
 .eqb-req input:checked + i::after { transform: translateX(12px); }
-.eqb-req input:focus-visible + i { outline: 2px solid #1746a2; outline-offset: 2px; }
+.eqb-req input:focus-visible + i { outline: 2px solid #0b5fd3; outline-offset: 2px; }
 .eqb-spacer { flex: 1; }
 .eqb-icon { width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #7b8494; }
 .eqb-icon:hover:not(:disabled) { background: #f4f2ec; color: #15213a; }
 .eqb-icon:disabled { opacity: .3; cursor: default; }
 .eqb-del:hover:not(:disabled) { background: #fbe9e7; color: #b3261e; }
-.eqb-add { height: 40px; border: 1px dashed #cfcabf; border-radius: 10px; background: transparent; color: #1746a2; font-size: 13.5px; font-weight: 600; }
-.eqb-add:hover:not(:disabled) { background: #f7f5f0; border-color: #1746a2; }
+.eqb-add { height: 40px; border: 1px dashed #cfcabf; border-radius: 10px; background: transparent; color: #0b5fd3; font-size: 13.5px; font-weight: 600; }
+.eqb-add:hover:not(:disabled) { background: #f7f5f0; border-color: #0b5fd3; }
 .eqb-add:disabled { color: #9aa1ad; cursor: default; }
 .eqb-preview-label { display: block; margin-bottom: 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #7b8494; }
 .eqb-paper { padding: 20px; border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(21,33,58,.08); display: grid; gap: 16px; }
@@ -71,8 +71,8 @@
 .eqb-confirm { font-size: 13px; color: #b3261e; font-weight: 600; }
 .eqb-btn { height: 38px; padding: 0 16px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #15213a; font-size: 13.5px; font-weight: 600; }
 .eqb-btn:hover:not(:disabled) { background: #f7f5f0; }
-.eqb-primary { background: #1746a2; border-color: #1746a2; color: #fff; }
-.eqb-primary:hover:not(:disabled) { background: #123a87; }
+.eqb-primary { background: #0b5fd3; border-color: #0b5fd3; color: #fff; }
+.eqb-primary:hover:not(:disabled) { background: #0a52b6; }
 .eqb-primary:disabled { opacity: .45; cursor: default; }
 .eqb-danger { background: #b3261e; border-color: #b3261e; color: #fff; }
 .eqb-danger:hover { background: #9c1f18 !important; }

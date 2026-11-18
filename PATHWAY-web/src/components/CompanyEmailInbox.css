@@ -3,13 +3,13 @@
 .cei-title { flex: 1; min-width: 0; }
 .cei-title h2 { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: #15213a; }
 .cei-title p { margin: 3px 0 0; font-size: 12.5px; color: #7b8494; display: flex; align-items: center; gap: 6px; }
-.cei-chip { padding: 3px 10px; border-radius: 99px; background: #eef3fd; color: #1746a2; font-size: 11.5px; font-weight: 600; }
+.cei-chip { padding: 3px 10px; border-radius: 99px; background: #eaf1fd; color: #0b5fd3; font-size: 11.5px; font-weight: 600; }
 .cei-info { cursor: help; color: #9aa1ad; font-size: 13px; }
 .cei-btn { height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #15213a; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
 .cei-btn:hover:not(:disabled) { background: #f7f5f0; }
 .cei-btn:disabled { opacity: .6; cursor: default; }
-.cei-primary { background: #1746a2; border-color: #1746a2; color: #fff; }
-.cei-primary:hover { background: #123a87 !important; }
+.cei-primary { background: #0b5fd3; border-color: #0b5fd3; color: #fff; }
+.cei-primary:hover { background: #0a52b6 !important; }
 .cei-x { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #465066; cursor: pointer; }
 .cei-x:hover { background: #f4f2ec; }
 .cei-spin { animation: ceiSpin .8s linear infinite; }
@@ -34,16 +34,16 @@
 .cei-top { display: flex; align-items: center; gap: 8px; }
 .cei-top strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 600; color: #465066; }
 .cei-list li[data-unread] .cei-top strong, .cei-list li[data-unread] .cei-subject { color: #15213a; font-weight: 700; }
-.cei-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #1746a2; }
+.cei-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #0b5fd3; }
 .cei-top time { margin-left: auto; flex: none; font-size: 12px; color: #9aa1ad; }
 .cei-subject { font-size: 13px; color: #465066; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cei-summary { font-size: 12.5px; color: #7b8494; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cei-summary b { color: #1746a2; font-weight: 700; }
+.cei-summary b { color: #0b5fd3; font-weight: 700; }
 .cei-students { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px; }
 .cei-students em { padding: 2px 8px; border-radius: 99px; background: #f1efe9; color: #465066; font-style: normal; font-size: 11.5px; font-weight: 600; }
 .cei-body { display: grid; gap: 12px; padding: 4px 16px 16px 62px; background: #faf9f6; font-size: 13px; color: #465066; }
-.cei-action { margin: 0; padding: 10px 12px; border-radius: 8px; background: #eef3fd; color: #15213a; display: grid; gap: 2px; }
-.cei-action b { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #1746a2; }
+.cei-action { margin: 0; padding: 10px 12px; border-radius: 8px; background: #eaf1fd; color: #15213a; display: grid; gap: 2px; }
+.cei-action b { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #0b5fd3; }
 .cei-body dl { margin: 0; display: grid; gap: 6px; }
 .cei-body dl > div { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 10px; }
 .cei-body dt { font-size: 12px; color: #7b8494; }

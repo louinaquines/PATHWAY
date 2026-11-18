@@ -62,7 +62,7 @@
 .verification-body h2 { margin: 0 !important; font-size: clamp(22px, 6vw, 26px) !important; font-weight: 800; color: #0F1B33 !important; }
 .verification-body > p { margin: 0 !important; font-size: 15px !important; color: #4A5873 !important; }
 .verification-body .verification-secondary, .verification-body .verification-primary { max-width: none !important; }
-.verification-body .verification-primary { height: 50px !important; border-radius: 14px !important; background: #1746a2 !important; font-size: 15px !important; box-shadow: 0 8px 18px rgba(11,95,211,.28); }
+.verification-body .verification-primary { height: 50px !important; border-radius: 14px !important; background: #0b5fd3 !important; font-size: 15px !important; box-shadow: 0 8px 18px rgba(11,95,211,.28); }
 .verification-body .verification-primary:disabled { background: #CBD5E1 !important; box-shadow: none; }
 .verification-body .verification-secondary { height: 46px !important; border-radius: 12px !important; }
 .verification-body form { align-items: stretch !important; padding: 18px 14px; border-radius: 16px; background: #F5F8FD; }

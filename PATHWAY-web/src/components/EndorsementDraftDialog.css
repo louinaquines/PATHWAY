@@ -14,7 +14,7 @@
 .edd-foot > div { display: flex; gap: 8px; margin-left: auto; }
 .edd-btn { height: 38px; padding: 0 16px; border: 1px solid #e8e5de; border-radius: 8px; background: #fff; color: #15213a; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .edd-btn:hover { background: #f7f5f0; }
-.edd-primary { background: #1746a2; border-color: #1746a2; color: #fff; }
-.edd-primary:hover { background: #123a87; }
+.edd-primary { background: #0b5fd3; border-color: #0b5fd3; color: #fff; }
+.edd-primary:hover { background: #0a52b6; }
 .edd-body::-webkit-scrollbar { width: 6px; } .edd-body::-webkit-scrollbar-button { display: none; } .edd-body::-webkit-scrollbar-thumb { background: #d6d1c7; border-radius: 99px; }
 @media (max-width: 600px) { .edd-overlay { padding: 0; } .edd { max-height: 100vh; height: 100vh; border-radius: 0; } .edd-foot > div { width: 100%; } .edd-btn { flex: 1; } }

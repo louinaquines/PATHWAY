@@ -6,7 +6,7 @@
 @keyframes evnIn { from { opacity: 0; transform: translateY(-4px); } }
 .evn-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 10px; }
 .evn-head strong { font-size: 15px; font-weight: 700; color: #15213a; }
-.coordinator-page .evn .evn-link, .evn-link { padding: 0 !important; min-height: 0 !important; height: auto !important; border: 0 !important; background: none !important; box-shadow: none !important; color: #1746a2 !important; font-family: inherit; font-size: 12.5px !important; font-weight: 400 !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.coordinator-page .evn .evn-link, .evn-link { padding: 0 !important; min-height: 0 !important; height: auto !important; border: 0 !important; background: none !important; box-shadow: none !important; color: #0b5fd3 !important; font-family: inherit; font-size: 12.5px !important; font-weight: 400 !important; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .evn-tabs { display: flex; gap: 4px; margin: 0 18px 6px; padding: 3px; border-radius: 9px; background: #f1efe9; }
 .coordinator-page .evn .evn-tabs button, .evn-tabs button { flex: 1; height: 28px !important; min-height: 28px !important; padding: 0 !important; border: 0 !important; border-radius: 7px !important; background: transparent !important; box-shadow: none !important; color: #7b8494 !important; font-family: inherit; font-size: 12px !important; font-weight: 600 !important; cursor: pointer; }
 .coordinator-page .evn .evn-tabs button[aria-selected="true"], .evn-tabs button[aria-selected="true"] { background: #fff !important; color: #15213a !important; box-shadow: 0 1px 2px rgba(21,33,58,.08) !important; }
@@ -22,7 +22,7 @@
 .evn-text { font-size: 13px; line-height: 1.4; color: #465066; font-weight: 400; }
 .evn-text b { color: #15213a; font-weight: 600; }
 .evn-body small { font-size: 11.5px; color: #9aa1ad; }
-.evn-dot { width: 8px; height: 8px; margin-top: 6px; flex: none; border-radius: 50%; background: #1746a2; }
+.evn-dot { width: 8px; height: 8px; margin-top: 6px; flex: none; border-radius: 50%; background: #0b5fd3; }
 .evn-item[data-unread] .evn-text { color: #15213a; }
 .evn-empty { padding: 34px 20px 38px; display: grid; justify-items: center; gap: 6px; text-align: center; }
 .evn-empty span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: #f1efe9; color: #7b8494; margin-bottom: 4px; }
@@ -33,6 +33,6 @@
 @media (max-width: 600px) {
   .evn-pop { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 80vh; }
 }
-.evn-item[data-kind="ready"] .evn-av { background: #eef3fd; color: #1746a2; }
+.evn-item[data-kind="ready"] .evn-av { background: #eaf1fd; color: #0b5fd3; }
 .evn-item[data-kind="almost"] .evn-av { background: #fbf1d9; color: #9a6200; }
 .evn-item[data-kind="cleared"] .evn-av { background: #e6f4ec; color: #1f7a4d; }

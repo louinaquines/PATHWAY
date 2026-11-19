@@ -63,8 +63,8 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
   const [termDialog, setTermDialog] = useState(false);
   const [termBusy, setTermBusy] = useState(false);
   const loadTerms = useCallback(async () => {
-    try { const d = await adminRequest('/coordinator/terms'); setTerms(d.terms || []); setTermFilter(f => (f && f !== 'all' && (f === 'none' || (d.terms || []).some(t => t.id === f))) ? f : ((d.terms || []).find(t => t.isCurrent)?.id || (d.terms || [])[0]?.id || 'none')); }
-    catch { setTerms([]); setTermFilter(f => f ?? 'none'); }
+    try { const d = await adminRequest('/coordinator/terms'); setTerms(d.terms || []); setTermFilter(f => (f && (f === 'all' || (d.terms || []).some(t => t.id === f))) ? f : ((d.terms || []).find(t => t.isCurrent)?.id || 'all')); }
+    catch { setTerms([]); setTermFilter(f => f ?? 'all'); }
   }, []);
   useEffect(() => { loadTerms(); }, [loadTerms]);
   const changeSectionTerm = async (sec, termId) => {
@@ -290,7 +290,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
 
   return (
     <div className="sx">
-      {(() => { const btn = <><TermPicker terms={terms} value={termFilter || 'none'} onChange={setTermFilter} onManage={() => setTermDialog(true)} />{selected && <>
+      {(() => { const btn = <><TermPicker terms={terms} value={termFilter || 'all'} onChange={setTermFilter} onManage={() => setTermDialog(true)} />{selected && <>
           <button type="button" className="rq-btn sx-topbtn" onClick={() => onAddStudents ? onAddStudents() : setAddOpen(!addOpen)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add students</button>
           {onManageAccounts && <button type="button" className="rq-btn sx-topbtn" onClick={onManageAccounts}><Icon name="users" size={15} />Manage accounts</button>}</>}
         <button type="button" className="rq-btn sx-new" onClick={() => setModal(true)}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>New Section</button></>;
@@ -299,7 +299,7 @@ export default function SectionsTab({ coordinatorId, selectedSection: sharedSect
       <aside className="sx-list">
         <CoordinatorSearch value={searchQuery} onChange={setSearchQuery} label="Search sections" placeholder="Search sections" />
         {filteredSections.length === 0 && (searchQuery ? <p className="sx-empty">No sections match “{searchQuery}”.</p>
-          : sections.length && termFilter !== 'all' ? <p className="sx-empty">No sections in this term.</p>
+          : sections.length && termFilter !== 'all' ? <p className="sx-empty">No sections in this term. <button type="button" className="rq-link" onClick={() => setTermFilter('all')}>Show all terms</button></p>
           : <PortalEmpty compact icon="section" title="No sections yet" description="Click New Section to create your first one." />)}
         {sectionsPage.items.map(sec => { const on = selected?.id === sec.id; const n = on ? students.length : Array.isArray(sec.studentIds) ? sec.studentIds.length : null;
           return <button key={sec.id} type="button" className="section-select sx-card" aria-pressed={on} onClick={() => { setStuPage(1); setAddOpen(false); fetchStudents(sec); }}>

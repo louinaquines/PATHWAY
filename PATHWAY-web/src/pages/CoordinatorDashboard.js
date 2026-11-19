@@ -269,12 +269,13 @@ export default function CoordinatorDashboard() {
     return () => { alive = false; };
   }, []);
   // Follow the selected section's term unless the coordinator picked one.
-  const shownTerm = dashTerm || selectedSection?.termId || dashTerms.find(t => t.isCurrent)?.id || 'none';
-  const termSections = sections.filter(sec => (shownTerm === 'none' ? !sec.termId : sec.termId === shownTerm));
+  const shownTerm = dashTerm || selectedSection?.termId || 'all';
+  const termSections = shownTerm === 'all' ? sections : sections.filter(sec => sec.termId === shownTerm);
   const changeDashTerm = termId => {
     setDashTerm(termId);
-    const first = sections.find(sec => (termId === 'none' ? !sec.termId : sec.termId === termId));
-    if (first && first.id !== selectedSection?.id) fetchStudents(first);
+    if (termId === 'all') return;
+    const first = sections.find(sec => sec.termId === termId);
+    if (first && first.id !== selectedSection?.id && selectedSection?.termId !== termId) fetchStudents(first);
   };
   const [bulkConfirm, setBulkConfirm] = useState(null);
   // Coordinator-only AI results, live for the selected section.

@@ -8,14 +8,13 @@ const blank = { name: '', startDate: '', endDate: '', isCurrent: false };
 
 /** Dropdown to filter sections by term + a dialog to add/edit/delete terms. */
 export function TermPicker({ terms, value, onChange, onManage }) {
-  // No "All terms": a coordinator always works inside one term (or sections with no term).
   const [open, setOpen] = useState(false);
-  const label = value === 'none' ? 'No term' : (terms.find(t => t.id === value)?.name || 'Select term');
+  const label = value === 'all' ? 'All terms' : (terms.find(t => t.id === value)?.name || 'All terms');
   return <div className="rq-section-pick tm-pick" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
     <button type="button" className="rq-section-face" aria-haspopup="listbox" aria-expanded={open} aria-label="Term" onClick={() => setOpen(o => !o)}>
       {label}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
     {open && <ul className="rq-section-menu tm-menu" role="listbox" aria-label="Terms" onMouseDown={e => e.preventDefault()}>
-      {[...terms, { id: 'none', name: 'No term' }].map(t => <li key={t.id}><button type="button" role="option" aria-selected={t.id === value} onClick={() => { setOpen(false); onChange(t.id); }}>{t.name}{t.isCurrent ? ' · Current' : ''}</button></li>)}
+      {[{ id: 'all', name: 'All terms' }, ...terms].map(t => <li key={t.id}><button type="button" role="option" aria-selected={t.id === value} onClick={() => { setOpen(false); onChange(t.id); }}>{t.name}{t.isCurrent ? ' · Current' : ''}</button></li>)}
       {onManage && <li className="tm-manage"><button type="button" onClick={() => { setOpen(false); onManage(); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" /></svg>Manage terms</button></li>}
     </ul>}
   </div>;

@@ -1,7 +1,7 @@
 // screens/ChangePasswordScreen.js
 import { showStudentSuccess } from '../services/studentSuccess';
-import React, { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StatusBar, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
@@ -95,16 +95,26 @@ export default function ChangePasswordScreen({ navigation }) {
     }
   }
 
+  // Android edge-to-edge does not resize for the keyboard, so pad the scroll area and bring the field into view ourselves.
+  const scrollRef = useRef(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', e => setKeyboardHeight(e?.endCoordinates?.height || 0));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  const revealFocused = key => { if (key !== 'current') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 260); };
+
   const field = (key, label, value, setter, extra = {}) => (
     <Field label={label} value={value} onChangeText={text => { setError(''); setter(text); }} busy={busy}
       revealed={!!revealed[key]} onToggle={() => setRevealed(previous => ({ ...previous, [key]: !previous[key] }))}
-      focused={focused === key} onFocus={() => setFocused(key)} onBlur={() => setFocused(current => (current === key ? null : current))} {...extra} />
+      focused={focused === key} onFocus={() => { setFocused(key); revealFocused(key); }} onBlur={() => setFocused(current => (current === key ? null : current))} {...extra} />
   );
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="light-content" backgroundColor="#0A5BC4" />
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.scroll, Platform.OS === 'android' && keyboardHeight ? { paddingBottom: keyboardHeight } : null]} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" bounces={false} showsVerticalScrollIndicator={false}>
         <AuthHero
           illustrated
           guideSource={POINTING_GUIDE}

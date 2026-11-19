@@ -29,7 +29,7 @@ test('bounded request sends only notes with server model and returns advisory ou
     assert.deepEqual(JSON.parse(body.messages[0].content), { journalNotes: 'I tested the application.' });
     return reply();
   });
-  assert.deepEqual(await ai.refine('I tested the application.'), { refined: 'I tested the application.', method: 'anthropic', advisoryOnly: true, requiresHumanReview: true });
+  assert.deepEqual(await ai.refine('I tested the application.'), { refined: 'I tested the application.', tips: [], method: 'anthropic', advisoryOnly: true, requiresHumanReview: true });
 });
 test('provider errors are sanitized and not retried', async () => {
   let calls = 0;

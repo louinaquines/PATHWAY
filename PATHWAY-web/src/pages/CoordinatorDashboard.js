@@ -53,6 +53,7 @@ import './RequirementsRedesign.css';
 import './Responsive.css';
 import './CoordinatorSidebar.css';
 import SuccessHost from '../components/SuccessHost';
+import { TermPicker } from '../components/TermManager';
 import { quietly, showSuccess, showToast, showNotice } from '../successFx';
 import { ListSkeleton, SplitSkeleton, SectionsSkeleton, ProgressSkeleton } from '../components/CoordSkeletons';
 
@@ -260,6 +261,21 @@ export default function CoordinatorDashboard() {
     if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
+  const [dashTerms, setDashTerms] = useState([]);
+  const [dashTerm, setDashTerm] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    adminRequest('/coordinator/terms').then(d => { if (alive) setDashTerms(d.terms || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  // Follow the selected section's term unless the coordinator picked one.
+  const shownTerm = dashTerm || selectedSection?.termId || dashTerms.find(t => t.isCurrent)?.id || 'none';
+  const termSections = sections.filter(sec => (shownTerm === 'none' ? !sec.termId : sec.termId === shownTerm));
+  const changeDashTerm = termId => {
+    setDashTerm(termId);
+    const first = sections.find(sec => (termId === 'none' ? !sec.termId : sec.termId === termId));
+    if (first && first.id !== selectedSection?.id) fetchStudents(first);
+  };
   const [bulkConfirm, setBulkConfirm] = useState(null);
   // Coordinator-only AI results, live for the selected section.
   const [aiReviews, setAiReviews] = useState({});
@@ -615,7 +631,7 @@ export default function CoordinatorDashboard() {
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions" />}
           {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions" />}
           {activeTab === 'notifications' && <div className="rq-top-actions" id="ann-top-actions" />}
-          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><SectionPicker sections={sections} selected={selectedSection} onChange={section => fetchStudents(section)} /></div>}
+          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /><SectionPicker sections={termSections} selected={termSections.some(sec => sec.id === selectedSection?.id) ? selectedSection : null} onChange={section => fetchStudents(section)} /></div>}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <button

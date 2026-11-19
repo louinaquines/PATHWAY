@@ -3038,7 +3038,7 @@ app.post('/refine-logbook', requireUser, async (req, res) => {
   if (typeof notes !== 'string' || !notes.trim() || notes.length > 8000) return res.status(400).json({ error: 'Enter logbook notes up to 8,000 characters.' });
   res.set('Cache-Control', 'private, no-store');
   if (req.body?.consent !== true) return res.status(400).json({ error: 'Confirm permission to send these notes to Anthropic for AI assistance.' });
-  try { return res.json(await anthropicAnalysis.refine(notes)); }
+  try { return res.json(await anthropicAnalysis.refine(notes, req.body?.again === true)); }
   catch (error) { return res.status(error.status || 503).json({ error: error.message, code: error.code || 'AI_UNAVAILABLE' }); }
 });
 

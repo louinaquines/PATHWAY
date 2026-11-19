@@ -8,3 +8,7 @@ html body .coordinator-page main, html body .coordinator-page main[class], html 
 .coordinator-page main > header.requirements-topbar { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
 .coordinator-page main > header.requirements-topbar > div:not(.topbarLeft) :is(button, select, .rq-section-face) { box-shadow: none; }
 html body .coordinator-page main > div, html body .coordinator-page main > section { background-color: transparent !important; background-image: none !important; }
+
+/* Term picker sits just before the section picker on every screen. */
+.coordinator-page .rq-top-actions > .tm-pick { order: 98; }
+.coordinator-page .rq-top-actions > .rq-section-pick:not(.tm-pick) { order: 99; }

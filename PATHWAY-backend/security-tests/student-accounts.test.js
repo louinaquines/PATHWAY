@@ -8,10 +8,13 @@ test('student identifiers map deterministically without a real email inbox', () 
   for (const id of ['', '123', 'hello/world', 'name@example.com', null]) assert.throws(() => accountIdentity(id));
 });
 test('replacement password must differ and cannot restore the predictable default', () => {
-  assert.equal(validReplacement('student1', '24228132', 'UC@24228132'), true);
-  assert.equal(validReplacement('stud123', '24228132', 'UC@24228132'), false);
+  assert.equal(validReplacement('Student#1', '24228132', 'UC@24228132'), true);
+  assert.equal(validReplacement('Student-ok', '24228132', 'UC@24228132'), true);
+  assert.equal(validReplacement('student1', '24228132', 'UC@24228132'), false);
+  assert.equal(validReplacement('Student12', '24228132', 'UC@24228132'), false);
+  assert.equal(validReplacement('St#12', '24228132', 'UC@24228132'), false);
   assert.equal(validReplacement('MyPersonalPassword123!', '24228132', 'UC@24228132'), true);
-  for (const password of ['UC@24228132', 'MyCurrentPass123!', 'lettersOnlyLongPassword', '123456789012345', 'short1', 'a1'.repeat(65)]) {
+  for (const password of ['UC@24228132', 'MyCurrentPass123!', 'lettersOnlyLongPassword', '123456789012345', 'short1', 'Aa!'.repeat(43)]) {
     assert.equal(validReplacement(password, '24228132', 'MyCurrentPass123!'), false);
   }
 });

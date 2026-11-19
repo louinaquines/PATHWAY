@@ -9,7 +9,7 @@ function accountIdentity(id) {
 function validReplacement(password, id, current) {
   return typeof password === 'string' && password.length >= 8 && password.length <= 128
     && password !== current && password !== `UC@${id}`
-    && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
+    && /[A-Z]/.test(password) && /[^A-Za-z0-9\s]/.test(password);
 }
 
 function installStudentAccounts({ app, auth, db, requireStaff, coordinatorSection, coordinatorOwnsStudent, allowRate, audit }) {
@@ -57,7 +57,7 @@ function installStudentAccounts({ app, auth, db, requireStaff, coordinatorSectio
       if (!profile || profile.role !== 'student' || !profile.username || profile.provisioningStatus !== 'ready') return res.status(403).json({ error: 'Completed student account provisioning is required.' });
       if (!validReplacement(newPassword, profile.idNumber, currentPassword) || typeof currentPassword !== 'string'
         || typeof apiKey !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(apiKey)) {
-        return res.status(400).json({ error: 'Choose a different password of 8–128 characters, including letters and numbers.' });
+        return res.status(400).json({ error: 'Choose a different password of 8–128 characters with at least one uppercase letter and one special character.' });
       }
       const base = process.env.FIREBASE_AUTH_EMULATOR_HOST
         ? `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com`

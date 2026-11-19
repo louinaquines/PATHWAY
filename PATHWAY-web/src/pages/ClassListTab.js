@@ -226,7 +226,7 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           finally { setSaving(false); }
         }}
       />
-      <AlertDialog
+      <AlertDialog portalTarget={confirmHost.current || undefined}
         open={Boolean(removeConfirm)}
         title="Remove authorized student ID?"
         description={removeConfirm ? `Student ID ${removeConfirm.id} will be marked inactive in the roster. This does not delete or suspend an existing student account.` : ''}

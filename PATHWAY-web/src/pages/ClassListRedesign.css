@@ -83,3 +83,8 @@ dialog.authorized-roster-drawer:has(.cls) > .cls, .cls { width: 100% !important;
 .cls-secpick select:hover { background: #dde9fc; }
 .cls-secpick select:focus-visible { outline: 2px solid #0b5fd3; outline-offset: 2px; }
 .cls-secpick svg { position: absolute; right: 10px; color: #0b5fd3; pointer-events: none; }
+
+.cls .cls-headright { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.cls .cls-secpick select { appearance: none !important; -webkit-appearance: none !important; height: 38px !important; min-width: 150px; padding: 0 36px 0 14px !important; border: 1px solid #e8e5de !important; border-radius: 10px !important; background: #fff !important; color: #15213a !important; font-family: inherit; font-size: 14px !important; font-weight: 600; cursor: pointer; box-shadow: none !important; }
+.cls .cls-secpick select:hover { border-color: #c9d9f3 !important; }
+.cls .cls-secpick svg { right: 12px; color: #7b8494; }

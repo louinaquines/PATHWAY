@@ -12,3 +12,9 @@ html body .coordinator-page main > div, html body .coordinator-page main > secti
 /* Term picker sits just before the section picker on every screen. */
 .coordinator-page .rq-top-actions > .tm-pick { order: 98; }
 .coordinator-page .rq-top-actions > .rq-section-pick:not(.tm-pick) { order: 99; }
+/* Term picker keeps one width, sized for the longest term name, whatever is selected. */
+.rq-section-pick.tm-pick { flex: none; }
+.rq-section-pick.tm-pick > .rq-section-face { width: 260px; justify-content: space-between; }
+.rq-section-pick.tm-pick > .rq-section-face { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rq-section-pick.tm-pick > .rq-section-menu { min-width: 260px; width: max-content; max-width: 360px; right: 0; left: auto; }
+.rq-section-pick.tm-pick > .rq-section-menu button { white-space: nowrap; }

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   AppState,
+  Animated,
 } from 'react-native';
 import Modal from '../components/BackdropModal';
 import { collection, doc, query, orderBy, getCountFromServer, getAggregateFromServer, sum, where } from 'firebase/firestore';
@@ -17,7 +18,6 @@ import { logbookLoadErrorMessage } from '../services/logbookLoadError';
 import { journalEntryTitle, journalContextChanged, validJournalSettings } from '../services/journalPresentation';
 import LoadMore from '../components/LoadMore';
 import { showStudentError, showStudentSuccess } from '../services/studentSuccess';
-import * as Clipboard from 'expo-clipboard';
 import { auth, db } from '../firebaseConfig';
 import { postBackend, requestBackend } from '../services/backendApi';
 import { createJournalMigrationClient, journalRevisionExpectation } from '../services/journalSubmission';
@@ -42,7 +42,6 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   CloseIcon,
-  CopyIcon,
   RefreshIcon,
   CheckIcon,
   CalendarIcon,
@@ -229,10 +228,17 @@ export default function LogbookScreen({ navigation }) {
   const [modal, setModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [rawNotes, setRawNotes] = useState('');
-  const [copied, setCopied] = useState(false);
   const [hours, setHours] = useState('');
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState('');
+  const [aiTips, setAiTips] = useState([]);
+  const [missing, setMissing] = useState({ hours: false, notes: false });
+  const shakeX = useRef(new Animated.Value(0)).current;
+  const nudgeMissing = () => {
+    setMissing({ hours: !hours, notes: !rawNotes.trim() });
+    shakeX.setValue(0);
+    Animated.sequence([10, -10, 8, -8, 4, 0].map(v => Animated.timing(shakeX, { toValue: v, duration: 55, useNativeDriver: Platform.OS !== 'web' }))).start();
+  };
   const [aiConsentOpen, setAiConsentOpen] = useState(false);
   const [aiError, setAiError] = useState('');
   const currentDraft = useRef({});
@@ -340,7 +346,7 @@ export default function LogbookScreen({ navigation }) {
     if (aiInFlight.current || saving || recoveryRequired) return;
     setAiConsentOpen(true);
   };
-  const sendNotesToAi = async () => {
+  const sendNotesToAi = async (again = false, previous = '') => {
     setAiConsentOpen(false);
     if (aiInFlight.current) return;
     const draft = { rawNotes, editingEntry };
@@ -348,9 +354,9 @@ export default function LogbookScreen({ navigation }) {
     setRefining(true);
     setAiError('');
     try {
-      const result = await postBackend('/refine-logbook', { notes: draft.rawNotes, consent: true });
+      const result = await postBackend('/refine-logbook', { notes: draft.rawNotes, consent: true, again: again === true, ...(again ? { previous } : {}) });
       if (typeof result.refined !== 'string' || !result.refined.trim() || result.refined.length > 8000) throw new Error('No usable AI suggestion returned.');
-      if (currentDraft.current.rawNotes === draft.rawNotes && currentDraft.current.editingEntry === draft.editingEntry) setRefined(result.refined);
+      if (currentDraft.current.rawNotes === draft.rawNotes && currentDraft.current.editingEntry === draft.editingEntry) { setRefined(result.refined); setAiTips(Array.isArray(result.tips) ? result.tips.filter(t => typeof t === 'string').slice(0, 3) : []); }
     } catch (error) { setAiError(`${error.message || 'AI refinement failed.'} You can still submit your original notes.`); }
     finally { aiInFlight.current = false; setRefining(false); }
   };
@@ -659,14 +665,14 @@ export default function LogbookScreen({ navigation }) {
 
               {/* Hours input */}
               <Text style={styles.fieldLabel}>{daily ? 'Hours Rendered That Day' : 'Hours Rendered This Week'}</Text>
-              <View style={styles.fieldWrap}>
-                <ClockIcon size={16} color={COLORS.textMuted} />
+              <View style={[styles.fieldWrap, missing.hours && !hours && styles.fieldMissing]}>
+                <ClockIcon size={16} color={missing.hours && !hours ? '#B3261E' : COLORS.textMuted} />
                 <TextInput
                   style={styles.fieldInput}
                   placeholder={daily ? 'e.g. 8' : 'e.g. 40'}
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={hours}
-                  onChangeText={setHours}
+                  onChangeText={value => { setHours(value); if (value) setMissing(m => ({ ...m, hours: false })); }}
                   editable={!saving && !recoveryRequired}
                   keyboardType="numeric"
                 />
@@ -675,14 +681,14 @@ export default function LogbookScreen({ navigation }) {
 
               {/* Notes input */}
               <Text style={styles.fieldLabel}>{daily ? 'Today’s Activities & Tasks' : 'Weekly Activities & Tasks'}</Text>
-              <View style={[styles.fieldWrap, styles.textAreaWrap]}>
+              <View style={[styles.fieldWrap, styles.textAreaWrap, missing.notes && !rawNotes.trim() && styles.fieldMissing]}>
                 <TextInput
                   style={styles.textArea}
                   placeholder={`Describe what you accomplished ${daily ? 'today' : 'this week'}, what you learned, and any challenges…`}
                   placeholderTextColor={COLORS.textPlaceholder}
                   value={rawNotes}
                   editable={!saving && !recoveryRequired}
-                  onChangeText={value => { setRawNotes(value); setRefined(''); setAiError(''); setAiConsentOpen(false); }}
+                  onChangeText={value => { setRawNotes(value); if (value.trim()) setMissing(m => ({ ...m, notes: false })); setRefined(''); setAiError(''); setAiConsentOpen(false); }}
                   multiline
                   textAlignVertical="top"
                 />
@@ -704,7 +710,7 @@ export default function LogbookScreen({ navigation }) {
                   <Text style={styles.aiConsentText}>Remove personal or confidential company information first. AI can make mistakes, so review the suggestion before using it. Your original notes are kept.</Text>
                   <View style={styles.aiConsentActions}>
                     <TouchableOpacity style={styles.aiConsentCancel} onPress={() => setAiConsentOpen(false)} accessibilityRole="button"><Text style={styles.aiConsentCancelText}>Cancel</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.aiConsentSend} onPress={sendNotesToAi} accessibilityRole="button"><Text style={styles.aiConsentSendText}>Send notes</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.aiConsentSend} onPress={() => sendNotesToAi(false)} accessibilityRole="button"><Text style={styles.aiConsentSendText}>Send notes</Text></TouchableOpacity>
                   </View>
                 </View>
               )}
@@ -717,12 +723,14 @@ export default function LogbookScreen({ navigation }) {
                   </View>
                   <Text style={styles.suggestionHint}>Review for accuracy before submitting. Your original notes are unchanged.</Text>
                   <Text selectable style={styles.refinedText}>{refined}</Text>
+                  {aiTips.length > 0 && (
+                    <View style={styles.tipsBox}>
+                      <Text style={styles.tipsTitle}>To make it stronger, add:</Text>
+                      {aiTips.map((tip, i) => <View key={i} style={styles.tipRow}><Text style={styles.tipDot}>•</Text><Text style={styles.tipText}>{tip}</Text></View>)}
+                    </View>
+                  )}
                   <View style={styles.suggestionActions}>
-                    <TouchableOpacity style={styles.suggestionAction} onPress={async () => { try { await Clipboard.setStringAsync(refined); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {} }} accessibilityRole="button" accessibilityLabel="Copy AI suggestion">
-                      {copied ? <CheckIcon size={16} color="#1F7A4D" /> : <CopyIcon size={16} color="#2563EB" />}
-                      <Text style={[styles.suggestionActionText, copied && { color: '#1F7A4D' }]}>{copied ? 'Copied' : 'Copy'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.suggestionAction} onPress={sendNotesToAi} disabled={saving || refining || recoveryRequired} accessibilityRole="button" accessibilityLabel="Generate another AI suggestion">
+                    <TouchableOpacity style={styles.suggestionAction} onPress={() => { const previous = refined; setRefined(''); sendNotesToAi(true, previous); }} disabled={saving || refining || recoveryRequired} accessibilityRole="button" accessibilityLabel="Generate another AI suggestion">
                       {refining ? <ActivityIndicator size="small" color="#2563EB" /> : <RefreshIcon size={16} color="#2563EB" />}
                       <Text style={styles.suggestionActionText}>{refining ? 'Generating…' : 'Try another'}</Text>
                     </TouchableOpacity>
@@ -738,6 +746,11 @@ export default function LogbookScreen({ navigation }) {
                 </View>
               ) : null}
 
+              {!saving && !recoveryRequired && (!hours || !rawNotes.trim()) && (
+                <Text style={styles.submitHint} accessibilityLiveRegion="polite">
+                  {!hours && !rawNotes.trim() ? 'Enter your hours rendered and your logbook notes to submit.' : !hours ? 'Enter your hours rendered to submit.' : 'Write your logbook notes to submit.'}
+                </Text>
+              )}
               {/* Action buttons */}
               <View style={styles.modalActions}>
                 <TouchableOpacity
@@ -749,13 +762,14 @@ export default function LogbookScreen({ navigation }) {
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
 
+                <Animated.View style={{ flex: 1, transform: [{ translateX: shakeX }] }}>
                 <MotionTouchableOpacity
                   style={[
                     styles.submitBtn,
                     (saving || !rawNotes.trim() || !hours || unchangedRevision) && { opacity: 0.45 },
                   ]}
-                  onPress={handleSubmit}
-                  disabled={saving || !eligible || !rawNotes.trim() || !hours || unchangedRevision}
+                  onPress={() => { if (!hours || !rawNotes.trim()) { nudgeMissing(); return; } handleSubmit(); }}
+                  disabled={saving || !eligible || unchangedRevision}
                   activeOpacity={0.85}
                 >
                   {saving ? (
@@ -767,6 +781,7 @@ export default function LogbookScreen({ navigation }) {
                     </>
                   )}
                 </MotionTouchableOpacity>
+                </Animated.View>
               </View>
 
               <View style={{ height: Platform.OS === 'ios' ? 24 : 12 }} />
@@ -1440,9 +1455,16 @@ const styles = StyleSheet.create({
   aiRefineTitle: { color: '#17243C', fontSize: 13, fontWeight: '600' },
   assistCaption: { color: '#64748B', fontSize: 12, lineHeight: 17 },
   suggestionHint: { color: '#64748B', fontSize: 12, lineHeight: 18, marginBottom: 14 },
-  suggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  suggestionAction: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: '#C9DAFA', backgroundColor: '#FFFFFF' },
-  suggestionUse: { backgroundColor: '#2563EB', borderColor: '#2563EB', marginLeft: 'auto' },
+  tipsBox: { marginTop: 14, padding: 12, borderRadius: 12, backgroundColor: '#FBF1D9', gap: 6 },
+  tipsTitle: { color: '#7A4D00', fontSize: 13, fontWeight: '700' },
+  tipRow: { flexDirection: 'row', gap: 8 },
+  tipDot: { color: '#9A6200', fontSize: 13, lineHeight: 19 },
+  tipText: { flex: 1, color: '#5C3B00', fontSize: 13, lineHeight: 19 },
+  fieldMissing: { borderColor: '#B3261E', borderWidth: 1.5, backgroundColor: '#FDF3F2' },
+  submitHint: { color: '#9A6200', fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 4, marginBottom: -4 },
+  suggestionActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  suggestionAction: { flex: 1, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: '#C9DAFA', backgroundColor: '#FFFFFF' },
+  suggestionUse: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
   suggestionActionText: { color: '#2563EB', fontSize: 13, fontWeight: '700' },
   discardSuggestionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#DBEAFE' },
   discardSuggestionText: { color: '#475569', fontSize: 13, fontWeight: '600' },

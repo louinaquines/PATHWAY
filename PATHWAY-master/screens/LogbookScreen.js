@@ -17,6 +17,7 @@ import { logbookLoadErrorMessage } from '../services/logbookLoadError';
 import { journalEntryTitle, journalContextChanged, validJournalSettings } from '../services/journalPresentation';
 import LoadMore from '../components/LoadMore';
 import { showStudentError, showStudentSuccess } from '../services/studentSuccess';
+import * as Clipboard from 'expo-clipboard';
 import { auth, db } from '../firebaseConfig';
 import { postBackend, requestBackend } from '../services/backendApi';
 import { createJournalMigrationClient, journalRevisionExpectation } from '../services/journalSubmission';
@@ -41,6 +42,9 @@ import {
   CheckCircleIcon,
   AlertCircleIcon,
   CloseIcon,
+  CopyIcon,
+  RefreshIcon,
+  CheckIcon,
   CalendarIcon,
   ArrowRightIcon,
   InfoIcon,
@@ -225,6 +229,7 @@ export default function LogbookScreen({ navigation }) {
   const [modal, setModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [rawNotes, setRawNotes] = useState('');
+  const [copied, setCopied] = useState(false);
   const [hours, setHours] = useState('');
   const [refining, setRefining] = useState(false);
   const [refined, setRefined] = useState('');
@@ -711,7 +716,21 @@ export default function LogbookScreen({ navigation }) {
                     <Text style={styles.refinedLabel}>AI suggestion</Text>
                   </View>
                   <Text style={styles.suggestionHint}>Review for accuracy before submitting. Your original notes are unchanged.</Text>
-                  <Text style={styles.refinedText}>{refined}</Text>
+                  <Text selectable style={styles.refinedText}>{refined}</Text>
+                  <View style={styles.suggestionActions}>
+                    <TouchableOpacity style={styles.suggestionAction} onPress={async () => { try { await Clipboard.setStringAsync(refined); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {} }} accessibilityRole="button" accessibilityLabel="Copy AI suggestion">
+                      {copied ? <CheckIcon size={16} color="#1F7A4D" /> : <CopyIcon size={16} color="#2563EB" />}
+                      <Text style={[styles.suggestionActionText, copied && { color: '#1F7A4D' }]}>{copied ? 'Copied' : 'Copy'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.suggestionAction} onPress={sendNotesToAi} disabled={saving || refining || recoveryRequired} accessibilityRole="button" accessibilityLabel="Generate another AI suggestion">
+                      {refining ? <ActivityIndicator size="small" color="#2563EB" /> : <RefreshIcon size={16} color="#2563EB" />}
+                      <Text style={styles.suggestionActionText}>{refining ? 'Generating…' : 'Try another'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.suggestionAction, styles.suggestionUse]} onPress={() => { setRawNotes(refined); setRefined(''); }} disabled={saving || refining || recoveryRequired} accessibilityRole="button" accessibilityLabel="Use AI suggestion as my notes">
+                      <CheckIcon size={16} color="#FFFFFF" />
+                      <Text style={[styles.suggestionActionText, { color: '#FFFFFF' }]}>Use this</Text>
+                    </TouchableOpacity>
+                  </View>
                   <TouchableOpacity style={styles.discardSuggestionBtn} onPress={() => setRefined('')} disabled={saving || refining || recoveryRequired} accessibilityLabel="Discard AI suggestion and use original notes" accessibilityRole="button">
                     <CloseIcon size={16} color="#475569" />
                     <Text style={styles.discardSuggestionText}>Discard suggestion</Text>
@@ -743,7 +762,7 @@ export default function LogbookScreen({ navigation }) {
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                  <Text style={styles.submitBtnText}>{recoveryRequired ? 'Retry submission' : editingEntry ? editingEntry.status === 'draft' ? 'Submit draft' : unchangedRevision ? 'Edit notes to resubmit' : 'Resubmit entry' : 'Submit Log'}</Text>
+                  <Text style={styles.submitBtnText}>{recoveryRequired ? 'Retry submission' : editingEntry ? editingEntry.status === 'draft' ? 'Submit draft' : 'Resubmit note' : 'Submit Log'}</Text>
                       <ArrowRightIcon size={15} color="#fff" />
                     </>
                   )}
@@ -1421,6 +1440,10 @@ const styles = StyleSheet.create({
   aiRefineTitle: { color: '#17243C', fontSize: 13, fontWeight: '600' },
   assistCaption: { color: '#64748B', fontSize: 12, lineHeight: 17 },
   suggestionHint: { color: '#64748B', fontSize: 12, lineHeight: 18, marginBottom: 14 },
+  suggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  suggestionAction: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: '#C9DAFA', backgroundColor: '#FFFFFF' },
+  suggestionUse: { backgroundColor: '#2563EB', borderColor: '#2563EB', marginLeft: 'auto' },
+  suggestionActionText: { color: '#2563EB', fontSize: 13, fontWeight: '700' },
   discardSuggestionBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#DBEAFE' },
   discardSuggestionText: { color: '#475569', fontSize: 13, fontWeight: '600' },
   refineBtnText: {

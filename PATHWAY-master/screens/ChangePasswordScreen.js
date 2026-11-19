@@ -66,8 +66,8 @@ export default function ChangePasswordScreen({ navigation }) {
 
   const rules = {
     length: newPassword.length >= 8 && newPassword.length <= 128,
-    letter: /[A-Za-z]/.test(newPassword),
-    number: /[0-9]/.test(newPassword),
+    upper: /[A-Z]/.test(newPassword),
+    special: /[^A-Za-z0-9\s]/.test(newPassword),
     different: newPassword.length > 0 && newPassword !== currentPassword,
   };
   const allRules = Object.values(rules).every(Boolean);
@@ -95,7 +95,7 @@ export default function ChangePasswordScreen({ navigation }) {
     }
   }
 
-  // Android edge-to-edge does not resize for the keyboard, so pad the scroll area and bring the field into view ourselves.
+  // Bring the focused field and the Save button into view above the keyboard.
   const scrollRef = useRef(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
@@ -103,7 +103,18 @@ export default function ChangePasswordScreen({ navigation }) {
     const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardHeight(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
-  const revealFocused = key => { if (key !== 'current') setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 260); };
+  const contentH = useRef(0);
+  const viewportH = useRef(0);
+  const kbRef = useRef(0);
+  kbRef.current = keyboardHeight;
+  // Scroll so the bottom of the form (Save button) sits just above the keyboard; never past it.
+  const revealFocused = key => {
+    if (key === 'current') return;
+    setTimeout(() => {
+      const y = Math.max(0, contentH.current - (viewportH.current - kbRef.current) + 12);
+      scrollRef.current?.scrollTo({ y, animated: true });
+    }, 320);
+  };
 
   const field = (key, label, value, setter, extra = {}) => (
     <Field label={label} value={value} onChangeText={text => { setError(''); setter(text); }} busy={busy}
@@ -114,7 +125,8 @@ export default function ChangePasswordScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar barStyle="light-content" backgroundColor="#0A5BC4" />
-      <ScrollView ref={scrollRef} contentContainerStyle={[styles.scroll, Platform.OS === 'android' && keyboardHeight ? { paddingBottom: keyboardHeight } : null]} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" bounces={false} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} onLayout={e => { viewportH.current = e.nativeEvent.layout.height; }} contentContainerStyle={[styles.scroll, keyboardHeight ? { paddingBottom: keyboardHeight } : null]} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" bounces={false} showsVerticalScrollIndicator={false}>
+        <View onLayout={e => { contentH.current = e.nativeEvent.layout.height; }} style={{ flexGrow: 1 }}>
         <AuthHero
           illustrated
           guideSource={POINTING_GUIDE}
@@ -145,12 +157,14 @@ export default function ChangePasswordScreen({ navigation }) {
 
                 {field('current', 'Temporary password', currentPassword, setCurrent)}
                 {field('new', 'New password', newPassword, setNew)}
-                <View style={styles.rules}>
-                  <Rule ok={rules.length}>At least 8 characters</Rule>
-                  <Rule ok={rules.letter}>A letter</Rule>
-                  <Rule ok={rules.number}>A number</Rule>
-                  <Rule ok={rules.different}>Different from the temporary one</Rule>
-                </View>
+                {newPassword.length > 0 && (focused === 'new' || !allRules) && (
+                  <View style={styles.rules}>
+                    <Rule ok={rules.length}>At least 8 characters</Rule>
+                    <Rule ok={rules.upper}>One uppercase letter</Rule>
+                    <Rule ok={rules.special}>One special character</Rule>
+                    <Rule ok={rules.different}>Different from the temporary one</Rule>
+                  </View>
+                )}
                 {field('confirm', 'Confirm new password', confirm, setConfirm, { invalid: confirm.length > 0 && !matches })}
                 {confirm.length > 0 ? (
                   <Text style={[styles.matchText, matches && styles.matchOk]}>{matches ? 'Passwords match' : "Passwords don't match yet"}</Text>
@@ -167,6 +181,7 @@ export default function ChangePasswordScreen({ navigation }) {
               </>
             )}
           </View>
+        </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

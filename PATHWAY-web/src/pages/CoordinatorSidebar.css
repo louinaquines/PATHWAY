@@ -10,7 +10,7 @@ html body .coordinator-page main, html body .coordinator-page main[class], html 
 html body .coordinator-page main > div, html body .coordinator-page main > section { background-color: transparent !important; background-image: none !important; }
 
 /* Term picker sits just before the section picker on every screen. */
-.coordinator-page .rq-top-actions > .tm-pick { order: 98; }
+.coordinator-page .rq-top-actions > .tm-pick { order: -1; }
 .coordinator-page .rq-top-actions > .rq-section-pick:not(.tm-pick) { order: 99; }
 /* Term picker keeps one width, sized for the longest term name, whatever is selected. */
 .rq-section-pick.tm-pick { flex: none; }

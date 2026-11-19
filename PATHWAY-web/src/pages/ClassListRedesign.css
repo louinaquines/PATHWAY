@@ -77,3 +77,9 @@ dialog.authorized-roster-drawer:has(.cls) > .cls, .cls { width: 100% !important;
 .cls-fields input:focus { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.12) !important; }
 .cls, .cls-body, .cls-panel { align-items: stretch !important; justify-items: stretch !important; }
 .cls > *, .cls-body > *, .cls-panel > *:not(.coordinator-search) { width: 100% !important; max-width: none !important; box-sizing: border-box; }
+
+.cls-secpick { position: relative; display: inline-flex; align-items: center; }
+.cls-secpick select { appearance: none; -webkit-appearance: none; height: 32px; padding: 0 30px 0 12px; border: 1px solid #c9d9f3; border-radius: 99px; background: #eaf1fd; color: #0b5fd3; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cls-secpick select:hover { background: #dde9fc; }
+.cls-secpick select:focus-visible { outline: 2px solid #0b5fd3; outline-offset: 2px; }
+.cls-secpick svg { position: absolute; right: 10px; color: #0b5fd3; pointer-events: none; }

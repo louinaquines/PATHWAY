@@ -63,3 +63,5 @@ dialog.rgx-dialog { width: min(420px, calc(100vw - 32px)) !important; }
 .rgd-err { margin: 0; color: #b3261e; font-size: 12.5px; }
 .rgd-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 !important; }
 .rgd-foot .rq-btn { height: 38px; padding: 0 16px; }
+.rgx-count { font-size: 14px; color: #465066; }
+.rgx-count strong { color: #15213a; font-weight: 700; }

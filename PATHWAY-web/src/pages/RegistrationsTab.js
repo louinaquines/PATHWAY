@@ -21,7 +21,8 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
   const [topHost, setTopHost] = useState(null);
   useEffect(() => { setTopHost(document.getElementById('rg-top-actions')); }, []);
   const [unassigned, setUnassigned] = useState(false);
-  const [tab, setTab] = useState('pending');
+  // Accounts come from the coordinator's class list and are approved on creation, so only approved accounts are shown.
+  const [tab, setTab] = useState('approved');
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const [cursors, setCursors] = useState(['']);
@@ -111,10 +112,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
   return <div ref={workspace} tabIndex={-1} className="rgx">
     {topHost && sections.length > 0 && createPortal(<SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />, topHost)}
     <div className="rgx-tools">
-      <div className="rq-pills rgx-pills" role="group" aria-label="Account status">
-        {Object.entries(tabs).map(([key, label]) => <button key={key} type="button" aria-pressed={tab === key}
-          onClick={() => { setTab(key); setCursors(['']); setSub(0); }}>{label} <b>{countOf(key)}</b></button>)}
-      </div>
+      <div className="rgx-count"><strong>{countOf('approved')}</strong> student account{countOf('approved') === 1 ? '' : 's'}</div>
       <div className="rgx-right">
         <label className="rgx-check"><input type="checkbox" checked={unassigned} onChange={event => { setUnassigned(event.target.checked); setCursors(['']); }} /> No section yet</label>
         <CoordinatorSearch value={search} onChange={setSearch} label="Search student accounts" placeholder="Find a student" />

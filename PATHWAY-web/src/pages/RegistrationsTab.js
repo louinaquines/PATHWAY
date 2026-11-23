@@ -142,8 +142,8 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>Approve</button>
             </div> : <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : 'red'}>{student.status === 'inactive' ? 'Inactive' : tabs[tab]}</b>}
           </div>; })}
-        {total > 0 && <div className="rgx-foot">
-          <span role="status">{(pageNo - 1) * 10 + 1}–{(pageNo - 1) * 10 + shown.length} of {total}</span>
+        {data && <div className="rgx-foot">
+          <span role="status">{total ? `${(pageNo - 1) * 10 + 1}–${(pageNo - 1) * 10 + shown.length} of ${total}` : "0 of 0"}</span>
           <Pager page={pageNo} pages={allPages} label="Student accounts pages" onGo={n => {
             const firstOfChunk = (page - 1) * 3 + 1;
             if (n >= firstOfChunk && n < firstOfChunk + subPages) setSub(n - firstOfChunk);

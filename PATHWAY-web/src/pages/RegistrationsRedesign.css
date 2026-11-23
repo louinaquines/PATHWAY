@@ -65,3 +65,12 @@ dialog.rgx-dialog { width: min(420px, calc(100vw - 32px)) !important; }
 .rgd-foot .rq-btn { height: 38px; padding: 0 16px; }
 .rgx-count { font-size: 14px; color: #465066; }
 .rgx-count strong { color: #15213a; font-weight: 700; }
+/* Roomier account details dialog */
+dialog.rgx-dialog { width: min(520px, calc(100vw - 32px)) !important; border-radius: 18px; }
+.rgx-dialog header { padding: 24px 28px 4px !important; }
+.rgx-dialog .accounts-drawer-body { padding: 18px 28px 12px !important; }
+.rgx-dialog dl { border: 1px solid #efece5; border-radius: 12px; overflow: hidden; }
+.rgx-dialog dl > div { padding: 14px 18px !important; font-size: 14px !important; align-items: center; }
+.rgx-dialog dl > div:last-child { border-bottom: 0; }
+.rgx-dialog dl > div:nth-child(odd) { background: #fbfaf7; }
+.rgx-dialog footer { padding: 16px 28px 26px !important; }

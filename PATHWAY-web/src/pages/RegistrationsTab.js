@@ -8,6 +8,7 @@ import { PortalFormDialog } from '../components/PortalStates';
 import './CoordinatorRecords.css';
 import './RegistrationsRedesign.css';
 import { RowsSkeleton } from '../components/CoordSkeletons';
+import Pager from '../components/Pager';
 
 const tabs = { pending: 'Waiting', approved: 'Approved', rejected: 'Turned away' };
 const initials = s => ((s.firstName || '')[0] || '') + ((s.lastName || '')[0] || '') || '?';
@@ -141,14 +142,14 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>Approve</button>
             </div> : <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : 'red'}>{student.status === 'inactive' ? 'Inactive' : tabs[tab]}</b>}
           </div>; })}
-        {total > 10 && <nav className="rgx-foot" aria-label="Student accounts pagination">
+        {total > 0 && <div className="rgx-foot">
           <span role="status">{(pageNo - 1) * 10 + 1}–{(pageNo - 1) * 10 + shown.length} of {total}</span>
-          <div className="rgx-pager">
-            <button type="button" className="rq-btn" aria-label="Previous page" disabled={pageNo === 1} onClick={goPrev}>‹</button>
-            <span>Page {pageNo} of {allPages}</span>
-            <button type="button" className="rq-btn" aria-label="Next page" disabled={curSub >= subPages - 1 && !data.nextCursor} onClick={goNext}>›</button>
-          </div>
-        </nav>}
+          <Pager page={pageNo} pages={allPages} label="Student accounts pages" onGo={n => {
+            const firstOfChunk = (page - 1) * 3 + 1;
+            if (n >= firstOfChunk && n < firstOfChunk + subPages) setSub(n - firstOfChunk);
+            else if (n > pageNo) goNext(); else goPrev();
+          }} />
+        </div>}
       </div>}
     {selected && <PortalFormDialog className="rgx-dialog" closeOnBackdrop
       label="Student account details" onCancel={() => {

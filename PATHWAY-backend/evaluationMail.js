@@ -49,7 +49,8 @@ function installEvaluationMail({ app, db, requireStaff, coordinatorOwnsStudent, 
         if (!fresh || fresh.tokenHash !== crypto.createHash('sha256').update(token).digest('hex')) throw Object.assign(new Error('Invalid evaluation token.'), { status: 403 });
         if (fresh.emailStatus === 'sent') return true;
         if (fresh.used || new Date(fresh.expiresAt) <= new Date()) throw Object.assign(new Error('Evaluation is expired or already submitted.'), { status: 409 });
-        if (fresh.emailStatus && fresh.emailStatus !== 'authorization_failed') throw Object.assign(new Error('This email has an attempt in progress or an uncertain delivery result. Check its status before sending another invitation.'), { status: 409 });
+        const staleSending = fresh.emailStatus === 'sending' && Date.now() - new Date(fresh.emailAttemptedAt || 0).getTime() > 10 * 60_000;
+        if (fresh.emailStatus && fresh.emailStatus !== 'authorization_failed' && !staleSending) throw Object.assign(new Error('This email has an attempt in progress or an uncertain delivery result. Check its status before sending another invitation.'), { status: 409 });
         transaction.update(ref, { emailStatus: 'sending', emailAttemptedAt: new Date().toISOString() });
         return false;
       });
@@ -70,11 +71,10 @@ function installEvaluationMail({ app, db, requireStaff, coordinatorOwnsStudent, 
         console.error('Evaluation email error:', error.code || 'unknown');
       }
       const emailStatus = accepted ? 'sent' : authorizationFailed ? 'authorization_failed' : 'delivery_unknown';
+      await ref.update({ emailStatus, ...(accepted ? { emailAcceptedAt: new Date().toISOString() } : {}) });
       await db.runTransaction(async transaction => {
-        await transaction.get(ref);
-        transaction.update(ref, { emailStatus, ...(accepted ? { emailAcceptedAt: new Date().toISOString() } : {}) });
         writeAuditInTransaction(transaction, { actorId: req.staff.uid, actorRole: 'coordinator', action: accepted ? 'evaluation.email_accepted' : authorizationFailed ? 'evaluation.email_authorization_failed' : 'evaluation.email_unknown', targetType: 'evaluations', targetId: ref.id, details: { studentId: evaluation.studentId } });
-      });
+      }).catch(error => console.error('Evaluation email audit failed:', error.message));
       return res.status(accepted ? 200 : 502).json({ success: accepted, emailStatus, ...(accepted ? {} : { error: authorizationFailed ? 'Gmail authorization failed before sending. Correct the credentials, check the connection, then manually retry this invitation.' : 'Email delivery could not be confirmed. Do not automatically resend; check the mail service first.' }) });
     } catch (error) {
       if (error.status) return res.status(error.status).json({ error: error.message });

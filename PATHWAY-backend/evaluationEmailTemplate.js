@@ -62,7 +62,6 @@ ${chip ? `<span style="display:inline-block;padding:6px 12px;border-radius:99px;
 ${paras}${rowsHtml(rows)}${codeHtml(code)}
 ${note ? `<span style="display:inline-block;margin:6px 0 4px;padding:6px 12px;border-radius:99px;background:${C.yellowBg};color:${C.yellowInk};font-size:13px;font-weight:700">${escape(note)}</span>` : ''}
 ${btn}${after.filter(Boolean).map(p => `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:${C.muted}">${p}</p>`).join('')}
-${fallbackUrl ? `<div style="border-top:1px solid ${C.line};margin-top:16px;padding-top:14px;font-size:12px;line-height:1.6;color:${C.muted}">Button not working? <a href="${escape(fallbackUrl)}" style="color:${C.blue};word-break:break-all">Open this link</a>.</div>` : ''}
 </td></tr>
 <tr><td align="center" style="padding:20px 24px 8px;font-size:12px;line-height:1.6;color:${C.muted}">PATHWAY OJT Management System &middot; UCLM College of Computer Studies${footerReason ? `<br>${escape(footerReason)}` : ''}</td></tr>
 </table></td></tr></table></body></html>`;

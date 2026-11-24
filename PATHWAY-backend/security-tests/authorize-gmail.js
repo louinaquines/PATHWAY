@@ -10,7 +10,7 @@ function readClient(file) {
     || typeof client.client_secret !== 'string' || !client.client_secret) throw new Error('Expected Google Desktop app credentials.');
   return client;
 }
-function authorizationUrl(clientId, redirect, state, verifier, { scope = SCOPE, mailbox = 'louinaquines@gmail.com' } = {}) {
+function authorizationUrl(clientId, redirect, state, verifier, { scope = SCOPE, mailbox = process.argv[3] || 'pathwaysystem2@gmail.com' } = {}) {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirect, response_type: 'code',
     scope, state, code_challenge: crypto.createHash('sha256').update(verifier).digest('base64url'),
@@ -32,7 +32,7 @@ async function main(file) {
     if (req.method !== 'GET') { res.writeHead(405).end(); return; }
     if (url.pathname === '/start') {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.end(`<h1>PATHWAY Gmail authorization</h1><p>Sign in as louinaquines@gmail.com. This requests send-only access. No email will be sent.</p><a href="${authUrl.replaceAll('&', '&amp;')}">Continue to Google</a>`);
+      res.end(`<h1>PATHWAY Gmail authorization</h1><p>Sign in as ${process.argv[3] || 'pathwaysystem2@gmail.com'}. This requests send-only access. No email will be sent.</p><a href="${authUrl.replaceAll('&', '&amp;')}">Continue to Google</a>`);
       return;
     }
     if (url.pathname !== '/') { res.writeHead(404).end(); return; }

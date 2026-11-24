@@ -504,7 +504,6 @@ export default function EvaluationTab({ coordinatorId, selectedSection, sections
           <img src="/email/email-guide-thumbsup.gif" alt="" aria-hidden="true" onError={event => { event.currentTarget.src = '/guide-thinking.png'; }} />
           <h3>{preparedInvitations.length === 1 ? `Invitation sent to ${preparedInvitations[0].supervisorName}` : `${preparedInvitations.length} invitations sent`}</h3>
           <p>They’ll get an email with a private link. Their score shows up here once they answer. The link works for 7 days.</p>
-          <small>“Sent” means the email service accepted it, not that it was read.</small>
           <div className="ev-ask-foot ev-ask-center">
             <button type="button" className="rq-btn" onClick={startOver}>Ask for another</button>
             <button type="button" className="rq-btn rq-primary" onClick={() => setAskOpen(false)}>Done</button>

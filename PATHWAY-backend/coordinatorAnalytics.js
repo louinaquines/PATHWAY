@@ -57,7 +57,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
             section: section.name, department: section.department, companyName: student.companyName || student.company || '',
             hoursRendered: metrics.creditedHours, hoursRequired: Number.isFinite(required) ? required : null,
             ...metrics, excusedDates: inputs.excusedDates, excusedDatesVersion: evidence.excusedDatesVersion,
-            status: !student.accountApproved ? 'Registration pending' : metrics.risk,
+            status: !student.accountApproved ? 'Suspended' : metrics.risk,
             lateRate: metrics.onTimeRate == null ? null : 100 - metrics.onTimeRate };
         })));
       }
@@ -67,7 +67,7 @@ function installCoordinatorAnalytics({ app, db, requireStaff, coordinatorSection
       const total = hoursAvailable ? scoped.reduce((sum, s) => sum + s.hoursRendered, 0) : null;
       res.set('Cache-Control', 'private, no-store');
       return res.json({ students: scoped, schedule: section.attendanceSchedule || null, today,
-        totalStudents: scoped.length, activeInterns: scoped.filter(s => s.status !== 'Registration pending').length,
+        totalStudents: scoped.length, activeInterns: scoped.filter(s => s.status !== 'Suspended').length,
         completedInterns: scoped.filter(s => s.progressStatus === 'Completed').length,
         atRiskStudents: riskAvailable ? scoped.filter(s => s.riskTier === 'High').length : null,
         countsAvailable: { completed: scoped.every(s => Number.isFinite(s.hoursRendered) && Number.isFinite(s.hoursRequired) && s.hoursRequired > 0), highRisk: riskAvailable, totalHours: hoursAvailable },

@@ -1,5 +1,5 @@
 import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import { within, fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
 import AdminDashboard from './AdminDashboard';
 import { getDocs, updateDoc } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
@@ -71,9 +71,10 @@ test('failed activation displays the server error without marking the student ac
     .mockResolvedValueOnce({ docs: [] });
   adminRequest.mockRejectedValueOnce(new Error('Account update denied'));
   render(<AdminDashboard />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Activate Account' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Restore access' }));
+  const dialog = await screen.findByRole('alertdialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Restore access' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Account update denied');
-  expect(screen.getByRole('button', { name: 'Activate Account' })).toBeEnabled();
   expect(adminRequest).toHaveBeenCalledWith('/admin/students/student-1/account-status', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ accountApproved: true }) }));
 });
 

@@ -124,7 +124,8 @@ export default function AdminDashboard() {
 
   const students = users.filter(u => u.role === 'student');
   const coordinators = users.filter(u => ['coordinator','inactive_coordinator'].includes(u.role));
-  const pending = students.filter(u => !u.accountApproved && u.status !== 'rejected_registration');
+  // Self-registration is removed: an account that cannot sign in is a suspended account.
+  const pending = students.filter(u => !u.accountApproved);
   const departments = [...new Set([...students, ...coordinators, ...sections].map(item => item.department).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
   const inDepartment = item => !departmentFilter || item.department === departmentFilter;
@@ -152,9 +153,9 @@ export default function AdminDashboard() {
     ...pending.slice(0, 3).map(student => ({
       key: `pending-${student.id}`,
       icon: 'user',
-      title: `New registration from ${personName(student) || 'a student'}`,
-      detail: 'Student account needs approval',
-      time: 'Needs review',
+      title: `${personName(student) || 'A student'} is suspended`,
+      detail: 'This student cannot sign in',
+      time: 'Suspended',
       action: () => { setNotificationOpen(false); setDepartmentFilter(student.department || ''); setSectionFilter(student.sectionId || 'all'); setActiveTab('students'); },
     })),
     ...(sections.length > 0 ? [{
@@ -235,7 +236,7 @@ export default function AdminDashboard() {
       student.idNumber || '',
       student.email || '',
       student.department || '',
-      student.accountApproved ? 'Active' : 'Pending',
+      student.accountApproved ? 'Active' : 'Suspended',
       student.createdAt ? new Date(student.createdAt).toLocaleDateString('en-PH') : '',
     ]);
     const csv = [header, ...rows].map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -517,7 +518,7 @@ export default function AdminDashboard() {
                   <div className="admin-section-head"><h2 id="admin-attention-heading" style={s.subTitle}>Needs attention</h2><p>Items that may need an action from you.</p></div>
                   <div className="admin-action-cards">
                     {[
-                      { label: 'Pending approvals', hint: 'Student accounts waiting for review', icon: 'user', count: scopedPending, onClick: () => openStudents('pending') },
+                      { label: 'Suspended accounts', hint: 'Students who cannot sign in', icon: 'user', count: scopedPending, onClick: () => openStudents('suspended') },
                       { label: 'Sections without a coordinator', hint: 'Assign faculty to these sections', icon: 'section', count: unassignedSections, onClick: () => openStudents('all') },
                       { label: 'Student hours', hint: 'Check rendered OJT hours', icon: 'clock', onClick: () => openStudents('all') },
                       { label: 'Company capacity', hint: 'Partner slots and placements', icon: 'building', onClick: () => setActiveTab('companies') },
@@ -574,7 +575,7 @@ export default function AdminDashboard() {
                 <dl className="admin-stat-cards admin-stat-cards-compact" aria-label="Student summary">
                   <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={20} /></span><dt>Total students</dt><dd>{directoryStudents.length}</dd></div>
                   <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="check" size={20} /></span><dt>Active accounts</dt><dd>{directoryStudents.filter(student => student.accountApproved).length}</dd></div>
-                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="amber"><Icon name="clock" size={20} /></span><dt>Pending accounts</dt><dd>{directoryStudents.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length}</dd></div>
+                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="amber"><Icon name="clock" size={20} /></span><dt>Suspended accounts</dt><dd>{directoryStudents.filter(student => !student.accountApproved).length}</dd></div>
                   <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={20} /></span><dt>Sections</dt><dd>{selectedSection ? 1 : departmentSections.length}</dd></div>
                 </dl>
                 <UserTable
@@ -1085,8 +1086,7 @@ function isWithinDashboardRange(student, range) {
 function getAccountStatusData(students) {
   return [
     { name: 'Active', value: students.filter(student => student.accountApproved).length, color: COLORS.emerald600 },
-    { name: 'Pending', value: students.filter(student => !student.accountApproved && student.status !== 'rejected_registration').length, color: COLORS.yellow500 },
-    { name: 'Rejected', value: students.filter(student => student.status === 'rejected_registration').length, color: COLORS.rose600 },
+    { name: 'Suspended', value: students.filter(student => !student.accountApproved).length, color: COLORS.rose600 },
   ].filter(item => item.value > 0);
 }
 
@@ -1311,7 +1311,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
     `${u.firstName || ''} ${u.lastName || ''} ${u.username || ''} ${u.email || ''} ${u.idNumber || ''} ${u.department || ''} ${studentDirectory ? sectionName(u) : ''}`
       .toLowerCase()
       .includes(search.toLowerCase()) && (!studentDirectory || (
-        (statusFilter === 'all' || (statusFilter === 'active' ? u.accountApproved : statusFilter === 'rejected' ? !u.accountApproved && u.status === 'rejected_registration' : !u.accountApproved && u.status !== 'rejected_registration'))
+        (statusFilter === 'all' || (statusFilter === 'active' ? u.accountApproved : !u.accountApproved))
       ))
   );
 
@@ -1321,9 +1321,9 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
     <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
       {removeError && <div role="alert">{removeError}</div>}
       <AlertDialog open={Boolean(remove)} title="Delete coordinator account?" description={remove ? `Delete sign-in access for ${[remove.firstName,remove.lastName].filter(Boolean).join(' ')}? This cannot be undone. Historical records remain. Reassign all sections first.` : ''} confirmLabel="Delete coordinator" busy={removing} onCancel={()=>setRemove(null)} onConfirm={async()=>{setRemoving(true);setRemoveError('');try{await onDelete(remove.id);setRemove(null);}catch(e){setRemoveError(e.message);}finally{setRemoving(false);}}} />
-      <AlertDialog open={Boolean(deactivate)} title={deactivate?.accountApproved ? "Deactivate account?" : "Activate account?"}
-        description={deactivate ? (deactivate.accountApproved ? 'Deactivate access for ' : 'Activate access for ') + (personName(deactivate) || deactivate.username || 'this student') + '?' : ''}
-        confirmLabel={deactivate?.accountApproved ? "Deactivate account" : "Activate account"} busy={saving} onCancel={() => setDeactivate(null)}
+      <AlertDialog open={Boolean(deactivate)} title={deactivate?.accountApproved ? "Suspend access?" : "Restore access?"}
+        description={deactivate ? (deactivate.accountApproved ? 'Block sign-in for ' : 'Allow sign-in again for ') + (personName(deactivate) || deactivate.username || 'this student') + '?' : ''}
+        confirmLabel={deactivate?.accountApproved ? "Suspend access" : "Restore access"} busy={saving} onCancel={() => setDeactivate(null)}
         onConfirm={async () => { await onToggle(deactivate.id, deactivate.accountApproved); setDeactivate(null); }} />
       <div style={s.tableSearchRow} className={studentDirectory ? 'admin-student-filters' : coordinatorDirectory ? 'admin-directory-search' : undefined}>
         {directoryFilters}
@@ -1337,7 +1337,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
         />
         {studentDirectory && <>
           <select aria-label="Filter by account status" value={statusFilter} onChange={e => onStudentStatus(e.target.value)}>
-            <option value="all">All statuses</option><option value="active">Active</option><option value="pending">Pending</option><option value="rejected">Rejected</option>
+            <option value="all">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option>
           </select>
         </>}
         <span style={s.countBadge}>{filtered.length} {studentDirectory ? (filtered.length === 1 ? 'student' : 'students') : coordinatorDirectory ? (filtered.length === 1 ? 'coordinator' : 'coordinators') : 'record(s)'}</span>
@@ -1378,7 +1378,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                     color: '#000000',
                     border: `1px solid ${user.accountApproved ? COLORS.emerald200 : COLORS.yellow300}`,
                   }} className={studentDirectory || coordinatorDirectory ? `admin-student-status ${user.accountApproved ? 'is-active' : studentDirectory && user.status === 'rejected_registration' ? 'is-rejected' : 'is-pending'}` : undefined}>
-                    {user.accountApproved ? 'Active' : studentDirectory && user.status === 'rejected_registration' ? 'Rejected' : 'Pending'}
+                    {user.accountApproved ? 'Active' : studentDirectory ? 'Suspended' : 'Inactive'}
                   </span>
                 </td>
                 {showToggle && (
@@ -1396,7 +1396,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                         <button type="button" disabled={saving} onClick={event => {
                           event.currentTarget.closest('details').open = false;
                           setDeactivate(user);
-                        }}>{user.accountApproved ? 'Deactivate account' : 'Activate account'}</button>
+                        }}>{user.accountApproved ? 'Suspend access' : 'Restore access'}</button>
                       </details>
                     ) : (
                     <button
@@ -1409,10 +1409,10 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                         border: `1px solid ${user.accountApproved ? COLORS.rose600 : COLORS.sky600}`,
                       }}
                       disabled={saving}
-                      onClick={() => onToggle(user.id, user.accountApproved)}
+                      onClick={() => setDeactivate(user)}
                     >
                       <Icon name={user.accountApproved ? 'x' : 'check'} size={14} />
-                      {user.accountApproved ? 'Deactivate' : 'Activate Account'}
+                      {user.accountApproved ? 'Suspend access' : 'Restore access'}
                     </button>
                     )}
                   </td>

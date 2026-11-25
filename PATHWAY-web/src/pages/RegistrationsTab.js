@@ -80,23 +80,6 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
     return () => { active = false; };
   }, [sectionId, tab, term, cursor, scope]);
 
-  async function decide(student, status) {
-    setSaving(true);
-    setActionError('');
-    try {
-      await adminRequest('/coordinator/registrations/' + encodeURIComponent(student.id) + '/decision', {
-        method: 'POST', body: JSON.stringify({ status }),
-      });
-      closeDetails(true);
-      setRevision(value => value + 1);
-    } catch (err) {
-      setReject(null);
-      setActionError(err.message || 'Could not update the account.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const data = result?.scope === scope ? result : null;
   const page = cursors.length;
   const chunk = data ? data.rows : [];
@@ -135,12 +118,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
               <strong>{name}</strong>
               <small>{[student.idNumber, unassigned ? 'No section' : selectedSection?.name, tab === 'pending' ? ago(student.createdAt) : null].filter(Boolean).join(' · ')}</small>
             </button>
-            {tab === 'pending' ? <div className="rgx-acts">
-              <button type="button" className="rq-btn" aria-label={'Turn away ' + name} disabled={saving} onClick={event => { opener.current = event.currentTarget; setActionError(''); setSelected(student); setReject(student); }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>Turn away</button>
-              <button type="button" className="rq-btn rq-primary" aria-label={'Approve ' + name} disabled={saving} onClick={() => decide(student, 'approved')}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>Approve</button>
-            </div> : <b className="lb-chip" data-tone={tab === 'approved' ? 'green' : 'red'}>{student.status === 'inactive' ? 'Inactive' : tabs[tab]}</b>}
+            <b className="lb-chip" data-tone={student.accountApproved === false || student.status === 'inactive' ? 'red' : 'green'}>{student.accountApproved === false || student.status === 'inactive' ? 'Suspended' : 'Active'}</b>
           </div>; })}
         {data && <div className="rgx-foot">
           <span role="status">{total ? `${(pageNo - 1) * 10 + 1}–${(pageNo - 1) * 10 + shown.length} of ${total}` : "0 of 0"}</span>
@@ -171,17 +149,7 @@ export default function RegistrationsTab({ selectedSection, sections = [], onSec
           <div><dt>Department</dt><dd>{selected.department || '—'}</dd></div>
           <div><dt>Account created</dt><dd>{selected.createdAt ? new Date(selected.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</dd></div>
         </dl>
-        {reject && <p role="status" className="rgx-warn">Reject this student registration? They won’t be able to use the student app until approved.</p>}
         {actionError && <p role="alert" className="rgd-err">{actionError}</p>}
-        {tab === 'pending' && <footer className="rgd-foot">
-          {reject ? <>
-            <button type="button" className="rq-btn" disabled={saving} onClick={() => setReject(null)}>Cancel</button>
-            <button type="button" className="rq-btn rgx-danger" disabled={saving} onClick={() => decide(selected, "rejected")}>Reject registration</button>
-          </> : <>
-            <button type="button" className="rq-btn" disabled={saving} onClick={() => setReject(selected)}>Reject</button>
-            <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => decide(selected, "approved")}>Approve</button>
-          </>}
-        </footer>}
       </div>
     </PortalFormDialog>}
   </div>;

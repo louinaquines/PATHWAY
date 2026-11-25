@@ -180,11 +180,6 @@ export default function CoordinatorDashboard() {
       const coordinatorData = coordSnap.data() || {};
       setCoordinatorProfile({ id: coordinatorId, ...coordinatorData });
       setCoordDept(coordinatorData.department || '');
-      const regSnap = await getDocs(query(collection(db, 'users'),
-        where('role', '==', 'student'), where('department', '==', coordinatorData.department || ''),
-        where('sectionId', '==', ''), where('accountApproved', '==', false)));
-      if (!isCurrent()) return;
-      setPendingRegistrations(regSnap.docs.filter(d => d.data().status !== 'rejected_registration').length);
     } catch (e) {
       if (!isCurrent()) return;
       console.error(e);
@@ -494,7 +489,7 @@ export default function CoordinatorDashboard() {
     ] },
     { title: 'Students', items: [
         { id: 'sections', icon: 'users', hint: selectedSection ? `${students.length} students` : null },
-        { id: 'registrations', icon: 'users', badge: pendingRegistrations > 0 ? pendingRegistrations : null, isWarning: true, hint: pendingRegistrations > 0 ? `${pendingRegistrations} to approve` : null },
+        { id: 'registrations', icon: 'users', badge: null },
         { id: 'analytics', icon: 'chart' },
         { id: 'messages', icon: 'chat' },
         { id: 'notifications', icon: 'bell' },

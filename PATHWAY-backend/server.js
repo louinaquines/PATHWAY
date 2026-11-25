@@ -1773,53 +1773,8 @@ app.get('/coordinator/registrations', requireStaff, async (req, res) => {
   }
 });
 
-app.post('/coordinator/registrations/:studentId/decision', requireStaff, async (req, res) => {
-  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
-  if (!allowRate(req, res, { limit: 40, windowMs: 60 * 60_000, key: request => `registration:${request.staff.uid}` })) return;
-  const { status } = req.body || {};
-  if (!['approved', 'rejected'].includes(status)) return res.status(400).json({ error: 'Invalid registration decision.' });
-  const studentRef = adminDb.collection('users').doc(req.params.studentId);
-  const now = new Date().toISOString();
-  try {
-    await adminDb.runTransaction(async transaction => {
-      const studentSnap = await transaction.get(studentRef);
-      if (!studentSnap.exists || studentSnap.data().role !== 'student') throw Object.assign(new Error('Student registration not found.'), { status: 404 });
-      const student = studentSnap.data();
-      if (student.department !== req.staff.data.department) throw Object.assign(new Error('This registration is outside your assigned department.'), { status: 403 });
-      if (student.sectionId !== '') {
-        if (typeof student.sectionId !== 'string' || !/^[A-Za-z0-9_-]{1,120}$/.test(student.sectionId)) {
-          throw Object.assign(new Error('This registration has an invalid section assignment.'), { status: 403 });
-        }
-        const section = await transaction.get(adminDb.collection('sections').doc(student.sectionId));
-        if (!section.exists || section.data().coordinatorId !== req.staff.uid
-          || section.data().department !== student.department) {
-          throw Object.assign(new Error('You can only review registrations in your assigned sections.'), { status: 403 });
-        }
-      }
-      assertRecordsOpen(student);
-      if (student.accountApproved === true || student.status === 'approved') throw Object.assign(new Error('This registration has already been approved.'), { status: 409 });
-      transaction.update(studentRef, status === 'approved' ? {
-        accountApproved: true, status: 'not_submitted', approvedBy: req.staff.uid, approvedAt: now,
-        rejectedBy: null, rejectedAt: null,
-      } : {
-        accountApproved: false, status: 'rejected_registration', rejectedBy: req.staff.uid, rejectedAt: now,
-      });
-      transaction.set(adminDb.collection('notifications').doc(), indexedNotice({
-        recipientId: req.params.studentId, senderId: req.staff.uid, senderRole: 'coordinator',
-        title: status === 'approved' ? 'Registration approved' : 'Registration needs attention',
-        message: status === 'approved' ? 'Your student registration was approved by your OJT Coordinator.' : 'Your student registration was not approved. Please contact your OJT Coordinator.',
-        type: 'registration', read: false, createdAt: now,
-      }));
-    });
-    registrationSnapshots.clear();
-    await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: status === 'approved' ? 'registration.approved' : 'registration.rejected', targetType: 'users', targetId: req.params.studentId, details: { department: req.staff.data.department } });
-    return res.json({ success: true, status });
-  } catch (error) {
-    if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error(error);
-    return res.status(500).json({ error: 'Could not process this registration.' });
-  }
-});
+// Student self-registration is removed: accounts come only from coordinator class lists, so there is nothing to approve.
+app.post('/coordinator/registrations/:studentId/decision', requireStaff, (req, res) => res.status(410).json({ error: 'Student self-registration was removed. Accounts are created from the class list.' }));
 
 app.post('/coordinator/students/:studentId/requirements/:requirementId/decision', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });

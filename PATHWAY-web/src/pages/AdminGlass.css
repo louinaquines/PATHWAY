@@ -322,7 +322,7 @@
 /* Match the coordinator portal: flat light-blue workspace, no campus photo,
    transparent topbar, solid white cards. */
 html body .admin-page main, html body .admin-page main[class] { background: #e9f0fb !important; background-image: none !important; }
-html body .admin-page main > header { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
+html body .admin-page main > header { background: #fff !important; border-bottom: 1px solid #e5eaf2 !important; box-shadow: none !important; }
 html body .admin-page main > div, html body .admin-page main > section { background-color: transparent !important; background-image: none !important; }
 .admin-page main :is(.admin-stat-card, .admin-action-card, .admin-chart-card, .admin-overview-recent, .admin-records-card, .admin-settings-card,
   .dashboardSearch, .dashboardTools > button, .dashboardTools select) {

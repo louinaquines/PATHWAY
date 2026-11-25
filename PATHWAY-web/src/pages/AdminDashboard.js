@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SystemSettingsTab from './SystemSettingsTab';
 import AcademicTermsTab from './AcademicTermsTab';
 import AuditLogsTab from './AuditLogsTab';
+import AdminCoordinatorsDirectory from '../components/AdminCoordinatorsDirectory';
 import AdminStudentsDirectory from '../components/AdminStudentsDirectory';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import { adminRequest } from '../adminApi';
@@ -582,24 +583,14 @@ export default function AdminDashboard() {
             {/* COORDINATORS */}
             {['coordinators', 'create'].includes(activeTab) && (
               <div style={s.tabContent} className="admin-directory-screen admin-coordinators-directory">
-                <div className="admin-directory-head">
-                  <dl className="admin-stat-cards admin-stat-cards-compact admin-stat-cards-3" aria-label="Coordinator summary">
-                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="teal"><Icon name="users" size={20} /></span><dt>Coordinators</dt><dd>{coordinators.length}</dd></div>
-                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="building" size={20} /></span><dt>Departments</dt><dd>{new Set(coordinators.map(user => user.department).filter(Boolean)).size}</dd></div>
-                    <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="section" size={20} /></span><dt>Assigned sections</dt><dd>{sections.filter(section => coordinators.some(user => user.id === section.coordinatorId)).length}</dd></div>
-                  </dl>
-                  <button type="button" className="admin-primary-action" onClick={() => setActiveTab('create')}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                    Create Coordinator
-                  </button>
-                </div>
-                <UserTable
-                  users={coordinators}
+                <AdminCoordinatorsDirectory
+                  coordinators={coordinators}
+                  sections={sections}
+                  students={students}
                   saving={saving}
                   onToggle={handleToggleAccount}
-                  onDelete={async id => { await adminRequest(`/admin/coordinators/${encodeURIComponent(id)}`, { method: 'DELETE' }); setUsers(previous=>previous.filter(user=>user.id!==id)); }}
-                  showToggle
-                  coordinatorDirectory
+                  onCreate={() => setActiveTab('create')}
+                  onChanged={() => fetchAll({ silent: true })}
                 />
               </div>
             )}
@@ -608,7 +599,7 @@ export default function AdminDashboard() {
             {activeTab === 'create' && <PortalFormDialog className="admin-create-drawer" label="Create coordinator" onCancel={() => setActiveTab('coordinators')}>
               <CreateCoordinatorTab onCreated={fetchAll} onCancel={() => setActiveTab('coordinators')} />
             </PortalFormDialog>}
-            {activeTab === 'companies' && <div className="admin-companies-screen"><CompanyDirectoryTab readOnly /></div>}
+            {activeTab === 'companies' && <div className="admin-companies-screen"><CompanyDirectoryTab readOnly adminStudents={students} adminSections={sections} adminDepartments={[...new Set([...DEPARTMENTS, ...departments])].sort()} /></div>}
             {activeTab === 'terms' && <AcademicTermsTab />}
             {activeTab === 'settings' && <SystemSettingsTab />}
             {activeTab === 'audit' && <AuditLogsTab />}

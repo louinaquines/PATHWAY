@@ -62,3 +62,16 @@
 .asd-drawer footer { margin-top: auto; padding-top: 18px; display: flex; justify-content: flex-end; }
 @media (max-width: 1100px) { .asd-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px) { .asd-stats { grid-template-columns: 1fr; } .asd-filter select, .asd-select select { max-width: none; width: 100%; } .asd-filter, .asd-select { flex: 1 1 100%; } }
+.asd-ico[data-tone='amber'] { background: #fef3c7; color: #b45309; } .asd-ico[data-tone='teal'] { background: #ccfbf1; color: #0f766e; }
+.asd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.asd-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #eef1f6; border-radius: 12px; }
+.asd-list li div { flex: 1; display: grid; gap: 2px; } .asd-list strong { font-size: 14px; } .asd-list small { font-size: 12px; color: #64748b; }
+.asd-reassign { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 12px; }
+.asd-reassign label { flex: 1; display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: #334155; }
+.asd-reassign select { height: 42px; padding: 0 12px; border: 1px solid #d6deea; border-radius: 12px; font: inherit; font-size: 14px; background: #fff; }
+.asd-reassign small { flex-basis: 100%; font-size: 12px; color: #b45309; }
+.asd-err { margin: 10px 0 0; font-size: 13px; color: #b91c1c; }
+.asd-foot-actions { margin-top: auto; padding-top: 18px; display: flex; justify-content: space-between; gap: 10px; }
+.asd-more.asd-danger { color: #b91c1c; border-color: #fecaca; }
+.asd-chip[data-tone='warn'] { background: #fef3c7; color: #92400e; }
+a.asd-more { display: inline-flex; align-items: center; text-decoration: none; }

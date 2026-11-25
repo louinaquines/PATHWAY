@@ -2089,7 +2089,7 @@ const AUDIT_ACTIONS = new Set([
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'coordinator.password_changed', 'evaluation.email_unknown',
+  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'coordinator.password_changed', 'section.reassigned', 'section.deleted', 'company.department_set', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
@@ -2121,6 +2121,7 @@ function writeAuditInTransaction(transaction, event) {
 }
 
 require('./coordinatorAccounts').installCoordinatorAccounts({ app, db: adminDb, auth: adminAuth, requireAdmin, audit: writeAuditInTransaction });
+require('./adminStructure').installAdminStructure({ app, db: adminDb, requireAdmin, audit: writeAuditInTransaction });
 
 app.patch('/admin/students/:studentId/account-status', requireAdmin, async (req, res) => {
   const { accountApproved } = req.body || {};

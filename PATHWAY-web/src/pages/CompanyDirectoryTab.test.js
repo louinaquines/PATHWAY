@@ -55,11 +55,11 @@ test('admin directory pages companies and searches the complete directory', asyn
   render(<CompanyDirectoryTab />);
   expect(await screen.findByText('Company 01')).toBeInTheDocument();
   expect(screen.queryByText('Company 11')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   expect(screen.getByText('Company 11')).toBeInTheDocument();
   fireEvent.change(screen.getByRole('searchbox', { name: 'Search companies' }), { target: { value: 'Company 12' } });
   expect(screen.getByText('Company 12')).toBeInTheDocument();
-  expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+  expect(screen.getByText('1–1 of 1')).toBeInTheDocument();
   fireEvent.change(screen.getByRole('combobox', { name: 'Industry' }), { target: { value: 'Technology' } });
   expect(screen.getByText('No matching companies')).toBeInTheDocument();
 });

@@ -15,7 +15,7 @@ import { RowsSkeleton } from '../components/CoordSkeletons';
 
 const EMPTY_FORM = { placementDefaults: {}, name: '', address: '', industry: '', email: '', phone: '', capacity: '1', active: true, geofenceEnabled: false, latitude: '', longitude: '', radiusMeters: '150' };
 
-export default function CompanyDirectoryTab({ readOnly = true, selectedSection = null, sections = [], onSectionChange }) {
+export default function CompanyDirectoryTab({ readOnly = true, selectedSection = null, sections = [], onSectionChange, adminStudents = [], adminSections = [], adminDepartments = [] }) {
   const [selectedId, setSelectedId] = useState('');
   const [lp, setLp] = useState(1);
   const [fullOnly, setFullOnly] = useState(false);
@@ -133,7 +133,7 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
   };
 
   if (readOnly) return <AdminCompanyDirectory companies={companies} loading={loading} error={error}
-    loadFailed={loadFailed} onReload={load} />;
+    loadFailed={loadFailed} onReload={load} students={adminStudents} sections={adminSections} departments={adminDepartments} />;
 
   return <div className="company-directory-page" style={styles.page}>
 

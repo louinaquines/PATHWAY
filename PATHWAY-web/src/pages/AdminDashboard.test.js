@@ -47,7 +47,7 @@ test('create coordinator form has labeled fields and a password visibility contr
   getDocs.mockResolvedValue({ docs: [] });
   render(<AdminDashboard />);
   fireEvent.click(await screen.findByRole('button', { name: /^Coordinators/ }));
-  fireEvent.click(screen.getByRole('button', { name: /Create Coordinator/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Create coordinator/i }));
   expect(screen.getByLabelText('First name')).toBeRequired();
   expect(screen.getByLabelText('Assigned department')).toBeRequired();
   const password = screen.getByLabelText('Initial password');

@@ -22,6 +22,7 @@ async function readCoordinatorCompanyPage(db, req, res) {
     for (const document of page.docs.slice(0, scanSize)) {
       scanned++;
       const company = document.data();
+      if (req.staff?.role !== 'admin' && (!req.staff?.data?.department || company.department !== req.staff.data.department)) continue;
       const active = company.active !== false && company.status !== 'inactive';
       if ((availability !== 'all' && !active) || (term && ![company.name, company.industry, company.address]
         .some(value => String(value || '').toLowerCase().includes(term)))) continue;

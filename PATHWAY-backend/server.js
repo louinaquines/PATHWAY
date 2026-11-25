@@ -664,6 +664,9 @@ app.post('/student/placement-requests', requireUser, async (req, res) => {
           throw Object.assign(new Error('Choose an active company from the directory.'), { status: 400 });
         }
         const company = companySnap.data();
+        if (!companyInDepartment(company, student.department)) {
+          throw Object.assign(new Error('Choose a company from your department\'s directory.'), { status: 400 });
+        }
         savedFields = {
           ...savedFields,
           companyName: boundedText(company.name, 'company name', placementProposalFields.companyName),
@@ -1012,7 +1015,7 @@ app.get('/coordinator/companies', requireStaff, async (req, res) => {
         occupiedByCompany.set(student.companyId, (occupiedByCompany.get(student.companyId) || 0) + 1);
       }
     });
-    const companies = companySnapshot.docs.map(snapshot => {
+    const companies = companySnapshot.docs.filter(snapshot => companyVisibleToStaff(req.staff, snapshot.data())).map(snapshot => {
       const company = snapshot.data();
       const capacity = Number.isSafeInteger(company.capacity) ? company.capacity : null;
       const occupiedSlots = occupiedByCompany.get(snapshot.id) || 0;
@@ -1418,6 +1421,9 @@ async function decideCompanyPlacement(req, res) {
         ]);
         if (!companySnap.exists || companySnap.data().active === false || companySnap.data().status === 'inactive') {
           throw Object.assign(new Error('The selected company is not active in the company directory.'), { status: 409 });
+        }
+        if (!companyInDepartment(companySnap.data(), student.department)) {
+          throw Object.assign(new Error('This company belongs to another department.'), { status: 409 });
         }
         const company = companySnap.data();
         const capacity = Number(company.capacity);
@@ -1914,6 +1920,11 @@ app.post('/coordinator/students/:studentId/requirements/:requirementId/decision'
     return res.status(500).json({ error: 'Could not process this document review.' });
   }
 });
+
+// Companies belong to one department; admins see every department.
+function staffDepartment(staff) { return typeof staff?.data?.department === 'string' ? staff.data.department : ''; }
+function companyInDepartment(company, department) { return !!department && company?.department === department; }
+function companyVisibleToStaff(staff, company) { return staff?.role === 'admin' || companyInDepartment(company, staffDepartment(staff)); }
 
 async function requireStaff(req, res, next) {
   return requireUser(req, res, () => {
@@ -2617,7 +2628,7 @@ app.get(['/admin/companies', '/coordinator/company-directory'], requireStaff, as
         occupiedByCompany.set(student.companyId, (occupiedByCompany.get(student.companyId) || 0) + 1);
       }
     });
-    const companies = companySnapshot.docs.map(snapshot => {
+    const companies = companySnapshot.docs.filter(snapshot => companyVisibleToStaff(req.staff, snapshot.data())).map(snapshot => {
       const company = snapshot.data();
       const capacity = Number.isSafeInteger(company.capacity) ? company.capacity : null;
       const occupiedSlots = occupiedByCompany.get(snapshot.id) || 0;
@@ -2640,11 +2651,14 @@ app.post('/coordinator/companies', requireStaff, async (req, res) => {
   let company;
   try { company = parseCompanyPayload(req.body); }
   catch (error) { return res.status(error.status || 400).json({ error: error.message }); }
+  const department = staffDepartment(req.staff);
+  if (!department) return res.status(409).json({ error: 'Your coordinator account has no department.' });
+  company = { ...company, department };
   const companyRef = adminDb.collection('companies').doc();
   const now = new Date().toISOString();
   try {
     await adminDb.runTransaction(async transaction => {
-      const existing = await transaction.get(adminDb.collection('companies'));
+      const existing = await transaction.get(adminDb.collection('companies').where('department', '==', department));
       if (existing.docs.some(snapshot => normalizedCompanyName(String(snapshot.data().name || '')) === company.normalizedName)) {
         throw Object.assign(new Error('A company with this name already exists.'), { status: 409 });
       }
@@ -2680,8 +2694,9 @@ app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) =>
         transaction.get(adminDb.collection('users').where('companyId', '==', req.params.companyId)),
         transaction.get(adminDb.collection('companies')),
       ]);
-      if (!companySnapshot.exists) throw Object.assign(new Error('Company not found.'), { status: 404 });
+      if (!companySnapshot.exists || !companyInDepartment(companySnapshot.data(), staffDepartment(req.staff))) throw Object.assign(new Error('Company not found.'), { status: 404 });
       const duplicate = directorySnapshot.docs.some(snapshot => snapshot.id !== req.params.companyId
+        && snapshot.data().department === companySnapshot.data().department
         && normalizedCompanyName(String(snapshot.data().name || '')) === company.normalizedName);
       if (duplicate) throw Object.assign(new Error('A company with this name already exists.'), { status: 409 });
       occupiedSlots = assignedSnapshot.docs.filter(snapshot => snapshot.data().role === 'student'

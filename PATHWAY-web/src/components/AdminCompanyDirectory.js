@@ -9,6 +9,8 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
   const [search, setSearch] = useState('');
   const [industry, setIndustry] = useState('');
   const [status, setStatus] = useState('all');
+  const [department, setDepartment] = useState('');
+  const departments = [...new Set(companies.map(company => company.department?.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const [page, setPage] = useState(1);
   const industries = [...new Set(companies.map(company => company.industry?.trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
@@ -16,7 +18,8 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
     const matchesSearch = [company.name, company.industry, company.address].some(value =>
       String(value || '').toLowerCase().includes(search.trim().toLowerCase()));
     const companyIndustry = company.industry?.trim() || '';
-    return matchesSearch && (!industry || (industry === '__missing' ? !companyIndustry : companyIndustry === industry))
+    const companyDepartment = company.department?.trim() || '';
+    return matchesSearch && (!department || (department === '__missing' ? !companyDepartment : companyDepartment === department)) && (!industry || (industry === '__missing' ? !companyIndustry : companyIndustry === industry))
       && (status === 'all' || (status === 'active' ? company.active : !company.active));
   }).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')) || a.id.localeCompare(b.id));
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -44,6 +47,11 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
     <div className="admin-company-filters admin-filter-bar">
       <label className="admin-filter-search"><span className="sr-only">Search companies</span><input type="search" value={search} placeholder="Search by name, industry, or address"
         onChange={event => { setSearch(event.target.value); setPage(1); }} /></label>
+      <label><span className="sr-only">Department</span><select value={department} onChange={event => { setDepartment(event.target.value); setPage(1); }}>
+        <option value="">All departments</option>
+        {departments.map(value => <option key={value} value={value}>{value}</option>)}
+        <option value="__missing">No department</option>
+      </select></label>
       <label><span className="sr-only">Industry</span><select value={industry} onChange={event => { setIndustry(event.target.value); setPage(1); }}>
         <option value="">All industries</option>
         {industries.map(value => <option key={value} value={value}>{value}</option>)}
@@ -56,15 +64,16 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
       <span className="admin-count-pill">{filtered.length} {filtered.length === 1 ? 'company' : 'companies'}</span>
     </div>
     {loadFailed ? null : filtered.length === 0 ? <PortalEmpty icon="building" compact title={companies.length ? 'No matching companies' : 'No companies yet'}
-      description={companies.length ? 'Try another search, industry, or status.' : 'Companies added by coordinators will appear here.'} /> : <>
+      description={companies.length ? 'Try another search, department, industry, or status.' : 'Companies added by coordinators will appear here.'} /> : <>
       <div className="admin-company-table-wrap admin-table-scroll">
         <table className="coordinator-compact-table">
-          <thead><tr><th>Company</th><th>Industry</th><th>Address</th><th>Placements</th><th>Available</th><th>Status</th></tr></thead>
+          <thead><tr><th>Company</th><th>Department</th><th>Industry</th><th>Address</th><th>Placements</th><th>Available</th><th>Status</th></tr></thead>
           <tbody>{visible.map(company => {
             const configured = Number.isSafeInteger(company.capacity) && company.capacity > 0;
             const available = configured ? company.availableSlots ?? Math.max(0, company.capacity - (company.occupiedSlots || 0)) : null;
             return <tr key={company.id}>
               <td><div className="admin-person"><span className="admin-avatar admin-avatar-square" aria-hidden="true">{(company.name || '?').trim()[0]?.toUpperCase()}</span><span className="admin-person-text"><strong title={company.name}>{company.name || '—'}</strong></span></div></td>
+              <td>{company.department?.trim() || <span className="admin-muted">Not set</span>}</td>
               <td>{company.industry?.trim() || <span className="admin-muted">Not set</span>}</td>
               <td title={company.address || ''}>{company.address || <span className="admin-muted">—</span>}</td>
               <td>{configured ? <div className="admin-capacity"><span>{company.occupiedSlots ?? 0} / {company.capacity}</span>

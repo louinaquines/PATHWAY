@@ -1,6 +1,7 @@
 // Demo data for live walkthroughs. Admin-only and off unless DEMO_SEED_ENABLED=1.
 // Wipes student data (keeps admins, coordinators and companies) and rebuilds one
-// fully populated section owned by a dedicated demo coordinator.
+// fully populated section per department, each owned by its own demo coordinator.
+// Companies are per department: each department gets its own partner companies.
 const crypto = require('node:crypto');
 
 const DEPARTMENT = 'College of Computer Studies';
@@ -44,9 +45,9 @@ const STUDENTS = [
   ['26200005', 'Rivera', 'Bea', 'docs', { mix: 'almost' }],
   ['26200006', 'Fernandez', 'Andrea', 'proposal', { company: 'creative' }],
   ['26200007', 'Ocampo', 'Danica', 'finalReview', { company: 'island' }],
-  ['26200008', 'Padilla', 'Adrian', 'deployed', { company: 'lapu', hours: 312, frequency: 'weekly' }],
+  ['26200008', 'Padilla', 'Adrian', 'deployed', { company: 'lapu', hours: 312, frequency: 'weekly', liveToday: true }],
   ['26200009', 'Manalo', 'Alyssa', 'deployed', { company: 'lapu', hours: 268, frequency: 'daily' }],
-  ['26200010', 'Estrada', 'Daniel', 'deployed', { company: 'mactan', hours: 190, frequency: 'weekly', atRisk: true }],
+  ['26200010', 'Estrada', 'Daniel', 'deployed', { company: 'mactan', hours: 190, frequency: 'weekly', atRisk: true, rejectedJournal: true }],
   ['26200011', 'Sorio', 'Erica', 'deployed', { company: 'mactan', hours: 355, frequency: 'weekly' }],
   ['26200012', 'Cruz', 'Jose', 'deployed', { company: 'creative', hours: 240, frequency: 'daily', evaluation: 'sent' }],
   ['26200013', 'Abad', 'Joanna', 'done', { company: 'island', hours: 486, frequency: 'weekly', evaluation: 'submitted' }],
@@ -60,12 +61,87 @@ const STUDENTS = [
   ['26200021', 'Dela Cruz', 'Juan', 'deployed', { company: 'uclm', hours: 160, frequency: 'weekly', geofenceDemo: true }],
 ];
 
+const swapPre = (id, label) => REQUIREMENTS.map(r => r.id === 'moa' ? { id, label, category: 'Pre-OJT' } : r);
+
+const DEPARTMENTS = [
+  { key: 'ccs', DEPARTMENT, COORDINATOR, SECTION, REQUIREMENTS, COMPANIES, STUDENTS, journalFrequency: 'weekly',
+    announcements: [
+      ['Orientation for deployed interns', 'All deployed interns must attend the online check-in this Friday at 4:00 PM. The link is in our group chat.', 5],
+      ['Requirement deadline reminder', 'Please upload your remaining Pre-OJT requirements before the deadline. Contact me if you have problems with your documents.', 1]],
+    messages: [
+      ['26200004', 'Christian Torres', true, "Good morning Ma'am, where can I get the parental waiver notarized?", 2],
+      ['26200004', 'Christian Torres', false, 'Any notary public near the school works. Upload the notarized copy once it is ready.', 1],
+      ['26200010', 'Daniel Estrada', true, "Ma'am, I was absent on Monday because I was sick. Should I send a medical certificate?", 0],
+      ['26200009', 'Alyssa Manalo', true, "Thank you for approving my journals, Ma'am!", 3]],
+    notices: [
+      ['Company placement request', 'Fernandez, Andrea submitted a company placement for review.', 'placement', 2],
+      ['Final review submitted', 'Ocampo, Danica submitted a pre-deployment package for review.', 'review', 1]] },
+  { key: 'cba', DEPARTMENT: 'College of Business and Accountancy',
+    COORDINATOR: { email: 'coordinator.cba@pathway-demo.app', password: 'Demo@2026', firstName: 'Jose', lastName: 'Mendoza' },
+    SECTION: { name: 'BSA - 4B', hoursRequired: 300 }, REQUIREMENTS: swapPre('bir_form', 'BIR Form 1902 (TIN Registration)'), JOURNAL_TEXT: [
+      'Today I helped the audit team vouch sales invoices against the general ledger for a retail client. I learned how sampling works in an audit and why every adjustment needs a supporting document. My supervisor reviewed my working papers and showed me how to cross-reference them properly.',
+      'I prepared bank reconciliations for two client accounts and traced the outstanding checks. I found a deposit that was recorded twice and reported it to my supervisor. I learned to double-check cut-off dates and to write clear notes so the reviewer can follow my work.',
+      'I assisted at the branch teller area and observed how cash counts and vault transfers are documented. I encoded new account applications and checked the KYC requirements. I learned why compliance with anti-money laundering rules is strict and how every transaction is traced.'],
+    journalFrequency: 'daily',
+    COMPANIES: [
+      { key: 'audit', name: 'Mandaue Audit & Tax Partners', address: 'Ouano Avenue, Mandaue City, Cebu', industry: 'Accounting & Audit', phone: '0918 555 1101',
+        supervisorName: 'CPA Teresa Lim', supervisorEmail: 'teresa.lim@mandaueaudit.ph', role: 'Audit Assistant Intern', arrangement: 'On-site', capacity: 4 },
+      { key: 'bank', name: 'Cebu Mutual Bank – Lapu-Lapu Branch', address: 'M.L. Quezon Highway, Lapu-Lapu City', industry: 'Banking', phone: '0918 555 1202',
+        supervisorName: 'Mr. Rafael Go', supervisorEmail: 'rafael.go@cebumutual.ph', role: 'Branch Operations Intern', arrangement: 'On-site', capacity: 3 },
+      { key: 'retail', name: 'Visayas Retail Holdings', address: 'North Reclamation Area, Cebu City', industry: 'Retail', phone: '0918 555 1303',
+        supervisorName: 'Ms. Carmela Uy', supervisorEmail: 'carmela.uy@visayasretail.ph', role: 'Finance & Inventory Intern', arrangement: 'Hybrid', capacity: 3 }],
+    STUDENTS: [
+      ['26300001', 'Aquino', 'Bianca', 'new', { mustChange: true }],
+      ['26300002', 'Del Rosario', 'Mark', 'new'],
+      ['26300003', 'Gonzales', 'Patricia', 'docs', { mix: 'review' }],
+      ['26300004', 'Herrera', 'Luis', 'docs', { mix: 'deficient' }],
+      ['26300005', 'Castillo', 'Nicole', 'proposal', { company: 'bank' }],
+      ['26300006', 'Mercado', 'Ian', 'finalReview', { company: 'retail' }],
+      ['26300007', 'Santiago', 'Rhea', 'deployed', { company: 'audit', hours: 210, frequency: 'daily', liveToday: true }],
+      ['26300008', 'Domingo', 'Kevin', 'deployed', { company: 'audit', hours: 96, frequency: 'daily', atRisk: true, rejectedJournal: true }],
+      ['26300009', 'Flores', 'Jasmine', 'deployed', { company: 'bank', hours: 150, frequency: 'daily', evaluation: 'sent' }],
+      ['26300010', 'Robles', 'Carla', 'done', { company: 'bank', hours: 300, frequency: 'daily', evaluation: 'submitted' }],
+      ['26300011', 'Valdez', 'Enzo', 'cleared', { company: 'retail', hours: 304, frequency: 'daily', evaluation: 'submitted' }],
+      ['26300012', 'Pineda', 'Lea', 'awaiting']],
+    announcements: [['Bank internship briefing', 'Interns assigned to banks must attend the compliance briefing on Thursday at 2:00 PM.', 3]],
+    messages: [['26300008', 'Kevin Domingo', true, 'Good afternoon Sir, I missed two days because of a family emergency. How can I make up the hours?', 1]],
+    notices: [['Company placement request', 'Castillo, Nicole submitted a company placement for review.', 'placement', 1]] },
+  { key: 'coe', DEPARTMENT: 'College of Engineering',
+    COORDINATOR: { email: 'coordinator.coe@pathway-demo.app', password: 'Demo@2026', firstName: 'Ana', lastName: 'Reyes' },
+    JOURNAL_TEXT: [
+      'This week I joined the site engineer during the inspection of column rebars and formworks. I checked the spacing against the approved plans and recorded deviations in the site diary. I learned how quality control is documented before every concrete pour and why safety briefings happen daily.',
+      'I helped prepare the bill of quantities for a two-storey residential project using the structural drawings. I computed concrete and steel volumes and had my supervisor review them. I learned to be careful with unit conversions and to keep my computations organised for checking.',
+      'I worked in the plant maintenance team and assisted in the preventive maintenance of conveyor motors. I recorded vibration readings and updated the maintenance log. I learned how downtime is tracked and how small checks prevent bigger breakdowns on the production line.'],
+    SECTION: { name: 'BSCE - 4A', hoursRequired: 240 }, REQUIREMENTS, journalFrequency: 'weekly',
+    COMPANIES: [
+      { key: 'build', name: 'Metro Cebu Builders Inc.', address: 'Banilad, Mandaue City, Cebu', industry: 'Construction', phone: '0919 555 2101',
+        supervisorName: 'Engr. Victor Sy', supervisorEmail: 'victor.sy@metrocebubuilders.ph', role: 'Site Engineering Intern', arrangement: 'On-site', capacity: 4 },
+      { key: 'consult', name: 'Pacific Structural Consultants', address: 'Cebu Business Park, Cebu City', industry: 'Engineering Consultancy', phone: '0919 555 2202',
+        supervisorName: 'Engr. Maricel Tan', supervisorEmail: 'maricel.tan@pacificstructural.ph', role: 'Structural Design Intern', arrangement: 'Hybrid', capacity: 3 },
+      { key: 'plant', name: 'MEPZ Precision Manufacturing', address: 'MEPZ 1, Lapu-Lapu City', industry: 'Manufacturing', phone: '0919 555 2303',
+        supervisorName: 'Engr. Dennis Ong', supervisorEmail: 'dennis.ong@mepzprecision.ph', role: 'Plant Operations Intern', arrangement: 'On-site', capacity: 3 }],
+    STUDENTS: [
+      ['26400001', 'Alvarez', 'Ryan', 'new', { mustChange: true }],
+      ['26400002', 'Bernardo', 'Mae', 'docs', { mix: 'review' }],
+      ['26400003', 'Cabrera', 'Joshua', 'docs', { mix: 'deficient' }],
+      ['26400004', 'Diaz', 'Katrina', 'proposal', { company: 'consult' }],
+      ['26400005', 'Espinosa', 'Noel', 'deployed', { company: 'build', hours: 160, frequency: 'weekly', liveToday: true }],
+      ['26400006', 'Francisco', 'Iris', 'deployed', { company: 'plant', hours: 72, frequency: 'weekly', atRisk: true, severe: true, rejectedJournal: true }],
+      ['26400007', 'Gutierrez', 'Paul', 'deployed', { company: 'consult', hours: 120, frequency: 'weekly', evaluation: 'sent' }],
+      ['26400008', 'Ignacio', 'Lara', 'done', { company: 'build', hours: 240, frequency: 'weekly', evaluation: 'submitted' }],
+      ['26400009', 'Jimenez', 'Owen', 'cleared', { company: 'plant', hours: 246, frequency: 'weekly', evaluation: 'submitted' }],
+      ['26400010', 'Lopez', 'Faith', 'awaiting']],
+    announcements: [['Site safety orientation', 'All construction-site interns must bring their PPE and attend the safety orientation on Monday at 8:00 AM.', 2]],
+    messages: [['26400006', 'Iris Francisco', true, "Ma'am, the plant changed my shift to nights this week. Is that allowed?", 0]],
+    notices: [['Company placement request', 'Diaz, Katrina submitted a company placement for review.', 'placement', 1]] },
+];
+
 const iso = date => date.toISOString();
 const daysAgo = (n, hour = 9) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - n); d.setUTCHours(hour - 8, 0, 0, 0); return d; };
 const dateKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(d);
 const weekday = d => new Date(dateKey(d) + 'T00:00:00Z').getUTCDay();
 
-function requirementState(stage, mix) {
+function requirementState(stage, mix, PRE) {
   const out = {};
   const sub = (id, n, extra = {}) => { out[id] = { status: 'submitted', submittedAt: iso(daysAgo(n)), fileName: `${id}.pdf`, ...extra }; };
   const ok = (id, n) => { out[id] = { status: 'approved', submittedAt: iso(daysAgo(n + 2)), reviewedAt: iso(daysAgo(n)), reviewedBy: 'coordinator', fileName: `${id}.pdf` }; };
@@ -120,7 +196,7 @@ async function wipe(db, auth) {
   return { students: students.size };
 }
 
-async function ensureCoordinator(db, auth) {
+async function ensureCoordinator(db, auth, COORDINATOR, DEPARTMENT) {
   let user;
   try { user = await auth.getUserByEmail(COORDINATOR.email); await auth.updateUser(user.uid, { password: COORDINATOR.password }); }
   catch { user = await auth.createUser({ email: COORDINATOR.email, password: COORDINATOR.password, displayName: `${COORDINATOR.firstName} ${COORDINATOR.lastName}` }); }
@@ -131,10 +207,23 @@ async function ensureCoordinator(db, auth) {
 
 async function seed({ db, auth }) {
   const wiped = await wipe(db, auth);
-  const coordinatorId = await ensureCoordinator(db, auth);
-  const now = iso(new Date());
   const term = await db.collection('academicTerms').where('isActive', '==', true).limit(1).get();
   const termFields = term.empty ? {} : { termId: term.docs[0].id, termName: term.docs[0].data().name };
+  const departments = [];
+  for (const D of DEPARTMENTS) departments.push(await seedDepartment(db, auth, D, termFields));
+  return { wipedStudents: wiped.students, studentPassword: STUDENT_PASSWORD, departments };
+}
+
+async function seedDepartment(db, auth, D, termFields) {
+  const { DEPARTMENT, COORDINATOR, SECTION, REQUIREMENTS, COMPANIES, STUDENTS } = D;
+  const PRE = REQUIREMENTS.filter(r => r.category === 'Pre-OJT').map(r => r.id);
+  const coordinatorId = await ensureCoordinator(db, auth, COORDINATOR, DEPARTMENT);
+  const now = iso(new Date());
+  const journals = db.collection('departmentJournalSettings').doc(DEPARTMENT);
+  const journalDoc = await journals.get();
+  if (!journalDoc.exists || journalDoc.data().frequency !== D.journalFrequency) {
+    await journals.set({ frequency: D.journalFrequency, revision: (journalDoc.data()?.revision || 0) + 1, updatedAt: now, updatedBy: coordinatorId });
+  }
 
   // Section (replace any previous demo section of the same name for this coordinator)
   const old = await db.collection('sections').where('coordinatorId', '==', coordinatorId).get();
@@ -152,10 +241,12 @@ async function seed({ db, auth }) {
   // Companies (upsert by name)
   const companyIds = {};
   for (const c of COMPANIES) {
-    const existing = await db.collection('companies').where('name', '==', c.name).limit(1).get();
-    const ref = existing.empty ? db.collection('companies').doc() : existing.docs[0].ref;
+    // Reuse this department's copy, or adopt an older untagged copy from before companies became per department.
+    const sameName = await db.collection('companies').where('name', '==', c.name).get();
+    const match = sameName.docs.find(d => d.data().department === DEPARTMENT) || sameName.docs.find(d => !d.data().department);
+    const ref = match ? match.ref : db.collection('companies').doc();
     companyIds[c.key] = ref.id;
-    await ref.set({ name: c.name, normalizedName: c.name.toLowerCase(), address: c.address, industry: c.industry, email: c.supervisorEmail, phone: c.phone,
+    await ref.set({ name: c.name, normalizedName: c.name.toLowerCase(), department: DEPARTMENT, address: c.address, industry: c.industry, email: c.supervisorEmail, phone: c.phone,
       capacity: c.capacity, active: true, occupiedSlots: 0, availableSlots: c.capacity, geofence: c.geofence || { enabled: false },
       placementDefaults: { supervisorName: c.supervisorName, supervisorEmail: c.supervisorEmail, internshipRole: c.role, workArrangement: c.arrangement, startDate: '', endDate: '' },
       createdBy: coordinatorId, createdAt: iso(daysAgo(50)), updatedBy: coordinatorId, updatedAt: now }, { merge: true });
@@ -172,7 +263,7 @@ async function seed({ db, auth }) {
     await auth.setCustomUserClaims(uid, { passwordEpoch: epoch });
     const company = opts.company ? COMPANIES.find(c => c.key === opts.company) : null;
     const placed = ['deployed', 'done', 'cleared', 'finalReview'].includes(stage);
-    const requirements = requirementState(stage, opts.mix);
+    const requirements = requirementState(stage, opts.mix, PRE);
     const approvedAll = PRE.every(id => requirements[id]?.status === 'approved');
     const start = daysAgo(opts.hours ? Math.ceil(opts.hours / 8 * 1.4) + 3 : 30);
     const profile = {
@@ -229,7 +320,7 @@ async function seed({ db, auth }) {
         if ([0, 6].includes(weekday(day))) continue;
         if (opts.atRisk && n % 3 === 0) continue;
         if (opts.severe && n % 2 === 1) continue;
-        if (n === 0 && idNumber !== '26200008') continue; // leave today free so students can time in live
+        if (n === 0 && !opts.liveToday) continue; // leave today free so students can time in live
         const date = dateKey(day);
         const timeIn = daysAgo(n, 8); timeIn.setUTCMinutes(opts.atRisk && n % 2 ? 25 : 2);
         const timeOut = daysAgo(n, 17);
@@ -243,9 +334,10 @@ async function seed({ db, auth }) {
         if ([0, 6].includes(weekday(at)) && opts.frequency === 'daily') continue;
         weekNum += 1;
         const last = i === entries.length - 1;
-        const status = last ? 'pending' : (i === 1 && idNumber === '26200010') ? 'rejected' : 'approved';
+        const status = last ? 'pending' : (i === 1 && opts.rejectedJournal) ? 'rejected' : 'approved';
         const periodStart = opts.frequency === 'daily' ? dateKey(at) : dateKey(daysAgo(n + 4));
-        const text = JOURNAL_TEXT[(i + Number(idNumber.slice(-1))) % JOURNAL_TEXT.length];
+        const texts = D.JOURNAL_TEXT || JOURNAL_TEXT;
+        const text = texts[(i + Number(idNumber.slice(-1))) % texts.length];
         await userRef.collection('logbook').add({ rawNotes: text, refined: text, aiRefined: false, hours: opts.frequency === 'daily' ? 8 : 40, status,
           sourceRevision: 1, analysisStatus: 'not-enabled', frequency: opts.frequency, periodStart, periodEnd: dateKey(at),
           weekNum, weekRange: `${periodStart} – ${dateKey(at)}`, createdAt: iso(at), submittedAt: iso(at), updatedAt: iso(at),
@@ -273,8 +365,7 @@ async function seed({ db, auth }) {
 
   // Announcements, messages, notifications, company emails
   const announce = async (title, message, n) => db.collection('announcements').add({ coordinatorId, sectionId, title, message, createdAt: iso(daysAgo(n)), emailRecipients: {} });
-  await announce('Orientation for deployed interns', 'All deployed interns must attend the online check-in this Friday at 4:00 PM. The link is in our group chat.', 5);
-  await announce('Requirement deadline reminder', 'Please upload your remaining Pre-OJT requirements before the deadline. Contact me if you have problems with your documents.', 1);
+  for (const [title, body, n] of D.announcements) await announce(title, body, n);
   const message = async (studentUid, studentName, fromStudent, body, n) => {
     const participantIds = [studentUid, coordinatorId].sort();
     await db.collection('messages').add({ conversationId: participantIds.join('__'), participantIds, studentId: studentUid, coordinatorId,
@@ -282,14 +373,11 @@ async function seed({ db, auth }) {
       recipientId: fromStudent ? coordinatorId : studentUid, recipientRole: fromStudent ? 'coordinator' : 'student', recipientName: fromStudent ? `${COORDINATOR.firstName} ${COORDINATOR.lastName}` : studentName,
       body, message: body, read: !fromStudent || n > 1, createdAt: iso(daysAgo(n, 10 + n)), type: 'direct_message' });
   };
-  await message('roster-26200004', 'Christian Torres', true, 'Good morning Ma\'am, where can I get the parental waiver notarized?', 2);
-  await message('roster-26200004', 'Christian Torres', false, 'Any notary public near the school works. Upload the notarized copy once it is ready.', 1);
-  await message('roster-26200010', 'Daniel Estrada', true, 'Ma\'am, I was absent on Monday because I was sick. Should I send a medical certificate?', 0);
-  await message('roster-26200009', 'Alyssa Manalo', true, 'Thank you for approving my journals, Ma\'am!', 3);
+  for (const [uidNo, name, fromStudent, body, n] of D.messages) await message(`roster-${uidNo}`, name, fromStudent, body, n);
   const notice = async (title, msg, type, n) => db.collection('notifications').add({ ...require('./coordinatorInbox').inboxFields({ title, message: msg, type }),
     recipientId: coordinatorId, title, message: msg, type, read: false, createdAt: iso(daysAgo(n)) });
-  await notice('Company placement request', 'Fernandez, Andrea submitted a company placement for review.', 'placement', 2);
-  await notice('Final review submitted', 'Ocampo, Danica submitted a pre-deployment package for review.', 'review', 1);
+  for (const [title, msg, type, n] of D.notices) await notice(title, msg, type, n);
+  if (D.key === 'ccs') {
   await db.collection('companyEmails').doc(`demo-email-1`).set({ gmailId: 'demo-email-1', from: 'Engr. Ramon dela Cruz', fromEmail: COMPANIES[0].supervisorEmail,
     subject: 'Schedule change for Adrian and Alyssa', text: 'Good day Ma\'am Santos,\n\nOur office will be closed next Monday for maintenance. Can Adrian and Alyssa render their hours on Saturday instead? Please confirm so we can prepare their access cards.\n\nThank you,\nRamon',
     receivedAt: iso(daysAgo(0, 9)), attachments: [], companyIds: [companyIds.lapu], companyName: COMPANIES[0].name, studentIds: ['roster-26200008', 'roster-26200009', 'roster-26200014'],
@@ -301,7 +389,8 @@ async function seed({ db, auth }) {
     studentNames: ['Estrada, Daniel', 'Sorio, Erica'], sectionIds: [sectionId], coordinatorIds: [coordinatorId], matched: true,
     summary: 'The supervisor reports Daniel was late several times and absent twice this week, though his work is good.', action: 'Talk to Daniel about his attendance.', readBy: [coordinatorId], createdAt: now });
 
-  return { wipedStudents: wiped.students, coordinator: COORDINATOR.email, coordinatorPassword: COORDINATOR.password, section: SECTION.name,
+  }
+  return { department: DEPARTMENT, coordinator: COORDINATOR.email, coordinatorPassword: COORDINATOR.password, section: SECTION.name,
     students: STUDENTS.length, studentPassword: STUDENT_PASSWORD, companies: COMPANIES.map(c => c.name) };
 }
 

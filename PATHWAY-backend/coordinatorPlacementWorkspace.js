@@ -80,7 +80,7 @@ function createPlacementWorkspaceHandler({adminDb,allowRate}){
     if(anchorId){const a=await adminDb.collection('companies').doc(anchorId).get();if(!a.exists)throw Object.assign(Error('Invalid company cursor.'),{status:400});q=q.startAfter(a);}
     const page=await q.limit(size+1).get();const companies=[];
     for(const d of page.docs.slice(0,size)){
-     const c=d.data();const active=c.active!==false&&c.status!=='inactive';if(term&&!String(c.name||'').toLowerCase().includes(term))continue;if(availability!=='all'&&!active)continue;
+     const c=d.data();if(c.department!==department)continue;const active=c.active!==false&&c.status!=='inactive';if(term&&!String(c.name||'').toLowerCase().includes(term))continue;if(availability!=='all'&&!active)continue;
      const [occupiedSlots,assignedCount]=await Promise.all([count(adminDb.collection('users').where('role','==','student').where('placementStatus','==','approved').where('companyId','==',d.id)),count(users.where('placementStatus','==','approved').where('companyId','==',d.id))]);
      const capacity=Number.isSafeInteger(c.capacity)&&c.capacity>=0?c.capacity:null;const availableSlots=capacity===null?null:Math.max(0,capacity-occupiedSlots);if(availability==='slots'&&(availableSlots===null||availableSlots<=0))continue;
      companies.push({id:d.id,name:text(c.name),industry:text(c.industry),address:text(c.address),email:text(c.email),phone:text(c.phone),active,capacity,occupiedSlots,availableSlots,assignedCount,placementDefaults:c.placementDefaults});

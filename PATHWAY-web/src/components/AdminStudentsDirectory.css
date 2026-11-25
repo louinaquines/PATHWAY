@@ -78,3 +78,7 @@ a.asd-more { display: inline-flex; align-items: center; text-decoration: none; }
 /* Directory screens sit straight on the page background, like Students. */
 .admin-page .admin-coordinators-page, .admin-page .admin-companies-screen { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important; }
 .asd-select select, .asd-filter select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important; background-repeat: no-repeat !important; background-position: right 12px center !important; background-size: 12px !important; }
+/* Drawer content keeps its natural height and the drawer scrolls, instead of squashing lists. */
+.asd-drawer > * { flex-shrink: 0; }
+.asd-dl { overflow: visible; }
+.asd-dl div:first-child { border-radius: 12px 12px 0 0; } .asd-dl div:last-child { border-radius: 0 0 12px 12px; }

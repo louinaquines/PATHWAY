@@ -55,6 +55,7 @@ import './CoordinatorSidebar.css';
 import SuccessHost from '../components/SuccessHost';
 import { TermPicker } from '../components/TermManager';
 import { quietly, showSuccess, showToast, showNotice } from '../successFx';
+import CoordinatorProfile from '../components/CoordinatorProfile';
 import { ListSkeleton, SplitSkeleton, SectionsSkeleton, ProgressSkeleton } from '../components/CoordSkeletons';
 
 const PRE_OJT_IDS = ['application_form', 'updated_resume', 'medical_certificate', 'endorsement_letter', 'signed_moa'];
@@ -675,11 +676,13 @@ export default function CoordinatorDashboard() {
             : <ListSkeleton label="Loading" chips={3} />
         ) : activeTab === 'profile' ? (
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
-            <CoordinatorProfileTab
+            <CoordinatorProfile
               coordinator={coordinatorProfile}
-              sectionsCount={sections.length}
-              studentsCount={students.length}
+              sections={sections}
+              activeTerm={(dashTerms.find(t => t.isActive) || {}).name || ''}
               onSaved={fetchInitialData}
+              onGo={setActiveTab}
+              onOpenSection={section => { fetchStudents(section); setActiveTab('overview'); }}
             />
           </div>
         ) : (
@@ -916,216 +919,6 @@ export default function CoordinatorDashboard() {
   );
 }
 
-function CoordinatorProfileTab({ coordinator, sectionsCount = 0, studentsCount = 0, onSaved }) {
-  const authName = auth.currentUser?.displayName || '';
-  const authNameParts = authName.trim().split(/\s+/).filter(Boolean);
-  const authFirstName = authNameParts[0] || 'OJT';
-  const authLastName = authNameParts.slice(1).join(' ') || 'Coordinator';
-  const [form, setForm] = useState({
-    firstName: coordinator?.firstName || authFirstName,
-    lastName: coordinator?.lastName || authLastName,
-    phone: coordinator?.phone || '',
-  });
-  const [status, setStatus] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setForm({
-      firstName: coordinator?.firstName || authFirstName,
-      lastName: coordinator?.lastName || authLastName,
-      phone: coordinator?.phone || '',
-    });
-  }, [coordinator, authFirstName, authLastName]);
-
-  const save = async event => {
-    event.preventDefault();
-    if (!auth.currentUser) return;
-    setSaving(true);
-    setStatus(null);
-    try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        phone: form.phone.trim(),
-      });
-      setStatus({ type: 'success', message: 'Coordinator profile updated successfully!' });
-      onSaved?.();
-    } catch (error) {
-      console.error(error);
-      setStatus({ type: 'error', message: error.message || 'Could not update your profile.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const displayName = [form.firstName, form.lastName].filter(Boolean).join(' ') || 'OJT Coordinator';
-  const initials = ((form.firstName?.[0] || '') + (form.lastName?.[0] || 'C')).toUpperCase().slice(0, 2);
-  const departmentName = coordinator?.department || 'Not Assigned';
-
-  return (
-    <div className="admin-profile-container coordinator-profile-container">
-      {/* Hero Banner */}
-      <div className="admin-profile-hero">
-        <div className="admin-profile-hero-left">
-          <div className="admin-profile-hero-avatar-wrap">
-            <div className="admin-profile-hero-avatar">
-              {initials}
-            </div>
-          </div>
-          <div className="admin-profile-hero-details">
-            <h2>{displayName}</h2>
-            <div className="admin-profile-hero-meta">
-              <span className="admin-profile-tag admin-profile-tag-role">
-                <Icon name="userCheck" size={13} />
-                OJT Coordinator
-              </span>
-              <span className="admin-profile-tag admin-profile-tag-status">
-                <Icon name="check" size={12} />
-                Active Account
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--slate-500)', marginLeft: 4 }}>
-                {auth.currentUser?.email || 'Unavailable'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Alert Banner */}
-      {status && (
-        <div role={status.type === 'error' ? 'alert' : 'status'} className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
-          <Icon name={status.type === 'error' ? 'x' : 'check'} size={16} />
-          <span>{status.message}</span>
-        </div>
-      )}
-
-      {/* Personal & Contact Information Card */}
-      <form className="admin-profile-card" onSubmit={save}>
-        <div className="admin-profile-card-header">
-          <div>
-            <div className="admin-profile-card-title">
-              <Icon name="user" size={18} />
-              Personal details
-            </div>
-            <div className="admin-profile-card-subtitle">
-              Update your name and contact details visible to students and administrators.
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-profile-grid">
-          <div className="admin-profile-field">
-            <label htmlFor="coordinator-first-name" className="admin-profile-label">First name</label>
-            <input
-              id="coordinator-first-name"
-              className="admin-profile-input"
-              value={form.firstName}
-              onChange={e => setForm({ ...form, firstName: e.target.value })}
-              placeholder="e.g. Maria"
-              required
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label htmlFor="coordinator-last-name" className="admin-profile-label">Last name</label>
-            <input
-              id="coordinator-last-name"
-              className="admin-profile-input"
-              value={form.lastName}
-              onChange={e => setForm({ ...form, lastName: e.target.value })}
-              placeholder="e.g. Santos"
-              required
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label htmlFor="coordinator-email" className="admin-profile-label">Email · read only</label>
-            <input
-              id="coordinator-email"
-              className="admin-profile-input admin-profile-input-readonly"
-              value={auth.currentUser?.email || ''}
-              disabled
-              title="Contact your system administrator to change your email."
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label htmlFor="coordinator-department" className="admin-profile-label">Department · read only</label>
-            <input
-              id="coordinator-department"
-              className="admin-profile-input admin-profile-input-readonly"
-              value={departmentName}
-              disabled
-              title="Department assignments are managed by System Administrator"
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label htmlFor="coordinator-phone" className="admin-profile-label">Phone number (optional)</label>
-            <input
-              id="coordinator-phone"
-              type="tel"
-              className="admin-profile-input"
-              value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
-              placeholder="e.g. +63 912 345 6789"
-            />
-          </div>
-        </div>
-
-        <div className="admin-profile-actions">
-          <button type="submit" className="admin-profile-save-btn" disabled={saving}>
-            <Icon name="check" size={15} />
-            {saving ? 'Saving changes...' : 'Save Changes'}
-          </button>
-        </div>
-      </form>
-
-      {/* Coordinator Scope & Access Overview Card */}
-      <div className="admin-profile-card">
-        <div className="admin-profile-card-header">
-          <div>
-            <div className="admin-profile-card-title">
-              <Icon name="shield" size={18} />
-              Your assignments
-            </div>
-            <div className="admin-profile-card-subtitle">
-              Summary of assigned department, sections, and operational permissions.
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-profile-security-grid">
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Assigned college or department</span>
-            <span className="admin-profile-security-item-val" style={{ color: 'var(--sky-800)' }}>
-              {departmentName}
-            </span>
-          </div>
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Assigned sections</span>
-            <span className="admin-profile-security-item-val">
-              {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
-            </span>
-          </div>
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Students in selected section</span>
-            <span className="admin-profile-security-item-val">
-              {studentsCount} {studentsCount === 1 ? 'Student' : 'Students'}
-            </span>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--slate-100)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name="clipboard" size={16} style={{ color: 'var(--sky-600)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: 'var(--slate-600)' }}>
-            You have full coordinator access to review pre-OJT requirements, approve weekly logbooks, verify evaluations, and monitor student clearances for <strong>{departmentName}</strong>.
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const s = {
   page: {

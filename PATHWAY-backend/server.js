@@ -2089,7 +2089,7 @@ const AUDIT_ACTIONS = new Set([
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'evaluation.email_unknown',
+  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'coordinator.password_changed', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
@@ -2673,6 +2673,17 @@ app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) =>
     console.error(error);
     return res.status(500).json({ error: 'Could not update company.' });
   }
+});
+
+// The password itself is changed by Firebase Auth in the browser; this only records it.
+app.post('/coordinator/password-changed', requireStaff, async (req, res) => {
+  if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
+  if (!allowRate(req, res, { limit: 10, windowMs: 60 * 60_000, key: request => `password-changed:${request.staff.uid}` })) return;
+  try {
+    await adminDb.runTransaction(async transaction => writeAuditInTransaction(transaction, {
+      actorId: req.staff.uid, actorRole: 'coordinator', action: 'coordinator.password_changed', targetType: 'users', targetId: req.staff.uid }));
+    return res.json({ success: true });
+  } catch (error) { console.error(error); return res.status(500).json({ error: 'Could not record the password change.' }); }
 });
 
 app.get('/admin/academic-terms', requireAdmin, async (req, res) => {

@@ -2681,8 +2681,11 @@ app.post('/coordinator/password-changed', requireStaff, async (req, res) => {
   if (req.staff.role !== 'coordinator') return res.status(403).json({ error: 'Coordinator access required.' });
   if (!allowRate(req, res, { limit: 10, windowMs: 60 * 60_000, key: request => `password-changed:${request.staff.uid}` })) return;
   try {
-    await adminDb.runTransaction(async transaction => writeAuditInTransaction(transaction, {
-      actorId: req.staff.uid, actorRole: 'coordinator', action: 'coordinator.password_changed', targetType: 'users', targetId: req.staff.uid }));
+    await adminDb.runTransaction(async transaction => {
+      transaction.update(adminDb.collection('users').doc(req.staff.uid), { mustChangePassword: false, passwordChangedAt: new Date().toISOString() });
+      writeAuditInTransaction(transaction, {
+        actorId: req.staff.uid, actorRole: 'coordinator', action: 'coordinator.password_changed', targetType: 'users', targetId: req.staff.uid });
+    });
     return res.json({ success: true });
   } catch (error) { console.error(error); return res.status(500).json({ error: 'Could not record the password change.' }); }
 });
@@ -3029,27 +3032,52 @@ app.post('/refine-logbook', requireUser, async (req, res) => {
 
 app.post('/create-coordinator', requireStaff, async (req, res) => {
   if (req.staff.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
-  const { firstName, lastName, email, password, department } = req.body;
-  if (!firstName || !lastName || !email || !password || !department)
-    return res.status(400).json({ error: 'All fields required' });
+  const text = (v, max) => typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, max) : '';
+  const firstName = text(req.body?.firstName, 60), lastName = text(req.body?.lastName, 60), department = text(req.body?.department, 200);
+  const email = text(req.body?.email, 254).toLowerCase(), password = typeof req.body?.password === 'string' ? req.body.password : '';
+  const sectionIds = Array.isArray(req.body?.sectionIds) ? [...new Set(req.body.sectionIds)].filter(id => typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id)).slice(0, 50) : [];
+  if (!firstName || !lastName || !email || !department) return res.status(400).json({ error: 'Fill in every field.', field: 'form' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'Enter a valid email address.', field: 'email' });
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    return res.status(400).json({ error: 'Use 8+ characters with an uppercase letter and a special character.', field: 'password' });
+  }
+  let user;
   try {
-    const existing = await adminDb.collection('users')
-      .where('role', '==', 'coordinator')
-      .where('department', '==', department)
-      .get();
-    if (!existing.empty)
-      return res.status(400).json({ error: 'This department already has a coordinator.' });
-    const user = await adminAuth.createUser({ email, password });
-    await adminDb.collection('users').doc(user.uid).set({
-      uid: user.uid, email, firstName, lastName,
-      role: 'coordinator', department, accountApproved: true,
-      createdAt: new Date().toISOString(),
+    // Only sections in this department whose coordinator is missing or inactive may be assigned.
+    const sectionRefs = [];
+    for (const id of sectionIds) {
+      const snap = await adminDb.collection('sections').doc(id).get();
+      if (!snap.exists || snap.data().department !== department) return res.status(400).json({ error: 'Choose sections from the same department.', field: 'sections' });
+      const current = snap.data().coordinatorId ? await adminDb.collection('users').doc(snap.data().coordinatorId).get() : null;
+      if (current?.exists && current.data().role === 'coordinator' && current.data().accountApproved !== false) {
+        return res.status(409).json({ error: `${snap.data().name || 'A section'} already has a coordinator.`, field: 'sections' });
+      }
+      sectionRefs.push(snap.ref);
+    }
+    try { user = await adminAuth.createUser({ email, password, displayName: `${firstName} ${lastName}` }); }
+    catch (e) {
+      if (e.code === 'auth/email-already-exists') return res.status(409).json({ error: 'An account with this email already exists.', field: 'email' });
+      if (e.code === 'auth/invalid-email') return res.status(400).json({ error: 'Enter a valid email address.', field: 'email' });
+      throw e;
+    }
+    const now = new Date().toISOString();
+    await adminDb.runTransaction(async tx => {
+      tx.set(adminDb.collection('users').doc(user.uid), { uid: user.uid, email, firstName, lastName, role: 'coordinator', department,
+        accountApproved: true, mustChangePassword: true, createdAt: now, createdBy: req.staff.uid });
+      sectionRefs.forEach(ref => tx.update(ref, { coordinatorId: user.uid }));
+      writeAuditInTransaction(tx, { actorId: req.staff.uid, actorRole: req.staff.role, action: 'coordinator.created', targetType: 'users', targetId: user.uid,
+        details: { department, email, sections: sectionRefs.length } });
     });
-    await recordAudit({ actorId: req.staff.uid, actorRole: req.staff.role, action: 'coordinator.created', targetType: 'users', targetId: user.uid, details: { department, email } });
-    res.json({ success: true, uid: user.uid });
+    if (sectionRefs.length) {
+      const students = await Promise.all(sectionRefs.map(ref => adminDb.collection('users').where('sectionId', '==', ref.id).get()));
+      const docs = students.flatMap(q => q.docs).filter(d => d.data().role === 'student');
+      for (let i = 0; i < docs.length; i += 400) { const batch = adminDb.batch(); docs.slice(i, i + 400).forEach(d => batch.update(d.ref, { coordinatorId: user.uid })); await batch.commit(); }
+    }
+    return res.json({ success: true, uid: user.uid, sections: sectionRefs.length });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: e.message });
+    console.error('Create coordinator failed:', e.code || e.message);
+    if (user) await adminAuth.deleteUser(user.uid).catch(() => {});
+    return res.status(500).json({ error: 'The coordinator could not be created. Try again.' });
   }
 });
 const port = Number(process.env.PORT || 3000);

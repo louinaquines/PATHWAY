@@ -49,7 +49,7 @@ test('create coordinator form has labeled fields and a password visibility contr
   fireEvent.click(await screen.findByRole('button', { name: /^Coordinators/ }));
   fireEvent.click(screen.getByRole('button', { name: /Create coordinator/i }));
   expect(screen.getByLabelText('First name')).toBeRequired();
-  expect(screen.getByLabelText('Assigned department')).toBeRequired();
+  expect(screen.getByLabelText('Department')).toBeRequired();
   const password = screen.getByLabelText('Initial password');
   expect(password).toHaveAttribute('type', 'password');
   fireEvent.click(screen.getByRole('button', { name: 'Show password' }));

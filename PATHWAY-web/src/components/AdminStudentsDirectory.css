@@ -82,3 +82,27 @@ a.asd-more { display: inline-flex; align-items: center; text-decoration: none; }
 .asd-drawer > * { flex-shrink: 0; }
 .asd-dl { overflow: visible; }
 .asd-dl div:first-child { border-radius: 12px 12px 0 0; } .asd-dl div:last-child { border-radius: 0 0 12px 12px; }
+.ccp-form { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.ccp-form > * { flex-shrink: 0; }
+.ccp-form h3 { margin: 10px 0 0; }
+.ccp-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: #334155; }
+.ccp-form input:not([type='checkbox']), .ccp-select select { height: 42px; padding: 0 12px; border: 1px solid #d6deea; border-radius: 12px; font: inherit; font-size: 14px; color: #15213a; background-color: #fff; width: 100%; box-sizing: border-box; }
+.ccp-form input:focus, .ccp-select select:focus { outline: 0; border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.15); }
+.ccp-form input[aria-invalid='true'] { border-color: #dc2626; }
+.ccp-form em { font-style: normal; font-size: 12px; font-weight: 500; color: #b91c1c; }
+.ccp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ccp-pass { display: flex; align-items: center; border: 1px solid #d6deea; border-radius: 12px; padding-right: 4px; }
+.ccp-pass:focus-within { border-color: #0b5fd3; box-shadow: 0 0 0 3px rgba(11,95,211,.15); }
+.ccp-pass input { border: 0 !important; box-shadow: none !important; flex: 1; min-width: 0; }
+.ccp-pass button { height: 34px; min-width: 34px; border: 0; border-radius: 8px; background: transparent; color: #64748b; cursor: pointer; display: grid; place-items: center; }
+.ccp-pass button:hover:not(:disabled) { background: #eef3fb; color: #0b5fd3; }
+.ccp-pass .ccp-gen { padding: 0 10px; font: inherit; font-size: 12px; font-weight: 700; color: #0b5fd3; background: #eef3fb; }
+.ccp-rules { margin: -4px 0 0 !important; }
+.ccp-select { margin: 0 !important; }
+.ccp-sections { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid #eef1f6; border-radius: 12px; font-size: 13px; }
+.ccp-sections > span { font-weight: 600; color: #334155; } .ccp-sections small { color: #94a3b8; font-weight: 500; }
+.ccp-check { display: flex !important; align-items: center; gap: 8px; font-weight: 500 !important; }
+.ccp-check input { width: 16px; height: 16px; accent-color: #0b5fd3; }
+.ccp-mono { font-family: ui-monospace, Consolas, monospace; }
+.ccp .asd-big { background: #e6efff; }
+@media (max-width: 480px) { .ccp-row { grid-template-columns: 1fr; } }

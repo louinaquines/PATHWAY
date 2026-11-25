@@ -129,12 +129,12 @@ export default function CoordinatorProfile({ coordinator, sections = [], activeT
         </ul>}
       </section>
 
-      <PasswordCard lastSignIn={lastSignIn} />
+      <PasswordCard lastSignIn={lastSignIn} required={!!coordinator?.mustChangePassword} onChanged={onSaved} />
     </div>
   </div>;
 }
 
-function PasswordCard({ lastSignIn }) {
+function PasswordCard({ lastSignIn, required, onChanged }) {
   const empty = { current: '', next: '', confirm: '' };
   const [form, setForm] = useState(empty);
   const [error, setError] = useState('');
@@ -153,7 +153,8 @@ function PasswordCard({ lastSignIn }) {
     try {
       await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, form.current));
       await updatePassword(user, form.next);
-      adminRequest('/coordinator/password-changed', { method: 'POST' }).catch(() => {});
+      await adminRequest('/coordinator/password-changed', { method: 'POST' }).catch(() => {});
+      onChanged?.();
       setForm(empty);
       showToast('Password changed', 'Use your new password next time you sign in.');
     } catch (err) {
@@ -162,7 +163,8 @@ function PasswordCard({ lastSignIn }) {
     } finally { setBusy(false); }
   };
 
-  return <form className="cpf-card" onSubmit={submit} noValidate>
+  return <form className="cpf-card" id="cpf-security" onSubmit={submit} noValidate>
+    {required && <p className="cpf-required" role="alert">Change the initial password your administrator gave you before using the portal.</p>}
     <header className="cpf-head"><h3>Security</h3><p>{lastSignIn ? `Last signed in ${new Date(lastSignIn).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'Change the password you use to sign in.'}</p></header>
     <div className="cpf-grid">
       <label>Current password<input type="password" autoComplete="current-password" value={form.current} onChange={e => setForm({ ...form, current: e.target.value })} /></label>

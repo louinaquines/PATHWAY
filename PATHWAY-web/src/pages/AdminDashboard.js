@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SystemSettingsTab from './SystemSettingsTab';
 import AcademicTermsTab from './AcademicTermsTab';
 import AuditLogsTab from './AuditLogsTab';
+import CreateCoordinatorPanel from '../components/CreateCoordinatorPanel';
 import AdminCoordinatorsDirectory from '../components/AdminCoordinatorsDirectory';
 import AdminStudentsDirectory from '../components/AdminStudentsDirectory';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
@@ -25,7 +26,7 @@ import { PageSkeleton } from '../components/LoadingSkeleton';
 import { setPageMetadata } from '../pageMetadata';
 import './AdminOverview.css';
 import AlertDialog from '../components/AlertDialog';
-import { PortalError, PortalEmpty, PortalFormDialog } from '../components/PortalStates';
+import { PortalError, PortalEmpty } from '../components/PortalStates';
 import './AdminStudents.css';
 import './AdminDirectories.css';
 import './CreateCoordinator.css';
@@ -596,9 +597,14 @@ export default function AdminDashboard() {
             )}
 
             {/* SECTIONS */}
-            {activeTab === 'create' && <PortalFormDialog className="admin-create-drawer" label="Create coordinator" onCancel={() => setActiveTab('coordinators')}>
-              <CreateCoordinatorTab onCreated={fetchAll} onCancel={() => setActiveTab('coordinators')} />
-            </PortalFormDialog>}
+            {activeTab === 'create' && <CreateCoordinatorPanel
+              departments={[...new Set([...DEPARTMENTS, ...departments])].sort()}
+              sections={sections}
+              coordinators={coordinators}
+              onCancel={() => setActiveTab('coordinators')}
+              onCreated={() => fetchAll({ silent: true })}
+              onOpen={uid => navigate('/admin/coordinators?coordinator=' + encodeURIComponent(uid))}
+            />}
             {activeTab === 'companies' && <div className="admin-companies-screen"><CompanyDirectoryTab readOnly adminStudents={students} adminSections={sections} adminDepartments={[...new Set([...DEPARTMENTS, ...departments])].sort()} /></div>}
             {activeTab === 'terms' && <AcademicTermsTab />}
             {activeTab === 'settings' && <SystemSettingsTab />}
@@ -828,155 +834,6 @@ function AdminProfileTab({ admin, onSaved }) {
             Account removal is disabled here to prevent orphaning the Firebase sign-in account. Contact the system owner for a coordinated account deprovisioning.
           </p>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function CreateCoordinatorTab({ onCreated, onCancel }) {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', department: '' });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
-  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000';
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    if (!form.firstName || !form.lastName || !form.email || !form.password || !form.department) {
-      setError('All fields are required.');
-      return;
-    }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const res = await fetch(`${BACKEND_URL}/create-coordinator`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to create account.');
-        return;
-      }
-      setSuccess(`Coordinator account created successfully for ${form.firstName} ${form.lastName}!`);
-      setForm({ firstName: '', lastName: '', email: '', password: '', department: '' });
-      setShowPassword(false);
-      if (onCreated) onCreated();
-    } catch (e) {
-      setError('Could not reach backend server. Please verify the backend service is running.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div style={s.tabContent} className="admin-create-coordinator">
-      <h2 style={s.subTitle}>Create coordinator</h2>
-      <p style={s.subText}>
-        Set up a faculty account and assign its department.
-      </p>
-
-      {error && <div role="alert" style={s.errorBox}>{error}</div>}
-      {success && <div role="status" style={s.successBox}>{success}</div>}
-
-      <div className="create-coordinator-layout">
-      <form onSubmit={handleCreate} style={s.createForm} className="create-coordinator-form">
-        <div className="create-coordinator-form-heading"><span className="admin-stat-icon" data-tone="teal"><Icon name="user" size={20} /></span><div><h3>Account details</h3><p>All fields are required.</p></div></div>
-        <div style={s.formRow} className="create-coordinator-name-row">
-          <div style={s.formGroup}>
-            <label style={s.label} htmlFor="coordinator-first-name">First name</label>
-            <input
-              id="coordinator-first-name" autoComplete="given-name"
-              style={s.input}
-              placeholder="Juan"
-              value={form.firstName}
-              onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-              disabled={loading}
-              required
-            />
-          </div>
-          <div style={s.formGroup}>
-            <label style={s.label} htmlFor="coordinator-last-name">Last name</label>
-            <input
-              id="coordinator-last-name" autoComplete="family-name"
-              style={s.input}
-              placeholder="Dela Cruz"
-              value={form.lastName}
-              onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-              disabled={loading}
-              required
-            />
-          </div>
-        </div>
-
-        <div style={s.formGroup}>
-          <label style={s.label} htmlFor="coordinator-email">Email address</label>
-          <input
-            id="coordinator-email" autoComplete="email"
-            style={s.input}
-            type="email"
-            placeholder="coordinator@uclm.edu.ph"
-            value={form.email}
-            onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-            disabled={loading}
-            required
-          />
-        </div>
-
-        <div style={s.formGroup}>
-          <label style={s.label} htmlFor="coordinator-password">Initial password</label>
-          <div className="create-coordinator-password">
-          <input
-            id="coordinator-password" autoComplete="new-password" minLength={6} aria-describedby="coordinator-password-help"
-            style={s.input}
-            type={showPassword ? 'text' : 'password'}
-            placeholder="Enter an initial password"
-            value={form.password}
-            onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-            disabled={loading}
-            required
-          />
-          <button type="button" className="create-coordinator-password-toggle" disabled={loading} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3l18 18" /><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>}</button>
-          </div>
-          <small id="coordinator-password-help">Use at least 6 characters. Share credentials securely.</small>
-        </div>
-
-        <div style={s.formGroup}>
-          <label style={s.label} htmlFor="coordinator-department">Assigned department</label>
-          <select
-            id="coordinator-department"
-            style={s.select}
-            value={form.department}
-            onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-            disabled={loading}
-            required
-          >
-            <option value="">Select college / department...</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        <div className="admin-drawer-footer">
-          <button type="button" className="portal-secondary" onClick={onCancel} disabled={loading}>Cancel</button>
-        <button
-          type="submit" className="create-coordinator-submit"
-          style={{ ...s.createBtn, opacity: loading ? 0.7 : 1 }}
-          disabled={loading}
-        >
-          {loading ? 'Creating account…' : 'Create coordinator account'}
-        </button>
-        </div>
-      </form>
-      <aside className="create-coordinator-guide"><div className="create-coordinator-guide-icon"><Icon name="shield" size={22} /></div><h3>Coordinator access</h3><p>This account is for faculty responsible for the assigned department.</p><div><h4>Student management</h4><p>Manage authorized class lists, student requirements, and logbooks.</p></div><div><h4>Placement oversight</h4><p>Manage partner companies, placements, and evaluation requests.</p></div><div><h4>Before creating</h4><p>Confirm the faculty member’s email and department. Provide the initial password through a secure channel.</p></div></aside>
       </div>
     </div>
   );

@@ -59,3 +59,4 @@
   .cpf-grid, .cpf-locked { grid-template-columns: 1fr; }
   .cpf-grid > span { display: none; }
 }
+.cpf-required { margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 600; }

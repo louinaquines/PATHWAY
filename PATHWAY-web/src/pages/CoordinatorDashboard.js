@@ -257,6 +257,10 @@ export default function CoordinatorDashboard() {
     if (options.isCurrent() && selectedSection) await fetchStudents(selectedSection, options);
   }, { enabled: !loading && !saving && activeTab !== 'profile', scope: coordinatorId + ':' + activeTab + ':' + (selectedSection?.id || '') });
 
+  // New coordinators must replace the initial password before using the portal.
+  useEffect(() => {
+    if (coordinatorProfile?.mustChangePassword && activeTab !== 'profile') navigate('/coordinator/profile', { replace: true });
+  }, [coordinatorProfile?.mustChangePassword, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [dashTerms, setDashTerms] = useState([]);
   const [dashTerm, setDashTerm] = useState(null);
   useEffect(() => {

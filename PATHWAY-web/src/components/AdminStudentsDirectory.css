@@ -106,3 +106,4 @@ a.asd-more { display: inline-flex; align-items: center; text-decoration: none; }
 .ccp-mono { font-family: ui-monospace, Consolas, monospace; }
 .ccp .asd-big { background: #e6efff; }
 @media (max-width: 480px) { .ccp-row { grid-template-columns: 1fr; } }
+.asd-overlay { font-family: 'Segoe UI', Arial, sans-serif; }

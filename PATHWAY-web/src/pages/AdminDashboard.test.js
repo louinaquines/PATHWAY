@@ -71,7 +71,7 @@ test('failed activation displays the server error without marking the student ac
     .mockResolvedValueOnce({ docs: [] });
   adminRequest.mockRejectedValueOnce(new Error('Account update denied'));
   render(<AdminDashboard />, '/admin/students');
-  fireEvent.click(await screen.findByRole('button', { name: 'Restore access' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Actions for Student, Test' }));
   const dialog = await screen.findByRole('alertdialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restore access' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Account update denied');
@@ -97,7 +97,6 @@ test('overview and student directory share department scope, with sections insid
   fireEvent.change(screen.getByLabelText('Filter by section'), { target: { value: 'e1' } });
   expect(screen.getByText('Alice')).toBeInTheDocument();
   expect(screen.queryByText('Ben')).not.toBeInTheDocument();
-  expect(screen.getByText('250 hrs')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Filter by department'), { target: { value: '' } });
   expect(screen.getByText('Cara')).toBeInTheDocument();
 });
@@ -108,9 +107,8 @@ test('student URL opens directly and deactivation requires a named confirmation'
   }) }] }).mockResolvedValueOnce({ docs: [] });
   render(<AdminDashboard />, '/admin/students');
   expect(await screen.findByRole('heading', { name: 'Student Accounts' })).toBeInTheDocument();
-  fireEvent.click(await screen.findByLabelText('Actions for Taylor Student'));
-  fireEvent.click(screen.getByRole('button', { name: 'Deactivate account' }));
-  expect(screen.getByRole('alertdialog')).toHaveTextContent('Taylor Student');
+  fireEvent.click(await screen.findByLabelText('Actions for Student, Taylor'));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent('Student, Taylor');
   expect(adminRequest).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(screen.getByRole('button', { name: 'System Overview' }));
@@ -126,11 +124,11 @@ test('large student directory pages rendered rows while search reaches the full 
   }) }));
   getDocs.mockResolvedValueOnce({ docs: rows }).mockResolvedValueOnce({ docs: [] });
   render(<AdminDashboard />, '/admin/students');
-  await screen.findByText('Student 0000');
-  expect(screen.getAllByRole('row')).toHaveLength(26);
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-  expect(screen.getByText('Student 0025')).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Search accounts'), { target: { value: 'ID-1002' } });
-  expect(screen.getByText('Student 1002')).toBeInTheDocument();
+  await screen.findByText('0000, Student');
+  expect(screen.getAllByRole('row')).toHaveLength(11);
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  expect(screen.getByText('0010, Student')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Search students'), { target: { value: 'ID-1002' } });
+  expect(screen.getByText('1002, Student')).toBeInTheDocument();
   expect(screen.getAllByRole('row')).toHaveLength(2);
 });

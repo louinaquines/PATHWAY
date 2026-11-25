@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SystemSettingsTab from './SystemSettingsTab';
 import AcademicTermsTab from './AcademicTermsTab';
 import AuditLogsTab from './AuditLogsTab';
+import AdminStudentsDirectory from '../components/AdminStudentsDirectory';
 import CompanyDirectoryTab from './CompanyDirectoryTab';
 import { adminRequest } from '../adminApi';
 import PathwayLogo from '../components/PathwayLogo';
@@ -561,41 +562,19 @@ export default function AdminDashboard() {
             {/* STUDENTS */}
             {activeTab === 'students' && (
               <div style={s.tabContent} className="admin-students-directory">
-                {selectedSection && <p style={s.subText}>
-                  <strong>{selectedSection.name}</strong>
-                  {' · '}<span>{selectedSection.hoursRequired ?? '—'} hrs</span>
-                  {' · Coordinator: '}{sectionCoordinator ? [sectionCoordinator.firstName, sectionCoordinator.lastName].filter(Boolean).join(' ') : 'Unassigned'}
-                </p>}
-                <dl className="admin-stat-cards admin-stat-cards-compact" aria-label="Student summary">
-                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="blue"><Icon name="cap" size={20} /></span><dt>Total students</dt><dd>{directoryStudents.length}</dd></div>
-                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="green"><Icon name="check" size={20} /></span><dt>Active accounts</dt><dd>{directoryStudents.filter(student => student.accountApproved).length}</dd></div>
-                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="amber"><Icon name="clock" size={20} /></span><dt>Suspended accounts</dt><dd>{directoryStudents.filter(student => !student.accountApproved).length}</dd></div>
-                  <div className="admin-stat-card"><span className="admin-stat-icon" data-tone="indigo"><Icon name="section" size={20} /></span><dt>Sections</dt><dd>{selectedSection ? 1 : departmentSections.length}</dd></div>
-                </dl>
-                <UserTable
-                  key={departmentFilter + ':' + sectionFilter}
-                  users={directoryStudents}
+                <AdminStudentsDirectory
+                  students={directoryStudents}
+                  sections={departmentSections}
+                  allSections={sections}
+                  coordinators={coordinators}
+                  departmentPicker={departmentPicker}
+                  departmentFilter={departmentFilter}
+                  sectionFilter={sectionFilter}
+                  onSectionFilter={setSectionFilter}
+                  status={studentStatus}
+                  onStatus={setStudentStatus}
                   saving={saving}
                   onToggle={handleToggleAccount}
-                  showToggle
-                  studentDirectory
-                  directoryFilters={<>
-                  {departmentPicker}
-                  <label style={s.dashboardSelect}>
-                    <span className="sr-only">Filter by section</span>
-                    <select value={sectionFilter} onChange={event => setSectionFilter(event.target.value)}>
-                      <option value="all">All sections</option>
-                      {departmentSections.map(section => <option key={section.id} value={section.id}>
-                        {section.name || section.id}{!departmentFilter && section.department ? ' · ' + section.department : ''}
-                      </option>)}
-                    </select>
-                  </label>
-                  </>}
-                  hideDepartment={Boolean(departmentFilter)}
-                  hideSection={sectionFilter !== 'all'}
-                  studentStatus={studentStatus}
-                  onStudentStatus={setStudentStatus}
-                  sections={sections}
                 />
               </div>
             )}

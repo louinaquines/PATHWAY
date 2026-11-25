@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PageSkeleton } from './LoadingSkeleton';
 import { PortalEmpty, PortalError } from './PortalStates';
 import Icon from './Icons';
+import Pager from './Pager';
 
 const PAGE_SIZE = 10;
 
@@ -84,12 +85,10 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
           })}</tbody>
         </table>
       </div>
-      <nav className="admin-company-pagination admin-table-footer" aria-label="Company pages">
-        <span role="status">Showing {start + 1}–{Math.min(start + PAGE_SIZE, filtered.length)} of {filtered.length} companies</span>
-        <div><button type="button" className="portal-secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
-        <span>Page {currentPage} of {pageCount}</span>
-        <button type="button" className="portal-secondary" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next</button></div>
-      </nav>
+      <div className="portal-record-pagination admin-table-footer">
+        <span role="status">{start + 1}–{Math.min(start + PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+        <Pager page={currentPage} pages={pageCount} label="Company pages" onGo={setPage} />
+      </div>
     </>}
     </div>
   </section>;

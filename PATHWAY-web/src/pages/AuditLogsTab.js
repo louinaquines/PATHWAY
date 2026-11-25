@@ -41,7 +41,7 @@ export default function AuditLogsTab() {
       .includes(search.toLowerCase())
   );
 
-  const recordsPage = useRecordPage(filteredLogs, search);
+  const recordsPage = useRecordPage(filteredLogs, search, 10);
 
   if (loading) {
     return <PageSkeleton label="Loading security audit logs" variant="table" />;
@@ -69,7 +69,6 @@ export default function AuditLogsTab() {
           <span className="admin-count-pill">{filteredLogs.length} of {logs.length} logged events</span>
         </div>
 
-        <RecordPagination pagination={recordsPage} label="Audit events" />
         {filteredLogs.length === 0 ? (
           <PortalEmpty icon="shield" compact title={error ? 'Could not load records' : logs.length ? 'No matching records' : 'No audit records yet'}
             description={error ? 'Audit records could not be loaded. Try Refresh Logs.' : logs.length ? 'No audit records match your query.' : 'Administrative actions will be recorded here.'} />
@@ -131,6 +130,7 @@ export default function AuditLogsTab() {
             </table>
           </div>
         )}
+        <RecordPagination pagination={recordsPage} label="Audit events" />
       </div>
     </div>
   );

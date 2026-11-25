@@ -1315,7 +1315,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
       ))
   );
 
-  const recordsPage = useRecordPage(filtered, search + ':' + statusFilter);
+  const recordsPage = useRecordPage(filtered, search + ':' + statusFilter, 10);
 
   return (
     <div className={studentDirectory ? 'admin-student-records' : coordinatorDirectory ? 'admin-directory-records' : undefined}>
@@ -1344,7 +1344,6 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
       </div>
 
       {studentDirectory && showAccountContact && users.some(user => !user.username) && <p className="admin-missing-usernames">Some accounts have no username recorded. A dash marks the missing value.</p>}
-      <RecordPagination pagination={recordsPage} label="Accounts" />
       <div style={s.tableWrap} className="admin-table-scroll">
         <table style={s.table}>
           <thead>
@@ -1431,6 +1430,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
           </tbody>
         </table>
       </div>
+      <RecordPagination pagination={recordsPage} label="Accounts" />
     </div>
   );
 }

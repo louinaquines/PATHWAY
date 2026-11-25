@@ -328,3 +328,13 @@ html body .admin-page main > div, html body .admin-page main > section { backgro
   .dashboardSearch, .dashboardTools > button, .dashboardTools select) {
   background: #fff !important; -webkit-backdrop-filter: none; backdrop-filter: none;
 }
+
+/* Pagination: same numbered pager as the coordinator portal, blue current page, always under the data. */
+.admin-page .portal-record-pagination { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid #e5eaf2; border-bottom: 0; background: transparent; color: #526174; font-size: 13px; }
+.admin-page .portal-record-pagination > span:first-child { margin-right: auto; }
+.admin-page .pager { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; background: #eef3fb; }
+.admin-page .pager button { min-width: 30px; height: 30px !important; min-height: 30px !important; padding: 0 6px !important; display: inline-grid; place-items: center; border: 0 !important; border-radius: 8px !important; background: transparent !important; box-shadow: none !important; color: #15213a !important; font-family: inherit; font-size: 13px !important; font-weight: 600 !important; font-variant-numeric: tabular-nums; cursor: pointer; }
+.admin-page .pager button:hover:not(:disabled):not([aria-current]) { background: #dde8f8 !important; }
+.admin-page .pager button[aria-current="page"] { background: #0b5fd3 !important; color: #fff !important; }
+.admin-page .pager button:disabled:not([aria-current]) { opacity: .35; cursor: default; }
+.admin-page .pager .pager-arrow { min-width: 28px; color: #465066 !important; }

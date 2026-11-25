@@ -9,22 +9,22 @@ const records = Array.from({ length: 1003 }, (_, index) => 'Record ' + (index + 
 test('large lists render only 25 records and retain a reachable final page', () => {
   render(<List records={records} />);
   expect(screen.getAllByRole('listitem')).toHaveLength(25);
-  for (let i = 0; i < 40; i++) fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  for (let i = 0; i < 40; i++) fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   expect(screen.getAllByRole('listitem')).toHaveLength(3);
   expect(screen.getByText('Record 1003')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
   expect(records).toHaveLength(1003);
 });
 test('search scope resets the page and a shrinking background result stays valid', () => {
   const { rerender } = render(<List records={records} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   expect(screen.getByText('Record 26')).toBeInTheDocument();
   rerender(<List records={records} scope="new section" />);
   expect(screen.getByText('Record 1')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   rerender(<List records={['Only remaining record']} scope="new section" />);
   expect(screen.getByText('Only remaining record')).toBeInTheDocument();
-  expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
 });
 test('evaluation pagination stays compact with ten thousand pages', () => {
   render(<PaginationButtonGroup page={5000} pageCount={10000} onPageChange={() => {}} />);

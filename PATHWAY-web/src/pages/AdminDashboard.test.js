@@ -31,7 +31,7 @@ test('profile shortcut opens labeled fields and saves personal details', async (
   getDocs.mockResolvedValue({ docs: [] });
   updateDoc.mockResolvedValue(undefined);
   render(<AdminDashboard />);
-  await screen.findByText('Recent Student Registrations');
+  await screen.findByText('Recently added students');
   const shortcut = screen.getByRole('button', { name: 'Admin Profile Settings' });
   fireEvent.click(shortcut);
   expect(shortcut).toHaveAttribute('aria-current', 'page');
@@ -63,14 +63,14 @@ test('failed administrator load shows a visible error and allows reload', async 
   render(<AdminDashboard />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not load administrator records');
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await screen.findByText('Recent Student Registrations');
+  await screen.findByText('Recently added students');
 });
 
 test('failed activation displays the server error without marking the student active', async () => {
   getDocs.mockResolvedValueOnce({ docs: [{ id: 'student-1', data: () => ({ role: 'student', firstName: 'Test', lastName: 'Student', accountApproved: false }) }] })
     .mockResolvedValueOnce({ docs: [] });
   adminRequest.mockRejectedValueOnce(new Error('Account update denied'));
-  render(<AdminDashboard />);
+  render(<AdminDashboard />, '/admin/students');
   fireEvent.click(await screen.findByRole('button', { name: 'Restore access' }));
   const dialog = await screen.findByRole('alertdialog');
   fireEvent.click(within(dialog).getByRole('button', { name: 'Restore access' }));

@@ -122,7 +122,7 @@
  .admin-page:has(.admin-company-directory) .sidebar-container:has(.sidebar-nav-scroll[data-mobile-open='false']) .sidebar-footer { display:none; }
 }
 
-.admin-coordinators-directory .coordinator-actions-trigger {
+.admin-page .coordinator-actions-trigger {
   width: 44px;
   height: 44px;
   padding: 0;

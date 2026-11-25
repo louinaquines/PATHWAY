@@ -338,3 +338,23 @@ html body .admin-page main > div, html body .admin-page main > section { backgro
 .admin-page .pager button[aria-current="page"] { background: #0b5fd3 !important; color: #fff !important; }
 .admin-page .pager button:disabled:not([aria-current]) { opacity: .35; cursor: default; }
 .admin-page .pager .pager-arrow { min-width: 28px; color: #465066 !important; }
+
+/* Dashboard search: focus ring on the whole field, not a box inside it. */
+.admin-page .dashboardSearch input, .admin-page .dashboardSearch input:focus, .admin-page .dashboardSearch input:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; background: transparent !important; }
+.admin-page .dashboardSearch:focus-within { border-color: #0b5fd3 !important; box-shadow: 0 0 0 3px rgba(11,95,211,.15) !important; }
+
+/* Recently added students */
+.admin-recent { padding: 22px 24px !important; border-radius: 18px !important; border: 1px solid #e3e8f1 !important; }
+.admin-recent-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.admin-recent-head h2 { margin: 0; font-size: 16px; font-weight: 700; color: #15213a; }
+.admin-recent-head p { margin: 4px 0 0; font-size: 13px; color: #64748b; }
+.admin-recent-all { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 12px; border: 1px solid #d6deea; border-radius: 10px; background: #fff; color: #0b5fd3; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.admin-recent-all:hover { background: #eef3fb; }
+.admin-recent-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-recent-table th { text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #64748b; border-bottom: 1px solid #e5eaf2; background: transparent !important; }
+.admin-recent-table td { padding: 12px; border-bottom: 1px solid #eef1f6; color: #334155; }
+.admin-recent-table tr:last-child td { border-bottom: 0; }
+.admin-recent-who { display: flex; align-items: center; gap: 12px; }
+.admin-recent-who > span { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #e6efff; color: #0b5fd3; font-size: 13px; font-weight: 800; }
+.admin-recent-who strong { display: block; color: #15213a; font-weight: 700; }
+.admin-recent-who small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }

@@ -541,20 +541,12 @@ export default function AdminDashboard() {
                   period={dashboardPeriod}
                 />
 
-                <div className="admin-overview-recent" style={s.fullWidth}>
-                  <div style={s.cardHeader}>
-                    <h2 style={s.subTitle}>Recent Student Registrations</h2>
-                    <span style={s.countBadge}>
-                      {normalizedDashboardSearch ? `${filteredDashboardStudents.length} matching record(s)` : 'Showing latest 5 records'}
-                    </span>
-                  </div>
-                  <UserTable
-                    users={normalizedDashboardSearch ? filteredDashboardStudents : filteredDashboardStudents.slice(0, 5)}
-                    saving={saving}
-                    onToggle={handleToggleAccount}
-                    showToggle
-                  />
-                </div>
+                <RecentStudents
+                  students={normalizedDashboardSearch ? filteredDashboardStudents : filteredDashboardStudents}
+                  sections={sections}
+                  searching={!!normalizedDashboardSearch}
+                  onViewAll={() => setActiveTab('students')}
+                />
               </div>
             )}
 
@@ -1267,8 +1259,54 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
   );
 }
 
+function RecentStudents({ students, sections, searching, onViewAll }) {
+  const rows = [...students].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))).slice(0, searching ? 10 : 5);
+  const added = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }); };
+  return <section className="admin-overview-recent admin-recent" aria-labelledby="admin-recent-title">
+    <header className="admin-recent-head">
+      <div><h2 id="admin-recent-title">{searching ? 'Matching students' : 'Recently added students'}</h2>
+        <p>{searching ? `${students.length} found · showing up to 10` : 'The 5 newest student accounts'}</p></div>
+      <button type="button" className="admin-recent-all" onClick={onViewAll}>View all students <Icon name="chevronRight" size={15} /></button>
+    </header>
+    {rows.length === 0 ? <PortalEmpty icon="users" compact title={searching ? 'No matching students' : 'No students yet'}
+      description={searching ? 'Try another name, ID or section.' : 'Students appear here when coordinators import a class list.'} />
+    : <div className="admin-table-scroll"><table className="admin-recent-table">
+      <thead><tr><th>Student</th><th>Section</th><th>Department</th><th>Added</th><th>Status</th></tr></thead>
+      <tbody>{rows.map(student => <tr key={student.id}>
+        <td><div className="admin-recent-who"><span aria-hidden="true">{((student.firstName || '?')[0] + (student.lastName || '')[0]).toUpperCase()}</span>
+          <div><strong>{personName(student) || 'Name unavailable'}</strong><small>{student.idNumber || student.username || '—'}</small></div></div></td>
+        <td>{sections.find(section => section.id === student.sectionId)?.name || <span className="admin-muted">No section</span>}</td>
+        <td>{student.department || '—'}</td>
+        <td>{added(student.createdAt)}</td>
+        <td><span className={`admin-student-status ${student.accountApproved ? 'is-active' : 'is-inactive'}`}>{student.accountApproved ? 'Active' : 'Suspended'}</span></td>
+      </tr>)}</tbody>
+    </table></div>}
+  </section>;
+}
+
 function ChartEmpty({ message }) {
   return <div style={s.chartEmpty}><Icon name="chart" size={24} label="Chart" /><span>{message}</span></div>;
+}
+
+// Row "…" menu that floats over the table instead of growing the row.
+function RowActions({ id, label, items }) {
+  function positionMenu(event) {
+    const trigger = event.currentTarget.getBoundingClientRect();
+    const menu = document.getElementById(id);
+    const width = Math.min(208, window.innerWidth - 16);
+    menu.style.width = width + 'px';
+    menu.style.left = Math.max(8, trigger.right - width) + 'px';
+    const opensUp = window.innerHeight - trigger.bottom < 60 + items.length * 44;
+    menu.style.top = (opensUp ? trigger.top - 6 : trigger.bottom + 6) + 'px';
+    menu.style.translate = opensUp ? '0 -100%' : 'none';
+  }
+  return <>
+    <button type="button" className="coordinator-actions-trigger" popoverTarget={id} aria-label={label} onClick={positionMenu}>⋯</button>
+    <div id={id} popover="auto" className="coordinator-actions-popover" role="group" aria-label={label}>
+      {items.map(item => <button key={item.label} type="button" className={item.destructive ? 'is-destructive' : undefined}
+        popoverTarget={id} popoverTargetAction="hide" disabled={item.disabled} onClick={item.onClick}>{item.label}</button>)}
+    </div>
+  </>;
 }
 
 function CoordinatorActions({ user, saving, onToggle, onDelete }) {
@@ -1352,7 +1390,7 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
           <thead>
             <tr>
               <th style={s.th}>Name</th>
-              {showAccountId && <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student / Employee ID'}</th>}
+              {showAccountId && <th style={s.th}>{studentDirectory ? 'Student ID' : coordinatorDirectory ? 'Employee ID' : 'Student ID'}</th>}
               {showAccountContact && <th style={s.th}>{studentDirectory ? 'Username' : 'Email Address'}</th>}
               <th style={s.th} hidden={studentDirectory && hideDepartment}>Department</th>
               {studentDirectory && !hideSection && <th style={s.th}>Section</th>}
@@ -1394,13 +1432,8 @@ function UserTable({ users, saving, onToggle, onDelete, showToggle, studentDirec
                         onDelete={() => { setRemoveError(''); setRemove(user); }}
                       />
                     ) : user.accountApproved ? (
-                      <details className="portal-row-menu">
-                        <summary aria-label={'Actions for ' + personName(user)}>…</summary>
-                        <button type="button" disabled={saving} onClick={event => {
-                          event.currentTarget.closest('details').open = false;
-                          setDeactivate(user);
-                        }}>{user.accountApproved ? 'Suspend access' : 'Restore access'}</button>
-                      </details>
+                      <RowActions id={'student-actions-' + user.id} label={'Actions for ' + personName(user)}
+                        items={[{ label: 'Suspend access', destructive: true, disabled: saving, onClick: () => setDeactivate(user) }]} />
                     ) : (
                     <button
                       type="button"

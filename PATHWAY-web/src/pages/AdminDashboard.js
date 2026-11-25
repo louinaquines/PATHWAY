@@ -353,7 +353,6 @@ export default function AdminDashboard() {
         <header style={s.topbar}>
           <div style={s.topbarLeft} className="admin-page-heading">
             <h1 style={s.pageTitle}>{pages[activeTab][0]}</h1>
-            <p className="portal-page-description">{pages[activeTab][1]}</p>
           </div>
           {activeTab === 'overview' && (
             <div style={s.headerActions} className="admin-overview-actions">

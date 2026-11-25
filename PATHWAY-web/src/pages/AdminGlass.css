@@ -318,3 +318,13 @@
 .admin-page main .admin-profile-alert { border-radius: 12px !important; }
 @media (max-width: 1100px) { .admin-page main .admin-profile-container > form.admin-profile-card, .admin-page main .admin-profile-container > div.admin-profile-card { grid-column: 1 / -1; } }
 @media (max-width: 640px) { .admin-page main .admin-profile-grid { grid-template-columns: 1fr; } .admin-page main .admin-profile-hero-left { flex-direction: column; align-items: flex-start; } }
+
+/* Match the coordinator portal: flat light-blue workspace, no campus photo,
+   transparent topbar, solid white cards. */
+html body .admin-page main, html body .admin-page main[class] { background: #e9f0fb !important; background-image: none !important; }
+html body .admin-page main > header { background: transparent !important; border-bottom: 0 !important; box-shadow: none !important; }
+html body .admin-page main > div, html body .admin-page main > section { background-color: transparent !important; background-image: none !important; }
+.admin-page main :is(.admin-stat-card, .admin-action-card, .admin-chart-card, .admin-overview-recent, .admin-records-card, .admin-settings-card,
+  .dashboardSearch, .dashboardTools > button, .dashboardTools select) {
+  background: #fff !important; -webkit-backdrop-filter: none; backdrop-filter: none;
+}

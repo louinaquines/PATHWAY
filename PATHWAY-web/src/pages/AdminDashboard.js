@@ -5,6 +5,7 @@ import RecordPagination, { useRecordPage } from '../components/RecordPagination'
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 // src/pages/AdminDashboard.js
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useSidebarPrefs, SidebarIndicator, GroupTitle, SidebarTools } from '../sidebarV2';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [dashboardSearch, setDashboardSearch] = useState('');
-  const [dashboardRange, setDashboardRange] = useState('last30');
+  const [dashboardRange, setDashboardRange] = useState('all');
   const [dashboardPeriod, setDashboardPeriod] = useState('month');
   const [dashboardSearchOpen, setDashboardSearchOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -477,6 +478,7 @@ export default function AdminDashboard() {
                 <Icon name="calendar" size={14} />
                 <span className="sr-only">Date range</span>
                 <select value={dashboardRange} onChange={event => setDashboardRange(event.target.value)}>
+                  <option value="all">All time</option>
                   <option value="last7">Last 7 days</option>
                   <option value="last30">Last 30 days</option>
                   <option value="last90">Last 90 days</option>
@@ -1072,6 +1074,7 @@ function getDepartmentData(students) {
 }
 
 function isWithinDashboardRange(student, range) {
+  if (range === 'all') return true;
   if (!student.createdAt || range === 'thisYear') {
     if (range !== 'thisYear' || !student.createdAt) return range !== 'thisYear';
   }
@@ -1244,7 +1247,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
         {renderChart('registration')}
       </div>
 
-      {expandedChart && (
+      {expandedChart && createPortal(
         <div className="admin-chart-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setExpandedChart(null); }}>
           <div className="admin-chart-modal" role="dialog" aria-modal="true" aria-labelledby="expanded-chart-title">
             <div style={s.chartModalHeader}>
@@ -1259,7 +1262,7 @@ function AdminCharts({ departmentData, accountStatusData, registrationData, peri
             {renderChart(expandedChart, true)}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

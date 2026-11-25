@@ -14,6 +14,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import SystemSettingsTab from './SystemSettingsTab';
 import AcademicTermsTab from './AcademicTermsTab';
 import AuditLogsTab from './AuditLogsTab';
+import AdminProfile from '../components/AdminProfile';
 import CreateCoordinatorPanel from '../components/CreateCoordinatorPanel';
 import AdminCoordinatorsDirectory from '../components/AdminCoordinatorsDirectory';
 import AdminStudentsDirectory from '../components/AdminStudentsDirectory';
@@ -253,6 +254,11 @@ export default function AdminDashboard() {
   };
 
   const sidebarPrefs = useSidebarPrefs("admin");
+  const [companyCount, setCompanyCount] = useState(null);
+  useEffect(() => {
+    if (activeTab !== 'profile' || companyCount !== null) return;
+    Promise.resolve(adminRequest('/admin/companies')).then(data => setCompanyCount((data?.companies || []).length)).catch(() => {});
+  }, [activeTab, companyCount]);
   const navRef = useRef(null);
   const adminNavGroups = [
     {
@@ -609,7 +615,9 @@ export default function AdminDashboard() {
             {activeTab === 'terms' && <AcademicTermsTab />}
             {activeTab === 'settings' && <SystemSettingsTab />}
             {activeTab === 'audit' && <AuditLogsTab />}
-            {activeTab === 'profile' && <AdminProfileTab admin={users.find(user => user.id === auth.currentUser?.uid)} onSaved={fetchAll} />}
+            {activeTab === 'profile' && <AdminProfile admin={users.find(user => user.id === auth.currentUser?.uid)} onSaved={() => fetchAll({ silent: true })}
+              counts={{ students: students.length, coordinators: coordinators.length, sections: sections.length, companies: companyCount }}
+              onGo={setActiveTab} onSignedOut={() => navigate('/login')} />}
           </div>
         )}
       </main>
@@ -627,217 +635,6 @@ const DEPARTMENTS = [
   'College of Criminology',
   'College of Computer Studies',
 ];
-
-function AdminProfileTab({ admin, onSaved }) {
-  const authName = auth.currentUser?.displayName || '';
-  const authNameParts = authName.trim().split(/\s+/).filter(Boolean);
-  const authFirstName = authNameParts[0] || 'System';
-  const authLastName = authNameParts.slice(1).join(' ') || 'Administrator';
-  const [form, setForm] = useState({
-    firstName: admin?.firstName || authFirstName,
-    lastName: admin?.lastName || authLastName,
-    department: admin?.department || 'System Administration',
-    phone: admin?.phone || '',
-  });
-  const [status, setStatus] = useState({ type: '', message: '' });
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setForm({
-      firstName: admin?.firstName || authFirstName,
-      lastName: admin?.lastName || authLastName,
-      department: admin?.department || 'System Administration',
-      phone: admin?.phone || '',
-    });
-  }, [admin, authFirstName, authLastName]);
-
-  const save = async event => {
-    event.preventDefault();
-    if (!auth.currentUser) return;
-    setSaving(true);
-    setStatus({ type: '', message: '' });
-    try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        department: form.department,
-        phone: form.phone.trim(),
-        updatedAt: new Date().toISOString(),
-      });
-      setStatus({ type: 'success', message: 'Profile updated successfully!' });
-      onSaved?.();
-    } catch (error) {
-      setStatus({ type: 'error', message: error.message || 'Could not update profile.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const displayName = [form.firstName, form.lastName].filter(Boolean).join(' ') || 'System Administrator';
-  const initials = ((form.firstName?.[0] || '') + (form.lastName?.[0] || 'A')).toUpperCase().slice(0, 2);
-
-  return (
-    <div className="admin-profile-container">
-      {/* Hero Banner */}
-      <div className="admin-profile-hero">
-        <div className="admin-profile-hero-left">
-          <div className="admin-profile-hero-avatar-wrap">
-            <div className="admin-profile-hero-avatar">
-              {initials}
-            </div>
-          </div>
-          <div className="admin-profile-hero-details">
-            <h2>{displayName}</h2>
-            <div className="admin-profile-hero-meta">
-              <span className="admin-profile-tag admin-profile-tag-role">
-                <Icon name="shield" size={13} />
-                System Administrator
-              </span>
-              <span className="admin-profile-tag admin-profile-tag-status">
-                <Icon name="check" size={12} />
-                Active Account
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--slate-500)', marginLeft: 4 }}>
-                {auth.currentUser?.email || 'Unavailable'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Alert banner if status exists */}
-      {status.message && (
-        <div role={status.type === 'error' ? 'alert' : 'status'} className={status.type === 'error' ? 'admin-profile-alert admin-profile-alert-error' : 'admin-profile-alert admin-profile-alert-success'}>
-          <Icon name={status.type === 'error' ? 'x' : 'check'} size={16} />
-          <span>{status.message}</span>
-        </div>
-      )}
-
-      {/* Form Card: Personal Details */}
-      <form className="admin-profile-card" onSubmit={save}>
-        <div className="admin-profile-card-header">
-          <div>
-            <div className="admin-profile-card-title">
-              <Icon name="user" size={18} />
-              Personal details
-            </div>
-            <div className="admin-profile-card-subtitle">
-              Manage your administrator name, department affiliation, and contact details.
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-profile-grid">
-          <div className="admin-profile-field">
-            <label className="admin-profile-label" htmlFor="admin-profile-first-name">First name</label>
-            <input
-              id="admin-profile-first-name" autoComplete="given-name"
-              className="admin-profile-input"
-              value={form.firstName}
-              onChange={e => setForm({ ...form, firstName: e.target.value })}
-              placeholder="e.g. John"
-              required
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label className="admin-profile-label" htmlFor="admin-profile-last-name">Last name</label>
-            <input
-              id="admin-profile-last-name" autoComplete="family-name"
-              className="admin-profile-input"
-              value={form.lastName}
-              onChange={e => setForm({ ...form, lastName: e.target.value })}
-              placeholder="e.g. Doe"
-              required
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label className="admin-profile-label" htmlFor="admin-profile-email">Email address (read-only)</label>
-            <input
-              id="admin-profile-email"
-              className="admin-profile-input admin-profile-input-readonly"
-              value={auth.currentUser?.email || ''}
-              disabled
-              title="Email address is managed by authentication service"
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label className="admin-profile-label" htmlFor="admin-profile-department">Department / office</label>
-            <input
-              id="admin-profile-department"
-              className="admin-profile-input"
-              value={form.department}
-              onChange={e => setForm({ ...form, department: e.target.value })}
-              placeholder="e.g. System Administration"
-            />
-          </div>
-
-          <div className="admin-profile-field">
-            <label className="admin-profile-label" htmlFor="admin-profile-phone">Phone number (optional)</label>
-            <input
-              id="admin-profile-phone" type="tel" autoComplete="tel"
-              className="admin-profile-input"
-              value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
-              placeholder="e.g. +63 912 345 6789"
-            />
-          </div>
-        </div>
-
-        <div className="admin-profile-actions">
-          <button type="submit" className="admin-profile-save-btn" disabled={saving}>
-            <Icon name="check" size={15} />
-            {saving ? 'Saving changes...' : 'Save Changes'}
-          </button>
-        </div>
-      </form>
-
-      {/* Security & System Privileges Card */}
-      <div className="admin-profile-card">
-        <div className="admin-profile-card-header">
-          <div>
-            <div className="admin-profile-card-title">
-              <Icon name="shield" size={18} />
-              Account & security
-            </div>
-            <div className="admin-profile-card-subtitle">
-              Overview of security tier and system access assigned to this account.
-            </div>
-          </div>
-        </div>
-
-        <div className="admin-profile-security-grid">
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Access Level</span>
-            <span className="admin-profile-security-item-val" style={{ color: 'var(--sky-700)' }}>Full System Admin</span>
-          </div>
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Authentication Provider</span>
-            <span className="admin-profile-security-item-val">Firebase Auth (Password)</span>
-          </div>
-          <div className="admin-profile-security-item">
-            <span className="admin-profile-security-item-label">Account UID</span>
-            <span className="admin-profile-security-item-val" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-              {auth.currentUser?.uid ? `${auth.currentUser.uid.slice(0, 16)}...` : 'Unavailable'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Account deprovisioning requires coordinated Auth and Firestore cleanup. */}
-      <div className="admin-profile-danger-card" role="note">
-        <div className="admin-profile-danger-info">
-          <h4>Administrator account removal</h4>
-          <p>
-            Account removal is disabled here to prevent orphaning the Firebase sign-in account. Contact the system owner for a coordinated account deprovisioning.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function AdminNotificationsPage({ items, notificationsRead, onMarkAllRead }) {
   return (

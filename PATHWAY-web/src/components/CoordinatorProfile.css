@@ -60,3 +60,8 @@
   .cpf-grid > span { display: none; }
 }
 .cpf-required { margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; background: #fef3c7; color: #92400e; font-size: 13px; font-weight: 600; }
+.cpf-uid { margin-top: 2px; border: 0; background: none; color: #64748b; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.cpf-uid:hover { color: #0b5fd3; }
+.cpf-stats-4 { grid-template-columns: repeat(2, 1fr); }
+.cpf-session { display: flex; flex-wrap: wrap; gap: 10px; }
+.cpf-danger { color: #b91c1c; border-color: #fecaca; } .cpf-danger:hover:not(:disabled) { background: #fef2f2 !important; }

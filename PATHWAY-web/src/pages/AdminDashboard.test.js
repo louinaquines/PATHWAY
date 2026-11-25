@@ -36,11 +36,10 @@ test('profile shortcut opens labeled fields and saves personal details', async (
   fireEvent.click(shortcut);
   expect(shortcut).toHaveAttribute('aria-current', 'page');
   fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Alex' } });
-  expect(screen.getByLabelText('Phone number (optional)')).toHaveAttribute('type', 'tel');
-  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
-  expect(updateDoc).toHaveBeenCalledWith(undefined, expect.objectContaining({ firstName: 'Alex' }));
+  expect(screen.getByLabelText(/Mobile number/)).toHaveAttribute('inputmode', 'tel');
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(updateDoc).toHaveBeenCalledWith(undefined, expect.objectContaining({ firstName: 'Alex' })));
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(4));
-  await screen.findByRole('button', { name: 'Save Changes' });
 });
 
 test('create coordinator form has labeled fields and a password visibility control', async () => {

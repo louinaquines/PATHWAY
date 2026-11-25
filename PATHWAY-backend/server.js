@@ -2089,7 +2089,7 @@ const AUDIT_ACTIONS = new Set([
   'workplace_support.record_action', 'workplace_support.resolve', 'workplace_support.transferred',
   'account.activation_changed', 'coordinator.created', 'coordinator.deleted', 'coordinator.activation_changed',
   'student.provisioned', 'student.password_changed', 'student.password_reset',
-  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'coordinator.password_changed', 'section.reassigned', 'section.deleted', 'company.department_set', 'evaluation.email_unknown',
+  'company.created', 'company.updated', 'evaluation.deleted', 'evaluation.email_accepted', 'evaluation.email_authorization_failed', 'coordinator.password_changed', 'admin.password_changed', 'admin.signed_out_everywhere', 'section.reassigned', 'section.deleted', 'company.department_set', 'evaluation.email_unknown',
   'registration.approved', 'registration.rejected',
   'section.created', 'section.updated', 'section.deleted',
   'requirement.updated', 'requirement.submitted', 'requirement.removed', 'requirement.downloaded',
@@ -2674,6 +2674,21 @@ app.patch('/coordinator/companies/:companyId', requireStaff, async (req, res) =>
     console.error(error);
     return res.status(500).json({ error: 'Could not update company.' });
   }
+});
+
+app.post('/admin/password-changed', requireAdmin, async (req, res) => {
+  try {
+    await adminDb.runTransaction(async tx => writeAuditInTransaction(tx, { actorId: req.staff.uid, actorRole: 'admin', action: 'admin.password_changed', targetType: 'users', targetId: req.staff.uid }));
+    return res.json({ success: true });
+  } catch (error) { console.error(error); return res.status(500).json({ error: 'Could not record the password change.' }); }
+});
+// Ends every session of this admin (all browsers and devices).
+app.post('/admin/sign-out-everywhere', requireAdmin, async (req, res) => {
+  try {
+    await adminAuth.revokeRefreshTokens(req.staff.uid);
+    await adminDb.runTransaction(async tx => writeAuditInTransaction(tx, { actorId: req.staff.uid, actorRole: 'admin', action: 'admin.signed_out_everywhere', targetType: 'users', targetId: req.staff.uid }));
+    return res.json({ success: true });
+  } catch (error) { console.error(error); return res.status(500).json({ error: 'Could not sign out other devices.' }); }
 });
 
 // The password itself is changed by Firebase Auth in the browser; this only records it.

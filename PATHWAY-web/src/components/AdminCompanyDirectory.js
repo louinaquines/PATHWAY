@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import personName from '../personName';
 import { adminRequest } from '../adminApi';
@@ -104,7 +105,7 @@ function CompanyDrawer({ company: c, students, sections, departments, onClose, o
       showToast('Department set', `${c.name} now belongs to ${dept}.`); await onSaved?.(); }
     catch (e) { setError(e.message || 'Could not save the department.'); } finally { setBusy(false); }
   };
-  return <div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+  return createPortal(<div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <aside className="asd-drawer" role="dialog" aria-modal="true" aria-label={'Company details for ' + (c.name || 'company')}>
       <header><span className="asd-big" aria-hidden="true">{(c.name || '?').trim()[0]?.toUpperCase()}</span>
         <div><h2>{c.name}</h2><p>{c.industry || 'Industry not set'} · <span className="asd-status" data-on={!!c.active}><i aria-hidden="true" />{c.active ? 'Active' : 'Inactive'}</span></p></div>
@@ -137,5 +138,5 @@ function CompanyDrawer({ company: c, students, sections, departments, onClose, o
         <a className="asd-more" href={'/admin/students?student=' + encodeURIComponent(st.id)}>Open</a></li>)}</ul> : <p className="asd-note">No students placed here yet.</p>}
       <p className="asd-note">Companies are managed by coordinators in their department.</p>
     </aside>
-  </div>;
+  </div>, document.body);
 }

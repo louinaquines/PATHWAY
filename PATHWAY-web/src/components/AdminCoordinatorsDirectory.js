@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import personName from '../personName';
@@ -95,7 +96,7 @@ function CoordinatorDrawer({ coordinator: c, own, students, peers, saving, onClo
   const deleteSection = s => run(() => adminRequest(`/admin/sections/${encodeURIComponent(s.id)}`, { method: 'DELETE' }), () => showToast('Section deleted', s.name));
   const remove = () => run(() => adminRequest(`/admin/coordinators/${encodeURIComponent(c.id)}`, { method: 'DELETE' }), () => { showToast('Coordinator deleted', personName(c)); onDeleted(); });
   const active = c.role === 'coordinator' && c.accountApproved !== false;
-  return <div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !ask) onClose(); }}>
+  return createPortal(<div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !ask) onClose(); }}>
     <aside className="asd-drawer" role="dialog" aria-modal="true" aria-label={'Coordinator details for ' + (personName(c) || 'coordinator')}>
       <header><span className="asd-big" aria-hidden="true">{((c.firstName || '?')[0] + (c.lastName || '')[0]).toUpperCase()}</span>
         <div><h2>{personName(c) || 'Name unavailable'}</h2><p><span className="asd-status" data-on={active}><i aria-hidden="true" />{active ? 'Active' : 'Inactive'}</span></p></div>
@@ -132,5 +133,5 @@ function CoordinatorDrawer({ coordinator: c, own, students, peers, saving, onClo
         : `Delete sign-in access for ${personName(c)}? This cannot be undone. Their history stays.`}
       confirmLabel={ask?.kind === 'reassign' ? 'Move sections' : 'Delete'} onCancel={() => setAsk(null)}
       onConfirm={() => ask.kind === 'reassign' ? reassign() : ask.kind === 'section' ? deleteSection(ask.section) : remove()} />
-  </div>;
+  </div>, document.body);
 }

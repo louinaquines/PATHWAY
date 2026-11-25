@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import personName from '../personName';
@@ -130,7 +131,7 @@ function StudentDrawer({ student: s, section, coordinator, saving, onClose, onTo
   const reqs = Object.values(s.requirements || {});
   const h = hoursOf(s);
   const stage = ojtStage(s);
-  return <div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+  return createPortal(<div className="asd-overlay" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
     <aside className="asd-drawer" role="dialog" aria-modal="true" aria-label={'Student details for ' + (personName(s) || 'student')}>
       <header><span className="asd-big" aria-hidden="true">{((s.firstName || '?')[0] + (s.lastName || '')[0]).toUpperCase()}</span>
         <div><h2>{personName(s) || 'Name unavailable'}</h2><p>{s.idNumber} · <span className="asd-status" data-on={!!s.accountApproved}><i aria-hidden="true" />{s.accountApproved ? 'Active' : 'Suspended'}</span></p></div>
@@ -156,5 +157,5 @@ function StudentDrawer({ student: s, section, coordinator, saving, onClose, onTo
       <footer><button type="button" className={'asd-btn ' + (s.accountApproved ? 'asd-danger' : 'asd-primary')} disabled={saving} onClick={onToggle}>
         <Icon name={s.accountApproved ? 'lock' : 'check'} size={15} />{s.accountApproved ? 'Suspend access' : 'Restore access'}</button></footer>
     </aside>
-  </div>;
+  </div>, document.body);
 }

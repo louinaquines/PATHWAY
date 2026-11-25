@@ -582,7 +582,7 @@ export default function AdminDashboard() {
 
             {/* COORDINATORS */}
             {['coordinators', 'create'].includes(activeTab) && (
-              <div style={s.tabContent} className="admin-directory-screen admin-coordinators-directory">
+              <div style={s.tabContent} className="admin-coordinators-page">
                 <AdminCoordinatorsDirectory
                   coordinators={coordinators}
                   sections={sections}

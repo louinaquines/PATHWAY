@@ -132,7 +132,8 @@ export default function CompanyScreen({ navigation, route }) {
       setRequirementsEligible(userData.requirementsStatus === 'approved');
       const requirementValues = Object.values(userData.requirements || {});
       setRequirementsComplete(requirementValues.length > 0 && requirementValues.every(item => ['submitted', 'approved'].includes(item?.status)));
-      setCompanies(companySnap.docs.map(item => ({ id: item.id, ...item.data() })));
+      setCompanies(companySnap.docs.map(item => ({ id: item.id, ...item.data() }))
+        .filter(company => !!userData.department && company.department === userData.department));
       const latest = proposalSnap.docs
         .map(item => ({ id: item.id, ...item.data() }))
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0];

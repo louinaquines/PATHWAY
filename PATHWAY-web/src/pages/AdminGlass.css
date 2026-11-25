@@ -358,3 +358,7 @@ html body .admin-page main > div, html body .admin-page main > section { backgro
 .admin-recent-who > span { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: #e6efff; color: #0b5fd3; font-size: 13px; font-weight: 800; }
 .admin-recent-who strong { display: block; color: #15213a; font-weight: 700; }
 .admin-recent-who small { display: block; margin-top: 2px; color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* One font on every admin page, so the sidebar doesn't change when switching pages.
+   (Overview and Students set Segoe UI; some other pages didn't.) */
+html body .admin-page { font-family: 'Segoe UI', Arial, sans-serif !important; }

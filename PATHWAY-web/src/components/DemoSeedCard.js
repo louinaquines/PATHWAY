@@ -26,9 +26,8 @@ export default function DemoSeedCard() {
     {error && <p role="alert" className="demo-seed-error">{error}</p>}
     {result && <div role="status" className="demo-seed-result">
       <strong>Demo data is ready.</strong>
-      <p>Coordinator: <code>{result.coordinator}</code> / <code>{result.coordinatorPassword}</code></p>
-      <p>Students: <code>uclm-26200001</code> to <code>uclm-26200021</code> / <code>{result.studentPassword}</code></p>
-      <p>Section {result.section} · {result.students} students · removed {result.wipedStudents} old students</p>
+      {(result.departments || []).map(d => <p key={d.department}><strong>{d.department}</strong>: <code>{d.coordinator}</code> / <code>{d.coordinatorPassword}</code> · {d.section} · {d.students} students</p>)}
+      <p>Student password: <code>{result.studentPassword}</code> · removed {result.wipedStudents} old students</p>
     </div>}
   </section>;
 }

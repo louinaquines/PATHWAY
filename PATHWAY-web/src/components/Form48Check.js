@@ -168,7 +168,7 @@ export default function Form48Check({ student }) {
         <p><strong>Check the times</strong> · {info?.fileName}{flagged ? <> · <b className="lb-chip" data-tone="amber">{flagged} day{flagged === 1 ? '' : 's'} to check</b></> : ''}</p>
         <label className="f48-month">Month <input type="month" value={month} onChange={event => { setMonth(event.target.value); setReviewed(false); }} /></label>
       </div>
-      {info?.warnings?.length > 0 && <div className="f48-warn" role="note"><Icon name="alert" size={15} /><span>{info.warnings.length === 1 ? info.warnings[0].replace(/^Copy \d+: /, '') : <>The scanner had trouble with this file. Check each time against the scan{info.warnings.some(w => /could not be mapped/i.test(w)) ? ' and type in any that are missing' : ''}.</>}</span></div>}
+      {info?.warnings?.length > 0 && <div className="f48-warn" role="note" data-tone={info.source === 'pdf-text' ? 'info' : undefined}><Icon name="alert" size={15} /><span>{info.warnings.length === 1 ? info.warnings[0].replace(/^Copy \d+: /, '') : <>The scanner had trouble with this file. Check each time against the scan{info.warnings.some(w => /could not be mapped/i.test(w)) ? ' and type in any that are missing' : ''}.</>}</span></div>}
       {!anyReadAll(copies) && <p className="f48-muted">No times could be read from the scan. Type them in using the page on the left.</p>}
       <div className="f48-split">
         {preview && <div className="f48-scan">

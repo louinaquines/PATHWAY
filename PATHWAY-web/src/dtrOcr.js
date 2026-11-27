@@ -27,7 +27,7 @@ async function readPdfText(page, base, copyCount) {
   const periods = new Set(scans.map(scan => scan.month).filter(Boolean));
   const month = periods.size === 1 && scans.every(scan => scan.month) ? [...periods][0] : '';
   return { copies: scans.map(scan => scan.rows), month, sheetName: 'Form 48 (PDF text)',
-    warnings: [...scans.flatMap((scan, i) => scan.warnings.map(warning => `Copy ${i + 1}: ${warning}`)), ...(!month ? ['Confirm the month for all copies.'] : [])],
+    warnings: [month ? 'Times were read from the PDF. Check them against the file before comparing.' : 'Times were read from the PDF. Confirm the month and check the times.'],
     extractedText: scans.map((scan, i) => `Copy ${i + 1}\n${scan.text}`).join('\n\n'), source: 'pdf-text' };
 }
 

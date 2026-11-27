@@ -625,8 +625,8 @@ export default function CoordinatorDashboard() {
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
           {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
           {activeTab === 'notifications' && <div className="rq-top-actions" id="ann-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
-          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /><SectionPicker sections={termSections} selected={termSections.some(sec => sec.id === selectedSection?.id) ? selectedSection : null} onChange={section => fetchStudents(section)} /><DashboardNotifications section={selectedSection} onOpenAll={() => navigate('/coordinator/notifications')}
-            onOpenItem={item => item.type === 'workplace_support' ? navigate('/coordinator/messages', { state: { openStudentId: item.studentId } }) : navigate('/coordinator/notifications')} /></div>}
+          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /><SectionPicker sections={termSections} selected={termSections.some(sec => sec.id === selectedSection?.id) ? selectedSection : null} onChange={section => fetchStudents(section)} /><DashboardNotifications section={selectedSection} students={students}
+            onOpen={(tab, { view, studentId } = {}) => navigate('/coordinator/' + tab, { state: { sectionId: selectedSection?.id, ...(view ? { view } : {}), ...(studentId ? { openStudentId: studentId } : {}) } })} /></div>}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} />

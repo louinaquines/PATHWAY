@@ -42,7 +42,7 @@ export default function AccountPasswordPanel({ onBack, onSignedOut }) {
     try {
       await postBackend('/student/change-password', { currentPassword: current, newPassword: next, apiKey: auth.app.options.apiKey });
       showStudentSuccess('Password updated', 'Sign in again with your new password.');
-      setTimeout(onSignedOut, 1600);
+      setTimeout(onSignedOut, 2600);
     } catch (e) {
       setError(/wrong|invalid|incorrect|credential/i.test(e.message || '') ? 'Your current password is incorrect.' : (e.message || 'Could not save your password. Try again.'));
       setBusy(false);

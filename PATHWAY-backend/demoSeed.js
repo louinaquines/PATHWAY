@@ -205,12 +205,20 @@ async function ensureCoordinator(db, auth, COORDINATOR, DEPARTMENT) {
   return user.uid;
 }
 
+// Every department gets a current academic term so its sections show under the term picker.
+async function currentTermFor(db, department) {
+  const found = await db.collection('academicTerms').where('department', '==', department).where('isCurrent', '==', true).limit(1).get();
+  if (!found.empty) return { termId: found.docs[0].id, termName: found.docs[0].data().name };
+  const now = new Date().toISOString();
+  const term = { name: '2nd Semester A.Y 2026-2027', department, startDate: '2026-11-01', endDate: '2027-05-31', isCurrent: true, isActive: false, createdAt: now, updatedAt: now, createdBy: 'demo-seed' };
+  const ref = await db.collection('academicTerms').add(term);
+  return { termId: ref.id, termName: term.name };
+}
+
 async function seed({ db, auth }) {
   const wiped = await wipe(db, auth);
-  const term = await db.collection('academicTerms').where('isActive', '==', true).limit(1).get();
-  const termFields = term.empty ? {} : { termId: term.docs[0].id, termName: term.docs[0].data().name };
   const departments = [];
-  for (const D of DEPARTMENTS) departments.push(await seedDepartment(db, auth, D, termFields));
+  for (const D of DEPARTMENTS) departments.push(await seedDepartment(db, auth, D, await currentTermFor(db, D.DEPARTMENT)));
   return { wipedStudents: wiped.students, studentPassword: STUDENT_PASSWORD, departments };
 }
 

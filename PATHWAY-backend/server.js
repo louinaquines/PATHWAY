@@ -1,4 +1,8 @@
 const indexedNotice = data => ({ ...data, ...require('./coordinatorInbox').inboxFields(data) });
+// Background jobs read Firestore even when nobody is online. On the free plan keep them slow:
+// override with BACKGROUND_SLOW_MS / BACKGROUND_FAST_MS (milliseconds) on Render if needed.
+const BACKGROUND_SLOW_MS = Math.max(60_000, Number(process.env.BACKGROUND_SLOW_MS) || 30 * 60_000);
+const BACKGROUND_FAST_MS = Math.max(60_000, Number(process.env.BACKGROUND_FAST_MS) || 5 * 60_000);
 // pathway-backend/server.js
 if (process.env.NODE_ENV !== 'production' && process.env.PATHWAY_LOCAL_WORKFLOW !== '1') require('dotenv').config();
 // Fail before Firebase initialization or any local QA credential loading.
@@ -90,22 +94,22 @@ const supportUploads = createSupportUploads();
 require('./workplaceSupport').installWorkplaceSupport({ app, db: adminDb, requireUser, requireStaff, allowRate, audit: writeAuditInTransaction, uploads: supportUploads });
 const { reconcileSupport, markSupportAssignment } = require('./workplaceSupportNotifications');
 const reconcileSupportTask = createRetryTask({
-  intervalMs: 60000,
+  intervalMs: BACKGROUND_SLOW_MS,
   task: async () => {
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction });
     await reconcileSupport({ db: adminDb, audit: writeAuditInTransaction, queued: true });
   },
   onError: error => reportUnavailable(console.error, 'Support reconciliation unavailable', error),
 });
-setInterval(reconcileSupportTask, 60000).unref();
+setInterval(reconcileSupportTask, BACKGROUND_SLOW_MS).unref();
 const cleanupSupportTask = createRetryTask({
-  intervalMs: 60000,
+  intervalMs: BACKGROUND_SLOW_MS,
   task: async () => {
     if (cloudinaryConfig()) await cleanupSupportAttachments({ db: adminDb, uploads: supportUploads });
   },
   onError: error => reportUnavailable(console.error, 'Support attachment cleanup unavailable', error),
 });
-setInterval(cleanupSupportTask, 60000).unref();
+setInterval(cleanupSupportTask, BACKGROUND_SLOW_MS).unref();
 
 app.post('/register-student', async (req, res) => {
   return res.status(410).json({ error: 'Student self-registration is no longer available. Contact your coordinator for an account.' });
@@ -2871,7 +2875,7 @@ require('./attendanceRiskSchedule').installAttendanceRiskSchedule({ app, db: adm
 if (riskAlertsEnabled(adminDb)) {
   const evaluate = () => attendanceRiskWorker.evaluateDueAttendanceRisk().catch(() => console.error('Attendance risk worker unavailable.'));
   evaluate();
-  setInterval(evaluate, 60000).unref();
+  setInterval(evaluate, BACKGROUND_SLOW_MS).unref();
 }
 require('./reviewAnalysis').installReviewAnalysis({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, coordinatorSection, audit: writeAuditInTransaction });
 require('./companyProfileImport').installCompanyProfileImport({ app, requireStaff, allowRate });
@@ -3020,17 +3024,17 @@ const requirementChecks = require('./requirementChecks').createRequirementChecks
 });
 if (process.env.PATHWAY_LOCAL_WORKFLOW !== '1' && !process.env.FIRESTORE_EMULATOR_HOST) {
   const checkPendingRequirements = createRetryTask({
-    intervalMs: 60000,
+    intervalMs: BACKGROUND_FAST_MS,
     task: () => requirementChecks.run(),
     onError: error => reportUnavailable(console.warn, 'Automatic document checking unavailable', error),
   });
-  setInterval(checkPendingRequirements, 60000).unref();
+  setInterval(checkPendingRequirements, BACKGROUND_FAST_MS).unref();
   checkPendingRequirements();
 }
 require('./documentAiReview').installDocumentAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
 require('./attendanceAiReview').installAttendanceAiReview({ app, db: adminDb, requireStaff, coordinatorSection, allowRate, ai: anthropicAnalysis });
 require('./journalAiReview').installJournalAiReview({ app, db: adminDb, requireStaff, coordinatorOwnsStudent, allowRate, ai: anthropicAnalysis });
-require('./companyEmailRouter').installCompanyEmailRouter({ app, db: adminDb, requireStaff, allowRate, ai: anthropicAnalysis });
+require('./companyEmailRouter').installCompanyEmailRouter({ app, db: adminDb, requireStaff, allowRate, ai: anthropicAnalysis, intervalMs: Math.max(BACKGROUND_FAST_MS, 10 * 60_000) });
 require('./demoSeed').installDemoSeed({ app, db: adminDb, auth: adminAuth, requireAdmin });
 app.post('/refine-logbook', requireUser, async (req, res) => {
   const { notes } = req.body || {};

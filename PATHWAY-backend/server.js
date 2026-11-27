@@ -82,6 +82,7 @@ function logAuthenticationFailure(label, diagnostic) {
 const requireUser = createRequireUser({ auth: adminAuth, db: adminDb, log: logAuthenticationFailure });
 
 require('./studentInbox').installStudentInbox({ app, db: adminDb, requireUser, allowRate });
+require('./studentEvaluations').installStudentEvaluations({ app, db: adminDb, requireUser, allowRate });
 require('./departmentJournals').installDepartmentJournals({ app, db: adminDb, requireStaff, requireUser, allowRate, audit: writeAuditInTransaction });
 require('./studentJournalSubmission').installStudentJournalSubmission({ app, db: adminDb, requireUser, allowRate, assertRecordsOpen, assertActivePlacement, audit: writeAuditInTransaction, periodAware: true });
 const { createSupportUploads, cleanupSupportAttachments } = require('./workplaceSupportAttachments');

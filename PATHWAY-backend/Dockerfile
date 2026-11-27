@@ -12,7 +12,7 @@ COPY dtrReview.js dtrComparison.js coordinatorAnalytics.js attendanceAnalytics.j
 COPY companyProfileImport.js coordinatorAccounts.js coordinatorAssignmentPolicy.js coordinatorCompanyPage.js coordinatorPlacementHistory.js coordinatorPlacementWorkspace.js ./
 COPY anthropicAnalysis.js ./
 COPY studentUpdateNotifications.js journalAiReview.js departmentJournals.js studentJournalSubmission.js workplaceJournalConsent.js workplaceRealUsePolicy.js ./
-COPY attendanceAiReview.js adminStructure.js ./
+COPY attendanceAiReview.js adminStructure.js studentEvaluations.js ./
 COPY attendanceExcusedDates.js attendanceRiskAlerts.js attendanceRiskSchedule.js coordinatorInbox.js ./
 COPY documentAiReview.js requirementChecks.js requirementCheckPolicy.js nameMatch.js ./
 COPY companyMailInbox.js companyEmailRouter.js demoSeed.js ./

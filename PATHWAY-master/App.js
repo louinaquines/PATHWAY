@@ -197,7 +197,7 @@ export default function App() {
         <Stack.Screen name="Approval" component={ApprovalWithMotion} />
         <Stack.Screen name="LogToday" component={AttendanceWithMotion} />
         <Stack.Screen name="Logbook" component={LogbookWithMotion} />
-        <Stack.Screen name="Evaluations" component={Placeholder} />
+        <Stack.Screen name="Evaluations" component={ProgressScreen} initialParams={{ openEvaluation: true }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordWithMotion} />
         <Stack.Screen name="Progress" component={ProgressWithMotion} />

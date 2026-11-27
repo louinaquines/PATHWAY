@@ -17,6 +17,7 @@ import { MotionTouchableOpacity } from '../components/Motion';
 import StudentScreenSkeleton from '../components/StudentScreenSkeleton';
 import ScrollView from '../components/RefreshableScrollView';
 import StudentSurface from '../components/StudentSurface';
+import EvaluationCard from '../components/EvaluationCard';
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -28,7 +29,9 @@ import {
   ProgressIcon,
 } from '../components/Icons';
 
-export default function ProgressScreen({ navigation }) {
+export default function ProgressScreen({ navigation, route }) {
+  const [evalRefresh, setEvalRefresh] = useState(0);
+  const [openEvaluation, setOpenEvaluation] = useState(route?.params?.openEvaluation === true);
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [logbook, setLogbook] = useState([]);
@@ -42,6 +45,7 @@ export default function ProgressScreen({ navigation }) {
 
   const fetchAll = async () => {
     setLoading(true);
+    setEvalRefresh(n => n + 1);
     try {
       const [userSnap, attSnap, logSnap] = await Promise.all([
         getDoc(doc(db, 'users', uid)),
@@ -166,6 +170,8 @@ export default function ProgressScreen({ navigation }) {
             <Text style={styles.progressPct}>{Math.round(progress * 100)}% Complete</Text>
           </View>
         </View>
+
+        <EvaluationCard refreshKey={evalRefresh} openOnLoad={openEvaluation} onOpened={() => { setOpenEvaluation(false); navigation.setParams?.({ openEvaluation: undefined }); }} />
 
         {/* Clearance Status Card */}
         <View

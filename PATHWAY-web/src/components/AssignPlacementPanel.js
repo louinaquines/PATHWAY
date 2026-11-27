@@ -6,7 +6,7 @@ const nameOf = s => [s.lastName, s.firstName].filter(Boolean).join(', ') || s.qu
 const initials = n => String(n || '?').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(x => x[0]).join('').toUpperCase();
 const fmt = v => { const t = Date.parse(v); return t ? new Date(t).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
 
-export default function AssignPlacementPanel({ section, initialIds = [], onClose, onDone, onEditCompanies }) {
+export default function AssignPlacementPanel({ section, initialIds = [], onClose, onDone, onEditCompanies, onAddCompany }) {
   const [companies, setCompanies] = useState(null);
   const [students, setStudents] = useState(null);
   const [companyId, setCompanyId] = useState('');
@@ -60,7 +60,7 @@ export default function AssignPlacementPanel({ section, initialIds = [], onClose
     </header>
     <div className="apl-body">
       <section className="apl-card">
-        <h3>Company</h3>
+        <div className="apl-row"><h3>Company</h3>{onAddCompany && <button type="button" className="rq-btn apl-add-company" onClick={onAddCompany}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add company</button>}</div>
         <select aria-label="Company" value={companyId} onChange={e => setCompanyId(e.target.value)} disabled={!companies}>
           <option value="">{companies ? 'Choose a company' : 'Loading companies…'}</option>
           {sorted.map(c => <option key={c.id} value={c.id} disabled={open(c) === 0}>{c.name}{open(c) == null ? '' : open(c) === 0 ? ' · Full' : ` · ${open(c)} open`}</option>)}
@@ -74,8 +74,11 @@ export default function AssignPlacementPanel({ section, initialIds = [], onClose
         {missing.length > 0 && <p className="apl-warn">No {missing.join(', ')} yet. {onEditCompanies && <button type="button" className="plt-link" onClick={onEditCompanies}>Edit in Companies</button>}</p>}
       </section>
       <section className="apl-card">
-        <div className="apl-row"><h3>Students</h3><span className="apl-count"><b>{picked.length} picked</b>{slots != null ? ` · ${slots} slot${slots === 1 ? '' : 's'} open` : ''}</span></div>
-        {(students?.length || 0) > 6 && <CoordinatorSearch value={term} onChange={setTerm} label="Find a student" placeholder="Find a student" />}
+        <h3>Students</h3>
+        <div className="apl-search-row">
+          {(students?.length || 0) > 6 && <CoordinatorSearch value={term} onChange={setTerm} label="Find a student" placeholder="Find a student" />}
+          <span className="apl-count"><b>{picked.length} picked</b>{slots != null ? ` · ${slots} slot${slots === 1 ? '' : 's'} open` : ''}</span>
+        </div>
         {over && <p className="apl-warn">Only {slots} slot{slots === 1 ? '' : 's'} open at {company.name}.</p>}
         <div className="apl-list">
           {!students && <p className="apl-empty">Loading students…</p>}

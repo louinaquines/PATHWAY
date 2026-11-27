@@ -363,7 +363,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {(() => { const acts = <>
       <button type="button" className="rq-btn" onClick={() => setEmailOpen(true)}><Icon name="mail" size={14} /> Company email</button>
       <button type="button" className="rq-btn" onClick={load} disabled={!selectedSection}>Refresh</button>
-      {selectedSection && !error && <button type="button" className="rq-btn" disabled={!!busy} onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
+      {selectedSection && !error && <button type="button" className="rq-btn rq-primary" disabled={!!busy} onClick={() => { setAssignmentError(''); setAssignmentOpen(true); }}>Assign placement</button>}
       {sections.length > 0 && <SectionPicker sections={sections} selected={selectedSection} onChange={section => onSectionChange?.(section)} />}
     </>; return topHost ? createPortal(acts, topHost) : <div className="pl-inline-actions">{acts}</div>; })()}
     {selectedSection && error && <div className="pl-down" role="alert"><strong>Placements couldn’t load</strong><p>{/503|unavailable|fetch|network|timed? ?out/i.test(error) ? 'The PATHWAY server is starting up or temporarily down. This usually clears within a minute.' : error}</p><button type="button" className="rq-btn rq-primary" onClick={() => load()}>Try again</button></div>}
@@ -394,7 +394,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     </div>}
     {!selectedSection && <p>Select a section to view company placements.</p>}
     {assignmentOpen && selectedSection && <PortalFormDialog className="apl-dialog" label="Assign placement" closeOnBackdrop onCancel={() => setAssignmentOpen(false)}>
-      <AssignPlacementPanel section={selectedSection} initialIds={assignIds} onClose={() => { setAssignmentOpen(false); setAssignIds([]); }} onDone={() => load()} onEditCompanies={() => navigate('/coordinator/companies')} />
+      <AssignPlacementPanel section={selectedSection} initialIds={assignIds} onClose={() => { setAssignmentOpen(false); setAssignIds([]); }} onDone={() => load()} onEditCompanies={() => navigate('/coordinator/companies')} onAddCompany={() => navigate('/coordinator/companies', { state: { addCompany: true } })} />
     </PortalFormDialog>}
     <div className="placement-reviews" hidden={workspace !== 'reviews'}>
     {requestsOnly && <p className="placement-queue-help">Showing students with pending placement requests. <button type="button" className="portal-secondary" onClick={() => setRequestsOnly(false)}>Show all tasks</button></p>}

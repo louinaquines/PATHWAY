@@ -23,6 +23,13 @@ export default function CompanyDirectoryTab({ readOnly = true, selectedSection =
   const [topHost, setTopHost] = useState(null);
   useEffect(() => { setTopHost(document.getElementById('co-top-actions')); }, []);
   const [formOpen, setFormOpen] = useState(false);
+  // Opened from Assign placement → "Add company" (router state lives in history.state.usr).
+  useEffect(() => {
+    const routeState = window.history.state?.usr;
+    if (!routeState?.addCompany || readOnly) return;
+    setFormOpen(true);
+    window.history.replaceState({ ...window.history.state, usr: { ...routeState, addCompany: false } }, '');
+  }, [readOnly]);
   const [companies, setCompanies] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState('');

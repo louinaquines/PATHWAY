@@ -19,6 +19,8 @@ import {
 import { addDoc, collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import * as DocumentPicker from 'expo-document-picker';
 import { auth, db } from '../firebaseConfig';
+import { signOut as firebaseSignOut } from 'firebase/auth';
+import AccountPasswordPanel from '../components/AccountPasswordPanel';
 import { studentHours } from '../services/studentHours';
 import { requestBackend, postBackend } from '../services/backendApi';
 import { studentAlert as Alert } from '../services/studentAlert';
@@ -66,6 +68,7 @@ import {
   ProfileIcon,
   ProgressIcon,
   SettingsIcon,
+  LockIcon,
   TasksIcon,
   PlusIcon,
   RefreshIcon,
@@ -535,7 +538,7 @@ export default function StudentDashboard({ navigation }) {
             onNotificationsEnabledChange={changeNotificationsPreference}
             onBack={() => setSettingsVisible(false)}
             onLogout={logout}
-            onChangePassword={() => navigation.navigate('ChangePassword')}
+            onChangePassword={async () => { await firebaseSignOut(auth).catch(() => {}); navigation.reset({ index: 0, routes: [{ name: 'Login' }] }); }}
             onOpenScreen={name => navigation.navigate(name)}
           />
           : <ProfilePanel student={student} onLogout={logout} onSettings={() => setSettingsVisible(true)} onPhotoPress={updateProfilePhoto} onViewPlacement={() => navigation.navigate('Company')} />)}
@@ -1503,6 +1506,13 @@ function ProfilePanel({ student, onLogout, onSettings, onPhotoPress, onViewPlace
 function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLoaded, onNotificationsEnabledChange, onBack, onLogout, onChangePassword, onOpenScreen }) {
   const fullName = `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student';
   const approved = Boolean(student?.accountApproved);
+  const [changingPassword, setChangingPassword] = useState(false);
+  if (changingPassword) return (
+    <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll, styles.settingsScroll]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <StudentSurface tone="page" />
+      <AccountPasswordPanel onBack={() => setChangingPassword(false)} onSignedOut={onChangePassword} />
+    </ScrollView>
+  );
   return (
     <ScrollView contentContainerStyle={[styles.scroll, styles.profileScroll, styles.settingsScroll]} showsVerticalScrollIndicator={false}>
       <StudentSurface tone="page" />
@@ -1570,7 +1580,7 @@ function SettingsPanel({ student, notificationsEnabled, notificationPreferenceLo
           )}
         />
         <SettingRow Icon={SettingsIcon} title="Appearance" value="Light" onPress={() => onOpenScreen('Appearance')} />
-        {student.username && <MotionTouchableOpacity onPress={onChangePassword} accessibilityRole="button" accessibilityLabel="Change password" style={{ paddingVertical: 16 }}><Text style={{ color: COLORS.primary }}>Change password</Text></MotionTouchableOpacity>}
+        {student.username && <SettingRow Icon={LockIcon} title="Change password" value="Update your current password" onPress={() => setChangingPassword(true)} />}
       </Card>
 
       <Card style={styles.settingsGroupCard}>

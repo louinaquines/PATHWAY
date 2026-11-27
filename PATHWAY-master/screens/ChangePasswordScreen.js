@@ -221,3 +221,4 @@ const styles = StyleSheet.create({
   doneTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
   doneText: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center' },
 });
+export { Field, Rule };

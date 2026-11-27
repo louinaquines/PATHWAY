@@ -142,8 +142,19 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
   const sectionName = sections.find(x => x.id === sectionId)?.name || selectedSection?.name || '';
   const readFile = async file => {
     if (!file) return;
-    if (file.size > 100000) { setMessage('Class list must be under 100 KB.'); return; }
-    try { setInput((await file.text()).replace(/^﻿/, '')); setMessage(''); } catch { setMessage('Could not read the class list.'); }
+    if (file.size > 300000) { setMessage('Class list must be under 300 KB.'); return; }
+    try {
+      if (/\.xlsx?$/i.test(file.name)) {
+        // Excel class list: first sheet, columns StudentID, FirstName, LastName (header row optional).
+        const XLSX = await import('xlsx');
+        const book = XLSX.read(new Uint8Array(await file.arrayBuffer()), { type: 'array', sheetRows: 1001 });
+        const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], { header: 1, raw: false, blankrows: false });
+        const lines = rows.map(row => row.slice(0, 3).map(cell => String(cell ?? '').replace(/,/g, ' ').trim()))
+          .filter(cells => cells.some(Boolean)).map(cells => cells.join(','));
+        setInput(lines.join('\n'));
+      } else setInput((await file.text()).replace(/^\ufeff/, ''));
+      setMessage('');
+    } catch { setMessage('Could not read the class list.'); }
   };
   const csvRows = input.trim() ? input.trim().split(/\r?\n/).filter(Boolean).filter(l => !/^\s*studentid/i.test(l)) : [];
   const existing = new Set(ids.map(x => String(x.id)));
@@ -197,10 +208,10 @@ export default function ClassListTab({ department, coordinatorId, selectedSectio
           <div className="cls-card">
             <h2 className="cls-h">Import class list</h2>
             <label className="cls-drop" data-drag={drag || undefined} onDragOver={e => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={e => { e.preventDefault(); setDrag(false); readFile(e.dataTransfer.files?.[0]); }}>
-              <input type="file" title="" accept=".csv,text/csv" disabled={saving} aria-label="Upload authorized class list" onChange={e => readFile(e.target.files?.[0])} />
+              <input type="file" title="" accept=".csv,text/csv,.xlsx,.xls" disabled={saving} aria-label="Upload authorized class list" onChange={e => readFile(e.target.files?.[0])} />
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></svg>
               <span>{input ? <><b>{csvRows.length} students in this file</b> · {csvNew} new, {csvRows.length - csvNew} already on the list</> : <>Drop your CSV here, or <u>choose a file</u></>}</span>
-              <small>Columns: StudentID, FirstName, LastName</small>
+              <small>CSV or Excel · Columns: StudentID, FirstName, LastName</small>
             </label>
             <div className="cls-cardfoot"><a href={template} download="pathway-class-list-template.csv">Download template</a>
               {input && <button type="button" className="rq-btn" disabled={saving} onClick={() => setInput('')}>Clear</button>}

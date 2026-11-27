@@ -27,7 +27,7 @@ export default function SuccessHost() {
   return <>
     {notice && <div className="sfx-overlay sfx-notice-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setNotice(null); }}>
       <div className="sfx-card sfx-notice" role="alertdialog" aria-modal="true" aria-labelledby="sfx-notice-title" aria-describedby="sfx-notice-text" key={notice.id}>
-        <span className="sfx-notice-icon" aria-hidden="true">!</span>
+        <svg className="sfx-mark sfx-mark-error" viewBox="0 0 52 52" aria-hidden="true"><circle className="sfx-circle" cx="26" cy="26" r="24" /><path className="sfx-x" d="M18 18 l16 16" /><path className="sfx-x sfx-x2" d="M34 18 l-16 16" /></svg>
         <strong id="sfx-notice-title">{notice.title}</strong>
         <p id="sfx-notice-text">{notice.detail}</p>
         <button type="button" className="rq-btn rq-primary sfx-notice-ok" autoFocus onClick={() => setNotice(null)}>OK</button>

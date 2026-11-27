@@ -7,6 +7,7 @@ import { createDtrOcrJob } from '../dtrOcr';
 import PdfPreview from './PdfPreview';
 import DocumentAiAssistance from './DocumentAiAssistance';
 import Icon from './Icons';
+import { showNotice } from '../successFx';
 import './Form48Check.css';
 
 const FIELDS = ['amArrival', 'amDeparture', 'pmArrival', 'pmDeparture'];
@@ -94,7 +95,12 @@ export default function Form48Check({ student }) {
       const blob = await adminDocumentBlob(`${base}/source?version=${encodeURIComponent(source.version)}`);
       if (rev !== revision.current) return;
       await importDocument(new File([blob], source.fileName, { type: blob.type }), source.version);
-    } catch (failure) { if (rev === revision.current) { setError(failure.message); setStep('start'); } }
+    } catch (failure) {
+      if (rev !== revision.current) return;
+      setStep('start');
+      const none = /no submitted dtr/i.test(failure.message || '');
+      showNotice(none ? `${firstName} hasn't submitted a time record yet. Use "Upload another file" to check a paper copy.` : (failure.message || 'Could not open the time record.'), none ? 'No time record yet' : 'Could not open the time record');
+    }
   };
   const openPaper = async () => {
     try { const source = await adminRequest(`${base}/source`); const blob = await adminDocumentBlob(`${base}/source?version=${encodeURIComponent(source.version)}`); window.open(URL.createObjectURL(blob), '_blank', 'noopener'); }

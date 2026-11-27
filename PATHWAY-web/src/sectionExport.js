@@ -11,7 +11,7 @@ export function sectionExportRows(section, students, checklist) {
     const progress = requirementProgress(student.requirements, checklist);
     return [String(student.idNumber || ''), String(student.username || ''), student.firstName || '', student.lastName || '', section.name || '', section.department || '', student.accountApproved ? 'Approved' : 'Not approved', progress.approved, progress.total, progress.total ? progress.approved / progress.total : null,
       ...checklist.map(item => statuses[student.requirements?.[item.id]?.status] || 'Not submitted'),
-      student.companyName || student.company || '', /^https:\/\/drive\.google\.com\//.test(student.driveFolderUrl || '') ? student.driveFolderUrl : ''];
+      student.companyName || student.company || ''];
   });
   const details = sorted.flatMap(student => checklist.map(item => {
     const record = student.requirements?.[item.id] || {};
@@ -31,7 +31,7 @@ export async function buildSectionWorkbook(section, students, checklist) {
   const details = workbook.addWorksheet('Requirements');
   const info = workbook.addWorksheet('Export information');
   summary.addRow(['Student ID', 'Username', 'First name', 'Last name', 'Section', 'Department', 'Account approval', 'Approved requirements', 'Total requirements', 'Requirements approved',
-    ...checklist.map(item => item.label || item.name || item.id), 'Company', 'Google Drive folder']);
+    ...checklist.map(item => item.label || item.name || item.id), 'Company']);
   summary.addRows(rows.summary);
   summary.getColumn(1).numFmt = '@';
   summary.getColumn(10).numFmt = '0%';

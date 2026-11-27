@@ -300,14 +300,6 @@ export default function CoordinatorDashboard() {
     getDoc(doc(db, 'users', id)).then(snap => { if (on && snap.exists()) { setSelectedStudent({ id: snap.id, ...snap.data() }); setRqDetailView(true); } }).catch(() => {});
     return () => { on = false; };
   }, [activeTab, location.state]);
-  const [driveLinks, setDriveLinks] = useState({});
-  useEffect(() => {
-    const id = selectedStudent?.id;
-    if (!id || activeTab !== 'requirements' || id in driveLinks) return undefined;
-    let on = true;
-    getDoc(doc(db, 'users', id)).then(snap => { if (on) setDriveLinks(m => ({ ...m, [id]: snap.exists() ? snap.data().driveFolderUrl || null : null })); }).catch(() => {});
-    return () => { on = false; };
-  }, [selectedStudent?.id, activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [viewerId, setViewerId] = useState(null);
   useEffect(() => { setViewerId(null); }, [selectedStudent?.id]);
   const pendingStageRef = useRef(null);
@@ -810,9 +802,6 @@ export default function CoordinatorDashboard() {
                         <div><h2>{personName(selectedStudent)}</h2>
                           <p>{selectedProgress?.approved || 0} of {selectedProgress?.total || 0} documents approved · ID {selectedStudent.idNumber || 'not provided'}</p></div>
                         <div className="rq-head-acts">
-                        {(() => { const gd = selectedStudent.driveFolderUrl || driveLinks[selectedStudent.id]; return gd && /^https:\/\/drive\.google\.com\//.test(gd)
-                          ? <a className="rq-btn rq-gdrive" href={gd} target="_blank" rel="noreferrer noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>View GDrive</a>
-                          : <span className="rq-btn rq-gdrive is-off" aria-disabled="true">No GDrive yet</span>; })()}
                         {greens.length > 0 && <button type="button" className="rq-btn rq-primary" disabled={saving} onClick={() => setBulkConfirm({ status: 'approved', items: greens })}>
                           Approve the {greens.length} that look{greens.length === 1 ? 's' : ''} good <Icon name="check" size={14} /></button>}
                         </div>

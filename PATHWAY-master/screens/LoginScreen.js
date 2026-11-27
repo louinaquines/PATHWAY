@@ -15,7 +15,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { destinationForProfile } from '../services/authDestination';
-import { postBackend } from '../services/backendApi';
+import { requestBackend } from '../services/backendApi';
+
+const withTimeout = (promise, ms, message) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error(message), { code: 'app/timeout' })), ms)),
+]);
 import { COLORS, SHADOWS, RADIUS } from '../theme';
 import { MotionTouchableOpacity } from '../components/Motion';
 import AuthHero, { AuthPanel } from '../components/AuthHero';
@@ -50,9 +55,10 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
     try {
       const login = email.trim().toLowerCase();
       const identifier = /^uclm-[a-z0-9-]{4,20}$/.test(login) ? `${login}@students.pathway.invalid` : login;
-      await signInWithEmailAndPassword(auth, identifier, password);
+      await withTimeout(signInWithEmailAndPassword(auth, identifier, password), 20000, 'Could not reach the sign-in server. Check your internet and try again.');
 
-      const { profile: userData } = await postBackend('/auth/profile');
+      const { profile: userData } = await requestBackend('/auth/profile', { timeoutMs: 60000 })
+        .catch(err => { auth.signOut().catch(() => {}); throw Object.assign(err, { code: err.code || 'app/backend' }); });
       if (!userData) {
         setError('Account not found. Contact your OJT Coordinator.');
         await auth.signOut();
@@ -79,6 +85,8 @@ export default function LoginScreen({ navigation, initialError = '', onClearInit
         case 'auth/invalid-credential':     setError('Username or password is incorrect.'); break;
         case 'auth/too-many-requests':      setError('Too many attempts. Try again later.'); break;
         case 'auth/network-request-failed': setError('No internet connection.'); break;
+        case 'app/timeout':                 setError(err.message); break;
+        case 'app/backend':                 setError(err.message?.includes('timed out') ? 'The PATHWAY server is taking too long to respond. Try again in a minute.' : (err.message || 'Could not reach the PATHWAY server.')); break;
         default: setError('Something went wrong. Try again.');
       }
     } finally {

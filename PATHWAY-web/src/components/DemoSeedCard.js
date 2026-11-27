@@ -18,7 +18,7 @@ export default function DemoSeedCard() {
   };
   return <section className="admin-settings-card demo-seed-card">
     <header className="admin-settings-card-head"><div><h3>Demo data</h3>
-      <p>Deletes every student and their records, then creates a fresh demo section with 21 students, companies, attendance, journals, evaluations and messages. Admin and coordinator accounts stay.</p></div></header>
+      <p>Deletes all demo data (students, sections, terms, companies and extra coordinators), then creates one CCS coordinator, one section in the current term, and 15 students with companies, attendance, journals, evaluations and messages. Admin accounts stay.</p></div></header>
     <div className="demo-seed-row">
       <label>Type <strong>RESET DEMO</strong> to confirm<input value={confirm} disabled={busy} onChange={event => setConfirm(event.target.value)} placeholder="RESET DEMO" /></label>
       <button type="button" className="portal-primary" disabled={busy || confirm !== 'RESET DEMO'} onClick={run}>{busy ? 'Creating demo data… (about 1–2 min)' : 'Reset and load demo data'}</button>

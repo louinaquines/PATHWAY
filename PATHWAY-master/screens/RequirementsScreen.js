@@ -808,50 +808,6 @@ export default function RequirementsScreen({ navigation, route }) {
           })}
         </View>
 
-        {!isDocumentHub && activeStep === 1 && <View style={styles.optionalSection}>
-          <View style={styles.documentsHeading}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.documentsTitle}>Optional submission</Text>
-              <Text style={styles.documentsSubtitle}>Share a Google Drive folder with your files.</Text>
-            </View>
-          </View>
-          {(() => { const open = expandedRequirementId === '__drive'; return (
-            <View style={[styles.docCard, isNarrowScreen && styles.docCardNarrow, open && styles.docCardExpanded]}>
-              <StudentSurface tone={driveSaved ? 'mint' : 'blue'} waves />
-              <TouchableOpacity activeOpacity={0.92} accessibilityRole="button" accessibilityState={{ expanded: open }}
-                accessibilityLabel={`Google Drive folder. Optional submission. ${open ? 'Tap to collapse.' : 'Tap to expand.'}`}
-                onPress={() => setExpandedRequirementId(current => current === '__drive' ? null : '__drive')}
-                style={[styles.docHeaderRow, open && styles.docHeaderExpanded]}>
-                <View style={[styles.docStatusIcon, driveSaved && styles.docStatusIconApproved]}>
-                  {driveSaved ? <CheckCircleIcon size={18} color={COLORS.successDark} /> : <FileIcon size={18} color={COLORS.primary} />}
-                </View>
-                <View style={styles.docHeaderCopy}>
-                  <Text style={styles.docTitle} numberOfLines={1}>Google Drive folder</Text>
-                  <Text style={styles.docSubtitle} numberOfLines={1}>{driveSaved ? 'Link saved' : 'Paste your folder link'}</Text>
-                </View>
-                {driveSaved
-                  ? <View style={styles.verifiedBadge}><CheckCircleIcon size={13} color={COLORS.successDark} /><Text style={styles.verifiedBadgeText}>Linked</Text></View>
-                  : <View style={styles.optionalBadge}><Text style={styles.optionalBadgeText}>Optional</Text></View>}
-                <ChevronIcon size={16} color={COLORS.textMuted} expanded={open} />
-              </TouchableOpacity>
-              {open && <View style={styles.driveBody}>
-                <Text style={styles.driveLabel}>Paste your Google Drive folder link here</Text>
-                {driveSaved ? <View style={styles.driveSavedRow}>
-                  <Text style={styles.driveSavedText} numberOfLines={1}>✓ Saved · {driveLink}</Text>
-                  <TouchableOpacity accessibilityRole="button" onPress={() => setDriveSaved(false)}><Text style={styles.driveLinkBtn}>Change</Text></TouchableOpacity>
-                </View> : <View style={styles.driveRow}>
-                  <TextInput style={styles.driveInput} value={driveLink} onChangeText={t => { setDriveLink(t); setDriveError(''); }} placeholder="https://drive.google.com/drive/folders/…" placeholderTextColor="#94A3B8" autoCapitalize="none" autoCorrect={false} keyboardType="url" accessibilityLabel="Google Drive folder link" editable={!driveBusy} />
-                  <TouchableOpacity accessibilityRole="button" style={[styles.driveSaveBtn, (driveBusy || !driveLink.trim()) && { opacity: 0.5 }]} disabled={driveBusy || !driveLink.trim()} onPress={saveDriveLink}>
-                    {driveBusy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.driveSaveText}>Save</Text>}
-                  </TouchableOpacity>
-                </View>}
-                {!!driveError && <Text style={styles.driveError}>{driveError}</Text>}
-                <Text style={styles.driveHint}>File format: LASTNAME_FIRSTNAME_MEDCERT (e.g. BAUTISTA_CARLO_MEDCERT.pdf)</Text>
-                <Text style={styles.driveHint}>Set sharing to “Anyone with the link · Viewer”.</Text>
-              </View>}
-            </View>); })()}
-        </View>}
-
         {/* ── Footer Navigation / Submit Button ── */}
         {!isDocumentHub && <View style={styles.footerSection}>
           <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for a company assignment or send an optional placement request.' : 'Submit all required pre-deployment documents to continue.'}</Text>

@@ -16,7 +16,7 @@ function installJournalAiReview({ app, db, requireStaff, coordinatorOwnsStudent,
       const notes = data.rawNotes || data.refined;
       if (typeof notes !== 'string' || !notes.trim() || notes.length > 8000) return res.status(400).json({ error: 'Journal text must be 1–8,000 characters.' });
       const result = await ai.analyzeJournal(notes);
-      return res.json({ ...result, entryId: req.params.entryId, source: data.rawNotes ? 'original-notes' : 'saved-report', limitation: 'Text evidence is not proof of competency or sentiment. Review manually; no grades, approvals or journal records were changed.' });
+      return res.json({ ...result, entryId: req.params.entryId, source: data.rawNotes ? 'original-notes' : 'saved-report', limitation: 'AI reading of the journal only. Not a grade or approval.' });
     } catch (error) {
       return res.status([429, 503].includes(error.status) ? error.status : 503).json({ error: 'AI review unavailable. Free journal checks remain available.', code: ['AI_DISABLED', 'AI_LIMIT', 'AI_OUTPUT'].includes(error.code) ? error.code : 'AI_UNAVAILABLE' });
     }

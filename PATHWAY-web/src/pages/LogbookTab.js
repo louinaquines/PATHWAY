@@ -346,6 +346,7 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
   }, { enabled: !loading && !saving, scope: (sharedSection?.id || '') + ':' + (selectedStudent?.id || '') });
 
   const [rejectReason, setRejectReason] = useState('');
+  const [keywordSettingsOpen, setKeywordSettingsOpen] = useState(false);
   const [actionError, setActionError] = useState('');
   useEffect(() => { setActionError(''); }, [selectedStudent?.id, entryIndex]);
   const handleAction = async (entryId, status, reason = '') => {
@@ -639,9 +640,6 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 </div>
                 <div className="lb-legend-inline"><span><i data-status="approved" />Read</span><span><i data-status="pending" />Waiting for you</span><span><i data-status="rejected" />Sent back</span></div>
               </>}
-              {analysis && <details className="lb-details"><summary>Journal check settings</summary><JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
-                try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); } catch (failure) { setAnalysisError(failure.message); }
-              }} /></details>}
               {analysis?.missingWeeksBetweenSubmissions?.length > 0 && <aside className="lb-note"><strong>Weeks without a journal</strong> No entry between submitted weeks for: {analysis.missingWeeksBetweenSubmissions.join(', ')}.{analysis.truncated && ' Only the latest 100 entries were checked.'}</aside>}
               {activeEntry && <article className="lb-entry">
                 <header>
@@ -657,13 +655,13 @@ export default function LogbookTab({ coordinatorId, selectedSection: sharedSecti
                 {activeEntry.status === 'rejected' && activeEntry.reviewReason && <section className="lb-feedback"><h4>What you asked them to fix</h4><p>{activeEntry.reviewReason}</p></section>}
                 <JournalAiAnalysis key={`${selectedStudent.id}:${activeEntry.id}`} studentId={selectedStudent.id} entryId={activeEntry.id} sourceText={activeEntry.rawNotes || activeEntry.refined} hours={activeEntry.hours} weekRange={activeEntry.weekRange} />
                 {analysisError && <p className="lb-alert">Review checks unavailable: {analysisError}</p>}
-                {analysis?.journals?.filter(item => item.id === activeEntry.id).map(item => <details key={item.id} className="lb-details"><summary>Automatic journal checks</summary>
-                  {item.findings.map(finding => <p key={finding}>{finding}</p>)}
-                  {!item.findings.length && <p>No structural warnings found. This is not an approval.</p>}
-                  {item.competencies.map(skill => <p key={skill.name}>{skill.name}: matched words {skill.evidence.join(', ')}</p>)}
-                  {item.sentimentCues.length > 0 && <p>Text cues: {item.sentimentCues.join(', ')}</p>}
-                  <p>{item.limitation}</p>
-                </details>)}
+                {analysis?.journals?.filter(item => item.id === activeEntry.id).map(item => { const words = [...new Set(item.competencies.flatMap(skill => skill.evidence))]; return <div key={item.id} className="lb-keywords">
+                  <span><b>Keywords:</b> {words.length ? words.join(', ') : 'none found'}{item.findings.length > 0 && <> · {item.findings.join(' ')}</>}</span>
+                  <button type="button" className="rq-icon" aria-label="Keyword settings" aria-expanded={keywordSettingsOpen} title="Keyword settings" onClick={() => setKeywordSettingsOpen(open => !open)}><Icon name="settings" size={14} /></button>
+                </div>; })}
+                {keywordSettingsOpen && analysis && <JournalKeywordSettings sectionId={selectedSection.id} keywords={analysis.keywords} onSaved={async () => {
+                  try { setAnalysis(await adminRequest(`/coordinator/students/${encodeURIComponent(selectedStudent.id)}/review-analysis`)); } catch (failure) { setAnalysisError(failure.message); }
+                }} />}
               </article>}
             </>}
           </>}

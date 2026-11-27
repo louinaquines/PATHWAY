@@ -1,6 +1,9 @@
+// src/components/JournalAiAnalysis.js
 import { useEffect, useRef, useState } from 'react';
 import { adminRequest } from '../adminApi';
 import './JournalAiAnalysis.css';
+
+const MOODS = { positive: 'green', negative: 'red', unclear: 'gray' };
 
 export default function JournalAiAnalysis({ studentId, entryId, sourceText }) {
   const [consent, setConsent] = useState(false);
@@ -22,18 +25,21 @@ export default function JournalAiAnalysis({ studentId, entryId, sourceText }) {
       const data = await adminRequest(`/coordinator/students/${encodeURIComponent(studentId)}/logbook/${encodeURIComponent(entryId)}/ai-analysis`, { method: 'POST', body: JSON.stringify({ consent: true }) });
       if (version === generation.current) setResult(data);
     } catch {
-      if (version === generation.current) setError('AI review unavailable. Free journal checks remain available.');
+      if (version === generation.current) setError('AI review unavailable. Try again later.');
     } finally { inFlight.current = false; setBusy(false); }
   }
-  return <details className="journal-ai">
-    <summary>Optional AI journal review <span>Advisory only</span></summary>
-    <div className="journal-ai__body">
-      <p>Review completeness, possible competencies and tone cues. This does not grade, approve or change the journal.</p>
-      <label><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.target.checked)} /> I have permission to share this journal text with AI. It may contain confidential information.</label>
-      <div className="journal-ai__actions"><button type="button" disabled={!consent || busy} onClick={analyze}>{busy ? 'Reviewing…' : 'Analyze this journal'}</button>{result && <button type="button" onClick={() => setResult(null)}>Discard findings</button>}</div>
-      <p role="status" aria-live="polite">{busy ? 'Review in progress. Original notes remain unchanged.' : ''}</p>
-      {error && <p role="alert">{error}</p>}
-      {result && <div>{[['completeness', 'Completeness', 'finding'], ['competencies', 'Possible competencies', 'name'], ['sentiment', 'Tone cues', 'cue']].map(([key, title, field]) => <section key={key}><h4>{title}</h4>{result[key]?.length ? result[key].map((item, index) => <div key={index}><p>{item[field]}</p><blockquote>{item.evidence}</blockquote></div>) : <p>No supported findings.</p>}</section>)}<p>{result.limitation}</p></div>}
-    </div>
-  </details>;
+  const tone = MOODS[result?.mood] || 'gray';
+  return <section className="journal-ai" data-tone={result ? tone : undefined} aria-label="AI journal review">
+    <header className="journal-ai__head">
+      {result
+        ? <h4><i aria-hidden="true" />{result.headline}</h4>
+        : <h4 className="journal-ai__title">AI journal review</h4>}
+      <button type="button" disabled={!consent || busy} onClick={analyze}>{busy ? 'Reading…' : result ? 'Analyze again' : 'Analyze'}</button>
+    </header>
+    {result && <p className="journal-ai__summary">{result.summary}</p>}
+    {!result && !busy && <p className="journal-ai__hint">Shows how the student seems to feel at work, with a short analysis. Not a grade.</p>}
+    {busy && <p className="journal-ai__hint" role="status">Reading the journal…</p>}
+    {error && <p className="journal-ai__error" role="alert">{error}</p>}
+    <label className="journal-ai__consent"><input type="checkbox" checked={consent} disabled={busy} onChange={event => setConsent(event.target.checked)} /> I have permission to share this journal with AI</label>
+  </section>;
 }

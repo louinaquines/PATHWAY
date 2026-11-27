@@ -138,3 +138,9 @@
 .logbook-record-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; margin-left:auto; }
 .logbook-record-drawer .logbook-record-actions button { margin:0; min-height:38px; padding:6px 10px; font-size:13px; }
 .logbook-detail-content .logbook-time-note { margin:0 0 8px; color:#526174; font-size:12px; }
+/* Journal keywords: one quiet line + gear for settings */
+.lb-keywords { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font-size: 13px; color: #475569; }
+.lb-keywords b { color: #1e293b; font-weight: 600; }
+.lb-entry .journal-check-settings { margin: 8px 0 0; padding: 12px 14px; }
+.journal-check-settings__hint { margin: 0 0 6px; color: #64748b; }
+.journal-check-settings textarea { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; font-size: 13px; }

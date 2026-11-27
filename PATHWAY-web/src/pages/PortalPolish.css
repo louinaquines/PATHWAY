@@ -209,8 +209,14 @@
 .coordinator-page tr[data-risk="Medium"] td:first-child { box-shadow: inset 3px 0 0 hsl(38 92% 50%); }
 
 /* Sidebar nav: scrollable, scrollbar hidden */
-.coordinator-page .sidebar-nav-scroll, .admin-page .sidebar-nav-scroll { overflow-y: auto !important; scrollbar-width: none !important; -ms-overflow-style: none !important; }
-.coordinator-page .sidebar-nav-scroll::-webkit-scrollbar, .admin-page .sidebar-nav-scroll::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+.admin-page .sidebar-nav-scroll { overflow-y: auto !important; scrollbar-width: none !important; -ms-overflow-style: none !important; }
+.admin-page .sidebar-nav-scroll::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+/* Coordinator sidebar: slim visible scrollbar */
+.coordinator-page .sidebar-container .sidebar-nav-scroll { overflow-y: auto !important; scrollbar-width: thin !important; scrollbar-color: hsl(215 20% 78%) transparent !important; scrollbar-gutter: stable; padding-right: 4px; }
+.coordinator-page .sidebar-container .sidebar-nav-scroll::-webkit-scrollbar { display: block !important; width: 6px !important; }
+.coordinator-page .sidebar-container .sidebar-nav-scroll::-webkit-scrollbar-track { background: transparent; }
+.coordinator-page .sidebar-container .sidebar-nav-scroll::-webkit-scrollbar-thumb { background: hsl(215 20% 80%); border-radius: 99px; }
+.coordinator-page .sidebar-container .sidebar-nav-scroll::-webkit-scrollbar-thumb:hover { background: hsl(215 20% 65%); }
 
 /* Dashboard: equal-height cards, loading skeleton, section dropdown chevron */
 .cdash-columns { align-items: stretch !important; }

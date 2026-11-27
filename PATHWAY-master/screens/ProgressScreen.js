@@ -185,8 +185,7 @@ export default function ProgressScreen({ navigation, route }) {
             },
           ]}
         >
-          {!(clearanceComplete || clearanceReady) && <Image source={require('../assets/pathway-guide-thinking.png')} style={styles.clearanceGuide} resizeMode="contain" accessible={false} />}
-          <View style={[styles.clearanceHeader, !(clearanceComplete || clearanceReady) && { paddingRight: 92 }]}>
+          <View style={styles.clearanceHeader}>
             {clearanceComplete || clearanceReady ? (
               <CheckCircleIcon size={22} color={COLORS.successDark} />
             ) : (
@@ -205,7 +204,7 @@ export default function ProgressScreen({ navigation, route }) {
                 : 'Requirements In Progress'}
             </Text>
           </View>
-          <Text style={[styles.clearanceSub, !(clearanceComplete || clearanceReady) && { paddingRight: 92 }]}>
+          <Text style={styles.clearanceSub}>
             {clearanceComplete
               ? 'Your coordinator has approved your OJT records and issued final clearance.'
               : clearanceReady

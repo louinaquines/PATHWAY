@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../firebaseConfig';
 import {
   Platform,
   ScrollView,
@@ -17,6 +19,7 @@ import {
   FileIcon,
   HomeIcon,
   LogOutIcon,
+  UserIcon,
 } from './Icons';
 import { COLORS, RADIUS } from '../theme';
 
@@ -59,6 +62,22 @@ export default function PreDeploymentDrawer({
   onSignOut,
   reachedStep = 1,
 }) {
+  const [who, setWho] = useState(null);
+  useEffect(() => {
+    if (!visible || who) return undefined;
+    let on = true;
+    (async () => {
+      try {
+        const uid = auth.currentUser?.uid; if (!uid) return;
+        const user = (await getDoc(doc(db, 'users', uid))).data() || {};
+        let section = user.sectionName || '';
+        if (!section && user.sectionId) section = (await getDoc(doc(db, 'sections', user.sectionId)).catch(() => null))?.data()?.name || '';
+        const name = [user.lastName, user.firstName].filter(Boolean).join(', ') || user.username || 'Student';
+        if (on) setWho({ name, section });
+      } catch { /* profile card is optional */ }
+    })();
+    return () => { on = false; };
+  }, [visible, who]);
   const navigateTo = route => {
     onClose?.();
     if (route !== activeRoute) onNavigate?.(route, { reachedStep });
@@ -170,6 +189,13 @@ export default function PreDeploymentDrawer({
           </ScrollView>
           <View style={styles.footer}>
             <View style={styles.footerRule} />
+            {who && <View style={styles.profileCard} accessible accessibilityLabel={`${who.name}${who.section ? `, ${who.section}` : ''}`}>
+              <View style={styles.profileIcon}><UserIcon size={18} color={COLORS.primary} /></View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.profileName} numberOfLines={1}>{who.name}</Text>
+                <Text style={styles.profileSection} numberOfLines={1}>{who.section || 'Student'}</Text>
+              </View>
+            </View>}
             <TouchableOpacity
               style={styles.signOutButton}
               onPress={onSignOut}
@@ -331,5 +357,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 11,
   },
+  profileCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, marginBottom: 10, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface },
+  profileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primarySubtle || '#E6F1FB' },
+  profileName: { fontSize: 13.5, fontWeight: '700', color: COLORS.textPrimary },
+  profileSection: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   signOutText: { flex: 1, color: COLORS.danger, fontSize: 13, fontWeight: '700' },
 });

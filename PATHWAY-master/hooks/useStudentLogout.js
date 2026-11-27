@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { studentAlert as Alert } from '../services/studentAlert';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 

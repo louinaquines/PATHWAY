@@ -6,6 +6,7 @@ import { registerStudentSuccess } from '../services/studentSuccess';
 import { MotionTouchableOpacity, useReducedMotion } from './Motion';
 import { AppText as Text } from './AppText';
 import { CheckCircleIcon } from './Icons';
+import AnimatedGuide from './AnimatedGuide';
 import { COLORS } from '../theme';
 
 export default function StudentSuccessHost() {
@@ -38,9 +39,7 @@ export default function StudentSuccessHost() {
       <SafeAreaView style={styles.overlay}>
         <Animated.View style={[styles.card, { opacity: progress, transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] }]} accessibilityViewIsModal>
           <ScrollView contentContainerStyle={styles.body}>
-            <Animated.View style={{ transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }}>
-              <Image source={feedback?.tone === 'error' ? require('../assets/pathway-guide-error.png') : require('../assets/pathway-guide-success.png')} style={styles.character} resizeMode="contain" accessible={false} />
-            </Animated.View>
+            <AnimatedGuide key={feedback?.key} tone={feedback?.tone === 'error' ? 'error' : 'success'} style={styles.character} />
             <Text accessibilityRole="header" style={styles.title}>{feedback?.title}</Text>
             <Text accessibilityLiveRegion="polite" style={styles.message}>{feedback?.message}</Text>
           </ScrollView>

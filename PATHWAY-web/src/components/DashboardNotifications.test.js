@@ -1,3 +1,4 @@
+jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
 import { categorize, groupNotifications } from './DashboardNotifications';
 const n = (id, title, extra = {}) => ({ id, title, message: '', createdAt: `2026-11-27T12:0${id}:00Z`, read: false, ...extra });
 test('each notification opens the right screen', () => {

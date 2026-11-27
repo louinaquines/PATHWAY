@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -11,7 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { postBackend } from '../services/backendApi';
 import { studentAlert as Alert } from '../services/studentAlert';
@@ -88,6 +89,8 @@ export default function CompanyScreen({ navigation, route }) {
   const [requestOpen, setRequestOpen] = useState(false);
   const [cleared, setCleared] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkNote, setCheckNote] = useState(null);
 
   const uid = auth?.currentUser?.uid;
 
@@ -112,10 +115,12 @@ export default function CompanyScreen({ navigation, route }) {
     return () => subscription.remove();
   }, [showMenuDrawer, showNotifications]);
 
-  const loadCompanyData = async () => {
-    if (!uid) return;
-    setLoading(true);
+  // quiet: refresh in place (no full-screen skeleton). Returns the placement status it found.
+  const loadCompanyData = async ({ quiet = false } = {}) => {
+    if (!uid) return null;
+    if (!quiet) setLoading(true);
     setLoadFailed(false);
+    let found = null;
     try {
       const read = (label, promise) => promise.catch(error => {
         console.error(`Company read failed: ${label} (project ${db.app.options.projectId})`, error.code);
@@ -138,7 +143,8 @@ export default function CompanyScreen({ navigation, route }) {
         .map(item => ({ id: item.id, ...item.data() }))
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0];
 
-      if (userData.placementStatus === 'approved' && (userData.company || userData.companyName)) {
+      if (userData.placementStatus === 'approved') {
+        found = 'approved';
         setProposalId(null);
         setReviewReason('');
         setRequestOpen(false);
@@ -146,7 +152,8 @@ export default function CompanyScreen({ navigation, route }) {
         setForm({ ...EMPTY_FORM, ...userData, companyName: userData.company || userData.companyName });
       } else if (latest) {
         setProposalId(latest.id);
-        setProposalStatus(latest.status === 'approved' ? 'not_started' : latest.status || 'draft');
+        found = latest.status === 'approved' ? 'not_started' : latest.status || 'draft';
+        setProposalStatus(found);
         setReviewReason(latest.reviewReason || '');
         setForm({ ...EMPTY_FORM, ...latest });
       } else if (userSnap.exists() && userData.company) {
@@ -154,13 +161,46 @@ export default function CompanyScreen({ navigation, route }) {
         setForm(previous => ({ ...previous, companyName: userData.company }));
       }
     } catch (error) {
-      setLoadFailed(true);
       console.error('Company data error:', error);
+      if (quiet) throw error;
+      setLoadFailed(true);
       Alert.alert('Unable to load companies', 'Placement data could not load. Retry before editing or submitting a placement.');
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
+    }
+    return found;
+  };
+
+  const checkPlacementStatus = async () => {
+    if (checking) return;
+    setChecking(true);
+    setCheckNote(null);
+    try {
+      const status = await loadCompanyData({ quiet: true });
+      setCheckNote(status === 'approved' ? { tone: 'ok', text: 'Placement assigned! Continue to final review below.' }
+        : { tone: 'wait', text: 'Still waiting for your coordinator · checked just now' });
+    } catch {
+      setCheckNote({ tone: 'error', text: "Couldn't check right now. Check your connection and try again." });
+    } finally {
+      setChecking(false);
     }
   };
+
+  // Live updates: when the coordinator assigns or reviews a placement, refresh in place.
+  const firstSnapshot = useRef({ user: true, proposals: true });
+  useEffect(() => {
+    if (!uid) return undefined;
+    firstSnapshot.current = { user: true, proposals: true };
+    const refresh = key => () => {
+      if (firstSnapshot.current[key]) { firstSnapshot.current[key] = false; return; }
+      loadCompanyData({ quiet: true }).then(status => {
+        if (status === 'approved') setCheckNote({ tone: 'ok', text: 'Placement assigned! Continue to final review below.' });
+      }).catch(() => {});
+    };
+    const stopUser = onSnapshot(doc(db, 'users', uid), refresh('user'), () => {});
+    const stopProposals = onSnapshot(query(collection(db, 'companyProposals'), where('studentId', '==', uid)), refresh('proposals'), () => {});
+    return () => { stopUser(); stopProposals(); };
+  }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredCompanies = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -349,9 +389,12 @@ export default function CompanyScreen({ navigation, route }) {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{placementApproved ? 'Assigned company' : 'Waiting for your coordinator'}</Text>
           <Text style={styles.sectionDescription}>You can continue to Final Review once your coordinator confirms your placement.</Text>
-          {!placementApproved && !loadFailed && <TouchableOpacity accessibilityRole="button" style={styles.secondaryButton} onPress={loadCompanyData}>
-            <Text style={styles.secondaryButtonText}>Check placement status</Text>
+          {!placementApproved && <TouchableOpacity accessibilityRole="button" accessibilityState={{ busy: checking }} disabled={checking}
+            style={[styles.secondaryButton, styles.checkButton]} onPress={checkPlacementStatus}>
+            {checking && <ActivityIndicator size="small" color={COLORS.primary} />}
+            <Text style={styles.secondaryButtonText}>{checking ? 'Checking…' : 'Check placement status'}</Text>
           </TouchableOpacity>}
+          {checkNote && <Text accessibilityLiveRegion="polite" style={[styles.checkNote, checkNote.tone === 'ok' ? styles.checkNoteOk : checkNote.tone === 'error' ? styles.checkNoteError : null]}>{checkNote.text}</Text>}
           {placementApproved && <>
             <Text style={styles.cardTitle}>{form.companyName || 'Company details pending'}</Text>
             <Text style={styles.cardSubtitle}>{form.companyAddress || 'Address not provided'}</Text>
@@ -603,6 +646,10 @@ const styles = StyleSheet.create({
   primaryButton: { flex: 1, backgroundColor: COLORS.primary, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, ...SHADOWS.soft },
   primaryButtonText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, borderRadius: 11, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 },
+  checkButton: { flex: 0, flexDirection: 'row', gap: 8, marginTop: 12 },
+  checkNote: { marginTop: 10, fontSize: 12, lineHeight: 17, color: COLORS.textMuted, textAlign: 'center' },
+  checkNoteOk: { color: COLORS.success || '#15803d', fontWeight: '700' },
+  checkNoteError: { color: COLORS.danger || '#b91c1c' },
   secondaryButtonText: { color: COLORS.primary, fontWeight: '800', fontSize: 12, textAlign: 'center' },
   searchBarContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingHorizontal: 12, marginBottom: 4 },
   searchInput: { flex: 1, paddingVertical: 10, paddingLeft: 8, fontSize: 13, color: COLORS.textPrimary, minWidth: 0 },

@@ -74,6 +74,8 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const [historySearch, setHistorySearch] = useState('');
   const [reviewStatus, setReviewStatus] = useState('all');
   const [reviewConfirm, setReviewConfirm] = useState(null);
+  const [declineAsk, setDeclineAsk] = useState(null);
+  const [reasonError, setReasonError] = useState('');
   const [error, setError] = useState('');
 
   const [recordCursors, setRecordCursors] = useState({});
@@ -226,9 +228,9 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     await load();
   };
 
-  const review = async (item, status) => {
-    const note = (reasons[`placement:${item.id}`] || '').trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { showNotice('Enter a reason before returning this proposal.'); return false; }
+  const review = async (item, status, noteOverride) => {
+    const note = (noteOverride ?? reasons[`placement:${item.id}`] ?? '').trim();
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { setReasonError(`placement:${item.id}`); return false; }
     setBusy(item.id);
     try {
       const companyId = companySelections[item.id] || item.companyId || '';
@@ -248,7 +250,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
 
   const reviewFinal = async (item, status) => {
     const note = (reasons[`final:${item.id}`] || '').trim();
-    if ((status === 'needs_revision' || status === 'rejected') && !note) { showNotice('Enter a reason before returning this review.'); return false; }
+    if ((status === 'needs_revision' || status === 'rejected') && !note) { setReasonError(`final:${item.id}`); return false; }
     setBusy(item.id);
     try {
       await adminRequest(`/coordinator/final-reviews/${encodeURIComponent(item.id)}/decision`, {
@@ -309,9 +311,12 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
   const requestReviewConfirmation = (item, status, finalReview = false) => {
     const note = (reasons[`${finalReview ? 'final' : 'placement'}:${item.id}`] || '').trim();
     if ((status === 'needs_revision' || status === 'rejected') && !note) {
-      showNotice(finalReview ? 'Enter a reason before returning this review.' : 'Enter a reason before returning this proposal.');
+      // Shown inline under the note field: a pop-up would open behind the student drawer.
+      setReasonError(`${finalReview ? 'final' : 'placement'}:${item.id}`);
+      document.querySelector(`[data-reason-key="${finalReview ? 'final' : 'placement'}:${item.id}"]`)?.focus();
       return;
     }
+    setReasonError('');
     setReviewConfirm({ item, status, finalReview });
   };
 
@@ -364,6 +369,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
     {selectedSection && error && <div className="pl-down" role="alert"><strong>Placements couldn’t load</strong><p>{/503|unavailable|fetch|network|timed? ?out/i.test(error) ? 'The PATHWAY server is starting up or temporarily down. This usually clears within a minute.' : error}</p><button type="button" className="rq-btn rq-primary" onClick={() => load()}>Try again</button></div>}
     {selectedSection && !error && <PlacementOverview section={selectedSection} summary={summary} refreshKey={boardKey}
       onApprove={(record, studentId) => { if (record.companyId) setReviewConfirm({ item: record, status: 'approved' }); else { setWorkspace('reviews'); setSelectedQueueStudent(studentId); setReviewStage('all'); } }}
+      onDecline={(record, studentId, name) => setDeclineAsk({ item: record, name, reason: '' })}
       onOpenStudent={id => { setWorkspace('reviews'); setSelectedQueueStudent(id); setReviewStage('all'); setReviewStatus('all'); }}
       onAssigned={() => load()} onOpenAssign={ids => { setAssignIds(Array.isArray(ids) ? ids : []); setAssignmentError(''); setAssignmentOpen(true); }} />}
     {(() => { const isReq = row => row.current?.stage === 'placement' && row.tasks?.some(t => t.stage === 'placement' && t.record?.status === 'pending_review' && t.needsAction) && row.tasks.filter(t => t.needsAction).length === 1;
@@ -472,7 +478,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
             </select>
             {chosen ? <small data-ok>{co ? `✓ ${co.availableSlots == null ? 'No slot limit' : `${co.availableSlots} open slot${co.availableSlots === 1 ? '' : 's'}`}` : '✓ Matched'}</small> : <small>“{item.companyName || 'This company'}” isn’t matched yet. Pick it from your list to approve.</small>}
           </label>; })()}
-        <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} value={reasons[`placement:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>✓ Approve</button></div></div>
+        <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Placement feedback for ${reviewStudentName(item)}`} data-reason-key={`placement:${item.id}`} aria-invalid={reasonError === `placement:${item.id}` || undefined} value={reasons[`placement:${item.id}`] || ''} onChange={e => { setReasonError(''); setReasons(previous => ({ ...previous, [`placement:${item.id}`]: e.target.value })); }} placeholder="Reason for changes or rejection" />{reasonError === `placement:${item.id}` && <em className="pld-err" role="alert">Write a short reason so the student knows what to fix.</em>}</label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected')}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision')}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id || !(companySelections[item.id] || item.companyId)} onClick={() => requestReviewConfirmation(item, 'approved')}>✓ Approve</button></div></div>
       </>}
     </article>)}
     </details>
@@ -485,7 +491,7 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
       <strong>{placementStatusLabel(item.status)}</strong>
       {item.reviewReason && <p style={{ color: '#B91C1C' }}><b>Previous reason:</b> {item.reviewReason}</p>}
       <details className="review-documents"><summary>Show documents</summary>{(item.requirementSnapshot || []).map((requirement, index) => <div key={requirement.id || index}><span>{requirement.name || requirement.title || requirement.id || 'Requirement'}</span><strong>{requirement.status || 'Not submitted'}</strong></div>)}</details>
-      {item.status === 'pending_review' && <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} value={reasons[`final:${item.id}`] || ''} onChange={e => setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value }))} placeholder="Reason for changes or rejection" /></label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>✓ Approve tracking</button></div></div>}
+      {item.status === 'pending_review' && <div className="review-decision pld-bar"><label>Note to student<input aria-label={`Final review feedback for ${reviewStudentName(item)}`} data-reason-key={`final:${item.id}`} aria-invalid={reasonError === `final:${item.id}` || undefined} value={reasons[`final:${item.id}`] || ''} onChange={e => { setReasonError(''); setReasons(previous => ({ ...previous, [`final:${item.id}`]: e.target.value })); }} placeholder="Reason for changes or rejection" />{reasonError === `final:${item.id}` && <em className="pld-err" role="alert">Write a short reason so the student knows what to fix.</em>}</label><div className="review-actions"><button type="button" className="review-reject" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'rejected', true)}>Say no</button><button type="button" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'needs_revision', true)}>Request changes</button><button type="button" className="review-approve" disabled={busy === item.id} onClick={() => requestReviewConfirmation(item, 'approved', true)}>✓ Approve tracking</button></div></div>}
     </article>)}
     </details>
     <details className="placement-stage-section" open={selectedQueue?.current.stage === "endorsement" || (selectedQueue?.current.stage === "verified")} style={{order:["endorsement","verified"].includes(selectedQueue?.current.stage) ? 0 : 1}} hidden={reviewStage !== 'all' || ![...endorsementItems,...verifiedEndorsementItems].some(item=>item.studentId===selectedQueueStudent)}><summary>Endorsement letter</summary>
@@ -590,6 +596,20 @@ export default function CompanyPlacementsTab({ department, selectedSection, stud
         if (saved) setReviewConfirm(null);
       }}
     />
+    <AlertDialog
+      open={Boolean(declineAsk)}
+      tone="danger"
+      title={declineAsk ? `Say no to ${declineAsk.name}'s request?` : ''}
+      description={declineAsk ? `${declineAsk.name} asked to train at ${declineAsk.item.companyName || 'this company'}. They'll be notified and can suggest another company.` : ''}
+      confirmLabel="Say no"
+      confirmDisabled={!declineAsk?.reason.trim()}
+      busy={Boolean(declineAsk && busy === declineAsk.item.id)}
+      onCancel={() => setDeclineAsk(null)}
+      onConfirm={async () => { if (declineAsk && await review(declineAsk.item, 'rejected', declineAsk.reason)) setDeclineAsk(null); }}>
+      <label className="pl-decline-reason">Reason for the student
+        <textarea rows={3} autoFocus value={declineAsk?.reason || ''} maxLength={500} placeholder="e.g. This company has no slots left. Please choose another."
+          onChange={e => setDeclineAsk(previous => ({ ...previous, reason: e.target.value }))} /></label>
+    </AlertDialog>
     <AlertDialog
       open={Boolean(deliveryConfirm)}
       tone="warning"

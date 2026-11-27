@@ -8,7 +8,7 @@ const initials = n => String(n || '?').split(/[\s,]+/).filter(Boolean).slice(0, 
 const ago = value => { const t = Date.parse(value); if (!t) return ''; const d = Math.floor((Date.now() - t) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
 
 /* Top of the Placements screen: requests, unplaced students (bulk place) and company slots. */
-export default function PlacementOverview({ section, summary, refreshKey, onApprove, onOpenStudent, onAssigned, onOpenAssign }) {
+export default function PlacementOverview({ section, summary, refreshKey, onApprove, onDecline, onOpenStudent, onAssigned, onOpenAssign }) {
   const [requests, setRequests] = useState([]);
   const [waiting, setWaiting] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -69,7 +69,8 @@ export default function PlacementOverview({ section, summary, refreshKey, onAppr
               <i className="plo-av">{initials(n)}</i>
               <span className="plo-body"><strong>{n} wants to train at {rec.companyName || 'a company'}</strong>
                 <small>{rec.companyId ? (() => { const c = companies.find(x => x.id === rec.companyId); return c && open(c) != null ? `The company has ${open(c)} open slot${open(c) === 1 ? '' : 's'} · ` : ''; })() : 'Not in your company list yet · '}asked {ago(rec.submittedAt || rec.createdAt) || 'recently'}</small></span>
-              <button type="button" className="rq-btn" onClick={() => onOpenStudent(student.id)}>Say no</button>
+              <button type="button" className="rq-btn" aria-label={'Details for ' + n} onClick={() => onOpenStudent(student.id)}>Details</button>
+              <button type="button" className="rq-btn" onClick={() => onDecline ? onDecline(rec, student.id, n) : onOpenStudent(student.id)}>Say no</button>
               <button type="button" className="rq-btn rq-primary" onClick={() => onApprove(rec, student.id)}><Icon name="check" size={14} /> Approve</button>
             </div>; })}
         </div>

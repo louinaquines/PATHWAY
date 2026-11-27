@@ -2,12 +2,13 @@
 // Compact supervisor-evaluation card for the Progress screen. The card stays the same size;
 // the full evaluation (any length, any number of questions) opens in a scrollable sheet.
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { postBackend } from '../services/backendApi';
 import { COLORS, RADIUS, SHADOWS } from '../theme';
 import { AppText as Text } from './AppText';
 import { CheckCircleIcon, ClockIcon, CloseIcon } from './Icons';
+import Modal from './BackdropModal';
 
 const dateLabel = value => {
   const d = new Date(value);
@@ -61,7 +62,7 @@ function EvaluationSheet({ evaluation: e, visible, onClose }) {
   const insets = useSafeAreaInsets();
   return <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
     <View style={styles.backdrop}>
-      <View style={[styles.sheet, { paddingBottom: Math.max(16, insets.bottom), marginTop: insets.top + 24 }]}>
+      <View style={[styles.sheet, { paddingBottom: Math.max(16, insets.bottom), marginTop: insets.top + 8 }]}>
         <View style={styles.sheetHead}>
           <View style={{ flex: 1 }}>
             <Text style={styles.sheetTitle}>{e.title}</Text>
@@ -102,8 +103,8 @@ const styles = StyleSheet.create({
   link: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   button: { marginTop: 10, borderWidth: 1, borderColor: COLORS.border, borderRadius: 11, paddingVertical: 12, alignItems: 'center', backgroundColor: COLORS.surface },
   buttonText: { color: COLORS.primary, fontWeight: '800', fontSize: 13 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
-  sheet: { flex: 1, backgroundColor: COLORS.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 16 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.55)', justifyContent: 'flex-end' },
+  sheet: { flex: 1, width: '100%', maxWidth: 620, alignSelf: 'center', overflow: 'hidden', backgroundColor: COLORS.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 16 },
   sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   sheetTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
   close: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },

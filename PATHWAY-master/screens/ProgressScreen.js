@@ -185,8 +185,8 @@ export default function ProgressScreen({ navigation, route }) {
             },
           ]}
         >
-          <Image source={require('../assets/pathway-guide-thinking.png')} style={styles.clearanceGuide} resizeMode="contain" accessible={false} />
-          <View style={styles.clearanceHeader}>
+          {!(clearanceComplete || clearanceReady) && <Image source={require('../assets/pathway-guide-thinking.png')} style={styles.clearanceGuide} resizeMode="contain" accessible={false} />}
+          <View style={[styles.clearanceHeader, !(clearanceComplete || clearanceReady) && { paddingRight: 92 }]}>
             {clearanceComplete || clearanceReady ? (
               <CheckCircleIcon size={22} color={COLORS.successDark} />
             ) : (
@@ -205,7 +205,7 @@ export default function ProgressScreen({ navigation, route }) {
                 : 'Requirements In Progress'}
             </Text>
           </View>
-          <Text style={styles.clearanceSub}>
+          <Text style={[styles.clearanceSub, !(clearanceComplete || clearanceReady) && { paddingRight: 92 }]}>
             {clearanceComplete
               ? 'Your coordinator has approved your OJT records and issued final clearance.'
               : clearanceReady
@@ -555,7 +555,6 @@ const styles = StyleSheet.create({
   // Clearance card
   clearanceCard: {
     overflow: 'hidden',
-    paddingRight: 104,
     borderRadius: RADIUS.lg,
     padding: 12,
     marginBottom: 10,

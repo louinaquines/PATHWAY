@@ -3,12 +3,14 @@
 // with --apply, puts them in the current term of their department.
 //   node scripts/fix-section-terms.js <service-account.json>            report only
 //   node scripts/fix-section-terms.js <service-account.json> --apply    write changes
+//   add --create-missing to give departments with no term a copy of an existing current term
 const path = require('path');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
 const keyPath = process.argv[2];
 const apply = process.argv.includes('--apply');
+const createMissing = process.argv.includes('--create-missing');
 if (!keyPath) { console.error('Usage: node scripts/fix-section-terms.js <service-account.json> [--apply]'); process.exit(1); }
 initializeApp({ credential: cert(require(path.resolve(keyPath))) });
 const db = getFirestore();
@@ -33,6 +35,19 @@ const inRange = t => (!t.startDate || t.startDate <= today) && (!t.endDate || t.
   };
 
   const ids = new Set(terms.map(t => t.id));
+  if (createMissing) {
+    const template = terms.find(t => t.isCurrent) || terms.find(t => t.isActive) || terms[0];
+    const sectionsAll = await db.collection('sections').get();
+    const depts = [...new Set(sectionsAll.docs.map(d => d.data().department).filter(Boolean))];
+    for (const dept of depts.filter(d => !currentFor(d))) {
+      if (!template) { console.log(`  No term to copy for ${dept}.`); continue; }
+      const term = { name: template.name, startDate: template.startDate || null, endDate: template.endDate || null, department: dept, isCurrent: true, isActive: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: 'fix-section-terms' };
+      const ref = db.collection('academicTerms').doc();
+      console.log(`  ${apply ? 'Creating' : 'Would create'} "${term.name}" for ${dept}`);
+      if (apply) await ref.set(term);
+      terms.push({ id: ref.id, ...term }); ids.add(ref.id);
+    }
+  }
   const sections = await db.collection('sections').get();
   const loose = sections.docs.filter(d => !d.data().termId || !ids.has(d.data().termId));
   console.log(`\nSections: ${sections.size} total, ${loose.length} without a valid term.`);

@@ -1,0 +1,22 @@
+/* src/components/DashboardNotifications.css */
+.dnotif { position: relative; }
+.dnotif-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #334155; cursor: pointer; }
+.dnotif-bell:hover { border-color: #93c5fd; color: #075fc9; }
+.dnotif-bell:focus-visible { outline: 2px solid #075fc9; outline-offset: 2px; }
+.dnotif-count { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px; background: #dc2626; color: #fff; font-size: 11px; font-weight: 700; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.dnotif-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: min(380px, 92vw); border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgba(15,23,42,.14); overflow: hidden; }
+.dnotif-pop header { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid #f1f5f9; }
+.dnotif-pop h3 { margin: 0; font-size: 15px; color: #0f172a; }
+.dnotif-pop header span { font-size: 12px; color: #64748b; }
+.dnotif-list { max-height: 360px; overflow-y: auto; }
+.dnotif-empty { margin: 0; padding: 22px 16px; text-align: center; font-size: 13px; color: #64748b; }
+.dnotif-row { display: flex; gap: 10px; width: 100%; padding: 11px 16px; border: 0; border-bottom: 1px solid #f1f5f9; background: #fff; text-align: left; font: inherit; cursor: pointer; }
+.dnotif-row:hover { background: #f8fafc; }
+.dnotif-row[data-unread] { background: #f5f9ff; }
+.dnotif-row-main { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.dnotif-row-main strong { font-size: 13.5px; color: #0f172a; }
+.dnotif-row[data-report] .dnotif-row-main strong { color: #dc2626; }
+.dnotif-row-main span { font-size: 12.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dnotif-row time { flex-shrink: 0; font-size: 11.5px; color: #94a3b8; }
+.dnotif-pop footer { padding: 10px 16px; }
+.dnotif-pop footer button { width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; color: #075fc9; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }

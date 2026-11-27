@@ -8,6 +8,7 @@ import { PortalEmpty, PortalError } from '../components/PortalStates';
 import Icon from '../components/Icons';
 import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import './CoordinatorOverview.css';
+import { fetchOpenWorkplaceReports } from '../workplaceReports';
 
 async function countPendingJournals(students, isCurrent) {
   const pendingStudentIds = [];
@@ -30,6 +31,13 @@ async function countPendingJournals(students, isCurrent) {
 export default function CoordinatorOverview({ section, students, requirementsCount, onOpen }) {
   const [summary, setSummary] = useState(null);
   const loadVersion = useRef(0);
+  const [reportCount, setReportCount] = useState(null);
+  useEffect(() => {
+    let on = true;
+    const ids = new Set((students || []).map(item => item.id));
+    fetchOpenWorkplaceReports().then(open => { if (on) setReportCount([...open.keys()].filter(id => ids.has(id)).length); }).catch(() => { if (on) setReportCount(0); });
+    return () => { on = false; };
+  }, [students, section?.id]);
   const studentsRef = useRef(students);
   studentsRef.current = students;
   const load = useCallback(async ({ isCurrent = () => true } = {}) => {
@@ -98,6 +106,12 @@ export default function CoordinatorOverview({ section, students, requirementsCou
             <Icon name="chevronRight" size={16} />
           </button>
         )}
+        <button type="button" className="cdash-task cdash-report" data-report={reportCount > 0 || undefined} onClick={() => onOpen('messages', 'reports')}>
+          <span className="cdash-task-icon"><Icon name="alert" size={18} /></span>
+          <span className="cdash-task-label coordinator-queue-label">Workplace support</span>
+          <strong>{reportCount ?? 0}<span className="sr-only"> {reportCount === 1 ? 'report' : 'reports'}</span></strong>
+          <Icon name="chevronRight" size={16} />
+        </button>
       </div>
     </section>
     </SectionCharts>

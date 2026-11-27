@@ -25,6 +25,7 @@ import SubmissionNotifications, { receivedRequirements, submissionTime } from '.
 import RequirementsInbox from '../components/RequirementsInbox';
 import Pager from '../components/Pager';
 import SectionPicker from '../components/SectionPicker';
+import DashboardNotifications from '../components/DashboardNotifications';
 import RequirementViewer from '../components/RequirementViewer';
 import { collection, getDocs, getDocsFromServer, doc, updateDoc, query, where, getDoc, orderBy, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { adminDownload, adminRequest } from '../adminApi';
@@ -475,7 +476,7 @@ export default function CoordinatorDashboard() {
   const coordNavGroups = [
     { title: '', items: [{ id: 'overview', icon: 'dashboard' }] },
     { title: 'Reviews', items: [
-        { id: 'requirements', icon: 'clipboard', badge: pendingCount > 0 ? pendingCount : null, isWarning: true, hint: pendingCount > 0 ? `${pendingCount} to review` : 'All reviewed' },
+        { id: 'requirements', icon: 'clipboard', badge: null },
         { id: 'logbook', icon: 'book' },
         { id: 'evaluations', icon: 'star' },
         { id: 'clearance', icon: 'cap' },
@@ -624,7 +625,8 @@ export default function CoordinatorDashboard() {
           {activeTab === 'analytics' && <div className="rq-top-actions" id="an-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
           {activeTab === 'messages' && <div className="rq-top-actions" id="msg-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
           {activeTab === 'notifications' && <div className="rq-top-actions" id="ann-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /></div>}
-          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /><SectionPicker sections={termSections} selected={termSections.some(sec => sec.id === selectedSection?.id) ? selectedSection : null} onChange={section => fetchStudents(section)} /></div>}
+          {activeTab === 'overview' && sections.length > 0 && <div className="rq-top-actions"><TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} /><SectionPicker sections={termSections} selected={termSections.some(sec => sec.id === selectedSection?.id) ? selectedSection : null} onChange={section => fetchStudents(section)} /><DashboardNotifications section={selectedSection} onOpenAll={() => navigate('/coordinator/notifications')}
+            onOpenItem={item => item.type === 'workplace_support' ? navigate('/coordinator/messages', { state: { openStudentId: item.studentId } }) : navigate('/coordinator/notifications')} /></div>}
           {activeTab === 'requirements' && (
             <div className="rq-top-actions">
             <TermPicker terms={dashTerms} value={shownTerm} onChange={changeDashTerm} />

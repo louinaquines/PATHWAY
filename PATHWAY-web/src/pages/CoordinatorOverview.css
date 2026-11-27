@@ -175,3 +175,10 @@
   .coordinator-metric dd { margin: 0; font-size: 23px; }
   .coordinator-metric .coordinator-metric-detail { grid-column: 1 / -1; margin: 0 0 0 38px; }
 }
+/* Workplace support tile: red when a report is open, grey otherwise */
+.cdash-task.cdash-report:not([data-report]) { border-color: #e2e8f0; background: #f8fafc; opacity: .75; }
+.cdash-task.cdash-report:not([data-report]) .cdash-task-label { color: #64748b; }
+.cdash-task.cdash-report[data-report] { border-color: #fecaca; background: linear-gradient(90deg, #fef2f2, #fff 60%); }
+.cdash-task.cdash-report[data-report] .cdash-task-icon { background: #fee2e2; color: #dc2626; }
+.cdash-task.cdash-report[data-report] .cdash-task-label { color: #b91c1c; }
+.cdash-task.cdash-report[data-report] strong { background: #dc2626; color: #fff; }

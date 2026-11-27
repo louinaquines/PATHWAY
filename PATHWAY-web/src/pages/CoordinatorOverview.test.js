@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+jest.mock('../workplaceReports', () => ({ fetchOpenWorkplaceReports: jest.fn(async () => new Map()) }));
 import { getCountFromServer, getDocs, where } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
 import CoordinatorOverview from './CoordinatorOverview';
@@ -57,7 +58,7 @@ test('pending tasks come first and every task opens its existing filtered view',
   const onOpen = jest.fn();
   render(<CoordinatorOverview section={section} students={students} requirementsCount={1} onOpen={onOpen} />);
   const panel = await screen.findByRole('region', { name: 'Needs attention' });
-  const tasks = [...panel.querySelectorAll('.coordinator-attention-grid button')];
+  const tasks = [...panel.querySelectorAll('.coordinator-attention-grid button:not(.cdash-report)')];
   expect(tasks.map(task => task.querySelector('.coordinator-queue-label').textContent)).toEqual([
     'Review requirements', 'Review logbooks', 'Assign companies', 'Review placement requests', 'Clear students',
   ]);

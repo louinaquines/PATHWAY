@@ -113,8 +113,8 @@ export default function AdminStudentsDirectory({ students, sections, allSections
               {s.accountApproved ? 'Suspend' : 'Restore'}</button></td>
           </tr>; })}</tbody>
       </table></div>}
-      <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
-        <Pager page={current} pages={pages} label="Student pages" onGo={setPage} /></div>
+      {pages > 1 && <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
+        <Pager page={current} pages={pages} label="Student pages" onGo={setPage} /></div>}
     </section>
 
     {open && <StudentDrawer student={open} section={sectionOf(open)} coordinator={coordinators.find(c => c.id === sectionOf(open)?.coordinatorId)}

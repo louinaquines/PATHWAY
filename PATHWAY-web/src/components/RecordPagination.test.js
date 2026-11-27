@@ -24,7 +24,7 @@ test('search scope resets the page and a shrinking background result stays valid
   fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
   rerender(<List records={['Only remaining record']} scope="new section" />);
   expect(screen.getByText('Only remaining record')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Next page' })).not.toBeInTheDocument();
 });
 test('evaluation pagination stays compact with ten thousand pages', () => {
   render(<PaginationButtonGroup page={5000} pageCount={10000} onPageChange={() => {}} />);

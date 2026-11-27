@@ -70,8 +70,8 @@ export default function AdminCoordinatorsDirectory({ coordinators, sections, stu
             <td><span className="asd-status" data-on={isActive(c)}><i aria-hidden="true" />{isActive(c) ? 'Active' : 'Inactive'}</span></td>
             <td><button type="button" className="asd-more" aria-label={'Details for ' + name} onClick={e => { e.stopPropagation(); setParams({ coordinator: c.id }); }}>Open</button></td>
           </tr>; })}</tbody></table></div>}
-      <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
-        <Pager page={current} pages={pages} label="Coordinator pages" onGo={setPage} /></div>
+      {pages > 1 && <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
+        <Pager page={current} pages={pages} label="Coordinator pages" onGo={setPage} /></div>}
     </section>
     {open && <CoordinatorDrawer coordinator={open} own={ownSections(open)} students={students} saving={saving}
       peers={coordinators.filter(c => c.id !== open.id && isActive(c) && c.department === open.department)}

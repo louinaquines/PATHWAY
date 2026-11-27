@@ -11,7 +11,7 @@ export function useRecordPage(records, scope = '', size = 25) {
     start, size, onPageChange: value => setSelection({ scope, page: Math.max(1, Math.min(value, pageCount)) }) };
 }
 
-export default function RecordPagination({ pagination, label = 'Records', showSinglePage = true, compact = false }) {
+export default function RecordPagination({ pagination, label = 'Records', showSinglePage = false, compact = false }) {
   const { page, pageCount, total, start, size, onPageChange } = pagination;
   if (!showSinglePage && pageCount <= 1) return null;
   if (compact && pageCount <= 1) return null;

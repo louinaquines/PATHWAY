@@ -85,8 +85,8 @@ export default function AdminCompanyDirectory({ companies, loading, error, loadF
             <td><span className="asd-status" data-on={!!c.active}><i aria-hidden="true" />{c.active ? 'Active' : 'Inactive'}</span></td>
             <td><button type="button" className="asd-more" aria-label={'Details for ' + c.name} onClick={e => { e.stopPropagation(); setOpenId(c.id); }}>Open</button></td>
           </tr>; })}</tbody></table></div>}
-      <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
-        <Pager page={current} pages={pages} label="Company pages" onGo={setPage} /></div>
+      {pages > 1 && <div className="asd-foot"><span role="status">{rows.length ? `${(current - 1) * PAGE + 1}–${(current - 1) * PAGE + shown.length} of ${rows.length}` : '0 of 0'}</span>
+        <Pager page={current} pages={pages} label="Company pages" onGo={setPage} /></div>}
     </section>
     {open && <CompanyDrawer company={open} students={students.filter(s => s.companyId === open.id && s.placementStatus === 'approved')} sections={sections}
       departments={departments} onClose={() => setOpenId('')} onSaved={onReload} />}

@@ -1,5 +1,36 @@
 import { form48FromOcr } from './dtrOcrText';
 
+// Split PDF text items into word boxes in OCR coordinates (top-left origin), one set per side-by-side copy.
+async function readPdfText(page, base, copyCount) {
+  const content = await page.getTextContent();
+  const words = [];
+  for (const item of content.items) {
+    const text = (item.str || '').trim(); if (!text) continue;
+    const [, , , , x, yBase] = item.transform;
+    const height = Math.abs(item.height || item.transform[3]) || 8;
+    const top = base.height - yBase - height;
+    const parts = item.str.split(/(\s+)/); const perChar = (item.width || text.length * height * 0.5) / Math.max(1, item.str.length);
+    let offset = 0;
+    for (const part of parts) {
+      if (part.trim()) words.push({ text: part.trim(), x: x + offset * perChar, y: top, width: part.length * perChar, height, confidence: 100 });
+      offset += part.length;
+    }
+  }
+  if (words.filter(w => /^\d{1,2}:\d{2}$/.test(w.text)).length < 4) return null;
+  const scans = [];
+  for (let index = 0; index < copyCount; index++) {
+    const left = base.width * index / copyCount, right = base.width * (index + 1) / copyCount;
+    const own = words.filter(w => w.x + w.width / 2 >= left && w.x + w.width / 2 < right).map(w => ({ ...w, x: w.x - left }));
+    scans.push(form48FromOcr({ words: own, text: own.map(w => w.text).join(' ') }));
+  }
+  if (!scans.every(scan => scan.recognizedRows >= 20)) return null;
+  const periods = new Set(scans.map(scan => scan.month).filter(Boolean));
+  const month = periods.size === 1 && scans.every(scan => scan.month) ? [...periods][0] : '';
+  return { copies: scans.map(scan => scan.rows), month, sheetName: 'Form 48 (PDF text)',
+    warnings: [...scans.flatMap((scan, i) => scan.warnings.map(warning => `Copy ${i + 1}: ${warning}`)), ...(!month ? ['Confirm the month for all copies.'] : [])],
+    extractedText: scans.map((scan, i) => `Copy ${i + 1}\n${scan.text}`).join('\n\n'), source: 'pdf-text' };
+}
+
 export function createDtrOcrJob(file, { copyCount = 1, onProgress = () => {}, timeoutMs = 120000 } = {}) {
   let stopped = false, worker, pdfTask, renderTask, timer;
   const canvases = new Set();
@@ -34,6 +65,9 @@ export function createDtrOcrJob(file, { copyCount = 1, onProgress = () => {}, ti
       const base = page.getViewport({ scale: 1 });
       if (!Number.isFinite(base.width * base.height) || base.width <= 0 || base.height <= 0) throw new Error('Invalid PDF page.');
       const scale = Math.min(2.5, 2400 / Math.max(base.width, base.height));
+      // Typed PDFs already contain the text: read it directly (exact and instant) before falling back to OCR.
+      const fromText = await readPdfText(page, base, copyCount).catch(() => null); check();
+      if (fromText) { canvas.width = canvas.height = 0; return fromText; }
       const viewport = page.getViewport({ scale });
       canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
       renderTask = page.render({ canvasContext: context, viewport }); await renderTask.promise; check();

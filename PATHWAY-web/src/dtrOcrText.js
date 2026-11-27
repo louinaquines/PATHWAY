@@ -14,15 +14,15 @@ export function parseOcrWords(tsv) {
 }
 
 export function form48FromOcr(data) {
-  const words = parseOcrWords(data.tsv);
+  const words = Array.isArray(data.words) ? data.words : parseOcrWords(data.tsv);
   const rows = Array.from({ length: 31 }, (_, i) => ({ day: i + 1, ocrReview: true, needsReview: true }));
-  const warnings = ['OCR can misread handwriting and blank cells. Check every time against the scan.'];
+  const warnings = data.words ? ['Times were read from the PDF text. Check them against the file.'] : ['OCR can misread handwriting and blank cells. Check every time against the scan.'];
   const dayHeader = words.find(word => /^day$/i.test(word.text) && word.confidence >= 70);
   let recognizedRows = 0;
   if (dayHeader) {
     const headerWords = words.filter(word => Math.abs(middle(word) - middle(dayHeader)) < Math.max(18, dayHeader.height * 1.5));
-    const times = headerWords.filter(word => word.confidence >= 70 && /^(arrival|departure)$/i.test(word.text) && centre(word) > centre(dayHeader)).sort((a, b) => centre(a) - centre(b)).slice(0, 4);
-    if (times.length === 4 && times.every((word, i) => word.text.toLowerCase() === (i % 2 ? 'departure' : 'arrival'))) {
+    const times = headerWords.filter(word => word.confidence >= 70 && /^(arrival|departure|depart\.?|dept\.?)$/i.test(word.text) && centre(word) > centre(dayHeader)).sort((a, b) => centre(a) - centre(b)).slice(0, 4);
+    if (times.length === 4 && times.every((word, i) => (i % 2 ? /^dep/i : /^arrival$/i).test(word.text))) {
       const centres = [centre(dayHeader), ...times.map(centre)];
       const dayRight = (centres[0] + centres[1]) / 2;
       const anchors = words.filter(word => word.confidence >= 70 && /^\d{1,2}$/.test(word.text) && centre(word) < dayRight

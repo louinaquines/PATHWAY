@@ -1,6 +1,6 @@
 // Demo data for live walkthroughs. Admin-only and off unless DEMO_SEED_ENABLED=1.
-// Wipes student data (keeps admins, coordinators and companies) and rebuilds one
-// fully populated section per department, each owned by its own demo coordinator.
+// Wipes all demo data (keeps admins) and rebuilds one fully populated CCS section
+// (BSIT - 4A, 15 students) owned by the demo coordinator Maria Santos.
 // Companies are per department: each department gets its own partner companies.
 const crypto = require('node:crypto');
 
@@ -48,22 +48,16 @@ const STUDENTS = [
   ['26200008', 'Padilla', 'Adrian', 'deployed', { company: 'lapu', hours: 312, frequency: 'weekly', liveToday: true }],
   ['26200009', 'Manalo', 'Alyssa', 'deployed', { company: 'lapu', hours: 268, frequency: 'daily' }],
   ['26200010', 'Estrada', 'Daniel', 'deployed', { company: 'mactan', hours: 190, frequency: 'weekly', atRisk: true, rejectedJournal: true }],
-  ['26200011', 'Sorio', 'Erica', 'deployed', { company: 'mactan', hours: 355, frequency: 'weekly' }],
   ['26200012', 'Cruz', 'Jose', 'deployed', { company: 'creative', hours: 240, frequency: 'daily', evaluation: 'sent' }],
   ['26200013', 'Abad', 'Joanna', 'done', { company: 'island', hours: 486, frequency: 'weekly', evaluation: 'submitted' }],
   ['26200014', 'Salazar', 'Gabriel', 'cleared', { company: 'lapu', hours: 492, frequency: 'weekly', evaluation: 'submitted' }],
-  ['26200015', 'Pascual', 'Hannah', 'new'],
-  ['26200016', 'Lim', 'Sofia', 'new'],
-  ['26200017', 'Tan', 'Marco', 'new'],
-  ['26200018', 'Villanueva', 'Kristine', 'new'],
   ['26200019', 'Navarro', 'Paolo', 'deployed', { company: 'mactan', hours: 96, frequency: 'weekly', atRisk: true, severe: true }],
-  ['26200020', 'Yap', 'Christine', 'deployed', { company: 'creative', hours: 120, frequency: 'daily', atRisk: true }],
   ['26200021', 'Dela Cruz', 'Juan', 'deployed', { company: 'uclm', hours: 160, frequency: 'weekly', geofenceDemo: true }],
 ];
 
 const swapPre = (id, label) => REQUIREMENTS.map(r => r.id === 'moa' ? { id, label, category: 'Pre-OJT' } : r);
 
-const DEPARTMENTS = [
+const ALL_DEPARTMENTS = [
   { key: 'ccs', DEPARTMENT, COORDINATOR, SECTION, REQUIREMENTS, COMPANIES, STUDENTS, journalFrequency: 'weekly',
     announcements: [
       ['Orientation for deployed interns', 'All deployed interns must attend the online check-in this Friday at 4:00 PM. The link is in our group chat.', 5],
@@ -176,6 +170,9 @@ const JOURNAL_TEXT = [
   'Today I assisted in replacing network cables in the server room and labelled each port. I also updated the asset inventory spreadsheet and learned how they monitor server temperature and uptime. I logged two tickets for printers that were offline and resolved one of them myself.',
 ];
 
+// Fresh demo: one CCS coordinator (Maria Santos), one section, 15 students covering every workflow stage.
+const DEPARTMENTS = ALL_DEPARTMENTS.filter(d => d.key === 'ccs');
+
 async function wipe(db, auth) {
   const students = await db.collection('users').where('role', '==', 'student').get();
   for (const doc of students.docs) await db.recursiveDelete(doc.ref);
@@ -189,10 +186,18 @@ async function wipe(db, auth) {
   }
   const notices = await db.collection('notifications').limit(1000).get();
   for (const doc of notices.docs) await doc.ref.delete();
-  const sections = await db.collection('sections').get();
-  for (const doc of sections.docs) await doc.ref.update({ studentIds: [] });
-  const companies = await db.collection('companies').get();
-  for (const doc of companies.docs) await doc.ref.update({ occupiedSlots: 0, availableSlots: doc.data().capacity || 1 });
+  // Fresh start: remove every section, term, company and extra coordinator; admins are kept.
+  for (const name of ['sections', 'academicTerms', 'companies', 'workplaceSupportReports', 'workplaceSupportNotices', 'attendanceRiskNotices']) {
+    const snap = await db.collection(name).limit(500).get();
+    for (const doc of snap.docs) await db.recursiveDelete(doc.ref);
+  }
+  const keep = new Set(DEPARTMENTS.map(d => d.COORDINATOR.email));
+  const coordinators = await db.collection('users').where('role', '==', 'coordinator').get();
+  for (const doc of coordinators.docs) {
+    if (keep.has(doc.data().email)) continue;
+    await db.recursiveDelete(doc.ref);
+    await auth.deleteUser(doc.id).catch(() => {});
+  }
   return { students: students.size };
 }
 
@@ -393,8 +398,8 @@ async function seedDepartment(db, auth, D, termFields) {
     summary: 'The office is closed next Monday; the company asks if Adrian and Alyssa can make up their hours on Saturday.', action: 'Reply to confirm whether Saturday hours are allowed.', readBy: [], createdAt: now });
   await db.collection('companyEmails').doc(`demo-email-2`).set({ gmailId: 'demo-email-2', from: 'Ms. Grace Villanueva', fromEmail: COMPANIES[1].supervisorEmail,
     subject: 'Concern about Daniel\'s attendance', text: 'Hello,\n\nDaniel has been late several times this week and was absent twice. Could you please talk to him? He is doing good work when present.\n\nRegards,\nGrace Villanueva\nMactan Data Hub',
-    receivedAt: iso(daysAgo(1, 14)), attachments: [], companyIds: [companyIds.mactan], companyName: COMPANIES[1].name, studentIds: ['roster-26200010', 'roster-26200011'],
-    studentNames: ['Estrada, Daniel', 'Sorio, Erica'], sectionIds: [sectionId], coordinatorIds: [coordinatorId], matched: true,
+    receivedAt: iso(daysAgo(1, 14)), attachments: [], companyIds: [companyIds.mactan], companyName: COMPANIES[1].name, studentIds: ['roster-26200010', 'roster-26200019'],
+    studentNames: ['Estrada, Daniel', 'Navarro, Paolo'], sectionIds: [sectionId], coordinatorIds: [coordinatorId], matched: true,
     summary: 'The supervisor reports Daniel was late several times and absent twice this week, though his work is good.', action: 'Talk to Daniel about his attendance.', readBy: [coordinatorId], createdAt: now });
 
   }

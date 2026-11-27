@@ -4,7 +4,9 @@ import { getDocs, where } from 'firebase/firestore';
 import { adminRequest } from '../adminApi';
 
 jest.mock('../firebase', () => ({ auth: { currentUser: { uid: 'coordinator-1' } }, db: {} }));
-jest.mock('../adminApi', () => ({ adminRequest: jest.fn() }));
+jest.mock('../adminApi', () => ({ adminRequest: jest.fn(), adminDownload: jest.fn() }));
+jest.mock('react-router-dom', () => ({ ...jest.requireActual('react-router-dom'), useLocation: () => ({ state: null }) }));
+jest.mock('../workplaceReports', () => ({ fetchOpenWorkplaceReports: jest.fn(async () => new Map()) }));
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(), query: jest.fn(), where: jest.fn(),
   getDocs: jest.fn(), orderBy: jest.fn(), limit: jest.fn(), startAfter: jest.fn(), updateDoc: jest.fn().mockResolvedValue(undefined), doc: jest.fn(),

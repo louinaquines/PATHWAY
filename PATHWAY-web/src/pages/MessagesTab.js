@@ -6,10 +6,12 @@ import usePortalAutoRefresh from '../usePortalAutoRefresh';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, getDocs, query, updateDoc, doc, where, orderBy } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { adminRequest } from '../adminApi';
+import { adminDownload, adminRequest } from '../adminApi';
+import { fetchOpenWorkplaceReports } from '../workplaceReports';
 import './MessagesTab.css';
 import './MessagesRedesign.css';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import Pager from '../components/Pager';
 import SectionPicker from '../components/SectionPicker';
 import { RowsSkeleton } from '../components/CoordSkeletons';
@@ -19,6 +21,8 @@ const shortTime = value => { if (!value) return ''; const d = new Date(value); c
   if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' });
   if (days < 2) return 'Yesterday'; if (days < 7) return d.toLocaleDateString('en-PH', { weekday: 'short' }); return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }); };
 const initialsOf = name => String(name || '?').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const reportTime = value => value ? new Date(value).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+const requestId = () => 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 const formatDate = value => value ? new Date(value).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
 
 export default function MessagesTab({ selectedSection, sections = [], onSectionChange, onAnnouncements, onNewAnnouncement }) {
@@ -38,6 +42,16 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [reports, setReports] = useState(new Map());
+  const [reportDetail, setReportDetail] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const loadReports = useCallback(async () => {
+    try {
+      const open = await fetchOpenWorkplaceReports();
+      setReports(open);
+    } catch { /* reports are optional; messages still work */ }
+  }, []);
+  useEffect(() => { loadReports(); }, [loadReports, selectedSection?.id]);
   const alertsDialog = useRef(null);
   const loadVersion = useRef(0);
 
@@ -144,7 +158,48 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
   };
 
   const threadsByStudent = new Map(conversations.map(thread => [thread.studentId, thread]));
-  const sortedStudents = [...students].sort(compareStudents);
+  const sortedStudents = [...students].sort((a, b) => {
+    const ra = reports.get(a.id), rb = reports.get(b.id);
+    if (ra || rb) {
+      if (!ra) return 1; if (!rb) return -1;
+      if (ra.priority !== rb.priority) return ra.priority === 'high' ? -1 : 1;
+      return String(rb.createdAt).localeCompare(String(ra.createdAt));
+    }
+    return compareStudents(a, b);
+  });
+  const location = useLocation();
+  const openStudentId = location.state?.openStudentId;
+  useEffect(() => {
+    if (!openStudentId || loading || selected?.studentId === openStudentId) return;
+    const student = students.find(item => item.id === openStudentId);
+    if (!student) return;
+    const thread = conversations.find(item => item.studentId === student.id);
+    openConversation(thread || { id: [coordinatorId, student.id].sort().join('__'), studentId: student.id, name: personName(student) || student.idNumber || student.id, messages: [] });
+  }, [openStudentId, loading, students]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedReport = selected ? reports.get(selected.studentId) : null;
+  useEffect(() => {
+    setReportDetail(null);
+    if (!selectedReport?.id) return undefined;
+    let on = true;
+    adminRequest(`/coordinator/workplace-support/${encodeURIComponent(selectedReport.id)}`).then(data => { if (on) setReportDetail(data); }).catch(() => {});
+    return () => { on = false; };
+  }, [selectedReport?.id, selectedReport?.version]);
+  const reportAction = async (action) => {
+    const report = reportDetail || selectedReport;
+    if (!report || reportBusy) return;
+    setReportBusy(true);
+    try {
+      let version = report.version;
+      if (action === 'resolve' && report.status === 'Submitted') {
+        const ack = await adminRequest(`/coordinator/workplace-support/${encodeURIComponent(report.id)}/events`, { method: 'POST', body: JSON.stringify({ requestId: requestId(), expectedVersion: version, action: 'acknowledge' }) });
+        version = ack.version;
+      }
+      await adminRequest(`/coordinator/workplace-support/${encodeURIComponent(report.id)}/events`, { method: 'POST', body: JSON.stringify({ requestId: requestId(), expectedVersion: version, action, ...(action === 'resolve' ? { reason: 'Handled by coordinator.' } : {}) }) });
+      showNotice(action === 'resolve' ? 'Report marked as resolved.' : 'Report marked as reviewed.');
+      await loadReports();
+    } catch (failure) { showNotice(failure.message || 'Could not update the report.'); }
+    finally { setReportBusy(false); }
+  };
   const visibleStudents = sortedStudents.filter(student => {
             const thread = threadsByStudent.get(student.id);
             return `${student.firstName || ''} ${student.lastName || ''} ${student.idNumber || ''} ${thread?.messages.at(-1)?.body || ''}`.toLowerCase().includes(search.toLowerCase());
@@ -213,9 +268,10 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
             const name = personName(student) || student.idNumber || student.id;
             const last = thread?.messages.at(-1);
             const unread = thread?.messages.filter(message => message.recipientId === coordinatorId && !message.read).length || 0;
-            return <button key={student.id} type="button" aria-label={name} aria-pressed={selected?.studentId === student.id} className="msg-row" data-unread={unread > 0 || undefined} onClick={() => openConversation(thread || { id: [coordinatorId, student.id].sort().join('__'), studentId: student.id, name, messages: [] })}>
+            const report = reports.get(student.id);
+            return <button key={student.id} type="button" aria-label={report ? `${name}, workplace report` : name} aria-pressed={selected?.studentId === student.id} className="msg-row" data-report={report ? report.priority : undefined} data-unread={unread > 0 || undefined} onClick={() => openConversation(thread || { id: [coordinatorId, student.id].sort().join('__'), studentId: student.id, name, messages: [] })}>
               <span className="msg-av" aria-hidden="true">{initialsOf(name)}</span>
-              <span className="msg-row-main"><span className="msg-row-top"><strong>{name}</strong><time>{last ? shortTime(last.createdAt) : ''}</time></span>
+              <span className="msg-row-main">{report && <span className="msg-row-report">{report.priority === 'high' ? 'Urgent workplace report' : 'Workplace report'} · {reportTime(report.createdAt)}</span>}<span className="msg-row-top"><strong>{name}</strong><time>{last ? shortTime(last.createdAt) : ''}</time></span>
                 <span className="msg-row-prev">{last ? (last.senderId === coordinatorId ? 'You: ' : '') + last.body : 'Start a conversation'}</span></span>
               {unread > 0 && <i className="msg-dot" aria-label={`${unread} unread`} />}
             </button>;
@@ -233,6 +289,20 @@ export default function MessagesTab({ selectedSection, sections = [], onSectionC
       {selected ? <>
         <header className="msg-chat-head"><span className="msg-av" aria-hidden="true">{initialsOf(selected.name)}</span><div><h2>{selected.name}</h2><p>{selectedSection?.name}</p></div>
           <button className="plt-x" type="button" aria-label="Close conversation" onClick={() => setSelected(null)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button></header>
+        {selectedReport && <aside className="msg-report" data-priority={selectedReport.priority} aria-label="Workplace report">
+          <div className="msg-report-head">
+            <strong>{selectedReport.priority === 'high' ? 'Urgent workplace report' : 'Workplace report'}</strong>
+            <span>{reportTime(selectedReport.createdAt)} · {(reportDetail || selectedReport).status}</span>
+          </div>
+          {reportDetail?.description ? <p className="msg-report-text">{reportDetail.description}</p> : <p className="msg-report-text is-muted">Loading report…</p>}
+          {reportDetail?.incidentDate && <p className="msg-report-meta">When it happened: {new Date(reportDetail.incidentDate).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}</p>}
+          {reportDetail?.immediateSafety && <p className="msg-report-meta"><b>The student said they are concerned about their immediate safety.</b></p>}
+          {reportDetail?.attachment && <button type="button" className="rq-link" onClick={async () => { try { await adminDownload(`/coordinator/workplace-support/${encodeURIComponent(selectedReport.id)}/attachment`, reportDetail.attachment.fileName || 'workplace-report-attachment'); } catch (failure) { showNotice(failure.message || 'Could not open the attachment.'); } }}>View attachment</button>}
+          <div className="msg-report-acts">
+            {(reportDetail || selectedReport).status === 'Submitted' && <button type="button" className="rq-btn" disabled={reportBusy} onClick={() => reportAction('acknowledge')}>Mark as reviewed</button>}
+            <button type="button" className="rq-btn rq-primary" disabled={reportBusy} onClick={() => reportAction('resolve')}>Mark as resolved</button>
+          </div>
+        </aside>}
         <div className="msg-thread" role="log" aria-label="Conversation">
           {!selected.messages.length && <div className="msg-hello"><h3>Start the conversation</h3><p>Send a message to {selected.name} about their OJT progress.</p></div>}
           {threadPage.pageCount > 1 && <div className="msg-older"><Pager page={threadPage.page} pages={threadPage.pageCount} onGo={threadPage.onPageChange} label="Message history (newest page first)" /></div>}

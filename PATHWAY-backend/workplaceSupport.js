@@ -108,6 +108,11 @@ function installWorkplaceSupport({ app, db, requireUser, requireStaff, allowRate
         assignedCoordinatorId: coordinator.id, assignmentRevision: 0,
         priority: content.immediateSafety ? 'high' : 'normal', status: 'Submitted', version: 1, createdAt: now, updatedAt: now });
       writeSupportNotice(tx, db, { id: `${id}_submission`, reportId: id, recipientId: coordinator.id, priority: content.immediateSafety ? 'high' : 'normal', time: now });
+      const studentName = [student.lastName, student.firstName].filter(Boolean).join(', ') || 'A student';
+      const notice = { recipientId: coordinator.id, senderId: req.user.uid, senderRole: 'student', type: 'workplace_support', reportId: id,
+        studentId: req.user.uid, sectionId: student.sectionId || null, priority: content.immediateSafety ? 'high' : 'normal', read: false, createdAt: now,
+        title: content.immediateSafety ? 'Urgent workplace report' : 'Workplace report', message: `${studentName} sent a workplace report. Open Messages to review it.` };
+      tx.set(db.collection('notifications').doc(), { ...notice, ...require('./coordinatorInbox').inboxFields(notice) });
       audit(tx, { actorId: req.user.uid, actorRole: 'student', action: 'workplace_support.submitted', targetType: 'workplaceSupportReports', targetId: id, details: {} });
       return { created: true, status: 'Submitted' };
     });

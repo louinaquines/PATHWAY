@@ -393,7 +393,7 @@ export function NotificationWorkspace({
                   />
                 </span>
                 <span className="inbox-row-copy">
-                  <strong>{row.title}</strong>
+                  <strong style={row.type === "workplace_support" ? { color: "#dc2626" } : undefined}>{row.title}</strong>
                   <span>{row.message}</span>
                 </span>
                 <time>{row.createdAt ? timestamp(row.createdAt) : ""}</time>
@@ -429,7 +429,8 @@ export function NotificationWorkspace({
           const tierText = recovered ? "Recovered" : tier === "High" ? "High risk" : tier === "Medium" ? "At risk" : tier === "Low" ? "On track" : null;
           const kindText = { opened: "Started falling behind", escalated: "Risk went up", recovered: "Back on track", assigned: "Assigned risk update" }[detail.kind];
           const reasons = (detail.reasonCodes || []).map((r) => attendanceReasonLabels[r?.code || r] || r?.code || r).filter(Boolean);
-          const next = att ? { label: "View student", go: () => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); } }
+          const next = detail.type === "workplace_support" ? { label: "Open in Messages", go: () => navigate("/coordinator/messages", { state: { openStudentId: detail.studentId } }) }
+            : att ? { label: "View student", go: () => { persist(); onOpenAttendanceRisk?.({ studentId: detail.studentId, sectionId: detail.sectionId }); } }
             : /placement|company/i.test(detail.title || "") ? { label: "Review in Placements", go: () => navigate("/coordinator/placements") }
             : detail.studentId && /review|submitted|package|requirement|document|upload/i.test(`${detail.title} ${detail.message}`) ? { label: "Open in Requirements", go: () => navigate("/coordinator/requirements", { state: { sectionId: section?.id, openStudentId: detail.studentId } }) }
             : null;

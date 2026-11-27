@@ -1,11 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Modal from './BackdropModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { registerStudentDialog } from '../services/studentAlert';
 import { AppText as Text } from './AppText';
 import { CloseIcon } from './Icons';
 import { COLORS } from '../theme';
+import { useReducedMotion } from './Motion';
+
+// Error guide pops in, gives a small head-shake, then sways gently.
+function ErrorGuide({ style }) {
+  const reduced = useReducedMotion();
+  const pop = useRef(new Animated.Value(reduced ? 1 : 0)).current;
+  const sway = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduced) return undefined;
+    const shake = Animated.sequence([-1, 1, -0.6, 0.6, 0].map(v => Animated.timing(sway, { toValue: v, duration: 90, useNativeDriver: true })));
+    const idle = Animated.loop(Animated.sequence([
+      Animated.timing(sway, { toValue: 0.35, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(sway, { toValue: -0.35, duration: 1100, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    const run = Animated.sequence([Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }), shake, idle]);
+    run.start();
+    return () => run.stop();
+  }, [reduced, pop, sway]);
+  const rotate = sway.interpolate({ inputRange: [-1, 1], outputRange: ['-7deg', '7deg'] });
+  const translateY = sway.interpolate({ inputRange: [-1, 0, 1], outputRange: [-3, 0, -3] });
+  return <Animated.Image source={require('../assets/pathway-guide-error.png')} resizeMode="contain" accessible={false}
+    style={[style, { opacity: pop, transform: [{ scale: pop.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }, { translateY }, { rotate }] }]} />;
+}
 
 // Queue feedback instead of letting simultaneous errors replace a confirmation.
 export default function StudentDialogHost() {
@@ -25,7 +48,7 @@ export default function StudentDialogHost() {
             <CloseIcon size={20} color={COLORS.textSecondary} />
           </TouchableOpacity>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            {dialog?.isError && <Image source={require('../assets/pathway-guide-error.png')} style={styles.character} resizeMode="contain" accessible={false} />}
+            {dialog?.isError && <ErrorGuide key={queue.length + (dialog?.title || '')} style={styles.character} />}
             <Text accessibilityRole="header" style={[styles.title, dialog?.isError && styles.centered]}>{dialog?.title}</Text>
             {dialog?.message ? <Text accessibilityLiveRegion="polite" style={[styles.message, dialog?.isError && styles.centered]}>{dialog.message}</Text> : null}
           </ScrollView>

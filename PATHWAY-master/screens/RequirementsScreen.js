@@ -813,8 +813,13 @@ export default function RequirementsScreen({ navigation, route }) {
           <Text style={{ color: '#526174', fontSize: 14, lineHeight: 21, marginBottom: 12 }}>{canContinueToAssignment ? 'Your documents are submitted. Next, wait for a company assignment or send an optional placement request.' : 'Submit all required pre-deployment documents to continue.'}</Text>
           <MotionTouchableOpacity
             style={[styles.continueButton, isNarrowScreen && styles.continueButtonNarrow]}
-            disabled={!canContinueToAssignment}
-            onPress={() => { if (canContinueToAssignment) navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false }); }}
+            onPress={() => {
+              if (!canContinueToAssignment) {
+                const missing = requiredRequirements.filter(item => !['submitted', 'approved'].includes(item.status)).map(item => item.label || item.name || item.title).filter(Boolean);
+                Alert.alert('Complete the required documents first', `You can continue to company assignment once every required document is submitted.${missing.length ? `\n\nStill needed (${missing.length}): ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? `, and ${missing.length - 4} more` : ''}.` : ''}`, [{ text: 'Got it' }]);
+                return;
+              }
+              navigation.navigate('Company', readOnlyStep ? { readOnlyStep: 2 < reachedStep, reachedStep } : { readOnlyStep: false }); }}
             activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel="Continue to company assignment"

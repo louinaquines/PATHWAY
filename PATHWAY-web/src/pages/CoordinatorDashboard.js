@@ -832,7 +832,7 @@ export default function CoordinatorDashboard() {
                           return <div className="rq-row" role="row" key={row.id} data-status={row.status}>
                             <span className="rq-doc" role="cell"><strong>{row.label}</strong>
                               <small>{row.req?.submittedAt ? `${row.req?.viaLink ? 'Submitted through link' : 'Sent'} ${fmt(row.req.submittedAt)}` : 'Not sent yet'}{row.deadline && <em data-overdue={isOverdue}> · Due {fmt(row.deadline)}{isOverdue ? ' (late)' : ''}</em>}</small></span>
-                            <span className="rq-status" role="cell"><b data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' && ` · ${pct}% sure`}</b>
+                            <span className="rq-status" role="cell"><b data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' && ` · ${pct}% checks passed`}</b>
                               {note && <small>{note}</small>}
                               {row.review && (row.review.findings || []).length > 1 && <details><summary>More</summary><RequirementCheckResult review={row.review} compact /></details>}</span>
                             <span className="rq-actions" role="cell">

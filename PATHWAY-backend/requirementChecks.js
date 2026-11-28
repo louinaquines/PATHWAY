@@ -72,6 +72,8 @@ function createRequirementChecks({db,ai,getBytes,getReference=async()=>null,enab
    if(result.advisoryOnly!==true||result.requiresHumanReview!==true)throw Error('Invalid review');
    const nameOnDocument=result.nameOnDocument||'';
    result=validate({checks:result.checks,findings:result.findings,confidence:0},policy);
+   // The model returns no confidence score; report the share of required checks that passed.
+   result.confidence=result.checks.length?result.checks.filter(c=>c.passed===true).length/result.checks.length:0;
    result.nameOnDocument=nameOnDocument;
   }catch(error){console.warn('Requirement check failed:',claim.job.requirementId,error.code||error.message||'unknown');reason=error.code==='POLICY_MISSING'?'policy_missing':error.code==='AI_INPUT'?'unsupported_file':'ai_unavailable';result={checks:[],findings:[reasons[reason]]};}
   await db.runTransaction(async tx=>{

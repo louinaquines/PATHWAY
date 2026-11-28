@@ -115,7 +115,7 @@ export default function RequirementViewer({ student, studentName, rows, startId,
       </div>
       {panel && <aside className="f48-side rqv-side" aria-label="Review">
         <div className="f48-side-scroll">
-          <div className="rqv-status"><b className="lb-chip" data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' ? ` · ${pct}% sure` : ''}</b></div>
+          <div className="rqv-status"><b className="lb-chip" data-tone={pill[1]}>{pill[0]}{pct != null && row.status === 'submitted' ? ` · ${pct}% checks passed` : ''}</b></div>
           {findings.length > 0 && <ul className="rqv-findings">{findings.slice(0, 3).map(f => <li key={f}>{f}</li>)}</ul>}
           {row.review && findings.length > 3 && <details className="lb-details"><summary>More findings</summary><RequirementCheckResult review={row.review} compact /></details>}
           <dl className="rqv-facts">
